@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "493803183324",
+    "project_id": "carma-a84e4",
+    "storage_bucket": "carma-a84e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:493803183324:android:c385f30944ec2804896819",
+        "android_client_info": {
+          "package_name": "com.example.carma"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAs4N5ra1m3IATkyY317ZrwrKKy91gR9Sg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
