@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../features/auth/presentation/auth_screen.dart';
+import '../features/auth/presentation/auth_gate.dart';
 
 class CarmaApp extends StatelessWidget {
   const CarmaApp({super.key});
@@ -16,7 +16,7 @@ class CarmaApp extends StatelessWidget {
           seedColor: Colors.deepPurple,
         ),
       ),
-      home: const AuthScreen(),
+      home: const AuthGate(),
     );
   }
 }
