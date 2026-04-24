@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../home/presentation/home_screen.dart';
+import '../../home/presentation/app_shell.dart';
 import 'auth_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -21,7 +21,7 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          return const HomeScreen();
+          return const AppShell();
         }
 
         return const AuthScreen();
