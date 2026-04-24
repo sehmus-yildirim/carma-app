@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../data/auth_service.dart';
+import '../data/user_profile_repository.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -12,6 +13,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   final AuthService _authService = AuthService();
+  final UserProfileRepository _userProfileRepository = UserProfileRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -52,10 +54,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isRegisterMode) {
-        await _authService.createUserWithEmailAndPassword(
+        final userCredential = await _authService.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
+
+        final user = userCredential.user;
+        if (user != null) {
+          await _userProfileRepository.createProfileForUser(user);
+        }
       } else {
         await _authService.signInWithEmailAndPassword(
           email: email,
