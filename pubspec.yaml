@@ -8,8 +8,10 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
+  google_sign_in: ^6.3.0
   flutter:
     sdk: flutter
+
 
   cupertino_icons: ^1.0.8
 

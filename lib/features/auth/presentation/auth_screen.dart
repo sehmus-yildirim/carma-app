@@ -1,10 +1,17 @@
 import 'dart:ui';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../data/user_profile_repository.dart';
+import '../../legal/presentation/privacy_policy_screen.dart';
+import '../../legal/presentation/terms_screen.dart';
+import '../data/auth_service.dart';
+
+const Color _carmaCard = Color(0x1AFFFFFF);
+const Color _carmaBorder = Color(0x33FFFFFF);
+const Color _carmaWhite = Colors.white;
+const Color _carmaMutedWhite = Color(0xCCFFFFFF);
+const Color _carmaHint = Color(0x99FFFFFF);
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -14,16 +21,15 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-  final UserProfileRepository _userProfileRepository = UserProfileRepository();
+  final AuthService _authService = AuthService();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _isLoading = false;
   bool _isRegisterMode = false;
+  bool _isLoading = false;
   bool _obscurePassword = true;
-  bool _acceptLegal = false;
+  bool _acceptedLegal = false;
   String? _errorMessage;
 
   @override
@@ -36,17 +42,19 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
       setState(() {
-        _errorMessage = 'Bitte gib deine E-Mail und dein Passwort ein.';
+        _errorMessage = 'Bitte gib E-Mail und Passwort ein.';
       });
       return;
     }
 
-    if (!_isValidEmail(email)) {
+    if (!email.contains('@')) {
       setState(() {
         _errorMessage = 'Bitte gib eine gültige E-Mail-Adresse ein.';
       });
@@ -60,10 +68,10 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    if (_isRegisterMode && !_acceptLegal) {
+    if (_isRegisterMode && !_acceptedLegal) {
       setState(() {
         _errorMessage =
-        'Bitte akzeptiere die AGB und Datenschutzerklärung, um fortzufahren.';
+        'Bitte akzeptiere die AGB und die Datenschutzerklärung.';
       });
       return;
     }
@@ -75,41 +83,26 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isRegisterMode) {
-        final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+        await _authService.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
-
-        final user = credential.user;
-
-        if (user != null) {
-          await _userProfileRepository.createProfileForUser(user);
-
-          if (!user.emailVerified) {
-            await user.sendEmailVerification();
-          }
-        }
-
-        if (!mounted) return;
-
-        setState(() {
-          _isRegisterMode = false;
-          _acceptLegal = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Konto erstellt. Wir haben dir eine E-Mail zur Verifizierung gesendet.',
-            ),
-          ),
-        );
       } else {
-        await _firebaseAuth.signInWithEmailAndPassword(
+        await _authService.signInWithEmailAndPassword(
           email: email,
           password: password,
         );
       }
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _isRegisterMode
+                ? 'Konto erfolgreich erstellt.'
+                : 'Erfolgreich eingeloggt.',
+          ),
+        ),
+      );
     } on FirebaseAuthException catch (error) {
       setState(() {
         _errorMessage = _mapFirebaseAuthError(error);
@@ -127,145 +120,44 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  Future<void> _showResetPasswordDialog() async {
-    final controller = TextEditingController(
-      text: _emailController.text.trim(),
-    );
+  Future<void> _resetPassword() async {
+    FocusScope.of(context).unfocus();
 
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.65),
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-          child: _GlassCard(
-            padding: const EdgeInsets.all(20),
-            borderRadius: 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Passwort zurücksetzen',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Gib deine E-Mail-Adresse ein. Wir senden dir einen Link zum Zurücksetzen deines Passworts.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontSize: 14,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _GlassTextField(
-                  controller: controller,
-                  label: 'E-Mail',
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
-                  enabled: true,
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SecondaryOutlineButton(
-                        text: 'Abbrechen',
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _PrimaryButton(
-                        text: 'Senden',
-                        isLoading: false,
-                        onPressed: () async {
-                          final email = controller.text.trim();
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String email = _emailController.text.trim();
 
-                          if (email.isEmpty || !_isValidEmail(email)) {
-                            if (!dialogContext.mounted) return;
-
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Bitte gib eine gültige E-Mail-Adresse ein.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          try {
-                            await _firebaseAuth.sendPasswordResetEmail(
-                              email: email,
-                            );
-
-                            if (!dialogContext.mounted) return;
-
-                            Navigator.of(dialogContext).pop();
-
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Der Link zum Zurücksetzen wurde per E-Mail gesendet.',
-                                ),
-                              ),
-                            );
-                          } on FirebaseAuthException catch (error) {
-                            if (!dialogContext.mounted) return;
-
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              SnackBar(
-                                content: Text(_mapFirebaseAuthError(error)),
-                              ),
-                            );
-                          } catch (_) {
-                            if (!dialogContext.mounted) return;
-
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Ein unerwarteter Fehler ist aufgetreten.',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    if (email.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Bitte gib zuerst deine E-Mail-Adresse ein, damit wir dir einen Reset-Link senden können.',
           ),
-        );
-      },
-    );
+        ),
+      );
+      return;
+    }
 
-    controller.dispose();
-  }
+    if (!email.contains('@')) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Bitte gib eine gültige E-Mail-Adresse ein.'),
+        ),
+      );
+      return;
+    }
 
-  Future<void> _continueAnonymously() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      await _firebaseAuth.signInAnonymously();
+      await _authService.sendPasswordResetEmail(email: email);
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+      messenger.showSnackBar(
+        SnackBar(
           content: Text(
-            'Anonymer Login aktiviert (nur für Entwicklung gedacht).',
+            'Falls ein Konto mit $email existiert, wurde ein Link zum Zurücksetzen des Passworts gesendet.',
           ),
         ),
       );
@@ -275,7 +167,8 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     } catch (_) {
       setState(() {
-        _errorMessage = 'Anonymer Login konnte nicht gestartet werden.';
+        _errorMessage =
+        'Der Reset-Link konnte gerade nicht gesendet werden.';
       });
     } finally {
       if (mounted) {
@@ -286,25 +179,75 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  void _toggleMode() {
+  Future<void> _signInWithGoogle() async {
+    FocusScope.of(context).unfocus();
+
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
     setState(() {
-      _isRegisterMode = !_isRegisterMode;
+      _isLoading = true;
       _errorMessage = null;
-      _acceptLegal = false;
     });
+
+    try {
+      await _authService.signInWithGoogle();
+
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Google-Anmeldung erfolgreich.'),
+        ),
+      );
+    } on FirebaseAuthException catch (error) {
+      setState(() {
+        _errorMessage = _mapFirebaseAuthError(error);
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage =
+        'Google Login konnte gerade nicht durchgeführt werden.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  void _showComingSoon(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label wird später eingebaut.'),
+  Future<void> _showAppleInfo() async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Apple Login ist vorbereitet und wird aktiviert, sobald wir das iOS-Setup sauber einbauen.',
+        ),
       ),
     );
   }
 
-  bool _isValidEmail(String value) {
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    return emailRegex.hasMatch(value);
+  void _toggleMode() {
+    setState(() {
+      _isRegisterMode = !_isRegisterMode;
+      _errorMessage = null;
+    });
+  }
+
+  void _openTermsScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const TermsScreen(),
+      ),
+    );
+  }
+
+  void _openPrivacyScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PrivacyPolicyScreen(),
+      ),
+    );
   }
 
   String _mapFirebaseAuthError(FirebaseAuthException error) {
@@ -312,9 +255,9 @@ class _AuthScreenState extends State<AuthScreen> {
       case 'invalid-email':
         return 'Die E-Mail-Adresse ist ungültig.';
       case 'user-disabled':
-        return 'Dieses Konto wurde deaktiviert.';
+        return 'Dieses Nutzerkonto wurde deaktiviert.';
       case 'user-not-found':
-        return 'Kein Konto mit dieser E-Mail-Adresse gefunden.';
+        return 'Es wurde kein Konto mit dieser E-Mail-Adresse gefunden.';
       case 'wrong-password':
       case 'invalid-credential':
         return 'E-Mail oder Passwort ist falsch.';
@@ -323,17 +266,13 @@ class _AuthScreenState extends State<AuthScreen> {
       case 'weak-password':
         return 'Das Passwort ist zu schwach.';
       case 'operation-not-allowed':
-        return 'Diese Anmeldemethode ist in Firebase aktuell nicht aktiviert.';
+        return 'Diese Anmeldemethode ist in Firebase nicht aktiviert.';
       case 'network-request-failed':
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
-      case 'too-many-requests':
-        return 'Zu viele Versuche. Bitte versuche es später erneut.';
-      case 'invalid-login-credentials':
-        return 'Die Anmeldedaten sind ungültig.';
-      case 'missing-email':
-        return 'Bitte gib eine E-Mail-Adresse ein.';
-      case 'admin-restricted-operation':
-        return 'Diese Anmeldemethode ist in Firebase noch nicht aktiviert.';
+      case 'aborted-by-user':
+        return 'Die Anmeldung wurde abgebrochen.';
+      case 'apple-not-configured':
+        return 'Apple Login wird später mit dem iOS-Setup aktiviert.';
       default:
         return error.message ?? 'Ein unbekannter Fehler ist aufgetreten.';
     }
@@ -341,325 +280,410 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenTitle = _isRegisterMode ? 'Konto erstellen' : 'Anmelden';
-    final primaryButtonText = _isRegisterMode ? 'Registrieren' : 'Einloggen';
-    final toggleText =
+    final Size screenSize = MediaQuery.sizeOf(context);
+    final bool compactHeight = screenSize.height < 780;
+    final bool veryCompactHeight = screenSize.height < 700;
+
+    final double logoSize = veryCompactHeight ? 68 : 86;
+    final double titleSize = veryCompactHeight ? 34 : 42;
+    final double subtitleSize = veryCompactHeight ? 16 : 18;
+    final double topGap = veryCompactHeight ? 10 : 16;
+    final double sectionGap = compactHeight ? 14 : 20;
+    final double inputGap = compactHeight ? 10 : 14;
+    final double insidePadding = compactHeight ? 18 : 24;
+    final double buttonHeight = compactHeight ? 50 : 54;
+    final double bottomLinksGap = compactHeight ? 14 : 18;
+
+    final String cardTitle = _isRegisterMode ? 'Konto erstellen' : 'Anmelden';
+    final String primaryButtonText =
+    _isRegisterMode ? 'Registrieren' : 'Einloggen';
+    final String switchText =
     _isRegisterMode ? 'Ich habe schon ein Konto' : 'Konto erstellen';
 
     return Scaffold(
-      backgroundColor: Colors.black,
       body: Stack(
         children: [
           const _AuthBackground(),
           SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 28,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 500),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 12),
-                      Center(
-                        child: Image.asset(
-                          'assets/images/carma_logo.png',
-                          width: 96,
-                          height: 96,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Carma',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 44,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Kontakt aufnehmen. Sicher. Diskret. Fahrzeugbezogen.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-                      _GlassCard(
-                        padding: const EdgeInsets.all(22),
-                        borderRadius: 28,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool allowScroll = constraints.maxHeight < 720;
+
+                return SingleChildScrollView(
+                  physics: allowScroll
+                      ? const BouncingScrollPhysics()
+                      : const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 32,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 500),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            Image.asset(
+                              'assets/images/carma_logo.png',
+                              width: logoSize,
+                              height: logoSize,
+                            ),
+                            SizedBox(height: topGap),
                             Text(
-                              screenTitle,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
+                              'Carma',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _carmaWhite,
+                                fontSize: titleSize,
                                 fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            _GlassTextField(
-                              controller: _emailController,
-                              label: 'E-Mail',
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              enabled: !_isLoading,
-                            ),
-                            const SizedBox(height: 14),
-                            _GlassTextField(
-                              controller: _passwordController,
-                              label: 'Passwort',
-                              keyboardType: TextInputType.visiblePassword,
-                              textInputAction: TextInputAction.done,
-                              enabled: !_isLoading,
-                              obscureText: _obscurePassword,
-                              onSubmitted: (_) => _submit(),
-                              suffixIcon: IconButton(
-                                onPressed: _isLoading
-                                    ? null
-                                    : () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                ),
-                              ),
-                            ),
-                            if (_isRegisterMode) ...[
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.06),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color:
-                                    Colors.white.withValues(alpha: 0.12),
+                                letterSpacing: -0.6,
+                                shadows: [
+                                  Shadow(
+                                    blurRadius: 18,
+                                    color: Colors.white.withValues(alpha: 0.16),
+                                    offset: const Offset(0, 2),
                                   ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Transform.translate(
-                                      offset: const Offset(-6, -3),
-                                      child: Checkbox(
-                                        value: _acceptLegal,
-                                        onChanged: _isLoading
-                                            ? null
-                                            : (value) {
-                                          setState(() {
-                                            _acceptLegal = value ?? false;
-                                          });
-                                        },
-                                        activeColor: Colors.white,
-                                        checkColor: Colors.black,
-                                        side: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                        ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Finde die Person hinter dem Kennzeichen.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _carmaMutedWhite,
+                                fontSize: subtitleSize,
+                                fontWeight: FontWeight.w500,
+                                height: 1.35,
+                              ),
+                            ),
+                            SizedBox(height: sectionGap),
+                            _GlassCard(
+                              padding: EdgeInsets.all(insidePadding),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    cardTitle,
+                                    style: const TextStyle(
+                                      color: _carmaWhite,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  SizedBox(height: sectionGap),
+                                  _GlassTextField(
+                                    controller: _emailController,
+                                    enabled: !_isLoading,
+                                    hintText: 'E-Mail',
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                  ),
+                                  SizedBox(height: inputGap),
+                                  _GlassTextField(
+                                    controller: _passwordController,
+                                    enabled: !_isLoading,
+                                    hintText: 'Passwort',
+                                    obscureText: _obscurePassword,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) => _submit(),
+                                    suffixIcon: IconButton(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : () {
+                                        setState(() {
+                                          _obscurePassword =
+                                          !_obscurePassword;
+                                        });
+                                      },
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        color: _carmaMutedWhite,
                                       ),
                                     ),
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(top: 3),
-                                        child: Wrap(
-                                          crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                          children: [
-                                            Text(
-                                              'Ich akzeptiere die ',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.82,
-                                                ),
-                                                fontSize: 13.5,
-                                                height: 1.35,
+                                  ),
+                                  if (_isRegisterMode) ...[
+                                    SizedBox(height: inputGap),
+                                    _GlassCard(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      borderRadius: 16,
+                                      blurSigma: 18,
+                                      child: Row(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                        children: [
+                                          Checkbox(
+                                            value: _acceptedLegal,
+                                            onChanged: _isLoading
+                                                ? null
+                                                : (value) {
+                                              setState(() {
+                                                _acceptedLegal =
+                                                    value ?? false;
+                                              });
+                                            },
+                                            activeColor: _carmaWhite,
+                                            checkColor: Colors.black,
+                                            side: BorderSide(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.42,
                                               ),
                                             ),
-                                            _InlineLink(
-                                              text: 'AGB',
-                                              onTap: () =>
-                                                  _showComingSoon('AGB-Seite'),
-                                            ),
-                                            Text(
-                                              ' und die ',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.82,
-                                                ),
-                                                fontSize: 13.5,
-                                                height: 1.35,
+                                          ),
+                                          Expanded(
+                                            child: Padding(
+                                              padding:
+                                              const EdgeInsets.only(top: 10),
+                                              child: Wrap(
+                                                crossAxisAlignment:
+                                                WrapCrossAlignment.center,
+                                                children: [
+                                                  const Text(
+                                                    'Ich akzeptiere die ',
+                                                    style: TextStyle(
+                                                      color: _carmaMutedWhite,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                  GestureDetector(
+                                                    onTap: _openTermsScreen,
+                                                    child: const Text(
+                                                      'AGB',
+                                                      style: TextStyle(
+                                                        color: _carmaWhite,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                        FontWeight.w700,
+                                                        decoration:
+                                                        TextDecoration
+                                                            .underline,
+                                                        decorationColor:
+                                                        _carmaWhite,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const Text(
+                                                    ' und die ',
+                                                    style: TextStyle(
+                                                      color: _carmaMutedWhite,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                  GestureDetector(
+                                                    onTap: _openPrivacyScreen,
+                                                    child: const Text(
+                                                      'Datenschutzerklärung',
+                                                      style: TextStyle(
+                                                        color: _carmaWhite,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                        FontWeight.w700,
+                                                        decoration:
+                                                        TextDecoration
+                                                            .underline,
+                                                        decorationColor:
+                                                        _carmaWhite,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const Text(
+                                                    '.',
+                                                    style: TextStyle(
+                                                      color: _carmaMutedWhite,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                            _InlineLink(
-                                              text: 'Datenschutzerklärung',
-                                              onTap: () => _showComingSoon(
-                                                'Datenschutzerklärung',
-                                              ),
-                                            ),
-                                            Text(
-                                              '.',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.82,
-                                                ),
-                                                fontSize: 13.5,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  if (_errorMessage != null) ...[
+                                    SizedBox(height: inputGap),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(
+                                          0xFFFF4D4F,
+                                        ).withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: const Color(
+                                            0xFFFF4D4F,
+                                          ).withValues(alpha: 0.30),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
                                   ],
-                                ),
-                              ),
-                            ],
-                            if (_errorMessage != null) ...[
-                              const SizedBox(height: 14),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Colors.red.withValues(alpha: 0.35),
-                                  ),
-                                ),
-                                child: Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(height: 18),
-                            _PrimaryButton(
-                              text: primaryButtonText,
-                              isLoading: _isLoading,
-                              onPressed: _isLoading ? null : _submit,
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                TextButton(
-                                  onPressed: _isLoading || _isRegisterMode
-                                      ? null
-                                      : _showResetPasswordDialog,
-                                  child: Text(
-                                    'Passwort vergessen?',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: _isRegisterMode ? 0.35 : 0.85,
+                                  SizedBox(height: sectionGap),
+                                  SizedBox(
+                                    height: buttonHeight,
+                                    child: FilledButton(
+                                      onPressed: _isLoading ? null : _submit,
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: Colors.black,
+                                        disabledBackgroundColor: Colors.white
+                                            .withValues(alpha: 0.75),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                          BorderRadius.circular(16),
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
-                                      fontWeight: FontWeight.w700,
+                                      child: _isLoading
+                                          ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
+                                          color: Colors.black,
+                                        ),
+                                      )
+                                          : Text(primaryButtonText),
                                     ),
                                   ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: TextButton(
+                                            onPressed:
+                                            _isLoading ? null : _resetPassword,
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: _carmaMutedWhite,
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 0,
+                                                vertical: 6,
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'Passwort vergessen?',
+                                              textAlign: TextAlign.left,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            onPressed:
+                                            _isLoading ? null : _toggleMode,
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: _carmaWhite,
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 0,
+                                                vertical: 6,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              switchText,
+                                              textAlign: TextAlign.right,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Padding(
+                                    padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                                    child: Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: inputGap),
+                                  _SocialButton(
+                                    label: 'Mit Google fortfahren',
+                                    icon: const Text(
+                                      'G',
+                                      style: TextStyle(
+                                        color: _carmaWhite,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    onPressed:
+                                    _isLoading ? null : _signInWithGoogle,
+                                  ),
+                                  SizedBox(height: inputGap),
+                                  _SocialButton(
+                                    label: 'Mit Apple fortfahren',
+                                    icon: const Icon(
+                                      Icons.apple,
+                                      color: _carmaWhite,
+                                      size: 20,
+                                    ),
+                                    onPressed:
+                                    _isLoading ? null : _showAppleInfo,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: bottomLinksGap),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 22,
+                              runSpacing: 6,
+                              children: [
+                                _BottomLink(
+                                  label: 'AGB',
+                                  onTap: _openTermsScreen,
                                 ),
-                                const Spacer(),
-                                TextButton(
-                                  onPressed: _isLoading ? null : _toggleMode,
-                                  child: Text(
-                                    toggleText,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                                _BottomLink(
+                                  label: 'Datenschutz',
+                                  onTap: _openPrivacyScreen,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Divider(
-                              color: Colors.white.withValues(alpha: 0.14),
-                              height: 22,
-                            ),
-                            const SizedBox(height: 8),
-                            _SecondaryOutlineButton(
-                              text: 'Mit Google fortfahren',
-                              icon: Icons.login,
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _showComingSoon('Google Login'),
-                            ),
-                            const SizedBox(height: 12),
-                            _SecondaryOutlineButton(
-                              text: 'Mit Apple fortfahren',
-                              icon: Icons.apple,
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _showComingSoon('Apple Login'),
-                            ),
-                            if (kDebugMode) ...[
-                              const SizedBox(height: 12),
-                              _SecondaryOutlineButton(
-                                text: 'Ohne Konto fortfahren',
-                                onPressed:
-                                _isLoading ? null : _continueAnonymously,
-                              ),
-                            ],
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 18,
-                        children: [
-                          TextButton(
-                            onPressed: () => _showComingSoon('AGB-Seite'),
-                            child: const Text(
-                              'AGB',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () =>
-                                _showComingSoon('Datenschutzerklärung'),
-                            child: const Text(
-                              'Datenschutz',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -681,35 +705,27 @@ class _AuthBackground extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF050505),
-                Color(0xFF0B0B0B),
-                Color(0xFF111111),
+                Color(0xFF0B0D12),
+                Color(0xFF080A0F),
+                Color(0xFF05070B),
               ],
             ),
           ),
         ),
         Positioned(
-          top: -80,
-          left: -60,
-          child: _GlowCircle(
-            size: 220,
-            color: Colors.white.withValues(alpha: 0.06),
-          ),
-        ),
-        Positioned(
-          top: 180,
-          right: -70,
-          child: _GlowCircle(
+          top: -100,
+          right: -60,
+          child: _GlowOrb(
             size: 240,
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Colors.white.withValues(alpha: 0.08),
           ),
         ),
         Positioned(
-          bottom: -90,
-          left: 20,
-          child: _GlowCircle(
-            size: 260,
-            color: Colors.white.withValues(alpha: 0.04),
+          bottom: -120,
+          left: -80,
+          child: _GlowOrb(
+            size: 280,
+            color: Colors.white.withValues(alpha: 0.05),
           ),
         ),
         Container(
@@ -720,8 +736,8 @@ class _AuthBackground extends StatelessWidget {
   }
 }
 
-class _GlowCircle extends StatelessWidget {
-  const _GlowCircle({
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({
     required this.size,
     required this.color,
   });
@@ -741,7 +757,7 @@ class _GlowCircle extends StatelessWidget {
             BoxShadow(
               color: color,
               blurRadius: 120,
-              spreadRadius: 35,
+              spreadRadius: 20,
             ),
           ],
         ),
@@ -755,11 +771,13 @@ class _GlassCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(20),
     this.borderRadius = 24,
+    this.blurSigma = 24,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final double borderRadius;
+  final double blurSigma;
 
   @override
   Widget build(BuildContext context) {
@@ -767,23 +785,20 @@ class _GlassCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
         filter: ImageFilter.blur(
-          sigmaX: 24,
-          sigmaY: 24,
+          sigmaX: blurSigma,
+          sigmaY: blurSigma,
         ),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.10),
+            color: _carmaCard,
             borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 1.2,
-            ),
+            border: Border.all(color: _carmaBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 30,
-                offset: const Offset(0, 18),
+                color: Colors.black.withValues(alpha: 0.30),
+                blurRadius: 28,
+                offset: const Offset(0, 16),
               ),
             ],
           ),
@@ -797,219 +812,140 @@ class _GlassCard extends StatelessWidget {
 class _GlassTextField extends StatelessWidget {
   const _GlassTextField({
     required this.controller,
-    required this.label,
-    required this.keyboardType,
-    required this.textInputAction,
-    required this.enabled,
+    required this.hintText,
+    this.enabled = true,
     this.obscureText = false,
+    this.keyboardType,
+    this.textInputAction,
     this.suffixIcon,
     this.onSubmitted,
   });
 
   final TextEditingController controller;
-  final String label;
-  final TextInputType keyboardType;
-  final TextInputAction textInputAction;
+  final String hintText;
   final bool enabled;
   final bool obscureText;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
   final Widget? suffixIcon;
   final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = Colors.white.withValues(alpha: 0.28);
-    final focusedBorderColor = Colors.white.withValues(alpha: 0.78);
-
-    return TextField(
-      controller: controller,
-      enabled: enabled,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      onSubmitted: onSubmitted,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.18),
+        ),
       ),
-      cursorColor: Colors.white,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.82),
-          fontWeight: FontWeight.w600,
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        onSubmitted: onSubmitted,
+        style: const TextStyle(
+          color: _carmaWhite,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
         ),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.08),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 18,
-        ),
-        suffixIcon: suffixIcon,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: borderColor),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.12),
+        cursorColor: Colors.white,
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: TextStyle(
+            color: _carmaHint,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
           ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: focusedBorderColor,
-            width: 1.4,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 18,
           ),
+          suffixIcon: suffixIcon,
         ),
       ),
     );
   }
 }
 
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({
-    required this.text,
-    required this.onPressed,
-    required this.isLoading,
+class _SocialButton extends StatelessWidget {
+  const _SocialButton({
+    required this.label,
+    required this.icon,
+    this.onPressed,
   });
 
-  final String text;
+  final String label;
+  final Widget icon;
   final VoidCallback? onPressed;
-  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 54,
-      child: ElevatedButton(
+      height: 52,
+      child: OutlinedButton(
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 0,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _carmaWhite,
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.22),
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-          ),
+          backgroundColor: Colors.white.withValues(alpha: 0.02),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-        child: isLoading
-            ? const SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-          ),
-        )
-            : Text(text),
-      ),
-    );
-  }
-}
-
-class _SecondaryOutlineButton extends StatelessWidget {
-  const _SecondaryOutlineButton({
-    required this.text,
-    required this.onPressed,
-    this.icon,
-  });
-
-  final String text;
-  final VoidCallback? onPressed;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasIcon = icon != null;
-
-    if (!hasIcon) {
-      return SizedBox(
-        height: 52,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: _buttonStyle(),
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Center(child: icon),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 24),
+          ],
         ),
-      );
-    }
-
-    return SizedBox(
-      height: 52,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(
-          icon,
-          color: Colors.white,
-          size: 20,
-        ),
-        label: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        style: _buttonStyle(),
-      ),
-    );
-  }
-
-  ButtonStyle _buttonStyle() {
-    return OutlinedButton.styleFrom(
-      foregroundColor: Colors.white,
-      side: BorderSide(
-        color: Colors.white.withValues(alpha: 0.24),
-      ),
-      backgroundColor: Colors.white.withValues(alpha: 0.02),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
       ),
     );
   }
 }
 
-class _InlineLink extends StatelessWidget {
-  const _InlineLink({
-    required this.text,
+class _BottomLink extends StatelessWidget {
+  const _BottomLink({
+    required this.label,
     required this.onTap,
   });
 
-  final String text;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w800,
-            decoration: TextDecoration.underline,
-            decorationColor: Colors.white,
-          ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: _carmaMutedWhite,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          decoration: TextDecoration.underline,
+          decorationColor: _carmaMutedWhite,
         ),
       ),
     );
