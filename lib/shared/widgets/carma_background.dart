@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 class CarmaBackground extends StatelessWidget {
@@ -14,13 +12,13 @@ class CarmaBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment.topLeft,
-          radius: 1.3,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            Color(0xFF252535),
-            Color(0xFF0D0D14),
-            Color(0xFF050509),
+            Color(0xFF12151E),
+            Color(0xFF07090F),
+            Color(0xFF020309),
           ],
         ),
       ),
@@ -28,25 +26,43 @@ class CarmaBackground extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           const Positioned(
-            top: -110,
-            left: -90,
-            child: _BlurOrb(
-              size: 260,
-              color: Color(0xFF404050),
-              opacity: 0.55,
+            top: -120,
+            right: -80,
+            child: _GlowOrb(
+              size: 300,
+              color: Color(0xFF6B8CFF),
+              opacity: 0.16,
             ),
           ),
           const Positioned(
-            bottom: -120,
-            right: -90,
-            child: _BlurOrb(
-              size: 300,
-              color: Color(0xFF1E1E2D),
-              opacity: 0.70,
+            top: 170,
+            left: -120,
+            child: _GlowOrb(
+              size: 260,
+              color: Color(0xFFB7D9FF),
+              opacity: 0.08,
+            ),
+          ),
+          const Positioned(
+            bottom: -130,
+            right: -120,
+            child: _GlowOrb(
+              size: 320,
+              color: Color(0xFFFFFFFF),
+              opacity: 0.06,
             ),
           ),
           Container(
-            color: Colors.black.withValues(alpha: 0.34),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.12),
+                  Colors.black.withValues(alpha: 0.44),
+                ],
+              ),
+            ),
           ),
           child,
         ],
@@ -55,8 +71,8 @@ class CarmaBackground extends StatelessWidget {
   }
 }
 
-class _BlurOrb extends StatelessWidget {
-  const _BlurOrb({
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({
     required this.size,
     required this.color,
     required this.opacity,
@@ -69,15 +85,18 @@ class _BlurOrb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
-      child: ImageFiltered(
-        imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: opacity),
-            shape: BoxShape.circle,
-          ),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: opacity),
+              blurRadius: 120,
+              spreadRadius: 42,
+            ),
+          ],
         ),
       ),
     );
