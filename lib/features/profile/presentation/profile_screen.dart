@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/glass_card.dart';
 import '../data/profile_repository.dart';
 import '../data/user_profile.dart';
 
@@ -152,82 +154,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _signOut() async {
-    await FirebaseAuth.instance.signOut();
+  String _displayInitials() {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+
+    final firstInitial = firstName.isNotEmpty ? firstName[0] : '';
+    final lastInitial = lastName.isNotEmpty ? lastName[0] : '';
+
+    final initials = '$firstInitial$lastInitial'.toUpperCase();
+    return initials.isEmpty ? 'C' : initials;
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email ?? 'Keine E-Mail gefunden';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil'),
-      ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(
-          child: CircularProgressIndicator(),
-        )
-            : ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            const CircleAvatar(
-              radius: 48,
-              child: Icon(Icons.person, size: 48),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Mein Profil',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              email,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.70),
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 28),
-            if (_errorMessage != null) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFFFCDD2),
-                    fontWeight: FontWeight.w600,
-                  ),
+    return CarmaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: _isLoading
+              ? const Center(
+            child: CircularProgressIndicator(),
+          )
+              : ListView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            children: [
+              const Text(
+                'Profil',
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.9,
                 ),
               ),
-              const SizedBox(height: 18),
-            ],
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
+              const SizedBox(height: 8),
+              Text(
+                'Verwalte deine öffentlichen Profildaten und bereite dein Konto für Carma vor.',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.68),
+                  fontSize: 15,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _ProfileHeaderCard(
+                initials: _displayInitials(),
+                email: FirebaseAuth.instance.currentUser?.email ??
+                    'Keine E-Mail gefunden',
+                verificationStatus:
+                _profile?.verificationStatus ?? 'unverified',
+              ),
+              const SizedBox(height: 16),
+              if (_errorMessage != null) ...[
+                _ErrorCard(message: _errorMessage!),
+                const SizedBox(height: 16),
+              ],
+              GlassCard(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Profil & Konto',
+                      'Profildaten',
                       style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 23,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Diese Daten helfen später, dein Profil kontrolliert und vertrauenswürdig darzustellen.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.62),
+                        height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -235,6 +234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       controller: _firstNameController,
                       enabled: !_isSaving,
                       textInputAction: TextInputAction.next,
+                      onChanged: (_) => setState(() {}),
                       decoration: const InputDecoration(
                         labelText: 'Vorname',
                         prefixIcon: Icon(Icons.person_outline),
@@ -245,6 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       controller: _lastNameController,
                       enabled: !_isSaving,
                       textInputAction: TextInputAction.next,
+                      onChanged: (_) => setState(() {}),
                       decoration: const InputDecoration(
                         labelText: 'Nachname',
                         prefixIcon: Icon(Icons.badge_outlined),
@@ -271,52 +272,219 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         prefixIcon: Icon(Icons.public),
                       ),
                     ),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: _isSaving ? null : _saveProfile,
+                      icon: _isSaving
+                          ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(
+                        _isSaving ? 'Speichern...' : 'Profil speichern',
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.verified_user_outlined),
-                title: const Text('Verifizierung'),
-                subtitle: const Text(
-                  'Profil-Verifizierung wird später ergänzt.',
+              const SizedBox(height: 16),
+              GlassCard(
+                padding: const EdgeInsets.all(18),
+                opacity: 0.08,
+                child: Column(
+                  children: [
+                    _ProfileOptionTile(
+                      icon: Icons.directions_car_outlined,
+                      title: 'Fahrzeuge',
+                      subtitle:
+                      'Fahrzeuge werden im nächsten Schritt vorbereitet.',
+                      onTap: () {},
+                    ),
+                    Divider(
+                      color: Colors.white.withValues(alpha: 0.10),
+                    ),
+                    _ProfileOptionTile(
+                      icon: Icons.verified_user_outlined,
+                      title: 'Verifizierung',
+                      subtitle:
+                      'Profil-Verifizierung wird später ergänzt.',
+                      onTap: () {},
+                    ),
+                    Divider(
+                      color: Colors.white.withValues(alpha: 0.10),
+                    ),
+                    _ProfileOptionTile(
+                      icon: Icons.privacy_tip_outlined,
+                      title: 'Sichtbarkeit',
+                      subtitle:
+                      'Private und öffentliche Daten werden getrennt.',
+                      onTap: () {},
+                    ),
+                  ],
                 ),
-                onTap: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileHeaderCard extends StatelessWidget {
+  const _ProfileHeaderCard({
+    required this.initials,
+    required this.email,
+    required this.verificationStatus,
+  });
+
+  final String initials;
+  final String email;
+  final String verificationStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final isVerified = verificationStatus == 'verified';
+
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 78,
+            height: 78,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.10),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.20),
               ),
             ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.directions_car_outlined),
-                title: const Text('Fahrzeuge'),
-                subtitle: const Text(
-                  'Fahrzeuge werden im nächsten Schritt vorbereitet.',
+            child: Center(
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
                 ),
-                onTap: () {},
               ),
             ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _isSaving ? null : _saveProfile,
-              icon: _isSaving
-                  ? const SizedBox(
-                height: 18,
-                width: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Mein Carma-Profil',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-              )
-                  : const Icon(Icons.save_outlined),
-              label: Text(_isSaving ? 'Speichern...' : 'Profil speichern'),
+                const SizedBox(height: 6),
+                Text(
+                  email,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                    ),
+                  ),
+                  child: Text(
+                    isVerified ? 'Verifiziert' : 'Nicht verifiziert',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _isSaving ? null : _signOut,
-              icon: const Icon(Icons.logout),
-              label: const Text('Abmelden'),
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileOptionTile extends StatelessWidget {
+  const _ProfileOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: Colors.white),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.58),
+          height: 1.35,
+        ),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+        color: Colors.white.withValues(alpha: 0.42),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      opacity: 0.10,
+      borderOpacity: 0.18,
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Color(0xFFFFCDD2),
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
