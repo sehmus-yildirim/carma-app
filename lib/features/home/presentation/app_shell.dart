@@ -67,7 +67,7 @@ class _GlassBottomNavigationBar extends StatelessWidget {
     _NavigationItem(
       icon: Icons.home_outlined,
       activeIcon: Icons.home_rounded,
-      label: 'Start',
+      label: 'Suchen',
     ),
     _NavigationItem(
       icon: Icons.chat_bubble_outline,
