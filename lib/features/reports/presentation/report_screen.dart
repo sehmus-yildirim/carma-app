@@ -14,9 +14,9 @@ const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 enum _ReportCategory {
   vehicleOpen,
-  lightsElectric,
-  parkingBlocked,
-  damageCondition,
+  lightsOrElectric,
+  vehicleBlocked,
+  visibleDamage,
   acuteDanger,
   policeOnSite,
 }
@@ -43,7 +43,6 @@ class _ReportScreenState extends State<ReportScreen> {
 
   String _countryCode = 'DE';
   _ReportCategory? _selectedCategory;
-  String? _selectedSubcategory;
 
   Position? _position;
   XFile? _capturedPhoto;
@@ -81,7 +80,7 @@ class _ReportScreenState extends State<ReportScreen> {
   int get _numbersMaxLength {
     switch (_countryCode) {
       case 'DE':
-        return 5; // 4 Zahlen + optional E
+        return 5;
       case 'AT':
         return 5;
       case 'CH':
@@ -113,63 +112,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
   bool get _canSend {
     return _selectedCategory != null &&
-        _selectedSubcategory != null &&
         _hasPlateInput &&
         _hasLocation &&
         !_isSending;
-  }
-
-  List<String> get _subcategories {
-    switch (_selectedCategory) {
-      case _ReportCategory.vehicleOpen:
-        return const [
-          'Fenster offen',
-          'Tür offen',
-          'Kofferraum offen',
-          'Schiebedach offen',
-        ];
-      case _ReportCategory.lightsElectric:
-        return const [
-          'Licht angelassen',
-          'Innenlicht an',
-          'Warnblinker an',
-          'Alarmanlage aktiv',
-        ];
-      case _ReportCategory.parkingBlocked:
-        return const [
-          'Einfahrt blockiert',
-          'Fahrzeug blockiert mich',
-          'Ladezone blockiert',
-          'Rettungsweg blockiert',
-          'Behindertenparkplatz betroffen',
-        ];
-      case _ReportCategory.damageCondition:
-        return const [
-          'Sichtbarer Schaden',
-          'Reifen platt',
-          'Flüssigkeit läuft aus',
-          'Spiegel beschädigt',
-          'Kennzeichen beschädigt / locker',
-        ];
-      case _ReportCategory.acuteDanger:
-        return const [
-          'Kind im Auto',
-          'Tier im Auto',
-          'Rauch / Brandgeruch',
-          'Fahrzeug rollt / steht unsicher',
-          'Gefahr für andere',
-        ];
-      case _ReportCategory.policeOnSite:
-        return const [
-          'Polizei am Fahrzeug',
-          'Ordnungsamt am Fahrzeug',
-          'Abschleppdienst vor Ort',
-          'Unfallaufnahme vor Ort',
-          'Kontrolle / Maßnahme erkennbar',
-        ];
-      case null:
-        return const [];
-    }
   }
 
   @override
@@ -218,14 +163,6 @@ class _ReportScreenState extends State<ReportScreen> {
   void _selectCategory(_ReportCategory category) {
     setState(() {
       _selectedCategory = category;
-      _selectedSubcategory = null;
-      _clearMessages();
-    });
-  }
-
-  void _selectSubcategory(String subcategory) {
-    setState(() {
-      _selectedSubcategory = subcategory;
       _clearMessages();
     });
   }
@@ -388,7 +325,7 @@ class _ReportScreenState extends State<ReportScreen> {
     if (!_canSend) {
       setState(() {
         _errorMessage =
-        'Bitte wähle einen Hinweis, eine passende Unterkategorie, gib ein Kennzeichen ein und füge einen Ort hinzu.';
+        'Bitte wähle einen Hinweis, gib ein Kennzeichen ein und füge einen Ort hinzu.';
       });
       return;
     }
@@ -461,7 +398,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     const SizedBox(height: 16),
                     const _MisuseWarningCard(),
                     const SizedBox(height: 16),
-                    _SectionTitle(
+                    const _SectionTitle(
                       number: '1',
                       title: 'Was möchtest du melden?',
                     ),
@@ -470,20 +407,8 @@ class _ReportScreenState extends State<ReportScreen> {
                       selectedCategory: _selectedCategory,
                       onSelected: _selectCategory,
                     ),
-                    if (_selectedCategory != null) ...[
-                      const SizedBox(height: 14),
-                      _SubcategoryCard(
-                        subcategories: _subcategories,
-                        selectedSubcategory: _selectedSubcategory,
-                        onSelected: _selectSubcategory,
-                      ),
-                    ],
-                    if (_selectedCategory == _ReportCategory.acuteDanger) ...[
-                      const SizedBox(height: 14),
-                      const _EmergencyWarningCard(),
-                    ],
                     const SizedBox(height: 18),
-                    _SectionTitle(
+                    const _SectionTitle(
                       number: '2',
                       title: 'Kennzeichen',
                     ),
@@ -509,7 +434,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onNumbersChanged: _handleNumbersChanged,
                     ),
                     const SizedBox(height: 18),
-                    _SectionTitle(
+                    const _SectionTitle(
                       number: '3',
                       title: 'Ort des Hinweises',
                     ),
@@ -533,7 +458,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onRetryLocation: _loadLocation,
                     ),
                     const SizedBox(height: 18),
-                    _SectionTitle(
+                    const _SectionTitle(
                       number: '4',
                       title: 'Foto aufnehmen',
                       optional: true,
@@ -545,7 +470,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onRemovePhoto: _removePhoto,
                     ),
                     const SizedBox(height: 18),
-                    _SectionTitle(
+                    const _SectionTitle(
                       number: '5',
                       title: 'Kurzer Hinweis',
                       optional: true,
@@ -679,38 +604,6 @@ class _MisuseWarningCard extends StatelessWidget {
   }
 }
 
-class _EmergencyWarningCard extends StatelessWidget {
-  const _EmergencyWarningCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Bei akuter Gefahr für Menschen oder Tiere bitte sofort den Notruf oder die Polizei verständigen. Carma ersetzt keinen Notruf.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.86),
-                fontWeight: FontWeight.w800,
-                height: 1.36,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
     required this.number,
@@ -786,19 +679,19 @@ class _CategoryGrid extends StatelessWidget {
         subtitle: 'Fenster, Tür oder Kofferraum',
       ),
       _CategoryItem(
-        category: _ReportCategory.lightsElectric,
+        category: _ReportCategory.lightsOrElectric,
         icon: Icons.lightbulb_outline_rounded,
         title: 'Licht / Elektrik',
         subtitle: 'Licht, Warnblinker oder Alarm',
       ),
       _CategoryItem(
-        category: _ReportCategory.parkingBlocked,
+        category: _ReportCategory.vehicleBlocked,
         icon: Icons.block_rounded,
         title: 'Blockiert',
         subtitle: 'Einfahrt, Ladezone oder Weg',
       ),
       _CategoryItem(
-        category: _ReportCategory.damageCondition,
+        category: _ReportCategory.visibleDamage,
         icon: Icons.car_crash_rounded,
         title: 'Schaden',
         subtitle: 'Schaden oder auffälliger Zustand',
@@ -811,7 +704,7 @@ class _CategoryGrid extends StatelessWidget {
       ),
       _CategoryItem(
         category: _ReportCategory.policeOnSite,
-        icon: Icons.local_police_outlined,
+        icon: Icons.policy_outlined,
         title: 'Polizei vor Ort',
         subtitle: 'Polizei, Ordnungsamt oder Abschleppdienst',
       ),
@@ -931,109 +824,12 @@ class _CategoryCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.70),
+                    color: Colors.white.withValues(alpha: 0.72),
                     fontWeight: FontWeight.w700,
                     height: 1.2,
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SubcategoryCard extends StatelessWidget {
-  const _SubcategoryCard({
-    required this.subcategories,
-    required this.selectedSubcategory,
-    required this.onSelected,
-  });
-
-  final List<String> subcategories;
-  final String? selectedSubcategory;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Wähle den passenden Hinweis',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 17,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 9,
-            runSpacing: 9,
-            children: subcategories.map((subcategory) {
-              final isSelected = selectedSubcategory == subcategory;
-
-              return _SubcategoryChip(
-                label: subcategory,
-                isSelected: isSelected,
-                onTap: () => onSelected(subcategory),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SubcategoryChip extends StatelessWidget {
-  const _SubcategoryChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            gradient: isSelected
-                ? const LinearGradient(
-              colors: [
-                _carmaBlueDark,
-                _carmaBlueLight,
-              ],
-            )
-                : null,
-            color: isSelected ? null : Colors.white.withValues(alpha: 0.07),
-            border: Border.all(
-              color: isSelected
-                  ? Colors.white.withValues(alpha: 0.22)
-                  : Colors.white.withValues(alpha: 0.10),
-            ),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
             ),
           ),
         ),
@@ -1136,15 +932,18 @@ class _CountryButton extends StatelessWidget {
                   : Colors.white.withValues(alpha: 0.10),
             ),
           ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -1445,7 +1244,8 @@ class _LocationCard extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
               decoration: InputDecoration(
-                hintText: 'Adresse + Hausnummer, Postleitzahl eingeben',
+                hintText: 'Adresse + Hausnummer, PLZ u. Ort',
+                hintMaxLines: 1,
                 hintStyle: TextStyle(
                   color: Colors.white.withValues(alpha: 0.50),
                   fontWeight: FontWeight.w700,
@@ -1520,24 +1320,30 @@ class _LocationModeButton extends StatelessWidget {
                   : Colors.white.withValues(alpha: 0.10),
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: Colors.white,
-                size: 22,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 9),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight:
+                      isSelected ? FontWeight.w900 : FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 9),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
-                  fontSize: 16,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1664,23 +1470,28 @@ class _SmallActionButton extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.12),
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: Colors.white,
-                size: 21,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 21,
+                  ),
+                  const SizedBox(width: 9),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 9),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1789,23 +1600,28 @@ class _PrimaryActionButton extends StatelessWidget {
               ],
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: Colors.white,
-                size: 22,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1835,10 +1651,12 @@ class _NoteCard extends StatelessWidget {
         ),
         decoration: InputDecoration(
           hintText:
-          'Kurzer sachlicher Hinweis, z. B. „Fenster vorne offen.“ - Nochmal der Hinweis: Dieser Bereich ist nur für echte Hinweise gedacht. Missbrauch, falsche Meldungen oder Belästigung können zur Sperrung deines Kontos führen.',
+          'Kurzer sachlicher Hinweis - Dieser Bereich ist nur für echte Hinweise gedacht. Missbrauch kann zur Sperrung deines Kontos führen.',
+          hintMaxLines: 4,
           hintStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.48),
             fontWeight: FontWeight.w700,
+            height: 1.35,
           ),
           counterStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.50),
@@ -1922,12 +1740,15 @@ class _SendReportButton extends StatelessWidget {
                   size: 27,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  isLoading ? 'Wird gesendet...' : 'Anonym senden',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 19,
+                Flexible(
+                  child: Text(
+                    isLoading ? 'Wird gesendet...' : 'Anonym senden',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 19,
+                    ),
                   ),
                 ),
               ],
