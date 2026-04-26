@@ -21,8 +21,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final TextEditingController _lettersController = TextEditingController();
   final TextEditingController _numbersController = TextEditingController();
 
+  final FocusNode _regionFocusNode = FocusNode();
+  final FocusNode _lettersFocusNode = FocusNode();
+  final FocusNode _numbersFocusNode = FocusNode();
+
   String _countryCode = 'DE';
-  int _radiusKm = 5;
 
   Position? _position;
   PlateSearchResult? _result;
@@ -35,10 +38,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _errorMessage;
   String? _successMessage;
 
+  bool get _usesLettersField => _countryCode != 'CH';
+
+  String get _firstFieldLabel {
+    switch (_countryCode) {
+      case 'AT':
+        return 'Bezirk';
+      case 'CH':
+        return 'Kanton';
+      case 'DE':
+      default:
+        return 'Stadt';
+    }
+  }
+
+  int get _firstFieldMaxLength {
+    switch (_countryCode) {
+      case 'AT':
+        return 2;
+      case 'CH':
+        return 2;
+      case 'DE':
+      default:
+        return 3;
+    }
+  }
+
+  int get _numbersMaxLength {
+    switch (_countryCode) {
+      case 'CH':
+        return 6;
+      case 'AT':
+      case 'DE':
+      default:
+        return 5;
+    }
+  }
+
   bool get _hasPlateInput {
-    return _regionController.text.trim().isNotEmpty &&
-        _lettersController.text.trim().isNotEmpty &&
-        _numbersController.text.trim().isNotEmpty;
+    final region = _regionController.text.trim();
+    final letters = _lettersController.text.trim();
+    final numbers = _numbersController.text.trim();
+
+    if (_countryCode == 'CH') {
+      return region.isNotEmpty && numbers.isNotEmpty;
+    }
+
+    return region.isNotEmpty && letters.isNotEmpty && numbers.isNotEmpty;
   }
 
   bool get _canSearch {
@@ -49,13 +95,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String get _plateValue {
-    return '${_regionController.text}${_lettersController.text}${_numbersController.text}';
+    final region = _regionController.text.trim().toUpperCase();
+    final letters = _lettersController.text.trim().toUpperCase();
+    final numbers = _numbersController.text.trim().toUpperCase();
+
+    if (_countryCode == 'CH') {
+      return '$region$numbers';
+    }
+
+    return '$region$letters$numbers';
   }
 
   String get _displayPlate {
     final region = _regionController.text.trim().toUpperCase();
     final letters = _lettersController.text.trim().toUpperCase();
     final numbers = _numbersController.text.trim().toUpperCase();
+
+    if (_countryCode == 'CH') {
+      if (region.isEmpty && numbers.isEmpty) {
+        return '';
+      }
+      return '$region $numbers';
+    }
 
     if (region.isEmpty && letters.isEmpty && numbers.isEmpty) {
       return '';
@@ -85,6 +146,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _lettersController.dispose();
     _numbersController.dispose();
 
+    _regionFocusNode.dispose();
+    _lettersFocusNode.dispose();
+    _numbersFocusNode.dispose();
+
     super.dispose();
   }
 
@@ -92,11 +157,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
+  void _clearResultMessages() {
+    _result = null;
+    _errorMessage = null;
+    _successMessage = null;
+  }
+
+  void _changeCountry(String countryCode) {
+    if (_countryCode == countryCode) {
+      return;
+    }
+
+    setState(() {
+      _countryCode = countryCode;
+      _regionController.clear();
+      _lettersController.clear();
+      _numbersController.clear();
+      _clearResultMessages();
+    });
+
+    _regionFocusNode.requestFocus();
+  }
+
   Future<void> _loadLocation() async {
     setState(() {
       _isLoadingLocation = true;
       _locationError = null;
-      _errorMessage = null;
     });
 
     try {
@@ -143,6 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       setState(() {
         _position = position;
+        _locationError = null;
         _isLoadingLocation = false;
       });
     } catch (_) {
@@ -158,6 +245,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final position = _position;
 
     if (position == null || !_canSearch) {
+      if (_locationError != null) {
+        setState(() {
+          _errorMessage = _locationError;
+        });
+      }
       return;
     }
 
@@ -165,9 +257,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() {
       _isSearching = true;
-      _result = null;
-      _errorMessage = null;
-      _successMessage = null;
+      _clearResultMessages();
     });
 
     try {
@@ -176,7 +266,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         plate: _plateValue,
         latitude: position.latitude,
         longitude: position.longitude,
-        radiusKm: _radiusKm,
+        radiusKm: 5,
       );
 
       setState(() {
@@ -246,72 +336,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return 'Für diesen Treffer existiert bereits eine Anfrage.';
     }
 
-    return 'Die Suche ist aktuell noch nicht vollständig verbunden. Das Backend wird im nächsten Schritt eingerichtet.';
+    return 'Die Suche ist aktuell noch nicht vollständig verbunden. Das Backend richten wir im nächsten Schritt ein.';
+  }
+
+  void _handleRegionChanged(String value) {
+    _clearResultMessages();
+
+    if (value.length >= _firstFieldMaxLength) {
+      if (_usesLettersField) {
+        _lettersFocusNode.requestFocus();
+      } else {
+        _numbersFocusNode.requestFocus();
+      }
+    }
+  }
+
+  void _handleLettersChanged(String value) {
+    _clearResultMessages();
+
+    if (value.length >= 2) {
+      _numbersFocusNode.requestFocus();
+    }
+  }
+
+  void _handleNumbersChanged(String value) {
+    _clearResultMessages();
+
+    if (value.length >= _numbersMaxLength) {
+      _numbersFocusNode.unfocus();
+    }
+  }
+
+  Widget _buildResultArea() {
+    if (_isSearching) {
+      return const _LoadingCard();
+    }
+
+    if (_result != null) {
+      return _PlateSearchResultCard(
+        result: _result!,
+        fallbackDisplayPlate: _displayPlate,
+        isRequestingContact: _isRequestingContact,
+        onRequestContact: _requestContact,
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   @override
   Widget build(BuildContext context) {
     return CarmaBackground(
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 110),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 96),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const _HomeHeader(),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
               _PlateSearchHomeCard(
                 countryCode: _countryCode,
-                radiusKm: _radiusKm,
+                firstFieldLabel: _firstFieldLabel,
+                firstFieldMaxLength: _firstFieldMaxLength,
+                numbersMaxLength: _numbersMaxLength,
+                usesLettersField: _usesLettersField,
                 regionController: _regionController,
                 lettersController: _lettersController,
                 numbersController: _numbersController,
-                isLoadingLocation: _isLoadingLocation,
-                locationError: _locationError,
+                regionFocusNode: _regionFocusNode,
+                lettersFocusNode: _lettersFocusNode,
+                numbersFocusNode: _numbersFocusNode,
                 canSearch: _canSearch,
                 isSearching: _isSearching,
-                onCountryChanged: (countryCode) {
-                  setState(() {
-                    _countryCode = countryCode;
-                    _result = null;
-                    _errorMessage = null;
-                    _successMessage = null;
-                  });
-                },
-                onRadiusChanged: (radiusKm) {
-                  setState(() {
-                    _radiusKm = radiusKm;
-                  });
-                },
-                onRetryLocation: _loadLocation,
+                onCountryChanged: _changeCountry,
                 onSearch: _searchPlate,
+                onRegionChanged: _handleRegionChanged,
+                onLettersChanged: _handleLettersChanged,
+                onNumbersChanged: _handleNumbersChanged,
               ),
-              const SizedBox(height: 18),
+              if (_locationError != null) ...[
+                const SizedBox(height: 14),
+                _MessageCard(
+                  icon: Icons.location_off_rounded,
+                  message: _locationError!,
+                ),
+              ],
               if (_errorMessage != null) ...[
+                const SizedBox(height: 14),
                 _MessageCard(
                   icon: Icons.error_outline_rounded,
                   message: _errorMessage!,
                 ),
-                const SizedBox(height: 18),
               ],
               if (_successMessage != null) ...[
+                const SizedBox(height: 14),
                 _MessageCard(
                   icon: Icons.check_circle_outline_rounded,
                   message: _successMessage!,
                 ),
-                const SizedBox(height: 18),
               ],
-              if (_isSearching)
-                const _LoadingCard()
-              else if (_result != null)
-                _PlateSearchResultCard(
-                  result: _result!,
-                  fallbackDisplayPlate: _displayPlate,
-                  isRequestingContact: _isRequestingContact,
-                  onRequestContact: _requestContact,
-                )
-              else
-                const _EmptyStateCard(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _buildResultArea(),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -328,19 +462,19 @@ class _HomeHeader extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 54,
-          height: 54,
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.13),
+            color: Colors.white.withValues(alpha: 0.12),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.22),
+              color: Colors.white.withValues(alpha: 0.20),
             ),
           ),
           child: const Icon(
             Icons.directions_car_filled_rounded,
             color: Colors.white,
-            size: 30,
+            size: 28,
           ),
         ),
         const SizedBox(width: 14),
@@ -350,7 +484,7 @@ class _HomeHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,
-              letterSpacing: -0.6,
+              letterSpacing: -0.5,
             ),
           ),
         ),
@@ -362,38 +496,52 @@ class _HomeHeader extends StatelessWidget {
 class _PlateSearchHomeCard extends StatelessWidget {
   const _PlateSearchHomeCard({
     required this.countryCode,
-    required this.radiusKm,
+    required this.firstFieldLabel,
+    required this.firstFieldMaxLength,
+    required this.numbersMaxLength,
+    required this.usesLettersField,
     required this.regionController,
     required this.lettersController,
     required this.numbersController,
-    required this.isLoadingLocation,
-    required this.locationError,
+    required this.regionFocusNode,
+    required this.lettersFocusNode,
+    required this.numbersFocusNode,
     required this.canSearch,
     required this.isSearching,
     required this.onCountryChanged,
-    required this.onRadiusChanged,
-    required this.onRetryLocation,
     required this.onSearch,
+    required this.onRegionChanged,
+    required this.onLettersChanged,
+    required this.onNumbersChanged,
   });
 
   final String countryCode;
-  final int radiusKm;
+  final String firstFieldLabel;
+  final int firstFieldMaxLength;
+  final int numbersMaxLength;
+  final bool usesLettersField;
+
   final TextEditingController regionController;
   final TextEditingController lettersController;
   final TextEditingController numbersController;
-  final bool isLoadingLocation;
-  final String? locationError;
+
+  final FocusNode regionFocusNode;
+  final FocusNode lettersFocusNode;
+  final FocusNode numbersFocusNode;
+
   final bool canSearch;
   final bool isSearching;
+
   final ValueChanged<String> onCountryChanged;
-  final ValueChanged<int> onRadiusChanged;
-  final VoidCallback onRetryLocation;
   final VoidCallback onSearch;
+  final ValueChanged<String> onRegionChanged;
+  final ValueChanged<String> onLettersChanged;
+  final ValueChanged<String> onNumbersChanged;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -405,7 +553,7 @@ class _PlateSearchHomeCard extends StatelessWidget {
               letterSpacing: -0.4,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Text(
             'Jemanden gesehen der dir gefällt?',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -414,7 +562,7 @@ class _PlateSearchHomeCard extends StatelessWidget {
               height: 1.18,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Dann tippe hier das Kennzeichen ein.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -428,29 +576,65 @@ class _PlateSearchHomeCard extends StatelessWidget {
             onChanged: onCountryChanged,
           ),
           const SizedBox(height: 16),
-          _PlateInputBox(
-            regionController: regionController,
-            lettersController: lettersController,
-            numbersController: numbersController,
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _RadiusSelector(
-                  radiusKm: radiusKm,
-                  onChanged: onRadiusChanged,
-                ),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: Colors.white.withValues(alpha: 0.08),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.16),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _LocationStatus(
-                  isLoadingLocation: isLoadingLocation,
-                  locationError: locationError,
-                  onRetryLocation: onRetryLocation,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _PlateInputField(
+                    title: firstFieldLabel,
+                    controller: regionController,
+                    focusNode: regionFocusNode,
+                    textInputAction:
+                    usesLettersField ? TextInputAction.next : TextInputAction.next,
+                    maxLength: firstFieldMaxLength,
+                    inputFormatters: const [
+                      _LettersOnlyFormatter(),
+                    ],
+                    onChanged: onRegionChanged,
+                  ),
                 ),
-              ),
-            ],
+                if (usesLettersField) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _PlateInputField(
+                      title: 'Buchstaben',
+                      controller: lettersController,
+                      focusNode: lettersFocusNode,
+                      textInputAction: TextInputAction.next,
+                      maxLength: 2,
+                      inputFormatters: const [
+                        _LettersOnlyFormatter(),
+                      ],
+                      onChanged: onLettersChanged,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _PlateInputField(
+                    title: 'Zahlen',
+                    controller: numbersController,
+                    focusNode: numbersFocusNode,
+                    textInputAction: TextInputAction.done,
+                    keyboardType: TextInputType.text,
+                    maxLength: numbersMaxLength,
+                    inputFormatters: const [
+                      _NumberWithOptionalEFormatter(),
+                    ],
+                    onChanged: onNumbersChanged,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           _HomeSearchButton(
@@ -476,11 +660,11 @@ class _CountrySelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 54,
+      height: 52,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.26),
+          color: Colors.white.withValues(alpha: 0.20),
         ),
         color: Colors.white.withValues(alpha: 0.05),
       ),
@@ -492,14 +676,14 @@ class _CountrySelector extends StatelessWidget {
             selectedCountryCode: selectedCountryCode,
             onChanged: onChanged,
           ),
-          _CountryDivider(),
+          const _CountryDivider(),
           _CountryTab(
             label: 'Österreich',
             countryCode: 'AT',
             selectedCountryCode: selectedCountryCode,
             onChanged: onChanged,
           ),
-          _CountryDivider(),
+          const _CountryDivider(),
           _CountryTab(
             label: 'Schweiz',
             countryCode: 'CH',
@@ -540,9 +724,11 @@ class _CountryTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(17),
             gradient: isSelected
                 ? const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [
-                Color(0xFF7C22FF),
-                Color(0xFFB235FF),
+                Color(0xFF0E5BFF),
+                Color(0xFF22B8FF),
               ],
             )
                 : null,
@@ -564,270 +750,90 @@ class _CountryTab extends StatelessWidget {
 }
 
 class _CountryDivider extends StatelessWidget {
+  const _CountryDivider();
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 28,
-      color: Colors.white.withValues(alpha: 0.22),
+      height: 26,
+      color: Colors.white.withValues(alpha: 0.18),
     );
   }
 }
 
-class _PlateInputBox extends StatelessWidget {
-  const _PlateInputBox({
-    required this.regionController,
-    required this.lettersController,
-    required this.numbersController,
-  });
-
-  final TextEditingController regionController;
-  final TextEditingController lettersController;
-  final TextEditingController numbersController;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        color: Colors.white.withValues(alpha: 0.10),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _PlateTextField(
-              controller: regionController,
-              hint: 'HH',
-              maxLength: 3,
-              keyboardType: TextInputType.text,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _PlateTextField(
-              controller: lettersController,
-              hint: 'SY',
-              maxLength: 2,
-              keyboardType: TextInputType.text,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _PlateTextField(
-              controller: numbersController,
-              hint: '4700',
-              maxLength: 4,
-              keyboardType: TextInputType.text,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlateTextField extends StatelessWidget {
-  const _PlateTextField({
+class _PlateInputField extends StatelessWidget {
+  const _PlateInputField({
+    required this.title,
     required this.controller,
-    required this.hint,
+    required this.focusNode,
+    required this.textInputAction,
     required this.maxLength,
-    required this.keyboardType,
+    required this.inputFormatters,
+    required this.onChanged,
+    this.keyboardType = TextInputType.text,
   });
 
+  final String title;
   final TextEditingController controller;
-  final String hint;
+  final FocusNode focusNode;
+  final TextInputAction textInputAction;
   final int maxLength;
+  final List<TextInputFormatter> inputFormatters;
+  final ValueChanged<String> onChanged;
   final TextInputType keyboardType;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLength: maxLength,
-      keyboardType: keyboardType,
-      textAlign: TextAlign.center,
-      textCapitalization: TextCapitalization.characters,
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
-        _UpperCaseTextFormatter(),
-      ],
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0.8,
-      ),
-      decoration: InputDecoration(
-        counterText: '',
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.58),
-          fontWeight: FontWeight.w900,
-        ),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.12),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 18,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.18),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.70),
+            fontWeight: FontWeight.w700,
           ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.48),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLength: maxLength,
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          textAlign: TextAlign.center,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: inputFormatters,
+          onChanged: onChanged,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UpperCaseTextFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
-    final normalized = newValue.text.toUpperCase().replaceAll(
-      RegExp(r'[^A-Z0-9]'),
-      '',
-    );
-
-    return TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
-    );
-  }
-}
-
-class _RadiusSelector extends StatelessWidget {
-  const _RadiusSelector({
-    required this.radiusKm,
-    required this.onChanged,
-  });
-
-  final int radiusKm;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<int>(
-      initialValue: radiusKm,
-      color: const Color(0xFF1A1A2E),
-      onSelected: onChanged,
-      itemBuilder: (context) {
-        return const [
-          PopupMenuItem(
-            value: 1,
-            child: Text('1 km'),
-          ),
-          PopupMenuItem(
-            value: 5,
-            child: Text('5 km'),
-          ),
-          PopupMenuItem(
-            value: 10,
-            child: Text('10 km'),
-          ),
-        ];
-      },
-      child: _SmallInfoPill(
-        icon: Icons.radar_rounded,
-        label: '$radiusKm km',
-      ),
-    );
-  }
-}
-
-class _LocationStatus extends StatelessWidget {
-  const _LocationStatus({
-    required this.isLoadingLocation,
-    required this.locationError,
-    required this.onRetryLocation,
-  });
-
-  final bool isLoadingLocation;
-  final String? locationError;
-  final VoidCallback onRetryLocation;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoadingLocation) {
-      return const _SmallInfoPill(
-        icon: Icons.my_location_rounded,
-        label: 'GPS...',
-      );
-    }
-
-    if (locationError != null) {
-      return InkWell(
-        onTap: onRetryLocation,
-        borderRadius: BorderRadius.circular(16),
-        child: const _SmallInfoPill(
-          icon: Icons.refresh_rounded,
-          label: 'GPS prüfen',
-        ),
-      );
-    }
-
-    return const _SmallInfoPill(
-      icon: Icons.my_location_rounded,
-      label: 'Standort',
-    );
-  }
-}
-
-class _SmallInfoPill extends StatelessWidget {
-  const _SmallInfoPill({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.white.withValues(alpha: 0.09),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: Colors.white.withValues(alpha: 0.82),
-            size: 18,
-          ),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
+          decoration: InputDecoration(
+            counterText: '',
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 18,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.16),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.42),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -903,6 +909,7 @@ class _PlateSearchResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!result.found) {
       return GlassCard(
+        key: const ValueKey('no_result'),
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
@@ -927,29 +934,33 @@ class _PlateSearchResultCard extends StatelessWidget {
     }
 
     return GlassCard(
+      key: const ValueKey('result'),
       padding: const EdgeInsets.all(20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 62,
+                height: 62,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF7C22FF),
-                      Color(0xFF31D4FF),
+                      Color(0xFF0E5BFF),
+                      Color(0xFF22B8FF),
                     ],
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.32),
+                    color: Colors.white.withValues(alpha: 0.28),
                   ),
                 ),
                 child: const Icon(
-                  Icons.directions_car_filled_rounded,
+                  Icons.person_rounded,
                   color: Colors.white,
                   size: 32,
                 ),
@@ -966,10 +977,10 @@ class _PlateSearchResultCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
           _ResultRow(
             label: 'Kennzeichen',
-            value: fallbackDisplayPlate,
+            value: fallbackDisplayPlate.isEmpty ? '-' : fallbackDisplayPlate,
           ),
           const SizedBox(height: 10),
           _ResultRow(
@@ -983,7 +994,7 @@ class _PlateSearchResultCard extends StatelessWidget {
             label: 'Status',
             value: 'Aktiv in deiner Nähe',
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
           _HomeSearchButton(
             label: isRequestingContact ? 'Anfrage läuft...' : 'Anfragen',
             icon: Icons.mail_outline_rounded,
@@ -1009,12 +1020,12 @@ class _ResultRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 116,
+          width: 112,
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.76),
-              fontWeight: FontWeight.w800,
+              color: Colors.white.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -1038,6 +1049,7 @@ class _LoadingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      key: const ValueKey('loading'),
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
@@ -1100,32 +1112,58 @@ class _MessageCard extends StatelessWidget {
   }
 }
 
-class _EmptyStateCard extends StatelessWidget {
-  const _EmptyStateCard();
+class _LettersOnlyFormatter extends TextInputFormatter {
+  const _LettersOnlyFormatter();
 
   @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          Icon(
-            Icons.lock_outline_rounded,
-            color: Colors.white.withValues(alpha: 0.82),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Suchergebnisse erscheinen hier direkt auf der Startseite. Kein neues Fenster, kein extra Screen.',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    final normalized = newValue.text
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-ZÄÖÜ]'), '');
+
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+}
+
+class _NumberWithOptionalEFormatter extends TextInputFormatter {
+  const _NumberWithOptionalEFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    final upper = newValue.text.toUpperCase();
+    final buffer = StringBuffer();
+    bool eUsed = false;
+
+    for (var i = 0; i < upper.length; i++) {
+      final char = upper[i];
+
+      if (RegExp(r'[0-9]').hasMatch(char)) {
+        if (!eUsed) {
+          buffer.write(char);
+        }
+        continue;
+      }
+
+      if (char == 'E' && !eUsed && i == upper.length - 1) {
+        buffer.write(char);
+        eUsed = true;
+      }
+    }
+
+    final normalized = buffer.toString();
+
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
     );
   }
 }
