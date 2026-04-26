@@ -89,9 +89,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'DE':
         return 5; // 4 Zahlen + optional E
       case 'AT':
-        return 5; // max. 5 Zahlen
+        return 5;
       case 'CH':
-        return 6; // max. 6 Zahlen
+        return 6;
       default:
         return 5;
     }
@@ -421,10 +421,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildResultArea() {
-    if (_isSearching) {
-      return const _LoadingCard();
-    }
-
     if (_result != null) {
       return _PlateSearchResultCard(
         result: _result!,
@@ -439,103 +435,118 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
     return CarmaBackground(
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 96),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _HomeHeader(),
-              const SizedBox(height: 24),
-              Text(
-                _greeting,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.6,
-                  height: 1.0,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                18,
+                20,
+                112 + keyboardInset,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 112,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _HomeHeader(),
+                    const SizedBox(height: 24),
+                    Text(
+                      _greeting,
+                      style:
+                      Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.6,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Jemanden gesehen der dir gefällt?',
+                      style:
+                      Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.4,
+                        height: 1.12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Dann tippe hier das Kennzeichen ein.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _CountrySelectorCard(
+                      selectedCountryCode: _countryCode,
+                      onChanged: _changeCountry,
+                    ),
+                    const SizedBox(height: 12),
+                    _PlateInputCard(
+                      countryCode: _countryCode,
+                      regionMaxLength: _regionMaxLength,
+                      lettersMaxLength: _lettersMaxLength,
+                      numbersMaxLength: _numbersMaxLength,
+                      regionController: _regionController,
+                      lettersController: _lettersController,
+                      numbersController: _numbersController,
+                      regionFocusNode: _regionFocusNode,
+                      lettersFocusNode: _lettersFocusNode,
+                      numbersFocusNode: _numbersFocusNode,
+                      onRegionChanged: _handleRegionChanged,
+                      onLettersChanged: _handleLettersChanged,
+                      onNumbersChanged: _handleNumbersChanged,
+                    ),
+                    const SizedBox(height: 12),
+                    _SearchButtonCard(
+                      isEnabled: _canSearch,
+                      isLoading: _isSearching,
+                      onPressed: _searchPlate,
+                    ),
+                    if (_locationError != null) ...[
+                      const SizedBox(height: 12),
+                      _MessageCard(
+                        icon: Icons.location_off_rounded,
+                        message: _locationError!,
+                      ),
+                    ],
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      _MessageCard(
+                        icon: Icons.error_outline_rounded,
+                        message: _errorMessage!,
+                      ),
+                    ],
+                    if (_successMessage != null) ...[
+                      const SizedBox(height: 12),
+                      _MessageCard(
+                        icon: Icons.check_circle_outline_rounded,
+                        message: _successMessage!,
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: _buildResultArea(),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                'Jemanden gesehen der dir gefällt?',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.4,
-                  height: 1.12,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Dann tippe hier das Kennzeichen ein.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.76),
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 18),
-              _CountrySelectorCard(
-                selectedCountryCode: _countryCode,
-                onChanged: _changeCountry,
-              ),
-              const SizedBox(height: 12),
-              _PlateInputCard(
-                countryCode: _countryCode,
-                regionMaxLength: _regionMaxLength,
-                lettersMaxLength: _lettersMaxLength,
-                numbersMaxLength: _numbersMaxLength,
-                regionController: _regionController,
-                lettersController: _lettersController,
-                numbersController: _numbersController,
-                regionFocusNode: _regionFocusNode,
-                lettersFocusNode: _lettersFocusNode,
-                numbersFocusNode: _numbersFocusNode,
-                onRegionChanged: _handleRegionChanged,
-                onLettersChanged: _handleLettersChanged,
-                onNumbersChanged: _handleNumbersChanged,
-              ),
-              const SizedBox(height: 12),
-              _SearchButtonCard(
-                isEnabled: _canSearch,
-                isLoading: _isSearching,
-                onPressed: _searchPlate,
-              ),
-              if (_locationError != null) ...[
-                const SizedBox(height: 12),
-                _MessageCard(
-                  icon: Icons.location_off_rounded,
-                  message: _locationError!,
-                ),
-              ],
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
-                _MessageCard(
-                  icon: Icons.error_outline_rounded,
-                  message: _errorMessage!,
-                ),
-              ],
-              if (_successMessage != null) ...[
-                const SizedBox(height: 12),
-                _MessageCard(
-                  icon: Icons.check_circle_outline_rounded,
-                  message: _successMessage!,
-                ),
-              ],
-              const SizedBox(height: 14),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: _buildResultArea(),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -660,7 +671,7 @@ class _CountryButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          height: 52,
+          height: 56,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -698,8 +709,8 @@ class _CountryButton extends StatelessWidget {
               maxLines: 1,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
                 letterSpacing: -0.1,
               ),
             ),
@@ -880,16 +891,18 @@ class _PlateInputField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.white.withValues(alpha: 0.92),
-            fontWeight: FontWeight.w900,
-            fontSize: 14.5,
-            letterSpacing: -0.1,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.96),
+              fontWeight: FontWeight.w900,
+              fontSize: 15.5,
+              letterSpacing: -0.1,
+            ),
           ),
         ),
         const SizedBox(height: 9),
@@ -906,6 +919,7 @@ class _PlateInputField extends StatelessWidget {
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w900,
+            fontSize: 23,
             letterSpacing: 0.8,
           ),
           decoration: InputDecoration(
@@ -958,7 +972,7 @@ class _SearchButtonCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(26),
           child: Ink(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(26),
               gradient: const LinearGradient(
@@ -989,15 +1003,15 @@ class _SearchButtonCard extends StatelessWidget {
                       ? Icons.hourglass_top_rounded
                       : Icons.search_rounded,
                   color: Colors.white,
-                  size: 26,
+                  size: 29,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 13),
                 Text(
                   isLoading ? 'Suche läuft...' : 'Suchen',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: 18,
+                    fontSize: 19.5,
                     letterSpacing: -0.1,
                   ),
                 ),
@@ -1216,38 +1230,6 @@ class _ResultInfoRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LoadingCard extends StatelessWidget {
-  const _LoadingCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      key: const ValueKey('loading'),
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Text(
-            'Suche läuft...',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

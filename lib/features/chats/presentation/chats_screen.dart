@@ -1405,31 +1405,15 @@ class _CompactChatInfoCard extends StatelessWidget {
               const _UserAvatarPlaceholder(size: 46),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Carma Nutzer',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 17,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '[Farbe] [Marke] [Modell]',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.70),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Carma Nutzer',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
                 ),
               ),
             ],
@@ -1439,15 +1423,15 @@ class _CompactChatInfoCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _VehicleInfoPill(
-                  label: 'Typ',
-                  value: '[Typ]',
+                  label: 'Modell',
+                  value: '[Modell]',
                 ),
               ),
               SizedBox(width: 8),
               Expanded(
                 child: _VehicleInfoPill(
-                  label: 'Farbe',
-                  value: '[Farbe]',
+                  label: 'Typ',
+                  value: '[Typ]',
                 ),
               ),
             ],

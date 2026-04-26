@@ -94,7 +94,7 @@ class _GlassBottomNavigationBar extends StatelessWidget {
     _NavigationItem(
       icon: Icons.settings_outlined,
       activeIcon: Icons.settings_rounded,
-      label: 'Mehr',
+      label: 'Einstellung',
     ),
   ];
 
