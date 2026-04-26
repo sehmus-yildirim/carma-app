@@ -6,6 +6,8 @@ import '../../reports/presentation/report_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'dashboard_screen.dart';
 
+const Color _navAccentBlue = Color(0xFF139CFF);
+
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -36,6 +38,8 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
@@ -43,11 +47,12 @@ class _AppShellState extends State<AppShell> {
         index: _selectedIndex,
         children: _screens,
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: _GlassBottomNavigationBar(
           selectedIndex: _selectedIndex,
           onTabSelected: _onTabSelected,
+          bottomInset: bottomInset,
         ),
       ),
     );
@@ -58,10 +63,12 @@ class _GlassBottomNavigationBar extends StatelessWidget {
   const _GlassBottomNavigationBar({
     required this.selectedIndex,
     required this.onTabSelected,
+    required this.bottomInset,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
+  final double bottomInset;
 
   static const List<_NavigationItem> _items = [
     _NavigationItem(
@@ -93,10 +100,12 @@ class _GlassBottomNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeBottom = bottomInset == 0 ? 8.0 : bottomInset;
+
     return Container(
-      height: 76,
+      height: 76 + safeBottom,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.42),
@@ -104,56 +113,66 @@ class _GlassBottomNavigationBar extends StatelessWidget {
             offset: const Offset(0, 18),
           ),
           BoxShadow(
+            color: _navAccentBlue.withValues(alpha: 0.12),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
             color: Colors.white.withValues(alpha: 0.06),
-            blurRadius: 26,
+            blurRadius: 18,
             offset: const Offset(0, 0),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(30),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(30),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.20),
-                Colors.white.withValues(alpha: 0.11),
-                Colors.white.withValues(alpha: 0.06),
+                Colors.white.withValues(alpha: 0.18),
+                Colors.white.withValues(alpha: 0.10),
+                _navAccentBlue.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0.05),
               ],
             ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.24),
+              color: Colors.white.withValues(alpha: 0.18),
               width: 1.1,
             ),
           ),
-          child: Stack(
+          child: Column(
             children: [
-              Positioned(
-                top: 0,
-                left: 18,
-                right: 18,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 child: Container(
                   height: 1,
-                  color: Colors.white.withValues(alpha: 0.34),
+                  color: Colors.white.withValues(alpha: 0.22),
                 ),
               ),
-              Row(
-                children: List.generate(_items.length, (index) {
-                  final item = _items[index];
-                  final isSelected = selectedIndex == index;
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+                  child: Row(
+                    children: List.generate(_items.length, (index) {
+                      final item = _items[index];
+                      final isSelected = selectedIndex == index;
 
-                  return Expanded(
-                    child: _GlassNavigationButton(
-                      item: item,
-                      isSelected: isSelected,
-                      onTap: () => onTabSelected(index),
-                    ),
-                  );
-                }),
+                      return Expanded(
+                        child: _GlassNavigationButton(
+                          item: item,
+                          isSelected: isSelected,
+                          onTap: () => onTabSelected(index),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
               ),
+              SizedBox(height: safeBottom),
             ],
           ),
         ),
@@ -181,47 +200,54 @@ class _GlassNavigationButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        splashColor: Colors.white.withValues(alpha: 0.08),
-        highlightColor: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(22),
+        splashColor: Colors.white.withValues(alpha: 0.06),
+        highlightColor: Colors.white.withValues(alpha: 0.03),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
-              color: isSelected
-                  ? Colors.white.withValues(alpha: 0.16)
-                  : Colors.transparent,
+              gradient: isSelected
+                  ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0C7FFF),
+                  Color(0xFF4FD2FF),
+                ],
+              )
+                  : null,
+              color: isSelected ? null : Colors.white.withValues(alpha: 0.02),
               border: Border.all(
                 color: isSelected
-                    ? Colors.white.withValues(alpha: 0.20)
+                    ? Colors.white.withValues(alpha: 0.24)
                     : Colors.transparent,
               ),
               boxShadow: isSelected
                   ? [
                 BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.07),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  color: _navAccentBlue.withValues(alpha: 0.30),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ]
                   : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   icon,
                   color: isSelected
                       ? Colors.white
-                      : Colors.white.withValues(alpha: 0.58),
-                  size: isSelected ? 23 : 22,
+                      : Colors.white.withValues(alpha: 0.70),
+                  size: isSelected ? 22 : 21,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
@@ -231,7 +257,7 @@ class _GlassNavigationButton extends StatelessWidget {
                     style: TextStyle(
                       color: isSelected
                           ? Colors.white
-                          : Colors.white.withValues(alpha: 0.58),
+                          : Colors.white.withValues(alpha: 0.72),
                       fontSize: 10.5,
                       fontWeight:
                       isSelected ? FontWeight.w800 : FontWeight.w600,

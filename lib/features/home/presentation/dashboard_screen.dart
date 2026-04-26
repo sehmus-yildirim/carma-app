@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,10 +8,9 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
 
-enum _PlateFieldType {
-  letters,
-  numbersWithOptionalE,
-}
+const Color _carmaBlue = Color(0xFF139CFF);
+const Color _carmaBlueLight = Color(0xFF63D5FF);
+const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -43,7 +43,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _errorMessage;
   String? _successMessage;
 
-  bool get _usesLettersField => _countryCode != 'CH';
+  String get _firstName {
+    final fullName =
+        FirebaseAuth.instance.currentUser?.displayName?.trim() ?? '';
+
+    if (fullName.isEmpty) {
+      return '';
+    }
+
+    return fullName.split(RegExp(r'\s+')).first.trim();
+  }
+
+  String get _greeting {
+    if (_firstName.isEmpty) {
+      return 'Hallo!';
+    }
+
+    return 'Hallo $_firstName!';
+  }
 
   int get _regionMaxLength {
     switch (_countryCode) {
@@ -54,6 +71,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'DE':
       default:
         return 3;
+    }
+  }
+
+  int get _lettersMaxLength {
+    switch (_countryCode) {
+      case 'AT':
+        return 2;
+      case 'DE':
+      default:
+        return 2;
     }
   }
 
@@ -69,15 +96,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  int get _lettersMaxLength {
-    switch (_countryCode) {
-      case 'AT':
-        return 3;
-      case 'DE':
-      default:
-        return 2;
-    }
-  }
+  bool get _hasLettersField => _countryCode != 'CH';
 
   bool get _hasPlateInput {
     final region = _regionController.text.trim();
@@ -378,6 +397,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _clearResultMessages();
 
     if (value.length >= _lettersMaxLength) {
+      if (_countryCode == 'AT') {
+        _lettersFocusNode.unfocus();
+        return;
+      }
+
       _numbersFocusNode.requestFocus();
     }
   }
@@ -385,8 +409,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _handleNumbersChanged(String value) {
     _clearResultMessages();
 
-    if (_countryCode == 'AT' && value.length >= _numbersMaxLength) {
-      _lettersFocusNode.requestFocus();
+    if (_countryCode == 'AT') {
+      if (value.length >= _numbersMaxLength) {
+        _lettersFocusNode.requestFocus();
+      }
       return;
     }
 
@@ -422,54 +448,90 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const _HomeHeader(),
-              const SizedBox(height: 20),
-              _PlateSearchHomeCard(
+              const SizedBox(height: 24),
+              Text(
+                _greeting,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.6,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Jemanden gesehen der dir gefällt?',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.4,
+                  height: 1.12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Dann tippe hier das Kennzeichen ein.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.76),
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _CountrySelectorCard(
+                selectedCountryCode: _countryCode,
+                onChanged: _changeCountry,
+              ),
+              const SizedBox(height: 12),
+              _PlateInputCard(
                 countryCode: _countryCode,
                 regionMaxLength: _regionMaxLength,
                 lettersMaxLength: _lettersMaxLength,
                 numbersMaxLength: _numbersMaxLength,
-                usesLettersField: _usesLettersField,
+                hasLettersField: _hasLettersField,
                 regionController: _regionController,
                 lettersController: _lettersController,
                 numbersController: _numbersController,
                 regionFocusNode: _regionFocusNode,
                 lettersFocusNode: _lettersFocusNode,
                 numbersFocusNode: _numbersFocusNode,
-                canSearch: _canSearch,
-                isSearching: _isSearching,
-                onCountryChanged: _changeCountry,
-                onSearch: _searchPlate,
                 onRegionChanged: _handleRegionChanged,
                 onLettersChanged: _handleLettersChanged,
                 onNumbersChanged: _handleNumbersChanged,
               ),
+              const SizedBox(height: 12),
+              _SearchButtonCard(
+                isEnabled: _canSearch,
+                isLoading: _isSearching,
+                onPressed: _searchPlate,
+              ),
               if (_locationError != null) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 _MessageCard(
                   icon: Icons.location_off_rounded,
                   message: _locationError!,
                 ),
               ],
               if (_errorMessage != null) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 _MessageCard(
                   icon: Icons.error_outline_rounded,
                   message: _errorMessage!,
                 ),
               ],
               if (_successMessage != null) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 _MessageCard(
                   icon: Icons.check_circle_outline_rounded,
                   message: _successMessage!,
                 ),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Expanded(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: Align(
+                    alignment: Alignment.topCenter,
                     child: _buildResultArea(),
                   ),
                 ),
@@ -490,14 +552,21 @@ class _HomeHeader extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 52,
-          height: 52,
+          width: 54,
+          height: 54,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.12),
+            color: Colors.white.withValues(alpha: 0.11),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.20),
+              color: Colors.white.withValues(alpha: 0.16),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: _carmaBlue.withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: const Icon(
             Icons.directions_car_filled_rounded,
@@ -521,277 +590,8 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
-class _PlateSearchHomeCard extends StatelessWidget {
-  const _PlateSearchHomeCard({
-    required this.countryCode,
-    required this.regionMaxLength,
-    required this.lettersMaxLength,
-    required this.numbersMaxLength,
-    required this.usesLettersField,
-    required this.regionController,
-    required this.lettersController,
-    required this.numbersController,
-    required this.regionFocusNode,
-    required this.lettersFocusNode,
-    required this.numbersFocusNode,
-    required this.canSearch,
-    required this.isSearching,
-    required this.onCountryChanged,
-    required this.onSearch,
-    required this.onRegionChanged,
-    required this.onLettersChanged,
-    required this.onNumbersChanged,
-  });
-
-  final String countryCode;
-  final int regionMaxLength;
-  final int lettersMaxLength;
-  final int numbersMaxLength;
-  final bool usesLettersField;
-
-  final TextEditingController regionController;
-  final TextEditingController lettersController;
-  final TextEditingController numbersController;
-
-  final FocusNode regionFocusNode;
-  final FocusNode lettersFocusNode;
-  final FocusNode numbersFocusNode;
-
-  final bool canSearch;
-  final bool isSearching;
-
-  final ValueChanged<String> onCountryChanged;
-  final VoidCallback onSearch;
-  final ValueChanged<String> onRegionChanged;
-  final ValueChanged<String> onLettersChanged;
-  final ValueChanged<String> onNumbersChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Hallo Sehmus!',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Jemanden gesehen der dir gefällt?',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              height: 1.18,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Dann tippe hier das Kennzeichen ein.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withValues(alpha: 0.78),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 18),
-          _CountrySelector(
-            selectedCountryCode: countryCode,
-            onChanged: onCountryChanged,
-          ),
-          const SizedBox(height: 16),
-          _PlateInputArea(
-            countryCode: countryCode,
-            regionMaxLength: regionMaxLength,
-            lettersMaxLength: lettersMaxLength,
-            numbersMaxLength: numbersMaxLength,
-            usesLettersField: usesLettersField,
-            regionController: regionController,
-            lettersController: lettersController,
-            numbersController: numbersController,
-            regionFocusNode: regionFocusNode,
-            lettersFocusNode: lettersFocusNode,
-            numbersFocusNode: numbersFocusNode,
-            onRegionChanged: onRegionChanged,
-            onLettersChanged: onLettersChanged,
-            onNumbersChanged: onNumbersChanged,
-          ),
-          const SizedBox(height: 16),
-          _HomeSearchButton(
-            label: isSearching ? 'Suche läuft...' : 'Suchen',
-            icon: Icons.search_rounded,
-            onPressed: canSearch ? onSearch : null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlateInputArea extends StatelessWidget {
-  const _PlateInputArea({
-    required this.countryCode,
-    required this.regionMaxLength,
-    required this.lettersMaxLength,
-    required this.numbersMaxLength,
-    required this.usesLettersField,
-    required this.regionController,
-    required this.lettersController,
-    required this.numbersController,
-    required this.regionFocusNode,
-    required this.lettersFocusNode,
-    required this.numbersFocusNode,
-    required this.onRegionChanged,
-    required this.onLettersChanged,
-    required this.onNumbersChanged,
-  });
-
-  final String countryCode;
-  final int regionMaxLength;
-  final int lettersMaxLength;
-  final int numbersMaxLength;
-  final bool usesLettersField;
-
-  final TextEditingController regionController;
-  final TextEditingController lettersController;
-  final TextEditingController numbersController;
-
-  final FocusNode regionFocusNode;
-  final FocusNode lettersFocusNode;
-  final FocusNode numbersFocusNode;
-
-  final ValueChanged<String> onRegionChanged;
-  final ValueChanged<String> onLettersChanged;
-  final ValueChanged<String> onNumbersChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final fields = <Widget>[
-      Expanded(
-        child: _PlateInputField(
-          hint: countryCode == 'CH' ? 'Kanton' : countryCode == 'AT' ? 'Bezirk' : 'Stadt',
-          controller: regionController,
-          focusNode: regionFocusNode,
-          textInputAction: TextInputAction.next,
-          maxLength: regionMaxLength,
-          inputFormatters: const [
-            _LettersOnlyFormatter(),
-          ],
-          fieldType: _PlateFieldType.letters,
-          onChanged: onRegionChanged,
-        ),
-      ),
-    ];
-
-    if (countryCode == 'AT') {
-      fields.addAll([
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            hint: 'Zahlen',
-            controller: numbersController,
-            focusNode: numbersFocusNode,
-            textInputAction: TextInputAction.next,
-            maxLength: numbersMaxLength,
-            inputFormatters: const [
-              _NumbersOnlyFormatter(),
-            ],
-            fieldType: _PlateFieldType.numbersWithOptionalE,
-            onChanged: onNumbersChanged,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            hint: 'Buchstaben',
-            controller: lettersController,
-            focusNode: lettersFocusNode,
-            textInputAction: TextInputAction.done,
-            maxLength: lettersMaxLength,
-            inputFormatters: const [
-              _LettersOnlyFormatter(),
-            ],
-            fieldType: _PlateFieldType.letters,
-            onChanged: onLettersChanged,
-          ),
-        ),
-      ]);
-    } else if (countryCode == 'CH') {
-      fields.addAll([
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            hint: 'Zahlen',
-            controller: numbersController,
-            focusNode: numbersFocusNode,
-            textInputAction: TextInputAction.done,
-            maxLength: numbersMaxLength,
-            inputFormatters: const [
-              _NumbersOnlyFormatter(),
-            ],
-            fieldType: _PlateFieldType.numbersWithOptionalE,
-            onChanged: onNumbersChanged,
-          ),
-        ),
-      ]);
-    } else {
-      fields.addAll([
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            hint: 'Buchstaben',
-            controller: lettersController,
-            focusNode: lettersFocusNode,
-            textInputAction: TextInputAction.next,
-            maxLength: lettersMaxLength,
-            inputFormatters: const [
-              _LettersOnlyFormatter(),
-            ],
-            fieldType: _PlateFieldType.letters,
-            onChanged: onLettersChanged,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            hint: 'Zahlen',
-            controller: numbersController,
-            focusNode: numbersFocusNode,
-            textInputAction: TextInputAction.done,
-            maxLength: numbersMaxLength,
-            inputFormatters: const [
-              _NumberWithOptionalEFormatter(),
-            ],
-            fieldType: _PlateFieldType.numbersWithOptionalE,
-            onChanged: onNumbersChanged,
-          ),
-        ),
-      ]);
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: Colors.white.withValues(alpha: 0.08),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: fields,
-      ),
-    );
-  }
-}
-
-class _CountrySelector extends StatelessWidget {
-  const _CountrySelector({
+class _CountrySelectorCard extends StatelessWidget {
+  const _CountrySelectorCard({
     required this.selectedCountryCode,
     required this.onChanged,
   });
@@ -801,36 +601,35 @@ class _CountrySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.20),
-        ),
-        color: Colors.white.withValues(alpha: 0.05),
-      ),
+    return GlassCard(
+      padding: const EdgeInsets.all(10),
       child: Row(
         children: [
-          _CountryTab(
-            label: 'Deutschland',
-            countryCode: 'DE',
-            selectedCountryCode: selectedCountryCode,
-            onChanged: onChanged,
+          Expanded(
+            child: _CountryButton(
+              label: 'Deutschland',
+              countryCode: 'DE',
+              selectedCountryCode: selectedCountryCode,
+              onChanged: onChanged,
+            ),
           ),
-          const _CountryDivider(),
-          _CountryTab(
-            label: 'Österreich',
-            countryCode: 'AT',
-            selectedCountryCode: selectedCountryCode,
-            onChanged: onChanged,
+          const SizedBox(width: 8),
+          Expanded(
+            child: _CountryButton(
+              label: 'Österreich',
+              countryCode: 'AT',
+              selectedCountryCode: selectedCountryCode,
+              onChanged: onChanged,
+            ),
           ),
-          const _CountryDivider(),
-          _CountryTab(
-            label: 'Schweiz',
-            countryCode: 'CH',
-            selectedCountryCode: selectedCountryCode,
-            onChanged: onChanged,
+          const SizedBox(width: 8),
+          Expanded(
+            child: _CountryButton(
+              label: 'Schweiz',
+              countryCode: 'CH',
+              selectedCountryCode: selectedCountryCode,
+              onChanged: onChanged,
+            ),
           ),
         ],
       ),
@@ -838,8 +637,8 @@ class _CountrySelector extends StatelessWidget {
   }
 }
 
-class _CountryTab extends StatelessWidget {
-  const _CountryTab({
+class _CountryButton extends StatelessWidget {
+  const _CountryButton({
     required this.label,
     required this.countryCode,
     required this.selectedCountryCode,
@@ -855,34 +654,56 @@ class _CountryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSelected = selectedCountryCode == countryCode;
 
-    return Expanded(
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: () => onChanged(countryCode),
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(16),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(16),
             gradient: isSelected
                 ? const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF0E5BFF),
-                Color(0xFF22B8FF),
+                _carmaBlueDark,
+                _carmaBlue,
+                _carmaBlueLight,
               ],
             )
                 : null,
+            color: isSelected ? null : Colors.white.withValues(alpha: 0.04),
+            border: Border.all(
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.10),
+            ),
+            boxShadow: isSelected
+                ? [
+              BoxShadow(
+                color: _carmaBlue.withValues(alpha: 0.26),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ]
+                : null,
           ),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                letterSpacing: -0.1,
+              ),
             ),
           ),
         ),
@@ -891,131 +712,296 @@ class _CountryTab extends StatelessWidget {
   }
 }
 
-class _CountryDivider extends StatelessWidget {
-  const _CountryDivider();
+class _PlateInputCard extends StatelessWidget {
+  const _PlateInputCard({
+    required this.countryCode,
+    required this.regionMaxLength,
+    required this.lettersMaxLength,
+    required this.numbersMaxLength,
+    required this.hasLettersField,
+    required this.regionController,
+    required this.lettersController,
+    required this.numbersController,
+    required this.regionFocusNode,
+    required this.lettersFocusNode,
+    required this.numbersFocusNode,
+    required this.onRegionChanged,
+    required this.onLettersChanged,
+    required this.onNumbersChanged,
+  });
+
+  final String countryCode;
+  final int regionMaxLength;
+  final int lettersMaxLength;
+  final int numbersMaxLength;
+  final bool hasLettersField;
+
+  final TextEditingController regionController;
+  final TextEditingController lettersController;
+  final TextEditingController numbersController;
+
+  final FocusNode regionFocusNode;
+  final FocusNode lettersFocusNode;
+  final FocusNode numbersFocusNode;
+
+  final ValueChanged<String> onRegionChanged;
+  final ValueChanged<String> onLettersChanged;
+  final ValueChanged<String> onNumbersChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 26,
-      color: Colors.white.withValues(alpha: 0.18),
+    final List<Widget> fields = [
+      Expanded(
+        child: _PlateInputField(
+          label: countryCode == 'CH'
+              ? 'Kanton'
+              : countryCode == 'AT'
+              ? 'Bezirk'
+              : 'Stadt',
+          controller: regionController,
+          focusNode: regionFocusNode,
+          textInputAction: TextInputAction.next,
+          maxLength: regionMaxLength,
+          inputFormatters: const [
+            _LettersOnlyFormatter(),
+          ],
+          onChanged: onRegionChanged,
+        ),
+      ),
+    ];
+
+    if (countryCode == 'AT') {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.next,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumbersOnlyFormatter(),
+            ],
+            onChanged: onNumbersChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Buchstaben',
+            controller: lettersController,
+            focusNode: lettersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: lettersMaxLength,
+            inputFormatters: const [
+              _LettersOnlyFormatter(),
+            ],
+            onChanged: onLettersChanged,
+          ),
+        ),
+      ]);
+    } else if (countryCode == 'CH') {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumbersOnlyFormatter(),
+            ],
+            onChanged: onNumbersChanged,
+          ),
+        ),
+      ]);
+    } else {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Buchstaben',
+            controller: lettersController,
+            focusNode: lettersFocusNode,
+            textInputAction: TextInputAction.next,
+            maxLength: lettersMaxLength,
+            inputFormatters: const [
+              _LettersOnlyFormatter(),
+            ],
+            onChanged: onLettersChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumberWithOptionalEFormatter(),
+            ],
+            onChanged: onNumbersChanged,
+          ),
+        ),
+      ]);
+    }
+
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: fields,
+      ),
     );
   }
 }
 
 class _PlateInputField extends StatelessWidget {
   const _PlateInputField({
-    required this.hint,
+    required this.label,
     required this.controller,
     required this.focusNode,
     required this.textInputAction,
     required this.maxLength,
     required this.inputFormatters,
-    required this.fieldType,
     required this.onChanged,
   });
 
-  final String hint;
+  final String label;
   final TextEditingController controller;
   final FocusNode focusNode;
   final TextInputAction textInputAction;
   final int maxLength;
   final List<TextInputFormatter> inputFormatters;
-  final _PlateFieldType fieldType;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      maxLength: maxLength,
-      keyboardType: TextInputType.text,
-      textInputAction: textInputAction,
-      textAlign: TextAlign.center,
-      textCapitalization: TextCapitalization.characters,
-      inputFormatters: inputFormatters,
-      onChanged: onChanged,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0.8,
-      ),
-      decoration: InputDecoration(
-        counterText: '',
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.48),
-          fontWeight: FontWeight.w800,
-          fontSize: 14,
-        ),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.12),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 19,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.16),
+    return Column(
+      children: [
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.48),
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+            letterSpacing: -0.1,
           ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.42),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLength: maxLength,
+          keyboardType: TextInputType.text,
+          textInputAction: textInputAction,
+          textAlign: TextAlign.center,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: inputFormatters,
+          onChanged: onChanged,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+          ),
+          decoration: InputDecoration(
+            counterText: '',
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 18,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(
+                color: _carmaBlueLight.withValues(alpha: 0.90),
+                width: 1.4,
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _HomeSearchButton extends StatelessWidget {
-  const _HomeSearchButton({
-    required this.label,
-    required this.icon,
+class _SearchButtonCard extends StatelessWidget {
+  const _SearchButtonCard({
+    required this.isEnabled,
+    required this.isLoading,
     required this.onPressed,
   });
 
-  final String label;
-  final IconData icon;
-  final VoidCallback? onPressed;
+  final bool isEnabled;
+  final bool isLoading;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final isEnabled = onPressed != null;
-
     return Opacity(
-      opacity: isEnabled ? 1 : 0.46,
+      opacity: isEnabled ? 1 : 0.45,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(18),
+          onTap: isEnabled ? onPressed : null,
+          borderRadius: BorderRadius.circular(24),
           child: Ink(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: Colors.white.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(24),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _carmaBlueDark,
+                  _carmaBlue,
+                  _carmaBlueLight,
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _carmaBlue.withValues(alpha: 0.26),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  icon,
-                  color: Colors.black.withValues(alpha: 0.82),
+                  isLoading
+                      ? Icons.hourglass_top_rounded
+                      : Icons.search_rounded,
+                  color: Colors.white,
                   size: 21,
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  label,
+                  isLoading ? 'Suche läuft...' : 'Suchen',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.black.withValues(alpha: 0.86),
+                    color: Colors.white,
                     fontWeight: FontWeight.w900,
+                    letterSpacing: -0.1,
                   ),
                 ),
               ],
@@ -1048,10 +1034,22 @@ class _PlateSearchResultCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            const Icon(
-              Icons.search_off_rounded,
-              color: Colors.white,
-              size: 30,
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  colors: [
+                    _carmaBlueDark,
+                    _carmaBlueLight,
+                  ],
+                ),
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1073,7 +1071,6 @@ class _PlateSearchResultCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -1086,12 +1083,13 @@ class _PlateSearchResultCard extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF0E5BFF),
-                      Color(0xFF22B8FF),
+                      _carmaBlueDark,
+                      _carmaBlue,
+                      _carmaBlueLight,
                     ],
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.28),
+                    color: Colors.white.withValues(alpha: 0.24),
                   ),
                 ),
                 child: const Icon(
@@ -1113,27 +1111,26 @@ class _PlateSearchResultCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          _ResultRow(
+          _ResultInfoRow(
             label: 'Kennzeichen',
             value: fallbackDisplayPlate.isEmpty ? '-' : fallbackDisplayPlate,
           ),
           const SizedBox(height: 10),
-          _ResultRow(
+          _ResultInfoRow(
             label: 'Entfernung',
             value: result.distanceKm == null
                 ? 'In deiner Nähe'
                 : '${result.distanceKm!.toStringAsFixed(1)} km',
           ),
           const SizedBox(height: 10),
-          const _ResultRow(
+          const _ResultInfoRow(
             label: 'Status',
             value: 'Aktiv in deiner Nähe',
           ),
           const SizedBox(height: 20),
-          _HomeSearchButton(
-            label: isRequestingContact ? 'Anfrage läuft...' : 'Anfragen',
-            icon: Icons.mail_outline_rounded,
-            onPressed: isRequestingContact ? null : onRequestContact,
+          _RequestContactButton(
+            isLoading: isRequestingContact,
+            onPressed: onRequestContact,
           ),
         ],
       ),
@@ -1141,8 +1138,56 @@ class _PlateSearchResultCard extends StatelessWidget {
   }
 }
 
-class _ResultRow extends StatelessWidget {
-  const _ResultRow({
+class _RequestContactButton extends StatelessWidget {
+  const _RequestContactButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isLoading ? null : onPressed,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.white.withValues(alpha: 0.92),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isLoading
+                    ? Icons.hourglass_top_rounded
+                    : Icons.mail_outline_rounded,
+                color: Colors.black.withValues(alpha: 0.80),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isLoading ? 'Anfrage läuft...' : 'Anfragen',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.black.withValues(alpha: 0.84),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultInfoRow extends StatelessWidget {
+  const _ResultInfoRow({
     required this.label,
     required this.value,
   });
@@ -1155,11 +1200,11 @@ class _ResultRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 112,
+          width: 116,
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: Colors.white.withValues(alpha: 0.68),
               fontWeight: FontWeight.w700,
             ),
           ),
