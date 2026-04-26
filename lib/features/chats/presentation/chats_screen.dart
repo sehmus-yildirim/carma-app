@@ -23,8 +23,7 @@ class ChatsScreen extends StatefulWidget {
 class _ChatsScreenState extends State<ChatsScreen> {
   _ChatsView _selectedView = _ChatsView.chats;
 
-  // TODO: Später durch echte Firebase-Daten ersetzen:
-  // contactRequests incoming/outgoing + chats collection.
+  // TODO: Später durch echte Firebase-Daten ersetzen.
   bool _hasIncomingRequest = true;
   bool _hasOutgoingRequest = false;
   bool _hasActiveChat = false;
@@ -123,6 +122,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   children: [
                     const _PageHeader(
                       icon: Icons.chat_bubble_rounded,
+                      title: 'Carma',
                     ),
                     const SizedBox(height: 26),
                     Text(
@@ -181,9 +181,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
 class _PageHeader extends StatelessWidget {
   const _PageHeader({
     required this.icon,
+    required this.title,
   });
 
   final IconData icon;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +217,7 @@ class _PageHeader extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(
           child: Text(
-            'Carma',
+            title,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,
@@ -603,7 +605,7 @@ class _IncomingRequestsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SubPageScaffold(
       icon: Icons.move_to_inbox_rounded,
-      title: 'Eingehende Anfragen',
+      headerTitle: 'Eingehende Anfragen',
       subtitle:
       'Hier entscheidest du, welche Kontaktanfragen angenommen oder abgelehnt werden.',
       child: hasIncomingRequest
@@ -642,7 +644,7 @@ class _OutgoingRequestsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SubPageScaffold(
       icon: Icons.outbox_rounded,
-      title: 'Gesendete Anfragen',
+      headerTitle: 'Gesendete Anfragen',
       subtitle:
       'Hier siehst du Anfragen, die du nach einer Kennzeichen-Suche gesendet hast.',
       child: hasOutgoingRequest
@@ -674,7 +676,7 @@ class _ActiveChatsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SubPageScaffold(
       icon: Icons.forum_rounded,
-      title: 'Aktive Chats',
+      headerTitle: 'Aktive Chats',
       subtitle:
       'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
       child: hasActiveChat
@@ -700,13 +702,13 @@ class _ActiveChatsScreen extends StatelessWidget {
 class _SubPageScaffold extends StatelessWidget {
   const _SubPageScaffold({
     required this.icon,
-    required this.title,
+    required this.headerTitle,
     required this.subtitle,
     required this.child,
   });
 
   final IconData icon;
-  final String title;
+  final String headerTitle;
   final String subtitle;
   final Widget child;
 
@@ -731,19 +733,10 @@ class _SubPageScaffold extends StatelessWidget {
               children: [
                 _SubPageHeader(
                   icon: icon,
+                  title: headerTitle,
                   onBack: () => Navigator.of(context).pop(),
                 ),
-                const SizedBox(height: 26),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.6,
-                    height: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 18),
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -767,10 +760,12 @@ class _SubPageScaffold extends StatelessWidget {
 class _SubPageHeader extends StatelessWidget {
   const _SubPageHeader({
     required this.icon,
+    required this.title,
     required this.onBack,
   });
 
   final IconData icon;
+  final String title;
   final VoidCallback onBack;
 
   @override
@@ -792,7 +787,7 @@ class _SubPageHeader extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Carma',
+              title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -898,7 +893,6 @@ class _RequestUserHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // TODO: Später echter Nutzername aus publicProfiles/{uid}
               Text(
                 'Carma Nutzer',
                 maxLines: 1,
@@ -910,7 +904,6 @@ class _RequestUserHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5),
-              // TODO: Später echte Fahrzeugdaten aus vehicle-Profil
               Text(
                 '[Farbe] [Marke] [Modell]',
                 maxLines: 1,
@@ -985,7 +978,6 @@ class _ActiveChatListTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // TODO: Später echter Nutzername
                       Text(
                         'Carma Nutzer',
                         maxLines: 1,
@@ -998,7 +990,6 @@ class _ActiveChatListTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 5),
-                      // TODO: Später echte Fahrzeugdaten
                       Text(
                         '[Farbe] [Marke] [Modell]',
                         maxLines: 1,
@@ -1129,7 +1120,6 @@ class _UserAvatarPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Später echtes Profilbild aus Firebase Storage/Profile laden.
     return Container(
       width: size,
       height: size,
@@ -1284,25 +1274,105 @@ class _SheetSecondaryButton extends StatelessWidget {
   }
 }
 
-class _ChatConversationScreen extends StatelessWidget {
+class _ChatConversationScreen extends StatefulWidget {
   const _ChatConversationScreen();
 
   @override
+  State<_ChatConversationScreen> createState() =>
+      _ChatConversationScreenState();
+}
+
+class _ChatConversationScreenState extends State<_ChatConversationScreen> {
+  final TextEditingController _messageController = TextEditingController();
+
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageController.addListener(_handleMessageChanged);
+  }
+
+  @override
+  void dispose() {
+    _messageController.removeListener(_handleMessageChanged);
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  void _handleMessageChanged() {
+    final nextHasText = _messageController.text.trim().isNotEmpty;
+
+    if (_hasText == nextHasText) {
+      return;
+    }
+
+    setState(() {
+      _hasText = nextHasText;
+    });
+  }
+
+  void _handleAttach() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Foto aufnehmen oder aus Galerie wählen verbinden wir später.',
+        ),
+      ),
+    );
+  }
+
+  void _handleSend() {
+    if (!_hasText) {
+      return;
+    }
+
+    _messageController.clear();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Nachrichten werden später mit Firebase verbunden.'),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
     return CarmaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: Column(
             children: [
-              _ChatConversationHeader(
-                onBack: () => Navigator.of(context).pop(),
-              ),
-              const Expanded(
+              Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(20, 14, 20, 24),
-                  child: _ChatProfileInfoCard(),
+                  keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    18,
+                    20,
+                    18 + keyboardInset,
+                  ),
+                  child: Column(
+                    children: [
+                      _CompactChatInfoCard(
+                        onBack: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(height: 14),
+                      const _ChatEmptySpace(),
+                    ],
+                  ),
                 ),
+              ),
+              _MessageComposer(
+                controller: _messageController,
+                hasText: _hasText,
+                onAttach: _handleAttach,
+                onSend: _handleSend,
               ),
             ],
           ),
@@ -1312,8 +1382,8 @@ class _ChatConversationScreen extends StatelessWidget {
   }
 }
 
-class _ChatConversationHeader extends StatelessWidget {
-  const _ChatConversationHeader({
+class _CompactChatInfoCard extends StatelessWidget {
+  const _CompactChatInfoCard({
     required this.onBack,
   });
 
@@ -1321,130 +1391,66 @@ class _ChatConversationHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-      child: GlassCard(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            _RoundIconButton(
-              icon: Icons.arrow_back_rounded,
-              onTap: onBack,
-            ),
-            const SizedBox(width: 12),
-            const _UserAvatarPlaceholder(size: 46),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: _ChatParticipantInfo(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ChatParticipantInfo extends StatelessWidget {
-  const _ChatParticipantInfo();
-
-  @override
-  Widget build(BuildContext context) {
-    // TODO: Später aus Firebase laden:
-    // otherUser.displayName
-    // otherUser.vehicle.brand
-    // otherUser.vehicle.model
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Carma Nutzer',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 17,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '[Marke] [Modell]',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.68),
-            fontWeight: FontWeight.w700,
-            fontSize: 12.5,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ChatProfileInfoCard extends StatelessWidget {
-  const _ChatProfileInfoCard();
-
-  @override
-  Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(14),
       child: Column(
         children: [
-          const _UserAvatarPlaceholder(size: 72),
-          const SizedBox(height: 18),
-          Text(
-            'Carma Nutzer',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 23,
-            ),
+          Row(
+            children: [
+              _RoundIconButton(
+                icon: Icons.arrow_back_rounded,
+                onTap: onBack,
+              ),
+              const SizedBox(width: 12),
+              const _UserAvatarPlaceholder(size: 46),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Carma Nutzer',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '[Farbe] [Marke] [Modell]',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.70),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Fahrzeugprofil',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const _ProfileInfoRow(
-            label: 'Name',
-            value: 'Carma Nutzer',
-          ),
-          SizedBox(height: 10),
-          const _ProfileInfoRow(
-            label: 'Marke',
-            value: '[Marke]',
-          ),
-          SizedBox(height: 10),
-          const _ProfileInfoRow(
-            label: 'Modell',
-            value: '[Modell]',
-          ),
-          SizedBox(height: 10),
-          const _ProfileInfoRow(
-            label: 'Fahrzeugtyp',
-            value: '[Typ]',
-          ),
-          SizedBox(height: 10),
-          const _ProfileInfoRow(
-            label: 'Farbe',
-            value: '[Farbe]',
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Der Nachrichtenbereich wird aktiviert, sobald Firebase-Chats verbunden sind.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontWeight: FontWeight.w700,
-              height: 1.4,
-            ),
+          const SizedBox(height: 14),
+          const Row(
+            children: [
+              Expanded(
+                child: _VehicleInfoPill(
+                  label: 'Typ',
+                  value: '[Typ]',
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: _VehicleInfoPill(
+                  label: 'Farbe',
+                  value: '[Farbe]',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1452,8 +1458,8 @@ class _ChatProfileInfoCard extends StatelessWidget {
   }
 }
 
-class _ProfileInfoRow extends StatelessWidget {
-  const _ProfileInfoRow({
+class _VehicleInfoPill extends StatelessWidget {
+  const _VehicleInfoPill({
     required this.label,
     required this.value,
   });
@@ -1464,10 +1470,12 @@ class _ProfileInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 11,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         color: Colors.white.withValues(alpha: 0.06),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.10),
@@ -1475,27 +1483,212 @@ class _ProfileInfoRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 104,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.68),
-                fontWeight: FontWeight.w700,
-              ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.64),
+              fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatEmptySpace extends StatelessWidget {
+  const _ChatEmptySpace();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(
+        minHeight: 220,
+      ),
+      alignment: Alignment.topCenter,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+      child: Text(
+        'Noch keine Nachrichten',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Colors.white.withValues(alpha: 0.48),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageComposer extends StatelessWidget {
+  const _MessageComposer({
+    required this.controller,
+    required this.hasText,
+    required this.onAttach,
+    required this.onSend,
+  });
+
+  final TextEditingController controller;
+  final bool hasText;
+  final VoidCallback onAttach;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      child: GlassCard(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            _ComposerIconButton(
+              icon: Icons.add_photo_alternate_outlined,
+              onTap: onAttach,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.newline,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Nachricht schreiben',
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.48),
+                    fontWeight: FontWeight.w700,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 13,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(19),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.10),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(19),
+                    borderSide: BorderSide(
+                      color: _carmaBlueLight.withValues(alpha: 0.88),
+                      width: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            _SendButton(
+              isEnabled: hasText,
+              onTap: onSend,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerIconButton extends StatelessWidget {
+  const _ComposerIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 43,
+          height: 43,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.08),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 23,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SendButton extends StatelessWidget {
+  const _SendButton({
+    required this.isEnabled,
+    required this.onTap,
+  });
+
+  final bool isEnabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.45,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: isEnabled ? onTap : null,
+          customBorder: const CircleBorder(),
+          child: Ink(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _carmaBlueDark,
+                  _carmaBlue,
+                  _carmaBlueLight,
+                ],
+              ),
+            ),
+            child: const Icon(
+              Icons.send_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
       ),
     );
   }
