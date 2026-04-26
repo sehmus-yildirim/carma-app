@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../chats/presentation/chats_screen.dart';
-import '../../dashboard/presentation/dashboard_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../reports/presentation/report_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
+import 'dashboard_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
