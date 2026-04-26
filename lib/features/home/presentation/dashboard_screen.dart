@@ -7,6 +7,11 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
 
+enum _PlateFieldType {
+  letters,
+  numbersWithOptionalE,
+}
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -40,19 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   bool get _usesLettersField => _countryCode != 'CH';
 
-  String get _firstFieldLabel {
-    switch (_countryCode) {
-      case 'AT':
-        return 'Bezirk';
-      case 'CH':
-        return 'Kanton';
-      case 'DE':
-      default:
-        return 'Stadt';
-    }
-  }
-
-  int get _firstFieldMaxLength {
+  int get _regionMaxLength {
     switch (_countryCode) {
       case 'AT':
         return 2;
@@ -69,9 +62,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'CH':
         return 6;
       case 'AT':
+        return 5;
       case 'DE':
       default:
         return 5;
+    }
+  }
+
+  int get _lettersMaxLength {
+    switch (_countryCode) {
+      case 'AT':
+        return 3;
+      case 'DE':
+      default:
+        return 2;
     }
   }
 
@@ -103,6 +107,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return '$region$numbers';
     }
 
+    if (_countryCode == 'AT') {
+      return '$region$numbers$letters';
+    }
+
     return '$region$letters$numbers';
   }
 
@@ -115,7 +123,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (region.isEmpty && numbers.isEmpty) {
         return '';
       }
+
       return '$region $numbers';
+    }
+
+    if (_countryCode == 'AT') {
+      if (region.isEmpty && numbers.isEmpty && letters.isEmpty) {
+        return '';
+      }
+
+      return '$region $numbers $letters';
     }
 
     if (region.isEmpty && letters.isEmpty && numbers.isEmpty) {
@@ -342,25 +359,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _handleRegionChanged(String value) {
     _clearResultMessages();
 
-    if (value.length >= _firstFieldMaxLength) {
-      if (_usesLettersField) {
-        _lettersFocusNode.requestFocus();
-      } else {
+    if (value.length >= _regionMaxLength) {
+      if (_countryCode == 'CH') {
         _numbersFocusNode.requestFocus();
+        return;
       }
+
+      if (_countryCode == 'AT') {
+        _numbersFocusNode.requestFocus();
+        return;
+      }
+
+      _lettersFocusNode.requestFocus();
     }
   }
 
   void _handleLettersChanged(String value) {
     _clearResultMessages();
 
-    if (value.length >= 2) {
+    if (value.length >= _lettersMaxLength) {
       _numbersFocusNode.requestFocus();
     }
   }
 
   void _handleNumbersChanged(String value) {
     _clearResultMessages();
+
+    if (_countryCode == 'AT' && value.length >= _numbersMaxLength) {
+      _lettersFocusNode.requestFocus();
+      return;
+    }
 
     if (value.length >= _numbersMaxLength) {
       _numbersFocusNode.unfocus();
@@ -397,8 +425,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 20),
               _PlateSearchHomeCard(
                 countryCode: _countryCode,
-                firstFieldLabel: _firstFieldLabel,
-                firstFieldMaxLength: _firstFieldMaxLength,
+                regionMaxLength: _regionMaxLength,
+                lettersMaxLength: _lettersMaxLength,
                 numbersMaxLength: _numbersMaxLength,
                 usesLettersField: _usesLettersField,
                 regionController: _regionController,
@@ -496,8 +524,8 @@ class _HomeHeader extends StatelessWidget {
 class _PlateSearchHomeCard extends StatelessWidget {
   const _PlateSearchHomeCard({
     required this.countryCode,
-    required this.firstFieldLabel,
-    required this.firstFieldMaxLength,
+    required this.regionMaxLength,
+    required this.lettersMaxLength,
     required this.numbersMaxLength,
     required this.usesLettersField,
     required this.regionController,
@@ -516,8 +544,8 @@ class _PlateSearchHomeCard extends StatelessWidget {
   });
 
   final String countryCode;
-  final String firstFieldLabel;
-  final int firstFieldMaxLength;
+  final int regionMaxLength;
+  final int lettersMaxLength;
   final int numbersMaxLength;
   final bool usesLettersField;
 
@@ -576,65 +604,21 @@ class _PlateSearchHomeCard extends StatelessWidget {
             onChanged: onCountryChanged,
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              color: Colors.white.withValues(alpha: 0.08),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.16),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _PlateInputField(
-                    title: firstFieldLabel,
-                    controller: regionController,
-                    focusNode: regionFocusNode,
-                    textInputAction:
-                    usesLettersField ? TextInputAction.next : TextInputAction.next,
-                    maxLength: firstFieldMaxLength,
-                    inputFormatters: const [
-                      _LettersOnlyFormatter(),
-                    ],
-                    onChanged: onRegionChanged,
-                  ),
-                ),
-                if (usesLettersField) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _PlateInputField(
-                      title: 'Buchstaben',
-                      controller: lettersController,
-                      focusNode: lettersFocusNode,
-                      textInputAction: TextInputAction.next,
-                      maxLength: 2,
-                      inputFormatters: const [
-                        _LettersOnlyFormatter(),
-                      ],
-                      onChanged: onLettersChanged,
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _PlateInputField(
-                    title: 'Zahlen',
-                    controller: numbersController,
-                    focusNode: numbersFocusNode,
-                    textInputAction: TextInputAction.done,
-                    keyboardType: TextInputType.text,
-                    maxLength: numbersMaxLength,
-                    inputFormatters: const [
-                      _NumberWithOptionalEFormatter(),
-                    ],
-                    onChanged: onNumbersChanged,
-                  ),
-                ),
-              ],
-            ),
+          _PlateInputArea(
+            countryCode: countryCode,
+            regionMaxLength: regionMaxLength,
+            lettersMaxLength: lettersMaxLength,
+            numbersMaxLength: numbersMaxLength,
+            usesLettersField: usesLettersField,
+            regionController: regionController,
+            lettersController: lettersController,
+            numbersController: numbersController,
+            regionFocusNode: regionFocusNode,
+            lettersFocusNode: lettersFocusNode,
+            numbersFocusNode: numbersFocusNode,
+            onRegionChanged: onRegionChanged,
+            onLettersChanged: onLettersChanged,
+            onNumbersChanged: onNumbersChanged,
           ),
           const SizedBox(height: 16),
           _HomeSearchButton(
@@ -643,6 +627,164 @@ class _PlateSearchHomeCard extends StatelessWidget {
             onPressed: canSearch ? onSearch : null,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PlateInputArea extends StatelessWidget {
+  const _PlateInputArea({
+    required this.countryCode,
+    required this.regionMaxLength,
+    required this.lettersMaxLength,
+    required this.numbersMaxLength,
+    required this.usesLettersField,
+    required this.regionController,
+    required this.lettersController,
+    required this.numbersController,
+    required this.regionFocusNode,
+    required this.lettersFocusNode,
+    required this.numbersFocusNode,
+    required this.onRegionChanged,
+    required this.onLettersChanged,
+    required this.onNumbersChanged,
+  });
+
+  final String countryCode;
+  final int regionMaxLength;
+  final int lettersMaxLength;
+  final int numbersMaxLength;
+  final bool usesLettersField;
+
+  final TextEditingController regionController;
+  final TextEditingController lettersController;
+  final TextEditingController numbersController;
+
+  final FocusNode regionFocusNode;
+  final FocusNode lettersFocusNode;
+  final FocusNode numbersFocusNode;
+
+  final ValueChanged<String> onRegionChanged;
+  final ValueChanged<String> onLettersChanged;
+  final ValueChanged<String> onNumbersChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final fields = <Widget>[
+      Expanded(
+        child: _PlateInputField(
+          hint: countryCode == 'CH' ? 'Kanton' : countryCode == 'AT' ? 'Bezirk' : 'Stadt',
+          controller: regionController,
+          focusNode: regionFocusNode,
+          textInputAction: TextInputAction.next,
+          maxLength: regionMaxLength,
+          inputFormatters: const [
+            _LettersOnlyFormatter(),
+          ],
+          fieldType: _PlateFieldType.letters,
+          onChanged: onRegionChanged,
+        ),
+      ),
+    ];
+
+    if (countryCode == 'AT') {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            hint: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.next,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumbersOnlyFormatter(),
+            ],
+            fieldType: _PlateFieldType.numbersWithOptionalE,
+            onChanged: onNumbersChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            hint: 'Buchstaben',
+            controller: lettersController,
+            focusNode: lettersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: lettersMaxLength,
+            inputFormatters: const [
+              _LettersOnlyFormatter(),
+            ],
+            fieldType: _PlateFieldType.letters,
+            onChanged: onLettersChanged,
+          ),
+        ),
+      ]);
+    } else if (countryCode == 'CH') {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            hint: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumbersOnlyFormatter(),
+            ],
+            fieldType: _PlateFieldType.numbersWithOptionalE,
+            onChanged: onNumbersChanged,
+          ),
+        ),
+      ]);
+    } else {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            hint: 'Buchstaben',
+            controller: lettersController,
+            focusNode: lettersFocusNode,
+            textInputAction: TextInputAction.next,
+            maxLength: lettersMaxLength,
+            inputFormatters: const [
+              _LettersOnlyFormatter(),
+            ],
+            fieldType: _PlateFieldType.letters,
+            onChanged: onLettersChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            hint: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumberWithOptionalEFormatter(),
+            ],
+            fieldType: _PlateFieldType.numbersWithOptionalE,
+            onChanged: onNumbersChanged,
+          ),
+        ),
+      ]);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white.withValues(alpha: 0.08),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: fields,
       ),
     );
   }
@@ -764,76 +906,69 @@ class _CountryDivider extends StatelessWidget {
 
 class _PlateInputField extends StatelessWidget {
   const _PlateInputField({
-    required this.title,
+    required this.hint,
     required this.controller,
     required this.focusNode,
     required this.textInputAction,
     required this.maxLength,
     required this.inputFormatters,
+    required this.fieldType,
     required this.onChanged,
-    this.keyboardType = TextInputType.text,
   });
 
-  final String title;
+  final String hint;
   final TextEditingController controller;
   final FocusNode focusNode;
   final TextInputAction textInputAction;
   final int maxLength;
   final List<TextInputFormatter> inputFormatters;
+  final _PlateFieldType fieldType;
   final ValueChanged<String> onChanged;
-  final TextInputType keyboardType;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.70),
-            fontWeight: FontWeight.w700,
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      maxLength: maxLength,
+      keyboardType: TextInputType.text,
+      textInputAction: textInputAction,
+      textAlign: TextAlign.center,
+      textCapitalization: TextCapitalization.characters,
+      inputFormatters: inputFormatters,
+      onChanged: onChanged,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+        color: Colors.white,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.8,
+      ),
+      decoration: InputDecoration(
+        counterText: '',
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: Colors.white.withValues(alpha: 0.48),
+          fontWeight: FontWeight.w800,
+          fontSize: 14,
+        ),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 19,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.16),
           ),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          focusNode: focusNode,
-          maxLength: maxLength,
-          keyboardType: keyboardType,
-          textInputAction: textInputAction,
-          textAlign: TextAlign.center,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: inputFormatters,
-          onChanged: onChanged,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.8,
-          ),
-          decoration: InputDecoration(
-            counterText: '',
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.12),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 18,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.16),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.42),
-              ),
-            ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.42),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -1123,6 +1258,23 @@ class _LettersOnlyFormatter extends TextInputFormatter {
     final normalized = newValue.text
         .toUpperCase()
         .replaceAll(RegExp(r'[^A-ZÄÖÜ]'), '');
+
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+}
+
+class _NumbersOnlyFormatter extends TextInputFormatter {
+  const _NumbersOnlyFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    final normalized = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
 
     return TextEditingValue(
       text: normalized,
