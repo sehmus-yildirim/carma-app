@@ -86,17 +86,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int get _numbersMaxLength {
     switch (_countryCode) {
-      case 'CH':
-        return 6;
-      case 'AT':
-        return 5;
       case 'DE':
+        return 5; // 4 Zahlen + optional E
+      case 'AT':
+        return 5; // max. 5 Zahlen
+      case 'CH':
+        return 6; // max. 6 Zahlen
       default:
         return 5;
     }
   }
-
-  bool get _hasLettersField => _countryCode != 'CH';
 
   bool get _hasPlateInput {
     final region = _regionController.text.trim();
@@ -488,7 +487,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 regionMaxLength: _regionMaxLength,
                 lettersMaxLength: _lettersMaxLength,
                 numbersMaxLength: _numbersMaxLength,
-                hasLettersField: _hasLettersField,
                 regionController: _regionController,
                 lettersController: _lettersController,
                 numbersController: _numbersController,
@@ -718,7 +716,6 @@ class _PlateInputCard extends StatelessWidget {
     required this.regionMaxLength,
     required this.lettersMaxLength,
     required this.numbersMaxLength,
-    required this.hasLettersField,
     required this.regionController,
     required this.lettersController,
     required this.numbersController,
@@ -734,7 +731,6 @@ class _PlateInputCard extends StatelessWidget {
   final int regionMaxLength;
   final int lettersMaxLength;
   final int numbersMaxLength;
-  final bool hasLettersField;
 
   final TextEditingController regionController;
   final TextEditingController lettersController;
@@ -843,7 +839,7 @@ class _PlateInputCard extends StatelessWidget {
             textInputAction: TextInputAction.done,
             maxLength: numbersMaxLength,
             inputFormatters: const [
-              _NumberWithOptionalEFormatter(),
+              _GermanNumberWithOptionalEFormatter(),
             ],
             onChanged: onNumbersChanged,
           ),
@@ -889,14 +885,14 @@ class _PlateInputField extends StatelessWidget {
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.48),
-            fontWeight: FontWeight.w800,
-            fontSize: 12,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white.withValues(alpha: 0.92),
+            fontWeight: FontWeight.w900,
+            fontSize: 14.5,
             letterSpacing: -0.1,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 9),
         TextField(
           controller: controller,
           focusNode: focusNode,
@@ -959,12 +955,12 @@ class _SearchButtonCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: isEnabled ? onPressed : null,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(26),
           child: Ink(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(26),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -979,9 +975,9 @@ class _SearchButtonCard extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.26),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+                  color: _carmaBlue.withValues(alpha: 0.28),
+                  blurRadius: 22,
+                  offset: const Offset(0, 11),
                 ),
               ],
             ),
@@ -993,14 +989,15 @@ class _SearchButtonCard extends StatelessWidget {
                       ? Icons.hourglass_top_rounded
                       : Icons.search_rounded,
                   color: Colors.white,
-                  size: 21,
+                  size: 26,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Text(
                   isLoading ? 'Suche läuft...' : 'Suchen',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
+                    fontSize: 18,
                     letterSpacing: -0.1,
                   ),
                 ),
@@ -1328,8 +1325,8 @@ class _NumbersOnlyFormatter extends TextInputFormatter {
   }
 }
 
-class _NumberWithOptionalEFormatter extends TextInputFormatter {
-  const _NumberWithOptionalEFormatter();
+class _GermanNumberWithOptionalEFormatter extends TextInputFormatter {
+  const _GermanNumberWithOptionalEFormatter();
 
   @override
   TextEditingValue formatEditUpdate(
@@ -1338,21 +1335,24 @@ class _NumberWithOptionalEFormatter extends TextInputFormatter {
       ) {
     final upper = newValue.text.toUpperCase();
     final buffer = StringBuffer();
-    bool eUsed = false;
+
+    var digitCount = 0;
+    var hasE = false;
 
     for (var i = 0; i < upper.length; i++) {
       final char = upper[i];
 
       if (RegExp(r'[0-9]').hasMatch(char)) {
-        if (!eUsed) {
+        if (!hasE && digitCount < 4) {
           buffer.write(char);
+          digitCount++;
         }
         continue;
       }
 
-      if (char == 'E' && !eUsed && i == upper.length - 1) {
+      if (char == 'E' && !hasE && digitCount > 0 && i == upper.length - 1) {
         buffer.write(char);
-        eUsed = true;
+        hasE = true;
       }
     }
 
