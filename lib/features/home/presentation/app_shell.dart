@@ -65,8 +65,8 @@ class _GlassBottomNavigationBar extends StatelessWidget {
 
   static const List<_NavigationItem> _items = [
     _NavigationItem(
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home_rounded,
+      icon: Icons.search_outlined,
+      activeIcon: Icons.search_rounded,
       label: 'Suchen',
     ),
     _NavigationItem(
