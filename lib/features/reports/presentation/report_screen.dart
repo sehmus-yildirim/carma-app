@@ -374,18 +374,7 @@ class _ReportScreenState extends State<ReportScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const _ReportHeader(),
-                    const SizedBox(height: 26),
-                    Text(
-                      'Melden',
-                      style:
-                      Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.6,
-                        height: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 14),
                     Text(
                       'Sende einen anonymen Hinweis an einen Fahrzeughalter.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -543,7 +532,7 @@ class _ReportHeader extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(
           child: Text(
-            'Carma',
+            'Melden',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,

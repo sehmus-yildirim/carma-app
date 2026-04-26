@@ -122,20 +122,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   children: [
                     const _PageHeader(
                       icon: Icons.chat_bubble_rounded,
-                      title: 'Carma',
+                      title: 'Chats',
                     ),
-                    const SizedBox(height: 26),
-                    Text(
-                      'Chats',
-                      style:
-                      Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.6,
-                        height: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 14),
                     Text(
                       'Hier findest du angenommene Unterhaltungen und Kontaktanfragen.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -146,6 +135,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    _ChatsSegmentedControl(
+                      selectedView: _selectedView,
+                      onChanged: _selectView,
+                    ),
                     _ChatsSegmentedControl(
                       selectedView: _selectedView,
                       onChanged: _selectView,
@@ -1357,6 +1350,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                     20,
                     18 + keyboardInset,
                   ),
+
                   child: Column(
                     children: [
                       _CompactChatInfoCard(

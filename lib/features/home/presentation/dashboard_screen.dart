@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -42,25 +41,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _locationError;
   String? _errorMessage;
   String? _successMessage;
-
-  String get _firstName {
-    final fullName =
-        FirebaseAuth.instance.currentUser?.displayName?.trim() ?? '';
-
-    if (fullName.isEmpty) {
-      return '';
-    }
-
-    return fullName.split(RegExp(r'\s+')).first.trim();
-  }
-
-  String get _greeting {
-    if (_firstName.isEmpty) {
-      return 'Hallo!';
-    }
-
-    return 'Hallo $_firstName!';
-  }
 
   int get _regionMaxLength {
     switch (_countryCode) {
@@ -457,17 +437,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const _HomeHeader(),
-                    const SizedBox(height: 24),
-                    Text(
-                      _greeting,
-                      style:
-                      Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.6,
-                        height: 1.0,
-                      ),
-                    ),
                     const SizedBox(height: 14),
                     Text(
                       'Jemanden gesehen der dir gefällt?',
@@ -586,7 +555,7 @@ class _HomeHeader extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(
           child: Text(
-            'Carma',
+            'Suchen',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w900,

@@ -1,10 +1,15 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/glass_card.dart';
-import '../data/profile_repository.dart';
-import '../data/user_profile.dart';
+
+const Color _carmaBlue = Color(0xFF139CFF);
+const Color _carmaBlueLight = Color(0xFF63D5FF);
+const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,321 +19,1217 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final ProfileRepository _profileRepository = ProfileRepository();
+  final ImagePicker _imagePicker = ImagePicker();
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _displayNameController = TextEditingController();
-  final TextEditingController _countryController = TextEditingController();
 
-  bool _isLoading = true;
+  final TextEditingController _regionController = TextEditingController();
+  final TextEditingController _lettersController = TextEditingController();
+  final TextEditingController _numbersController = TextEditingController();
+
+  final FocusNode _regionFocusNode = FocusNode();
+  final FocusNode _lettersFocusNode = FocusNode();
+  final FocusNode _numbersFocusNode = FocusNode();
+
+  XFile? _profilePhoto;
+
+  String _countryCode = 'DE';
+  String _selectedBrand = 'BMW';
+  String _selectedModel = '1er';
+  String _selectedColor = 'Schwarz';
+
+  bool _allowContactRequests = true;
+  bool _allowAnonymousReports = true;
+  bool _hasUnsavedChanges = false;
   bool _isSaving = false;
-  String? _errorMessage;
-  UserProfile? _profile;
+
+  bool _isSubmittedForVerification = false;
+  bool _isVerified = false;
+
+  final Map<String, XFile?> _documentFiles = {
+    'Ausweis Vorderseite': null,
+    'Ausweis Rückseite': null,
+    'Führerschein Vorderseite': null,
+    'Führerschein Rückseite': null,
+    'Fahrzeugschein Vorderseite': null,
+    'Fahrzeugschein Rückseite': null,
+  };
+
+  static const Map<String, List<String>> _vehicleModelsByBrand = {
+    'Volkswagen': [
+      'Golf',
+      'Polo',
+      'Passat',
+      'Tiguan',
+      'T-Roc',
+      'ID.3',
+      'ID.4',
+      'Arteon',
+      'Touran',
+    ],
+    'BMW': [
+      '1er',
+      '2er',
+      '3er',
+      '4er',
+      '5er',
+      'X1',
+      'X3',
+      'X5',
+      'i3',
+      'i4',
+    ],
+    'Mercedes-Benz': [
+      'A-Klasse',
+      'B-Klasse',
+      'C-Klasse',
+      'E-Klasse',
+      'S-Klasse',
+      'CLA',
+      'GLA',
+      'GLC',
+      'GLE',
+      'EQE',
+    ],
+    'Audi': [
+      'A1',
+      'A3',
+      'A4',
+      'A5',
+      'A6',
+      'Q2',
+      'Q3',
+      'Q5',
+      'Q7',
+      'e-tron',
+    ],
+    'Opel': [
+      'Corsa',
+      'Astra',
+      'Insignia',
+      'Mokka',
+      'Grandland',
+      'Crossland',
+      'Zafira',
+    ],
+    'Ford': [
+      'Fiesta',
+      'Focus',
+      'Mondeo',
+      'Kuga',
+      'Puma',
+      'Mustang',
+      'Explorer',
+      'Transit',
+    ],
+    'Toyota': [
+      'Yaris',
+      'Corolla',
+      'C-HR',
+      'RAV4',
+      'Prius',
+      'Aygo',
+      'Camry',
+      'Land Cruiser',
+    ],
+    'Hyundai': [
+      'i10',
+      'i20',
+      'i30',
+      'Kona',
+      'Tucson',
+      'Santa Fe',
+      'IONIQ 5',
+      'IONIQ 6',
+    ],
+    'Kia': [
+      'Picanto',
+      'Rio',
+      'Ceed',
+      'Sportage',
+      'Sorento',
+      'Niro',
+      'EV6',
+      'Stonic',
+    ],
+    'Tesla': [
+      'Model 3',
+      'Model Y',
+      'Model S',
+      'Model X',
+    ],
+    'Skoda': [
+      'Fabia',
+      'Octavia',
+      'Superb',
+      'Kamiq',
+      'Karoq',
+      'Kodiaq',
+      'Enyaq',
+    ],
+    'Seat': [
+      'Ibiza',
+      'Leon',
+      'Arona',
+      'Ateca',
+      'Tarraco',
+      'Alhambra',
+    ],
+    'Renault': [
+      'Clio',
+      'Megane',
+      'Captur',
+      'Kadjar',
+      'Scenic',
+      'Twingo',
+      'Zoe',
+    ],
+    'Peugeot': [
+      '208',
+      '308',
+      '508',
+      '2008',
+      '3008',
+      '5008',
+      'Rifter',
+    ],
+    'Fiat': [
+      '500',
+      'Panda',
+      'Tipo',
+      'Punto',
+      'Doblo',
+      'Ducato',
+    ],
+  };
+
+  static const List<String> _vehicleColors = [
+    'Schwarz',
+    'Weiß',
+    'Silber',
+    'Grau',
+    'Blau',
+    'Rot',
+    'Grün',
+    'Braun',
+    'Beige',
+    'Gelb',
+  ];
+
+  bool get _isProfileLocked {
+    return _isSubmittedForVerification || _isVerified;
+  }
+
+  int get _regionMaxLength {
+    switch (_countryCode) {
+      case 'AT':
+        return 2;
+      case 'CH':
+        return 2;
+      case 'DE':
+      default:
+        return 3;
+    }
+  }
+
+  int get _lettersMaxLength {
+    switch (_countryCode) {
+      case 'AT':
+        return 2;
+      case 'DE':
+      default:
+        return 2;
+    }
+  }
+
+  int get _numbersMaxLength {
+    switch (_countryCode) {
+      case 'DE':
+        return 5;
+      case 'AT':
+        return 5;
+      case 'CH':
+        return 6;
+      default:
+        return 5;
+    }
+  }
+
+  bool get _hasNameInput {
+    return _firstNameController.text.trim().isNotEmpty &&
+        _lastNameController.text.trim().isNotEmpty;
+  }
+
+  bool get _hasPlateInput {
+    final region = _regionController.text.trim();
+    final letters = _lettersController.text.trim();
+    final numbers = _numbersController.text.trim();
+
+    if (_countryCode == 'CH') {
+      return region.isNotEmpty && numbers.isNotEmpty;
+    }
+
+    return region.isNotEmpty && letters.isNotEmpty && numbers.isNotEmpty;
+  }
+
+  bool get _allDocumentsUploaded {
+    return _documentFiles.values.every((file) => file != null);
+  }
+
+  int get _uploadedDocumentCount {
+    return _documentFiles.values.where((file) => file != null).length;
+  }
+
+  double get _verificationProgress {
+    return _uploadedDocumentCount / _documentFiles.length;
+  }
+
+  bool get _canSubmitProfileForVerification {
+    return _hasNameInput && _hasPlateInput && _allDocumentsUploaded;
+  }
+
+  String get _displayName {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+
+    if (firstName.isEmpty && lastName.isEmpty) {
+      return 'Carma Nutzer';
+    }
+
+    if (firstName.isEmpty) {
+      return '${lastName.substring(0, 1).toUpperCase()}.';
+    }
+
+    if (lastName.isEmpty) {
+      return firstName;
+    }
+
+    return '$firstName ${lastName.substring(0, 1).toUpperCase()}.';
+  }
+
+  String get _displayPlate {
+    final region = _regionController.text.trim().toUpperCase();
+    final letters = _lettersController.text.trim().toUpperCase();
+    final numbers = _numbersController.text.trim().toUpperCase();
+
+    if (_countryCode == 'CH') {
+      if (region.isEmpty && numbers.isEmpty) {
+        return 'Noch kein Kennzeichen';
+      }
+
+      return '$region $numbers';
+    }
+
+    if (_countryCode == 'AT') {
+      if (region.isEmpty && numbers.isEmpty && letters.isEmpty) {
+        return 'Noch kein Kennzeichen';
+      }
+
+      return '$region $numbers $letters';
+    }
+
+    if (region.isEmpty && letters.isEmpty && numbers.isEmpty) {
+      return 'Noch kein Kennzeichen';
+    }
+
+    return '$region-$letters $numbers';
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadProfile();
+
+    _firstNameController.addListener(_markUnsaved);
+    _lastNameController.addListener(_markUnsaved);
+    _regionController.addListener(_markUnsaved);
+    _lettersController.addListener(_markUnsaved);
+    _numbersController.addListener(_markUnsaved);
   }
 
   @override
   void dispose() {
+    _firstNameController.removeListener(_markUnsaved);
+    _lastNameController.removeListener(_markUnsaved);
+    _regionController.removeListener(_markUnsaved);
+    _lettersController.removeListener(_markUnsaved);
+    _numbersController.removeListener(_markUnsaved);
+
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _displayNameController.dispose();
-    _countryController.dispose();
+    _regionController.dispose();
+    _lettersController.dispose();
+    _numbersController.dispose();
+
+    _regionFocusNode.dispose();
+    _lettersFocusNode.dispose();
+    _numbersFocusNode.dispose();
+
     super.dispose();
   }
 
-  Future<void> _loadProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Kein eingeloggter Nutzer gefunden.';
-      });
+  void _markUnsaved() {
+    if (_isProfileLocked) {
       return;
     }
 
+    setState(() {
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  void _clearVehicleVerificationDocuments() {
+    _documentFiles['Fahrzeugschein Vorderseite'] = null;
+    _documentFiles['Fahrzeugschein Rückseite'] = null;
+  }
+
+  Future<void> _showProfilePhotoSourceSheet() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: GlassCard(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SheetActionButton(
+                    label: 'Foto aus Aufnahmen wählen',
+                    icon: Icons.photo_library_rounded,
+                    onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                  ),
+                  const SizedBox(height: 10),
+                  _SheetActionButton(
+                    label: 'Kamera öffnen',
+                    icon: Icons.photo_camera_rounded,
+                    onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                  ),
+                  if (_profilePhoto != null) ...[
+                    const SizedBox(height: 10),
+                    _SheetSecondaryActionButton(
+                      label: 'Profilbild entfernen',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        setState(() {
+                          _profilePhoto = null;
+                        });
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  _SheetSecondaryActionButton(
+                    label: 'Abbrechen',
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    await _pickProfilePhoto(source);
+  }
+
+  Future<void> _pickProfilePhoto(ImageSource source) async {
     try {
-      await _profileRepository.createProfileIfMissing(user);
+      final image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 86,
+        maxWidth: 1400,
+      );
 
-      final profile = await _profileRepository.getProfile(user.uid) ??
-          UserProfile.empty(
-            uid: user.uid,
-            email: user.email ?? '',
-          );
+      if (image == null) {
+        return;
+      }
 
-      _firstNameController.text = profile.firstName;
-      _lastNameController.text = profile.lastName;
-      _displayNameController.text = profile.displayName;
-      _countryController.text = profile.country;
-
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        _profile = profile;
-        _isLoading = false;
-        _errorMessage = null;
+        _profilePhoto = image;
       });
-    } catch (_) {
-      if (!mounted) return;
 
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profilbild wurde ausgewählt.'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Profilbild konnte nicht geladen werden. Bitte prüfe Kamera- oder Fotoberechtigung.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _changeCountry(String countryCode) {
+    if (_isProfileLocked || _countryCode == countryCode) {
+      return;
+    }
+
+    setState(() {
+      _countryCode = countryCode;
+      _regionController.clear();
+      _lettersController.clear();
+      _numbersController.clear();
+      _clearVehicleVerificationDocuments();
+      _hasUnsavedChanges = true;
+    });
+
+    _regionFocusNode.requestFocus();
+  }
+
+  void _handleRegionChanged(String value) {
+    if (_isProfileLocked) {
+      return;
+    }
+
+    if (value.length >= _regionMaxLength) {
+      if (_countryCode == 'CH' || _countryCode == 'AT') {
+        _numbersFocusNode.requestFocus();
+        return;
+      }
+
+      _lettersFocusNode.requestFocus();
+    }
+  }
+
+  void _handleLettersChanged(String value) {
+    if (_isProfileLocked) {
+      return;
+    }
+
+    if (value.length >= _lettersMaxLength) {
+      if (_countryCode == 'AT') {
+        _lettersFocusNode.unfocus();
+        return;
+      }
+
+      _numbersFocusNode.requestFocus();
+    }
+  }
+
+  void _handleNumbersChanged(String value) {
+    if (_isProfileLocked) {
+      return;
+    }
+
+    if (_countryCode == 'AT') {
+      if (value.length >= _numbersMaxLength) {
+        _lettersFocusNode.requestFocus();
+      }
+      return;
+    }
+
+    if (value.length >= _numbersMaxLength) {
+      _numbersFocusNode.unfocus();
+    }
+  }
+
+  void _onBrandChanged(String brand) {
+    if (_isProfileLocked) {
+      return;
+    }
+
+    final models = _vehicleModelsByBrand[brand] ?? const <String>[];
+
+    setState(() {
+      _selectedBrand = brand;
+      _selectedModel = models.isNotEmpty ? models.first : '';
+      _clearVehicleVerificationDocuments();
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  void _onModelChanged(String model) {
+    if (_isProfileLocked) {
+      return;
+    }
+
+    setState(() {
+      _selectedModel = model;
+      _clearVehicleVerificationDocuments();
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  void _onColorChanged(String color) {
+    if (_isProfileLocked) {
+      return;
+    }
+
+    setState(() {
+      _selectedColor = color;
+      _clearVehicleVerificationDocuments();
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  Future<void> _saveProfile() async {
+    if (_isProfileLocked) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _hasUnsavedChanges = false;
+
+      if (_canSubmitProfileForVerification) {
+        _isSubmittedForVerification = true;
+        _isVerified = false;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _canSubmitProfileForVerification
+              ? 'Profil wurde gespeichert. Deine Verifizierung ist jetzt ausstehend.'
+              : 'Profil wurde vorbereitet. Für die Freigabe müssen Name, Fahrzeug und alle Dokumente vollständig sein.',
+        ),
+      ),
+    );
+  }
+
+  void _openVerificationScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _VerificationScreen(
+          imagePicker: _imagePicker,
+          documentFiles: _documentFiles,
+          displayName: _displayName,
+          displayPlate: _displayPlate,
+          selectedBrand: _selectedBrand,
+          selectedModel: _selectedModel,
+          selectedColor: _selectedColor,
+          hasPlateInput: _hasPlateInput,
+          isLocked: _isProfileLocked,
+          onDocumentUpload: (documentName, file) {
+            if (_isProfileLocked) {
+              return;
+            }
+
+            setState(() {
+              _documentFiles[documentName] = file;
+              _hasUnsavedChanges = true;
+            });
+          },
+          onDocumentRemove: (documentName) {
+            if (_isProfileLocked) {
+              return;
+            }
+
+            setState(() {
+              _documentFiles[documentName] = null;
+              _hasUnsavedChanges = true;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmNewProfile() async {
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF101827),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Neues Profil hinzufügen?',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: const Text(
+            'Wenn du ein neues Profil hinzufügst, wird dein altes Profil gelöscht. Dein neues Profil muss anschließend erneut verifiziert werden.',
+            style: TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(
+                'Abbrechen',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text(
+                'Neues Profil',
+                style: TextStyle(
+                  color: _carmaBlueLight,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldReset != true) {
+      return;
+    }
+
+    setState(() {
+      _firstNameController.clear();
+      _lastNameController.clear();
+
+      _regionController.clear();
+      _lettersController.clear();
+      _numbersController.clear();
+
+      _countryCode = 'DE';
+      _selectedBrand = 'BMW';
+      _selectedModel = '1er';
+      _selectedColor = 'Schwarz';
+
+      _allowContactRequests = true;
+      _allowAnonymousReports = true;
+
+      for (final key in _documentFiles.keys.toList()) {
+        _documentFiles[key] = null;
+      }
+
+      _isSubmittedForVerification = false;
+      _isVerified = false;
+      _hasUnsavedChanges = false;
+      _isSaving = false;
+    });
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Neues Profil wurde vorbereitet. Bitte fülle alle Daten erneut aus.',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return CarmaBackground(
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                18,
+                20,
+                112 + keyboardInset,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 112,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _ProfileHeader(),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Verwalte deine Identität, dein Fahrzeug und deine Sichtbarkeit.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16.5,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _ProfileStatusCard(
+                      displayName: _displayName,
+                      profilePhoto: _profilePhoto,
+                      isSubmittedForVerification: _isSubmittedForVerification,
+                      isVerified: _isVerified,
+                      uploadedDocumentCount: _uploadedDocumentCount,
+                      totalDocumentCount: _documentFiles.length,
+                      onProfilePhotoTap: _showProfilePhotoSourceSheet,
+                    ),
+                    if (_isProfileLocked) ...[
+                      const SizedBox(height: 14),
+                      _LockedProfileCard(
+                        isVerified: _isVerified,
+                        onCreateNewProfile: _confirmNewProfile,
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    const _SectionTitle(
+                      number: '1',
+                      title: 'Persönliche Daten',
+                    ),
+                    const SizedBox(height: 10),
+                    _NameCard(
+                      firstNameController: _firstNameController,
+                      lastNameController: _lastNameController,
+                      isLocked: _isProfileLocked,
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle(
+                      number: '2',
+                      title: 'Verifizierung',
+                    ),
+                    const SizedBox(height: 10),
+                    _VerificationSummaryCard(
+                      uploadedDocumentCount: _uploadedDocumentCount,
+                      totalDocumentCount: _documentFiles.length,
+                      verificationProgress: _verificationProgress,
+                      allDocumentsUploaded: _allDocumentsUploaded,
+                      onOpenVerification: _openVerificationScreen,
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle(
+                      number: '3',
+                      title: 'Mein Fahrzeug',
+                    ),
+                    const SizedBox(height: 10),
+                    _CountrySelectorCard(
+                      selectedCountryCode: _countryCode,
+                      isLocked: _isProfileLocked,
+                      onChanged: _changeCountry,
+                    ),
+                    const SizedBox(height: 12),
+                    _PlateInputCard(
+                      countryCode: _countryCode,
+                      regionMaxLength: _regionMaxLength,
+                      lettersMaxLength: _lettersMaxLength,
+                      numbersMaxLength: _numbersMaxLength,
+                      regionController: _regionController,
+                      lettersController: _lettersController,
+                      numbersController: _numbersController,
+                      regionFocusNode: _regionFocusNode,
+                      lettersFocusNode: _lettersFocusNode,
+                      numbersFocusNode: _numbersFocusNode,
+                      isLocked: _isProfileLocked,
+                      onRegionChanged: _handleRegionChanged,
+                      onLettersChanged: _handleLettersChanged,
+                      onNumbersChanged: _handleNumbersChanged,
+                    ),
+                    const SizedBox(height: 12),
+                    _VehicleDataCard(
+                      selectedBrand: _selectedBrand,
+                      selectedModel: _selectedModel,
+                      selectedColor: _selectedColor,
+                      brands: _vehicleModelsByBrand.keys.toList(),
+                      models: _vehicleModelsByBrand[_selectedBrand] ?? const [],
+                      vehicleColors: _vehicleColors,
+                      isLocked: _isProfileLocked,
+                      onBrandChanged: _onBrandChanged,
+                      onModelChanged: _onModelChanged,
+                      onColorChanged: _onColorChanged,
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle(
+                      number: '4',
+                      title: 'Sichtbarkeit',
+                    ),
+                    const SizedBox(height: 10),
+                    _VisibilityCard(
+                      allowContactRequests: _allowContactRequests,
+                      allowAnonymousReports: _allowAnonymousReports,
+                      onContactRequestsChanged: (value) {
+                        setState(() {
+                          _allowContactRequests = value;
+                        });
+                      },
+                      onAnonymousReportsChanged: (value) {
+                        setState(() {
+                          _allowAnonymousReports = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    if (!_isProfileLocked)
+                      _SaveProfileButton(
+                        isEnabled: _hasUnsavedChanges && !_isSaving,
+                        isLoading: _isSaving,
+                        onPressed: _saveProfile,
+                      )
+                    else
+                      _NewProfileButton(
+                        onPressed: _confirmNewProfile,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _VisibilityCard extends StatelessWidget {
+  const _VisibilityCard({
+    required this.allowContactRequests,
+    required this.allowAnonymousReports,
+    required this.onContactRequestsChanged,
+    required this.onAnonymousReportsChanged,
+  });
+
+  final bool allowContactRequests;
+  final bool allowAnonymousReports;
+  final ValueChanged<bool> onContactRequestsChanged;
+  final ValueChanged<bool> onAnonymousReportsChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          _SwitchRow(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Kontaktanfragen erlauben',
+            description:
+            'Andere können dich über dein Kennzeichen geschützt kontaktieren.',
+            value: allowContactRequests,
+            enabled: true,
+            onChanged: onContactRequestsChanged,
+          ),
+          const SizedBox(height: 10),
+          _SwitchRow(
+            icon: Icons.report_outlined,
+            title: 'Anonyme Hinweise erlauben',
+            description:
+            'Andere können dir sachliche Hinweise zu deinem Fahrzeug senden.',
+            value: allowAnonymousReports,
+            enabled: true,
+            onChanged: onAnonymousReportsChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerificationScreen extends StatefulWidget {
+  const _VerificationScreen({
+    required this.imagePicker,
+    required this.documentFiles,
+    required this.displayName,
+    required this.displayPlate,
+    required this.selectedBrand,
+    required this.selectedModel,
+    required this.selectedColor,
+    required this.hasPlateInput,
+    required this.isLocked,
+    required this.onDocumentUpload,
+    required this.onDocumentRemove,
+  });
+
+  final ImagePicker imagePicker;
+  final Map<String, XFile?> documentFiles;
+  final String displayName;
+  final String displayPlate;
+  final String selectedBrand;
+  final String selectedModel;
+  final String selectedColor;
+  final bool hasPlateInput;
+  final bool isLocked;
+  final void Function(String documentName, XFile file) onDocumentUpload;
+  final ValueChanged<String> onDocumentRemove;
+
+  @override
+  State<_VerificationScreen> createState() => _VerificationScreenState();
+}
+
+class _VerificationScreenState extends State<_VerificationScreen> {
+  bool _isSubmitting = false;
+  String? _errorMessage;
+  String? _successMessage;
+
+  int get _uploadedDocumentCount {
+    return widget.documentFiles.values.where((file) => file != null).length;
+  }
+
+  bool get _allDocumentsUploaded {
+    return widget.documentFiles.values.every((file) => file != null);
+  }
+
+  double get _verificationProgress {
+    return _uploadedDocumentCount / widget.documentFiles.length;
+  }
+
+  void _clearMessages() {
+    _errorMessage = null;
+    _successMessage = null;
+  }
+
+  Future<void> _showUploadSourceSheet(String documentName) async {
+    if (widget.isLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Dieses Profil ist gesperrt. Erstelle ein neues Profil, um Dokumente erneut hochzuladen.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: GlassCard(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SheetActionButton(
+                    label: 'Foto aus Aufnahmen wählen',
+                    icon: Icons.photo_library_rounded,
+                    onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                  ),
+                  const SizedBox(height: 10),
+                  _SheetActionButton(
+                    label: 'Kamera öffnen',
+                    icon: Icons.photo_camera_rounded,
+                    onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                  ),
+                  const SizedBox(height: 10),
+                  _SheetSecondaryActionButton(
+                    label: 'Abbrechen',
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    await _pickDocumentImage(documentName, source);
+  }
+
+  Future<void> _pickDocumentImage(
+      String documentName,
+      ImageSource source,
+      ) async {
+    setState(() {
+      _clearMessages();
+    });
+
+    try {
+      final image = await widget.imagePicker.pickImage(
+        source: source,
+        imageQuality: 86,
+        maxWidth: 1800,
+      );
+
+      if (image == null) {
+        return;
+      }
+
+      widget.onDocumentUpload(documentName, image);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$documentName wurde hochgeladen.',
+          ),
+        ),
+      );
+    } catch (_) {
       setState(() {
-        _isLoading = false;
-        _errorMessage = 'Profil konnte nicht geladen werden.';
+        _errorMessage =
+        'Bild konnte nicht geladen werden. Bitte prüfe Kamera- oder Fotoberechtigung.';
+        _successMessage = null;
       });
     }
   }
 
-  Future<void> _saveProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    final currentProfile = _profile;
-
-    if (user == null || currentProfile == null) {
+  Future<void> _submitVerification() async {
+    if (!_allDocumentsUploaded) {
       setState(() {
-        _errorMessage = 'Profil kann aktuell nicht gespeichert werden.';
+        _errorMessage = 'Bitte lade zuerst alle Pflichtdokumente hoch.';
+        _successMessage = null;
       });
       return;
     }
 
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
-    final displayName = _displayNameController.text.trim();
-    final country = _countryController.text.trim();
-
-    if (firstName.isEmpty || lastName.isEmpty || displayName.isEmpty) {
+    if (!widget.hasPlateInput) {
       setState(() {
         _errorMessage =
-        'Bitte Vorname, Nachname und Anzeigename ausfüllen.';
-      });
-      return;
-    }
-
-    if (country.isEmpty) {
-      setState(() {
-        _errorMessage = 'Bitte Land ausfüllen.';
+        'Bitte gib im Profil zuerst ein vollständiges Kennzeichen an.';
+        _successMessage = null;
       });
       return;
     }
 
     setState(() {
-      _isSaving = true;
-      _errorMessage = null;
+      _isSubmitting = true;
+      _clearMessages();
     });
 
-    try {
-      final updatedProfile = currentProfile.copyWith(
-        uid: user.uid,
-        email: user.email ?? currentProfile.email,
-        firstName: firstName,
-        lastName: lastName,
-        displayName: displayName,
-        country: country,
-      );
+    await Future<void>.delayed(const Duration(milliseconds: 700));
 
-      await _profileRepository.saveProfile(updatedProfile);
-
-      if (!mounted) return;
-
-      setState(() {
-        _profile = updatedProfile;
-        _isSaving = false;
-        _errorMessage = null;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil wurde gespeichert.'),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _isSaving = false;
-        _errorMessage = 'Profil konnte nicht gespeichert werden.';
-      });
+    if (!mounted) {
+      return;
     }
-  }
 
-  String _displayInitials() {
-    final firstName = _firstNameController.text.trim();
-    final lastName = _lastNameController.text.trim();
-
-    final firstInitial = firstName.isNotEmpty ? firstName[0] : '';
-    final lastInitial = lastName.isNotEmpty ? lastName[0] : '';
-
-    final initials = '$firstInitial$lastInitial'.toUpperCase();
-    return initials.isEmpty ? 'C' : initials;
+    setState(() {
+      _isSubmitting = false;
+      _successMessage =
+      'Deine Dokumente wurden vorbereitet. Speichere jetzt dein Profil, damit die Verifizierung ausstehend gesetzt wird.';
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
     return CarmaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: _isLoading
-              ? const Center(
-            child: CircularProgressIndicator(),
-          )
-              : ListView(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-            children: [
-              const Text(
-                'Profil',
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.9,
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              28 + keyboardInset,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SubPageHeader(
+                  icon: Icons.verified_user_rounded,
+                  title: 'Verifizierung',
+                  onBack: () => Navigator.of(context).pop(),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Verwalte deine öffentlichen Profildaten und bereite dein Konto für Carma vor.',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  fontSize: 15,
-                  height: 1.4,
+                const SizedBox(height: 18),
+                Text(
+                  'Lade deine Dokumente hoch. Dein Konto und dein Fahrzeug werden erst nach Prüfung freigegeben.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16.5,
+                    height: 1.35,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              _ProfileHeaderCard(
-                initials: _displayInitials(),
-                email: FirebaseAuth.instance.currentUser?.email ??
-                    'Keine E-Mail gefunden',
-                verificationStatus:
-                _profile?.verificationStatus ?? 'unverified',
-              ),
-              const SizedBox(height: 16),
-              if (_errorMessage != null) ...[
-                _ErrorCard(message: _errorMessage!),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
+                _VerificationVehicleCard(
+                  displayName: widget.displayName,
+                  displayPlate: widget.displayPlate,
+                  selectedBrand: widget.selectedBrand,
+                  selectedModel: widget.selectedModel,
+                  selectedColor: widget.selectedColor,
+                ),
+                const SizedBox(height: 18),
+                const _SectionTitle(
+                  number: '1',
+                  title: 'Pflichtdokumente',
+                ),
+                const SizedBox(height: 10),
+                _DocumentUploadCard(
+                  documentFiles: widget.documentFiles,
+                  uploadedDocumentCount: _uploadedDocumentCount,
+                  totalDocumentCount: widget.documentFiles.length,
+                  verificationProgress: _verificationProgress,
+                  isLocked: widget.isLocked,
+                  onDocumentTap: _showUploadSourceSheet,
+                  onDocumentRemove: (documentName) {
+                    widget.onDocumentRemove(documentName);
+                    setState(() {});
+                  },
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 14),
+                  _MessageCard(
+                    icon: Icons.error_outline_rounded,
+                    message: _errorMessage!,
+                  ),
+                ],
+                if (_successMessage != null) ...[
+                  const SizedBox(height: 14),
+                  _MessageCard(
+                    icon: Icons.check_circle_outline_rounded,
+                    message: _successMessage!,
+                  ),
+                ],
+                const SizedBox(height: 18),
+                if (!widget.isLocked)
+                  _SubmitVerificationButton(
+                    isEnabled: !_isSubmitting,
+                    isLoading: _isSubmitting,
+                    allDocumentsUploaded: _allDocumentsUploaded,
+                    onPressed: _submitVerification,
+                  )
+                else
+                  const _InlineStatusBox(
+                    icon: Icons.lock_outline_rounded,
+                    text:
+                    'Diese Dokumente sind gesperrt, solange die Verifizierung aussteht oder abgeschlossen ist.',
+                  ),
               ],
-              GlassCard(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Profildaten',
-                      style: TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Diese Daten helfen später, dein Profil kontrolliert und vertrauenswürdig darzustellen.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.62),
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    TextField(
-                      controller: _firstNameController,
-                      enabled: !_isSaving,
-                      textInputAction: TextInputAction.next,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Vorname',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _lastNameController,
-                      enabled: !_isSaving,
-                      textInputAction: TextInputAction.next,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Nachname',
-                        prefixIcon: Icon(Icons.badge_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _displayNameController,
-                      enabled: !_isSaving,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Öffentlicher Anzeigename',
-                        prefixIcon: Icon(Icons.visibility_outlined),
-                        hintText: 'z. B. Sehmus Y.',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _countryController,
-                      enabled: !_isSaving,
-                      textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                        labelText: 'Land',
-                        prefixIcon: Icon(Icons.public),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      icon: _isSaving
-                          ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.black,
-                        ),
-                      )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(
-                        _isSaving ? 'Speichern...' : 'Profil speichern',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              GlassCard(
-                padding: const EdgeInsets.all(18),
-                opacity: 0.08,
-                child: Column(
-                  children: [
-                    _ProfileOptionTile(
-                      icon: Icons.directions_car_outlined,
-                      title: 'Fahrzeuge',
-                      subtitle:
-                      'Fahrzeuge werden im nächsten Schritt vorbereitet.',
-                      onTap: () {},
-                    ),
-                    Divider(
-                      color: Colors.white.withValues(alpha: 0.10),
-                    ),
-                    _ProfileOptionTile(
-                      icon: Icons.verified_user_outlined,
-                      title: 'Verifizierung',
-                      subtitle:
-                      'Profil-Verifizierung wird später ergänzt.',
-                      onTap: () {},
-                    ),
-                    Divider(
-                      color: Colors.white.withValues(alpha: 0.10),
-                    ),
-                    _ProfileOptionTile(
-                      icon: Icons.privacy_tip_outlined,
-                      title: 'Sichtbarkeit',
-                      subtitle:
-                      'Private und öffentliche Daten werden getrennt.',
-                      onTap: () {},
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -336,86 +1237,135 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({
-    required this.initials,
-    required this.email,
-    required this.verificationStatus,
-  });
-
-  final String initials;
-  final String email;
-  final String verificationStatus;
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader();
 
   @override
   Widget build(BuildContext context) {
-    final isVerified = verificationStatus == 'verified';
-
-    return GlassCard(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Container(
-            width: 78,
-            height: 78,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.10),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.20),
-              ),
+    return Row(
+      children: [
+        Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.white.withValues(alpha: 0.11),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.16),
             ),
-            child: Center(
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: _carmaBlue.withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
+            ],
+          ),
+          child: const Icon(
+            Icons.person_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            'Profil',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(width: 18),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileStatusCard extends StatelessWidget {
+  const _ProfileStatusCard({
+    required this.displayName,
+    required this.profilePhoto,
+    required this.isSubmittedForVerification,
+    required this.isVerified,
+    required this.uploadedDocumentCount,
+    required this.totalDocumentCount,
+    required this.onProfilePhotoTap,
+  });
+
+  final String displayName;
+  final XFile? profilePhoto;
+  final bool isSubmittedForVerification;
+  final bool isVerified;
+  final int uploadedDocumentCount;
+  final int totalDocumentCount;
+  final VoidCallback onProfilePhotoTap;
+
+  String get _statusText {
+    if (isVerified) {
+      return 'Verifiziert';
+    }
+
+    if (isSubmittedForVerification) {
+      return 'Verifizierung ausstehend';
+    }
+
+    return 'Verifizierung nicht eingereicht';
+  }
+
+  Color get _statusColor {
+    if (isVerified) {
+      return _carmaBlueLight;
+    }
+
+    if (isSubmittedForVerification) {
+      return const Color(0xFFFFD58A);
+    }
+
+    return Colors.white70;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          _ProfilePhotoButton(
+            size: 64,
+            profilePhoto: profilePhoto,
+            onTap: onProfilePhotoTap,
+          ),
+          const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Mein Carma-Profil',
-                  style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 6),
                 Text(
-                  email,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.68),
-                    fontSize: 14,
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 22,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 7,
+                const SizedBox(height: 7),
+                Text(
+                  _statusText,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: _statusColor,
+                    fontWeight: FontWeight.w800,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  child: Text(
-                    isVerified ? 'Verifiziert' : 'Nicht verifiziert',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$uploadedDocumentCount von $totalDocumentCount Dokumenten vorbereitet',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.56),
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -427,66 +1377,1939 @@ class _ProfileHeaderCard extends StatelessWidget {
   }
 }
 
-class _ProfileOptionTile extends StatelessWidget {
-  const _ProfileOptionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
+class _ProfilePhotoButton extends StatelessWidget {
+  const _ProfilePhotoButton({
+    required this.size,
+    required this.profilePhoto,
     required this.onTap,
   });
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
+  final double size;
+  final XFile? profilePhoto;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: Colors.white),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w800,
+    final image = profilePhoto;
+
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: image == null
+                    ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    _carmaBlueDark,
+                    _carmaBlueLight,
+                  ],
+                )
+                    : null,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.22),
+                ),
+                image: image == null
+                    ? null
+                    : DecorationImage(
+                  image: FileImage(File(image.path)),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: image == null
+                  ? Icon(
+                Icons.person_rounded,
+                color: Colors.white,
+                size: size * 0.56,
+              )
+                  : null,
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 25,
+                height: 25,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _carmaBlueDark,
+                      _carmaBlue,
+                      _carmaBlueLight,
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.photo_camera_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.58),
-          height: 1.35,
-        ),
-      ),
-      trailing: Icon(
-        Icons.arrow_forward_ios,
-        size: 16,
-        color: Colors.white.withValues(alpha: 0.42),
-      ),
-      onTap: onTap,
     );
   }
 }
 
-class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message});
+class _LockedProfileCard extends StatelessWidget {
+  const _LockedProfileCard({
+    required this.isVerified,
+    required this.onCreateNewProfile,
+  });
 
-  final String message;
+  final bool isVerified;
+  final VoidCallback onCreateNewProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _InlineStatusBox(
+            icon: Icons.lock_outline_rounded,
+            text: isVerified
+                ? 'Dieses Profil ist verifiziert und kann nicht mehr geändert werden. Profilbild und Sichtbarkeit kannst du weiterhin ändern.'
+                : 'Deine Verifizierung ist ausstehend. Name, Fahrzeugdaten und Dokumente sind gesperrt. Profilbild und Sichtbarkeit kannst du weiterhin ändern.',
+          ),
+          const SizedBox(height: 12),
+          _SecondaryFullWidthButton(
+            label: 'Neues Profil hinzufügen',
+            icon: Icons.person_add_alt_1_rounded,
+            onTap: onCreateNewProfile,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NameCard extends StatelessWidget {
+  const _NameCard({
+    required this.firstNameController,
+    required this.lastNameController,
+    required this.isLocked,
+  });
+
+  final TextEditingController firstNameController;
+  final TextEditingController lastNameController;
+  final bool isLocked;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.all(14),
-      opacity: 0.10,
-      borderOpacity: 0.18,
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xFFFFCDD2),
-          fontWeight: FontWeight.w700,
+      child: Column(
+        children: [
+          _ProfileTextField(
+            controller: firstNameController,
+            hintText: 'Vorname',
+            icon: Icons.badge_outlined,
+            textCapitalization: TextCapitalization.words,
+            enabled: !isLocked,
+          ),
+          const SizedBox(height: 12),
+          _ProfileTextField(
+            controller: lastNameController,
+            hintText: 'Nachname',
+            icon: Icons.badge_outlined,
+            textCapitalization: TextCapitalization.words,
+            enabled: !isLocked,
+          ),
+          const SizedBox(height: 12),
+          const _InlineStatusBox(
+            icon: Icons.info_outline_rounded,
+            text:
+            'Vorname und Nachname können nur einmal angegeben werden. In Carma wird später nur der Vorname mit Initiale angezeigt, z. B. Max M.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerificationSummaryCard extends StatelessWidget {
+  const _VerificationSummaryCard({
+    required this.uploadedDocumentCount,
+    required this.totalDocumentCount,
+    required this.verificationProgress,
+    required this.allDocumentsUploaded,
+    required this.onOpenVerification,
+  });
+
+  final int uploadedDocumentCount;
+  final int totalDocumentCount;
+  final double verificationProgress;
+  final bool allDocumentsUploaded;
+  final VoidCallback onOpenVerification;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _BlueIconBox(
+                icon: allDocumentsUploaded
+                    ? Icons.verified_rounded
+                    : Icons.pending_actions_rounded,
+                size: 48,
+                iconSize: 24,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      allDocumentsUploaded
+                          ? 'Dokumente vorbereitet'
+                          : 'Dokumente fehlen',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18.5,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '$uploadedDocumentCount von $totalDocumentCount Dokumenten hochgeladen',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.68),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: verificationProgress,
+              minHeight: 8,
+              backgroundColor: Colors.white.withValues(alpha: 0.10),
+              valueColor: const AlwaysStoppedAnimation<Color>(_carmaBlueLight),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const _InlineStatusBox(
+            icon: Icons.fact_check_outlined,
+            text:
+            'Der Fahrzeugschein wird mit deinen Fahrzeugdaten abgeglichen. Ein anderes Fahrzeug führt später zur Ablehnung der Verifizierung.',
+          ),
+          const SizedBox(height: 12),
+          _PrimaryActionButton(
+            label: allDocumentsUploaded
+                ? 'Verifizierung ansehen'
+                : 'Dokumente hochladen',
+            icon: Icons.arrow_forward_rounded,
+            onTap: onOpenVerification,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleDataCard extends StatelessWidget {
+  const _VehicleDataCard({
+    required this.selectedBrand,
+    required this.selectedModel,
+    required this.selectedColor,
+    required this.brands,
+    required this.models,
+    required this.vehicleColors,
+    required this.isLocked,
+    required this.onBrandChanged,
+    required this.onModelChanged,
+    required this.onColorChanged,
+  });
+
+  final String selectedBrand;
+  final String selectedModel;
+  final String selectedColor;
+  final List<String> brands;
+  final List<String> models;
+  final List<String> vehicleColors;
+  final bool isLocked;
+  final ValueChanged<String> onBrandChanged;
+  final ValueChanged<String> onModelChanged;
+  final ValueChanged<String> onColorChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          _ProfileDropdown(
+            label: 'Marke',
+            value: selectedBrand,
+            items: brands,
+            enabled: !isLocked,
+            onChanged: onBrandChanged,
+          ),
+          const SizedBox(height: 12),
+          _ProfileDropdown(
+            label: 'Modell',
+            value: selectedModel,
+            items: models,
+            enabled: !isLocked,
+            onChanged: onModelChanged,
+          ),
+          const SizedBox(height: 12),
+          _ProfileDropdown(
+            label: 'Farbe',
+            value: selectedColor,
+            items: vehicleColors,
+            enabled: !isLocked,
+            onChanged: onColorChanged,
+          ),
+          const SizedBox(height: 12),
+          const _InlineStatusBox(
+            icon: Icons.verified_user_outlined,
+            text:
+            'Diese Angaben müssen mit dem Fahrzeugschein übereinstimmen. Änderungen am Fahrzeug setzen die Fahrzeugdokumente zur erneuten Prüfung zurück.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwitchRow extends StatelessWidget {
+  const _SwitchRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.56,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: Colors.white.withValues(alpha: 0.06),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.10),
+          ),
+        ),
+        child: Row(
+          children: [
+            _BlueIconBox(
+              icon: icon,
+              size: 44,
+              iconSize: 22,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.66),
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: value,
+              activeThumbColor: Colors.white,
+              activeTrackColor: _carmaBlue.withValues(alpha: 0.70),
+              inactiveThumbColor: Colors.white.withValues(alpha: 0.76),
+              inactiveTrackColor: Colors.white.withValues(alpha: 0.14),
+              onChanged: enabled ? onChanged : null,
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _VerificationVehicleCard extends StatelessWidget {
+  const _VerificationVehicleCard({
+    required this.displayName,
+    required this.displayPlate,
+    required this.selectedBrand,
+    required this.selectedModel,
+    required this.selectedColor,
+  });
+
+  final String displayName;
+  final String displayPlate;
+  final String selectedBrand;
+  final String selectedModel;
+  final String selectedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _UserAvatarPlaceholder(size: 54),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _VerificationInfoRow(
+            label: 'Kennzeichen',
+            value: displayPlate,
+          ),
+          const SizedBox(height: 9),
+          _VerificationInfoRow(
+            label: 'Fahrzeug',
+            value: '$selectedColor $selectedBrand $selectedModel',
+          ),
+          const SizedBox(height: 14),
+          const _InlineStatusBox(
+            icon: Icons.warning_amber_rounded,
+            text:
+            'Der Fahrzeugschein muss exakt zu diesem Fahrzeug passen. Beispiel: Mercedes-Fahrzeugschein und BMW-Profilangabe wird später abgelehnt.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerificationInfoRow extends StatelessWidget {
+  const _VerificationInfoRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 106,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.62),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentUploadCard extends StatelessWidget {
+  const _DocumentUploadCard({
+    required this.documentFiles,
+    required this.uploadedDocumentCount,
+    required this.totalDocumentCount,
+    required this.verificationProgress,
+    required this.isLocked,
+    required this.onDocumentTap,
+    required this.onDocumentRemove,
+  });
+
+  final Map<String, XFile?> documentFiles;
+  final int uploadedDocumentCount;
+  final int totalDocumentCount;
+  final double verificationProgress;
+  final bool isLocked;
+  final ValueChanged<String> onDocumentTap;
+  final ValueChanged<String> onDocumentRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          _InlineStatusBox(
+            icon: Icons.upload_file_rounded,
+            text:
+            '$uploadedDocumentCount von $totalDocumentCount Pflichtdokumenten vorbereitet.',
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: verificationProgress,
+              minHeight: 8,
+              backgroundColor: Colors.white.withValues(alpha: 0.10),
+              valueColor: const AlwaysStoppedAnimation<Color>(_carmaBlueLight),
+            ),
+          ),
+          const SizedBox(height: 14),
+          ...documentFiles.entries.map(
+                (entry) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _DocumentUploadTile(
+                  title: entry.key,
+                  file: entry.value,
+                  isLocked: isLocked,
+                  onTap: () => onDocumentTap(entry.key),
+                  onRemove: () => onDocumentRemove(entry.key),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentUploadTile extends StatelessWidget {
+  const _DocumentUploadTile({
+    required this.title,
+    required this.file,
+    required this.isLocked,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final String title;
+  final XFile? file;
+  final bool isLocked;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  bool get _isUploaded {
+    return file != null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: Colors.white.withValues(alpha: _isUploaded ? 0.09 : 0.06),
+        border: Border.all(
+          color: _isUploaded
+              ? _carmaBlueLight.withValues(alpha: 0.42)
+              : Colors.white.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Column(
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isLocked ? null : onTap,
+              borderRadius: BorderRadius.circular(22),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    _BlueIconBox(
+                      icon: _isUploaded
+                          ? Icons.check_circle_rounded
+                          : Icons.upload_file_rounded,
+                      size: 44,
+                      iconSize: 23,
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _isUploaded ? 'bereit' : 'hochladen',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: _isUploaded
+                            ? _carmaBlueLight
+                            : Colors.white.withValues(alpha: 0.68),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_isUploaded) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.file(
+                  File(file!.path),
+                  width: double.infinity,
+                  height: 150,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            if (!isLocked)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: _SheetSecondaryActionButton(
+                  label: 'Dokument entfernen',
+                  onTap: onRemove,
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CountrySelectorCard extends StatelessWidget {
+  const _CountrySelectorCard({
+    required this.selectedCountryCode,
+    required this.isLocked,
+    required this.onChanged,
+  });
+
+  final String selectedCountryCode;
+  final bool isLocked;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isLocked ? 0.56 : 1,
+      child: GlassCard(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            Expanded(
+              child: _CountryButton(
+                label: 'Deutschland',
+                countryCode: 'DE',
+                selectedCountryCode: selectedCountryCode,
+                isLocked: isLocked,
+                onChanged: onChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CountryButton(
+                label: 'Österreich',
+                countryCode: 'AT',
+                selectedCountryCode: selectedCountryCode,
+                isLocked: isLocked,
+                onChanged: onChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CountryButton(
+                label: 'Schweiz',
+                countryCode: 'CH',
+                selectedCountryCode: selectedCountryCode,
+                isLocked: isLocked,
+                onChanged: onChanged,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountryButton extends StatelessWidget {
+  const _CountryButton({
+    required this.label,
+    required this.countryCode,
+    required this.selectedCountryCode,
+    required this.isLocked,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String countryCode;
+  final String selectedCountryCode;
+  final bool isLocked;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = selectedCountryCode == countryCode;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isLocked ? null : () => onChanged(countryCode),
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          height: 56,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: isSelected
+                ? const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _carmaBlueDark,
+                _carmaBlue,
+                _carmaBlueLight,
+              ],
+            )
+                : null,
+            color: isSelected ? null : Colors.white.withValues(alpha: 0.04),
+            border: Border.all(
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlateInputCard extends StatelessWidget {
+  const _PlateInputCard({
+    required this.countryCode,
+    required this.regionMaxLength,
+    required this.lettersMaxLength,
+    required this.numbersMaxLength,
+    required this.regionController,
+    required this.lettersController,
+    required this.numbersController,
+    required this.regionFocusNode,
+    required this.lettersFocusNode,
+    required this.numbersFocusNode,
+    required this.isLocked,
+    required this.onRegionChanged,
+    required this.onLettersChanged,
+    required this.onNumbersChanged,
+  });
+
+  final String countryCode;
+  final int regionMaxLength;
+  final int lettersMaxLength;
+  final int numbersMaxLength;
+
+  final TextEditingController regionController;
+  final TextEditingController lettersController;
+  final TextEditingController numbersController;
+
+  final FocusNode regionFocusNode;
+  final FocusNode lettersFocusNode;
+  final FocusNode numbersFocusNode;
+
+  final bool isLocked;
+
+  final ValueChanged<String> onRegionChanged;
+  final ValueChanged<String> onLettersChanged;
+  final ValueChanged<String> onNumbersChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> fields = [
+      Expanded(
+        child: _PlateInputField(
+          label: countryCode == 'CH'
+              ? 'Kanton'
+              : countryCode == 'AT'
+              ? 'Bezirk'
+              : 'Stadt',
+          controller: regionController,
+          focusNode: regionFocusNode,
+          textInputAction: TextInputAction.next,
+          maxLength: regionMaxLength,
+          inputFormatters: const [
+            _LettersOnlyFormatter(),
+          ],
+          enabled: !isLocked,
+          onChanged: onRegionChanged,
+        ),
+      ),
+    ];
+
+    if (countryCode == 'AT') {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.next,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumbersOnlyFormatter(),
+            ],
+            enabled: !isLocked,
+            onChanged: onNumbersChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Buchstaben',
+            controller: lettersController,
+            focusNode: lettersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: lettersMaxLength,
+            inputFormatters: const [
+              _LettersOnlyFormatter(),
+            ],
+            enabled: !isLocked,
+            onChanged: onLettersChanged,
+          ),
+        ),
+      ]);
+    } else if (countryCode == 'CH') {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _NumbersOnlyFormatter(),
+            ],
+            enabled: !isLocked,
+            onChanged: onNumbersChanged,
+          ),
+        ),
+      ]);
+    } else {
+      fields.addAll([
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Buchstaben',
+            controller: lettersController,
+            focusNode: lettersFocusNode,
+            textInputAction: TextInputAction.next,
+            maxLength: lettersMaxLength,
+            inputFormatters: const [
+              _LettersOnlyFormatter(),
+            ],
+            enabled: !isLocked,
+            onChanged: onLettersChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PlateInputField(
+            label: 'Zahlen',
+            controller: numbersController,
+            focusNode: numbersFocusNode,
+            textInputAction: TextInputAction.done,
+            maxLength: numbersMaxLength,
+            inputFormatters: const [
+              _GermanNumberWithOptionalEFormatter(),
+            ],
+            enabled: !isLocked,
+            onChanged: onNumbersChanged,
+          ),
+        ),
+      ]);
+    }
+
+    return Opacity(
+      opacity: isLocked ? 0.56 : 1,
+      child: GlassCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: fields,
+        ),
+      ),
+    );
+  }
+}
+
+class _PlateInputField extends StatelessWidget {
+  const _PlateInputField({
+    required this.label,
+    required this.controller,
+    required this.focusNode,
+    required this.textInputAction,
+    required this.maxLength,
+    required this.inputFormatters,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final TextInputAction textInputAction;
+  final int maxLength;
+  final List<TextInputFormatter> inputFormatters;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.96),
+              fontWeight: FontWeight.w900,
+              fontSize: 15.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 9),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          enabled: enabled,
+          maxLength: maxLength,
+          keyboardType: TextInputType.text,
+          textInputAction: textInputAction,
+          textAlign: TextAlign.center,
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: inputFormatters,
+          onChanged: onChanged,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 23,
+            letterSpacing: 0.8,
+          ),
+          decoration: InputDecoration(
+            counterText: '',
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 18,
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(
+                color: _carmaBlueLight.withValues(alpha: 0.90),
+                width: 1.4,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileTextField extends StatelessWidget {
+  const _ProfileTextField({
+    required this.controller,
+    required this.hintText,
+    required this.icon,
+    required this.textCapitalization,
+    required this.enabled,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final IconData icon;
+  final TextCapitalization textCapitalization;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.56,
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        textCapitalization: textCapitalization,
+        textInputAction: TextInputAction.next,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.50),
+            fontWeight: FontWeight.w700,
+          ),
+          prefixIcon: Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.78),
+          ),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.08),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 17,
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: _carmaBlueLight.withValues(alpha: 0.90),
+              width: 1.4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileDropdown extends StatelessWidget {
+  const _ProfileDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<String> items;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeValue = items.contains(value)
+        ? value
+        : items.isNotEmpty
+        ? items.first
+        : null;
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.56,
+      child: DropdownButtonFormField<String>(
+        initialValue: safeValue,
+        dropdownColor: const Color(0xFF101827),
+        iconEnabledColor: Colors.white,
+        iconDisabledColor: Colors.white.withValues(alpha: 0.48),
+        isExpanded: true,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.70),
+            fontWeight: FontWeight.w800,
+          ),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.08),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 17,
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide(
+              color: _carmaBlueLight.withValues(alpha: 0.90),
+              width: 1.4,
+            ),
+          ),
+        ),
+        items: items.map((item) {
+          return DropdownMenuItem<String>(
+            value: item,
+            child: Text(
+              item,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }).toList(),
+        onChanged: enabled
+            ? (newValue) {
+          if (newValue == null) {
+            return;
+          }
+
+          onChanged(newValue);
+        }
+            : null,
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({
+    required this.number,
+    required this.title,
+  });
+
+  final String number;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 31,
+          height: 31,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _carmaBlueDark,
+                _carmaBlueLight,
+              ],
+            ),
+          ),
+          child: Text(
+            number,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubPageHeader extends StatelessWidget {
+  const _SubPageHeader({
+    required this.icon,
+    required this.title,
+    required this.onBack,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          _RoundIconButton(
+            icon: Icons.arrow_back_rounded,
+            onTap: onBack,
+          ),
+          const SizedBox(width: 12),
+          _BlueIconBox(
+            icon: icon,
+            size: 46,
+            iconSize: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlueIconBox extends StatelessWidget {
+  const _BlueIconBox({
+    required this.icon,
+    this.size = 46,
+    this.iconSize = 23,
+  });
+
+  final IconData icon;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _carmaBlueDark,
+            _carmaBlue,
+            _carmaBlueLight,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _carmaBlue.withValues(alpha: 0.22),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Icon(
+        icon,
+        color: Colors.white,
+        size: iconSize,
+      ),
+    );
+  }
+}
+
+class _UserAvatarPlaceholder extends StatelessWidget {
+  const _UserAvatarPlaceholder({
+    required this.size,
+  });
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _carmaBlueDark,
+            _carmaBlueLight,
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.20),
+        ),
+      ),
+      child: Icon(
+        Icons.person_rounded,
+        color: Colors.white,
+        size: size * 0.56,
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.08),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineStatusBox extends StatelessWidget {
+  const _InlineStatusBox({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: Colors.white,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryActionButton extends StatelessWidget {
+  const _PrimaryActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _carmaBlueDark,
+                _carmaBlue,
+                _carmaBlueLight,
+              ],
+            ),
+          ),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecondaryFullWidthButton extends StatelessWidget {
+  const _SecondaryFullWidthButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: Colors.white.withValues(alpha: 0.10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.14),
+            ),
+          ),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetActionButton extends StatelessWidget {
+  const _SheetActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PrimaryActionButton(
+      label: label,
+      icon: icon,
+      onTap: onTap,
+    );
+  }
+}
+
+class _SheetSecondaryActionButton extends StatelessWidget {
+  const _SheetSecondaryActionButton({
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.white.withValues(alpha: 0.10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.14),
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SaveProfileButton extends StatelessWidget {
+  const _SaveProfileButton({
+    required this.isEnabled,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isEnabled;
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.45,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isEnabled ? onPressed : null,
+          borderRadius: BorderRadius.circular(26),
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _carmaBlueDark,
+                  _carmaBlue,
+                  _carmaBlueLight,
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _carmaBlue.withValues(alpha: 0.28),
+                  blurRadius: 22,
+                  offset: const Offset(0, 11),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isLoading
+                      ? Icons.hourglass_top_rounded
+                      : Icons.save_rounded,
+                  color: Colors.white,
+                  size: 27,
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    isLoading ? 'Wird gespeichert...' : 'Profil speichern',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 19,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubmitVerificationButton extends StatelessWidget {
+  const _SubmitVerificationButton({
+    required this.isEnabled,
+    required this.isLoading,
+    required this.allDocumentsUploaded,
+    required this.onPressed,
+  });
+
+  final bool isEnabled;
+  final bool isLoading;
+  final bool allDocumentsUploaded;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.45,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isEnabled ? onPressed : null,
+          borderRadius: BorderRadius.circular(26),
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _carmaBlueDark,
+                  _carmaBlue,
+                  _carmaBlueLight,
+                ],
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _carmaBlue.withValues(alpha: 0.28),
+                  blurRadius: 22,
+                  offset: const Offset(0, 11),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isLoading
+                      ? Icons.hourglass_top_rounded
+                      : Icons.verified_user_rounded,
+                  color: Colors.white,
+                  size: 27,
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    isLoading
+                        ? 'Wird vorbereitet...'
+                        : allDocumentsUploaded
+                        ? 'Dokumente vorbereitet'
+                        : 'Dokumente vollständig hochladen',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 19,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewProfileButton extends StatelessWidget {
+  const _NewProfileButton({
+    required this.onPressed,
+  });
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SecondaryFullWidthButton(
+      label: 'Neues Profil hinzufügen',
+      icon: Icons.person_add_alt_1_rounded,
+      onTap: onPressed,
+    );
+  }
+}
+
+class _MessageCard extends StatelessWidget {
+  const _MessageCard({
+    required this.icon,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LettersOnlyFormatter extends TextInputFormatter {
+  const _LettersOnlyFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    final normalized =
+    newValue.text.toUpperCase().replaceAll(RegExp(r'[^A-ZÄÖÜ]'), '');
+
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+}
+
+class _NumbersOnlyFormatter extends TextInputFormatter {
+  const _NumbersOnlyFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    final normalized = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+}
+
+class _GermanNumberWithOptionalEFormatter extends TextInputFormatter {
+  const _GermanNumberWithOptionalEFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    final upper = newValue.text.toUpperCase();
+    final buffer = StringBuffer();
+
+    var digitCount = 0;
+    var hasE = false;
+
+    for (var i = 0; i < upper.length; i++) {
+      final char = upper[i];
+
+      if (RegExp(r'[0-9]').hasMatch(char)) {
+        if (!hasE && digitCount < 4) {
+          buffer.write(char);
+          digitCount++;
+        }
+        continue;
+      }
+
+      if (char == 'E' && !hasE && digitCount > 0 && i == upper.length - 1) {
+        buffer.write(char);
+        hasE = true;
+      }
+    }
+
+    final normalized = buffer.toString();
+
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
     );
   }
 }
