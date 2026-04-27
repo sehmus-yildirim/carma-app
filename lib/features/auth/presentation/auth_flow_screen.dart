@@ -25,7 +25,7 @@ class AuthFlowScreen extends StatefulWidget {
 }
 
 class _AuthFlowScreenState extends State<AuthFlowScreen> {
-  _AuthStep _step = _AuthStep.welcome;
+  _AuthStep _step = _AuthStep.login;
 
   void _goToWelcome() {
     setState(() {

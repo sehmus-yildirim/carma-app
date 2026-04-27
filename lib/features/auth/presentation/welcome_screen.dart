@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
-import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_page_header.dart';
 import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
@@ -83,27 +82,23 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const CarmaMessageCard(
-                icon: Icons.verified_user_outlined,
-                message:
-                'Für volle Nutzung wird dein Profil später mit Fahrzeug und Dokumenten verifiziert.',
-              ),
+              const _WelcomeNoticeCard(),
               const SizedBox(height: 18),
-              _WelcomeBenefitCard(
+              const _WelcomeBenefitCard(
                 icon: Icons.search_rounded,
                 title: 'Kennzeichen suchen',
                 description:
                 'Finde registrierte Nutzer in deiner Nähe über ein vollständiges Kennzeichen.',
               ),
               const SizedBox(height: 10),
-              _WelcomeBenefitCard(
+              const _WelcomeBenefitCard(
                 icon: Icons.report_outlined,
                 title: 'Anonyme Hinweise',
                 description:
                 'Sende sachliche Hinweise an Fahrzeughalter, ohne deine Identität offenzulegen.',
               ),
               const SizedBox(height: 10),
-              _WelcomeBenefitCard(
+              const _WelcomeBenefitCard(
                 icon: Icons.lock_outline_rounded,
                 title: 'Verifizierte Profile',
                 description:
@@ -143,6 +138,39 @@ class WelcomeScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _WelcomeNoticeCard extends StatelessWidget {
+  const _WelcomeNoticeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(15),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CarmaBlueIconBox(
+            icon: Icons.verified_user_outlined,
+            size: 42,
+            iconSize: 21,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Für volle Nutzung wird dein Profil später mit Fahrzeug und Dokumenten verifiziert.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.76),
+                fontWeight: FontWeight.w700,
+                fontSize: 14.5,
+                height: 1.32,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
