@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
@@ -891,63 +892,15 @@ class _SearchButtonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1 : 0.45,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isEnabled ? onPressed : null,
-          borderRadius: BorderRadius.circular(26),
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.28),
-                  blurRadius: 22,
-                  offset: const Offset(0, 11),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  isLoading
-                      ? Icons.hourglass_top_rounded
-                      : Icons.search_rounded,
-                  color: Colors.white,
-                  size: 29,
-                ),
-                const SizedBox(width: 13),
-                Text(
-                  isLoading ? 'Suche läuft...' : 'Suchen',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 19.5,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return CarmaPrimaryButton(
+      label: 'Suchen',
+      loadingLabel: 'Suche läuft...',
+      icon: Icons.search_rounded,
+      iconSize: 29,
+      fontSize: 19.5,
+      isEnabled: isEnabled,
+      isLoading: isLoading,
+      onPressed: onPressed,
     );
   }
 }

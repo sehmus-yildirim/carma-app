@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 
@@ -1102,30 +1103,9 @@ class _SheetSecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.10),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.14),
-            ),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ),
+    return CarmaSecondaryButton(
+      label: label,
+      onPressed: onPressed,
     );
   }
 }

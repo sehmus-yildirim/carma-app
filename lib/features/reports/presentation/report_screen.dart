@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_primary_button.dart';
+import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_section_title.dart';
 import '../../../shared/widgets/glass_card.dart';
 
@@ -1348,46 +1350,12 @@ class _SmallActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
-          ),
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 21,
-                  ),
-                  const SizedBox(width: 9),
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return CarmaSecondaryButton(
+      label: label,
+      icon: icon,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      borderRadius: 18,
+      onPressed: onTap,
     );
   }
 }
@@ -1590,65 +1558,15 @@ class _SendReportButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1 : 0.45,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isEnabled ? onPressed : null,
-          borderRadius: BorderRadius.circular(26),
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.28),
-                  blurRadius: 22,
-                  offset: const Offset(0, 11),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  isLoading
-                      ? Icons.hourglass_top_rounded
-                      : Icons.send_rounded,
-                  color: Colors.white,
-                  size: 27,
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    isLoading ? 'Wird gesendet...' : 'Anonym senden',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 19,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return CarmaPrimaryButton(
+      label: 'Anonym senden',
+      loadingLabel: 'Wird gesendet...',
+      icon: Icons.send_rounded,
+      iconSize: 27,
+      fontSize: 19,
+      isEnabled: isEnabled,
+      isLoading: isLoading,
+      onPressed: onPressed,
     );
   }
 }

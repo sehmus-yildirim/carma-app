@@ -8,6 +8,8 @@ import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_primary_button.dart';
+import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_section_title.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/carma_switch_row.dart';
@@ -2628,46 +2630,11 @@ class _SecondaryFullWidthButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: Colors.white.withValues(alpha: 0.10),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.14),
-            ),
-          ),
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    return CarmaSecondaryButton(
+      label: label,
+      icon: icon,
+      borderRadius: 20,
+      onPressed: onTap,
     );
   }
 }
@@ -2704,31 +2671,10 @@ class _SheetSecondaryActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.10),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.14),
-            ),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ),
+    return CarmaSecondaryButton(
+      label: label,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      onPressed: onTap,
     );
   }
 }
@@ -2746,65 +2692,15 @@ class _SaveProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1 : 0.45,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isEnabled ? onPressed : null,
-          borderRadius: BorderRadius.circular(26),
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.28),
-                  blurRadius: 22,
-                  offset: const Offset(0, 11),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  isLoading
-                      ? Icons.hourglass_top_rounded
-                      : Icons.save_rounded,
-                  color: Colors.white,
-                  size: 27,
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    isLoading ? 'Wird gespeichert...' : 'Profil speichern',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 19,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return CarmaPrimaryButton(
+      label: 'Profil speichern',
+      loadingLabel: 'Wird gespeichert...',
+      icon: Icons.save_rounded,
+      iconSize: 27,
+      fontSize: 19,
+      isEnabled: isEnabled,
+      isLoading: isLoading,
+      onPressed: onPressed,
     );
   }
 }
@@ -2824,69 +2720,17 @@ class _SubmitVerificationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1 : 0.45,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isEnabled ? onPressed : null,
-          borderRadius: BorderRadius.circular(26),
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.28),
-                  blurRadius: 22,
-                  offset: const Offset(0, 11),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  isLoading
-                      ? Icons.hourglass_top_rounded
-                      : Icons.verified_user_rounded,
-                  color: Colors.white,
-                  size: 27,
-                ),
-                const SizedBox(width: 12),
-                Flexible(
-                  child: Text(
-                    isLoading
-                        ? 'Wird vorbereitet...'
-                        : allDocumentsUploaded
-                        ? 'Dokumente vorbereitet'
-                        : 'Dokumente vollständig hochladen',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 19,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return CarmaPrimaryButton(
+      label: allDocumentsUploaded
+          ? 'Dokumente vorbereitet'
+          : 'Dokumente vollständig hochladen',
+      loadingLabel: 'Wird vorbereitet...',
+      icon: Icons.verified_user_rounded,
+      iconSize: 27,
+      fontSize: 19,
+      isEnabled: isEnabled,
+      isLoading: isLoading,
+      onPressed: onPressed,
     );
   }
 }
