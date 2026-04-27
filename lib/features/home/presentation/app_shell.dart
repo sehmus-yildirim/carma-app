@@ -94,7 +94,7 @@ class _GlassBottomNavigationBar extends StatelessWidget {
     _NavigationItem(
       icon: Icons.settings_outlined,
       activeIcon: Icons.settings_rounded,
-      label: 'Einstellung',
+      label: 'Einstellungen',
     ),
   ];
 
@@ -242,9 +242,7 @@ class _GlassNavigationButton extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: isSelected
-                      ? Colors.white
-                      : Colors.white.withValues(alpha: 0.70),
+                  color: Colors.white,
                   size: isSelected ? 22 : 21,
                 ),
                 const SizedBox(height: 4),
@@ -255,13 +253,12 @@ class _GlassNavigationButton extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.72),
-                      fontSize: 10.5,
+                      color: Colors.white,
+                      fontSize: isSelected ? 11.2 : 11,
                       fontWeight:
-                      isSelected ? FontWeight.w800 : FontWeight.w600,
-                      letterSpacing: -0.1,
+                      isSelected ? FontWeight.w800 : FontWeight.w700,
+                      letterSpacing: 0,
+                      height: 1,
                     ),
                   ),
                 ),
