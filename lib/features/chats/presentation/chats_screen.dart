@@ -2,6 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carma_blue_icon_box.dart';
+import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
@@ -120,7 +123,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _PageHeader(
+                    const CarmaPageHeader(
                       icon: Icons.chat_bubble_rounded,
                       title: 'Chats',
                     ),
@@ -167,58 +170,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
           },
         ),
       ),
-    );
-  }
-}
-
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({
-    required this.icon,
-    required this.title,
-  });
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.11),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _carmaBlue.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 27,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -449,7 +400,7 @@ class _OverviewCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _BlueIconBox(
+                    CarmaBlueIconBox(
                       icon: icon,
                       size: 48,
                       iconSize: 24,
@@ -724,7 +675,7 @@ class _SubPageScaffold extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SubPageHeader(
+                CarmaSubPageHeader(
                   icon: icon,
                   title: headerTitle,
                   onBack: () => Navigator.of(context).pop(),
@@ -745,50 +696,6 @@ class _SubPageScaffold extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SubPageHeader extends StatelessWidget {
-  const _SubPageHeader({
-    required this.icon,
-    required this.title,
-    required this.onBack,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          _RoundIconButton(
-            icon: Icons.arrow_back_rounded,
-            onTap: onBack,
-          ),
-          const SizedBox(width: 12),
-          _BlueIconBox(
-            icon: icon,
-            size: 46,
-            iconSize: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1029,7 +936,7 @@ class _EmptyListCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       child: Column(
         children: [
-          _BlueIconBox(
+          CarmaBlueIconBox(
             icon: icon,
             size: 64,
             iconSize: 32,
@@ -1055,50 +962,6 @@ class _EmptyListCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BlueIconBox extends StatelessWidget {
-  const _BlueIconBox({
-    required this.icon,
-    this.size = 46,
-    this.iconSize = 23,
-  });
-
-  final IconData icon;
-  final double size;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _carmaBlueDark,
-            _carmaBlue,
-            _carmaBlueLight,
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _carmaBlue.withValues(alpha: 0.22),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: iconSize,
       ),
     );
   }

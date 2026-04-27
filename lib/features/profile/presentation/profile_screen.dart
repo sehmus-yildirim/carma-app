@@ -5,6 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carma_blue_icon_box.dart';
+import '../../../shared/widgets/carma_message_card.dart';
+import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_section_title.dart';
+import '../../../shared/widgets/carma_sub_page_header.dart';
+import '../../../shared/widgets/carma_switch_row.dart';
 import '../../../shared/widgets/glass_card.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
@@ -774,7 +780,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _ProfileHeader(),
+                    const CarmaPageHeader(
+                      icon: Icons.person_rounded,
+                      title: 'Profil',
+                    ),
                     const SizedBox(height: 14),
                     Text(
                       'Verwalte deine Identität, dein Fahrzeug und deine Sichtbarkeit.',
@@ -803,7 +812,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '1',
                       title: 'Persönliche Daten',
                     ),
@@ -814,7 +823,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       isLocked: _isProfileLocked,
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '2',
                       title: 'Verifizierung',
                     ),
@@ -827,7 +836,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onOpenVerification: _openVerificationScreen,
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '3',
                       title: 'Mein Fahrzeug',
                     ),
@@ -868,7 +877,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onColorChanged: _onColorChanged,
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '4',
                       title: 'Sichtbarkeit',
                     ),
@@ -928,7 +937,7 @@ class _VisibilityCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: Column(
         children: [
-          _SwitchRow(
+          CarmaSwitchRow(
             icon: Icons.chat_bubble_outline_rounded,
             title: 'Kontaktanfragen erlauben',
             description:
@@ -938,7 +947,7 @@ class _VisibilityCard extends StatelessWidget {
             onChanged: onContactRequestsChanged,
           ),
           const SizedBox(height: 10),
-          _SwitchRow(
+          CarmaSwitchRow(
             icon: Icons.report_outlined,
             title: 'Anonyme Hinweise erlauben',
             description:
@@ -1159,7 +1168,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SubPageHeader(
+                CarmaSubPageHeader(
                   icon: Icons.verified_user_rounded,
                   title: 'Verifizierung',
                   onBack: () => Navigator.of(context).pop(),
@@ -1183,7 +1192,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
                   selectedColor: widget.selectedColor,
                 ),
                 const SizedBox(height: 18),
-                const _SectionTitle(
+                const CarmaSectionTitle(
                   number: '1',
                   title: 'Pflichtdokumente',
                 ),
@@ -1202,14 +1211,14 @@ class _VerificationScreenState extends State<_VerificationScreen> {
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 14),
-                  _MessageCard(
+                  CarmaMessageCard(
                     icon: Icons.error_outline_rounded,
                     message: _errorMessage!,
                   ),
                 ],
                 if (_successMessage != null) ...[
                   const SizedBox(height: 14),
-                  _MessageCard(
+                  CarmaMessageCard(
                     icon: Icons.check_circle_outline_rounded,
                     message: _successMessage!,
                   ),
@@ -1233,52 +1242,6 @@ class _VerificationScreenState extends State<_VerificationScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.11),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _carmaBlue.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.person_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            'Profil',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1569,7 +1532,7 @@ class _VerificationSummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _BlueIconBox(
+              CarmaBlueIconBox(
                 icon: allDocumentsUploaded
                     ? Icons.verified_rounded
                     : Icons.pending_actions_rounded,
@@ -1695,83 +1658,6 @@ class _VehicleDataCard extends StatelessWidget {
             'Diese Angaben müssen mit dem Fahrzeugschein übereinstimmen. Änderungen am Fahrzeug setzen die Fahrzeugdokumente zur erneuten Prüfung zurück.',
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.value,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool value;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.56,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          color: Colors.white.withValues(alpha: 0.06),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.10),
-          ),
-        ),
-        child: Row(
-          children: [
-            _BlueIconBox(
-              icon: icon,
-              size: 44,
-              iconSize: 22,
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.66),
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch.adaptive(
-              value: value,
-              activeThumbColor: Colors.white,
-              activeTrackColor: _carmaBlue.withValues(alpha: 0.70),
-              inactiveThumbColor: Colors.white.withValues(alpha: 0.76),
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.14),
-              onChanged: enabled ? onChanged : null,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1993,7 +1879,7 @@ class _DocumentUploadTile extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    _BlueIconBox(
+                    CarmaBlueIconBox(
                       icon: _isUploaded
                           ? Icons.check_circle_rounded
                           : Icons.upload_file_rounded,
@@ -2587,148 +2473,6 @@ class _ProfileDropdown extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.number,
-    required this.title,
-  });
-
-  final String number;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 31,
-          height: 31,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlueLight,
-              ],
-            ),
-          ),
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SubPageHeader extends StatelessWidget {
-  const _SubPageHeader({
-    required this.icon,
-    required this.title,
-    required this.onBack,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          _RoundIconButton(
-            icon: Icons.arrow_back_rounded,
-            onTap: onBack,
-          ),
-          const SizedBox(width: 12),
-          _BlueIconBox(
-            icon: icon,
-            size: 46,
-            iconSize: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BlueIconBox extends StatelessWidget {
-  const _BlueIconBox({
-    required this.icon,
-    this.size = 46,
-    this.iconSize = 23,
-  });
-
-  final IconData icon;
-  final double size;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _carmaBlueDark,
-            _carmaBlue,
-            _carmaBlueLight,
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _carmaBlue.withValues(alpha: 0.22),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: iconSize,
-      ),
-    );
-  }
-}
-
 class _UserAvatarPlaceholder extends StatelessWidget {
   const _UserAvatarPlaceholder({
     required this.size,
@@ -2759,44 +2503,6 @@ class _UserAvatarPlaceholder extends StatelessWidget {
         Icons.person_rounded,
         color: Colors.white,
         size: size * 0.56,
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
       ),
     );
   }
@@ -3198,43 +2904,6 @@ class _NewProfileButton extends StatelessWidget {
       label: 'Neues Profil hinzufügen',
       icon: Icons.person_add_alt_1_rounded,
       onTap: onPressed,
-    );
-  }
-}
-
-class _MessageCard extends StatelessWidget {
-  const _MessageCard({
-    required this.icon,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -6,6 +6,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carma_message_card.dart';
+import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_section_title.dart';
 import '../../../shared/widgets/glass_card.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
@@ -373,7 +376,10 @@ class _ReportScreenState extends State<ReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _ReportHeader(),
+                    const CarmaPageHeader(
+                      icon: Icons.report_rounded,
+                      title: 'Melden',
+                    ),
                     const SizedBox(height: 14),
                     Text(
                       'Sende einen anonymen Hinweis an einen Fahrzeughalter.',
@@ -387,7 +393,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     const SizedBox(height: 16),
                     const _MisuseWarningCard(),
                     const SizedBox(height: 16),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '1',
                       title: 'Was möchtest du melden?',
                     ),
@@ -397,7 +403,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onSelected: _selectCategory,
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '2',
                       title: 'Kennzeichen',
                     ),
@@ -423,7 +429,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onNumbersChanged: _handleNumbersChanged,
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '3',
                       title: 'Ort des Hinweises',
                     ),
@@ -447,7 +453,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onRetryLocation: _loadLocation,
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '4',
                       title: 'Foto aufnehmen',
                       optional: true,
@@ -459,7 +465,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onRemovePhoto: _removePhoto,
                     ),
                     const SizedBox(height: 18),
-                    const _SectionTitle(
+                    const CarmaSectionTitle(
                       number: '5',
                       title: 'Kurzer Hinweis',
                       optional: true,
@@ -470,14 +476,14 @@ class _ReportScreenState extends State<ReportScreen> {
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 14),
-                      _MessageCard(
+                      CarmaMessageCard(
                         icon: Icons.error_outline_rounded,
                         message: _errorMessage!,
                       ),
                     ],
                     if (_successMessage != null) ...[
                       const SizedBox(height: 14),
-                      _MessageCard(
+                      CarmaMessageCard(
                         icon: Icons.check_circle_outline_rounded,
                         message: _successMessage!,
                       ),
@@ -495,52 +501,6 @@ class _ReportScreenState extends State<ReportScreen> {
           },
         ),
       ),
-    );
-  }
-}
-
-class _ReportHeader extends StatelessWidget {
-  const _ReportHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.11),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _carmaBlue.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.report_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            'Melden',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -589,62 +549,6 @@ class _MisuseWarningCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.number,
-    required this.title,
-    this.optional = false,
-  });
-
-  final String number;
-  final String title;
-  final bool optional;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 31,
-          height: 31,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlueLight,
-              ],
-            ),
-          ),
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            optional ? '$title · optional' : title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-              letterSpacing: -0.2,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1744,43 +1648,6 @@ class _SendReportButton extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _MessageCard extends StatelessWidget {
-  const _MessageCard({
-    required this.icon,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

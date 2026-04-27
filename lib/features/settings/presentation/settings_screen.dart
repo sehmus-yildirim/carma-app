@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carma_blue_icon_box.dart';
+import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_sub_page_header.dart';
+import '../../../shared/widgets/carma_switch_row.dart';
 import '../../../shared/widgets/glass_card.dart';
 
-const Color _carmaBlue = Color(0xFF139CFF);
-const Color _carmaBlueLight = Color(0xFF63D5FF);
-const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -95,7 +96,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _SettingsDetailItem(
           icon: Icons.file_download_outlined,
           title: 'Datenexport anfordern',
-          description: 'Fordere später eine Kopie deiner gespeicherten Daten an.',
+          description:
+          'Fordere später eine Kopie deiner gespeicherten Daten an.',
         ),
         _SettingsDetailItem(
           icon: Icons.manage_accounts_outlined,
@@ -231,7 +233,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _SettingsHeader(),
+                    const CarmaPageHeader(
+                      icon: Icons.settings_rounded,
+                      title: 'Einstellungen',
+                    ),
                     const SizedBox(height: 14),
                     Text(
                       'Verwalte Konto, Datenschutz, Sicherheit und App-Informationen.',
@@ -307,7 +312,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsOverviewCard(
                       icon: Icons.description_rounded,
                       title: 'Rechtliches',
-                      description: 'AGB, Datenschutz, Impressum und Über Carma.',
+                      description:
+                      'AGB, Datenschutz, Impressum und Über Carma.',
                       onTap: _openLegal,
                     ),
                     const SizedBox(height: 18),
@@ -323,52 +329,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class _SettingsHeader extends StatelessWidget {
-  const _SettingsHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.11),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _carmaBlue.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.settings_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            'Einstellungen',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SafetyNoticeCard extends StatelessWidget {
   const _SafetyNoticeCard();
 
@@ -379,7 +339,7 @@ class _SafetyNoticeCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _BlueIconBox(
+          CarmaBlueIconBox(
             icon: Icons.verified_user_outlined,
             size: 44,
             iconSize: 23,
@@ -427,7 +387,7 @@ class _SettingsOverviewCard extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
-                _BlueIconBox(
+                CarmaBlueIconBox(
                   icon: icon,
                   size: 50,
                   iconSize: 25,
@@ -505,7 +465,7 @@ class _NotificationSettingsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _BlueIconBox(
+              CarmaBlueIconBox(
                 icon: Icons.notifications_active_rounded,
                 size: 48,
                 iconSize: 24,
@@ -524,7 +484,7 @@ class _NotificationSettingsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _SwitchRow(
+          CarmaSwitchRow(
             icon: Icons.mark_chat_unread_outlined,
             title: 'Kontaktanfragen',
             description: 'Neue eingehende oder angenommene Anfragen.',
@@ -532,7 +492,7 @@ class _NotificationSettingsCard extends StatelessWidget {
             onChanged: onContactRequestsChanged,
           ),
           const SizedBox(height: 10),
-          _SwitchRow(
+          CarmaSwitchRow(
             icon: Icons.chat_bubble_outline_rounded,
             title: 'Chats',
             description: 'Neue Nachrichten aus aktiven Chats.',
@@ -540,7 +500,7 @@ class _NotificationSettingsCard extends StatelessWidget {
             onChanged: onChatsChanged,
           ),
           const SizedBox(height: 10),
-          _SwitchRow(
+          CarmaSwitchRow(
             icon: Icons.report_outlined,
             title: 'Anonyme Hinweise',
             description: 'Neue sachliche Hinweise zu deinem Fahrzeug.',
@@ -548,84 +508,12 @@ class _NotificationSettingsCard extends StatelessWidget {
             onChanged: onReportsChanged,
           ),
           const SizedBox(height: 10),
-          _SwitchRow(
+          CarmaSwitchRow(
             icon: Icons.verified_user_outlined,
             title: 'Verifizierung',
             description: 'Statusänderungen zu Konto- und Fahrzeugprüfung.',
             value: notifyVerification,
             onChanged: onVerificationChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
-      ),
-      child: Row(
-        children: [
-          _BlueIconBox(
-            icon: icon,
-            size: 44,
-            iconSize: 22,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.66),
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            activeThumbColor: Colors.white,
-            activeTrackColor: _carmaBlue.withValues(alpha: 0.70),
-            inactiveThumbColor: Colors.white.withValues(alpha: 0.76),
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.14),
-            onChanged: onChanged,
           ),
         ],
       ),
@@ -697,7 +585,7 @@ class _SettingsDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SubPageHeader(
+                CarmaSubPageHeader(
                   icon: icon,
                   title: title,
                   onBack: () => Navigator.of(context).pop(),
@@ -765,9 +653,8 @@ class _SettingsDetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = item.isDestructive
-        ? const Color(0xFFFF8A8A)
-        : Colors.white;
+    final titleColor =
+    item.isDestructive ? const Color(0xFFFF8A8A) : Colors.white;
 
     return Material(
       color: Colors.transparent,
@@ -787,7 +674,7 @@ class _SettingsDetailTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _BlueIconBox(
+              CarmaBlueIconBox(
                 icon: item.icon,
                 size: 44,
                 iconSize: 22,
@@ -826,132 +713,6 @@ class _SettingsDetailTile extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SubPageHeader extends StatelessWidget {
-  const _SubPageHeader({
-    required this.icon,
-    required this.title,
-    required this.onBack,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          _RoundIconButton(
-            icon: Icons.arrow_back_rounded,
-            onTap: onBack,
-          ),
-          const SizedBox(width: 12),
-          _BlueIconBox(
-            icon: icon,
-            size: 46,
-            iconSize: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BlueIconBox extends StatelessWidget {
-  const _BlueIconBox({
-    required this.icon,
-    this.size = 46,
-    this.iconSize = 23,
-  });
-
-  final IconData icon;
-  final double size;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            _carmaBlueDark,
-            _carmaBlue,
-            _carmaBlueLight,
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _carmaBlue.withValues(alpha: 0.22),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: iconSize,
       ),
     );
   }

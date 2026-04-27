@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carma_message_card.dart';
+import '../../../shared/widgets/carma_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
@@ -436,7 +438,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _HomeHeader(),
+                    const CarmaPageHeader(
+                      icon: Icons.directions_car_filled_rounded,
+                      title: 'Suchen',
+                    ),
                     const SizedBox(height: 14),
                     Text(
                       'Jemanden gesehen der dir gefällt?',
@@ -487,21 +492,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     if (_locationError != null) ...[
                       const SizedBox(height: 12),
-                      _MessageCard(
+                      CarmaMessageCard(
                         icon: Icons.location_off_rounded,
                         message: _locationError!,
                       ),
                     ],
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 12),
-                      _MessageCard(
+                      CarmaMessageCard(
                         icon: Icons.error_outline_rounded,
                         message: _errorMessage!,
                       ),
                     ],
                     if (_successMessage != null) ...[
                       const SizedBox(height: 12),
-                      _MessageCard(
+                      CarmaMessageCard(
                         icon: Icons.check_circle_outline_rounded,
                         message: _successMessage!,
                       ),
@@ -518,52 +523,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
       ),
-    );
-  }
-}
-
-class _HomeHeader extends StatelessWidget {
-  const _HomeHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.11),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _carmaBlue.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.directions_car_filled_rounded,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            'Suchen',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1199,43 +1158,6 @@ class _ResultInfoRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _MessageCard extends StatelessWidget {
-  const _MessageCard({
-    required this.icon,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
