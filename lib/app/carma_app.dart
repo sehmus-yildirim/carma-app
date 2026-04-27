@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../features/auth/presentation/auth_gate.dart';
+import '../features/auth/presentation/auth_gate_screen.dart';
 import '../shared/theme/carma_theme.dart';
 
 class CarmaApp extends StatelessWidget {
@@ -12,7 +12,7 @@ class CarmaApp extends StatelessWidget {
       title: 'Carma',
       debugShowCheckedModeBanner: false,
       theme: CarmaTheme.darkTheme(),
-      home: const AuthGate(),
+      home: const AuthGateScreen(),
     );
   }
 }
