@@ -1,13 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carma_country_selector_card.dart';
 import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_page_header.dart';
+import '../../../shared/widgets/carma_plate_input_card.dart';
 import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_section_title.dart';
@@ -60,39 +62,20 @@ class _ReportScreenState extends State<ReportScreen> {
   String? _errorMessage;
   String? _successMessage;
 
+  PlateCountryConfig get _plateConfig {
+    return plateConfigForCountry(_countryCode);
+  }
+
   int get _regionMaxLength {
-    switch (_countryCode) {
-      case 'AT':
-        return 2;
-      case 'CH':
-        return 2;
-      case 'DE':
-      default:
-        return 3;
-    }
+    return _plateConfig.regionMaxLength;
   }
 
   int get _lettersMaxLength {
-    switch (_countryCode) {
-      case 'AT':
-        return 2;
-      case 'DE':
-      default:
-        return 2;
-    }
+    return _plateConfig.lettersMaxLength;
   }
 
   int get _numbersMaxLength {
-    switch (_countryCode) {
-      case 'DE':
-        return 5;
-      case 'AT':
-        return 5;
-      case 'CH':
-        return 6;
-      default:
-        return 5;
-    }
+    return _plateConfig.numbersMaxLength;
   }
 
   bool get _hasPlateInput {
@@ -410,16 +393,13 @@ class _ReportScreenState extends State<ReportScreen> {
                       title: 'Kennzeichen',
                     ),
                     const SizedBox(height: 10),
-                    _CountrySelectorCard(
+                    CarmaCountrySelectorCard(
                       selectedCountryCode: _countryCode,
                       onChanged: _changeCountry,
                     ),
                     const SizedBox(height: 12),
-                    _PlateInputCard(
+                    CarmaPlateInputCard(
                       countryCode: _countryCode,
-                      regionMaxLength: _regionMaxLength,
-                      lettersMaxLength: _lettersMaxLength,
-                      numbersMaxLength: _numbersMaxLength,
                       regionController: _regionController,
                       lettersController: _lettersController,
                       numbersController: _numbersController,
@@ -729,349 +709,6 @@ class _CategoryCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CountrySelectorCard extends StatelessWidget {
-  const _CountrySelectorCard({
-    required this.selectedCountryCode,
-    required this.onChanged,
-  });
-
-  final String selectedCountryCode;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        children: [
-          Expanded(
-            child: _CountryButton(
-              label: 'Deutschland',
-              countryCode: 'DE',
-              selectedCountryCode: selectedCountryCode,
-              onChanged: onChanged,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _CountryButton(
-              label: 'Österreich',
-              countryCode: 'AT',
-              selectedCountryCode: selectedCountryCode,
-              onChanged: onChanged,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _CountryButton(
-              label: 'Schweiz',
-              countryCode: 'CH',
-              selectedCountryCode: selectedCountryCode,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CountryButton extends StatelessWidget {
-  const _CountryButton({
-    required this.label,
-    required this.countryCode,
-    required this.selectedCountryCode,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String countryCode;
-  final String selectedCountryCode;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = selectedCountryCode == countryCode;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onChanged(countryCode),
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          height: 56,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: isSelected
-                ? const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlue,
-                _carmaBlueLight,
-              ],
-            )
-                : null,
-            color: isSelected ? null : Colors.white.withValues(alpha: 0.04),
-            border: Border.all(
-              color: isSelected
-                  ? Colors.white.withValues(alpha: 0.22)
-                  : Colors.white.withValues(alpha: 0.10),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PlateInputCard extends StatelessWidget {
-  const _PlateInputCard({
-    required this.countryCode,
-    required this.regionMaxLength,
-    required this.lettersMaxLength,
-    required this.numbersMaxLength,
-    required this.regionController,
-    required this.lettersController,
-    required this.numbersController,
-    required this.regionFocusNode,
-    required this.lettersFocusNode,
-    required this.numbersFocusNode,
-    required this.onRegionChanged,
-    required this.onLettersChanged,
-    required this.onNumbersChanged,
-  });
-
-  final String countryCode;
-  final int regionMaxLength;
-  final int lettersMaxLength;
-  final int numbersMaxLength;
-
-  final TextEditingController regionController;
-  final TextEditingController lettersController;
-  final TextEditingController numbersController;
-
-  final FocusNode regionFocusNode;
-  final FocusNode lettersFocusNode;
-  final FocusNode numbersFocusNode;
-
-  final ValueChanged<String> onRegionChanged;
-  final ValueChanged<String> onLettersChanged;
-  final ValueChanged<String> onNumbersChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<Widget> fields = [
-      Expanded(
-        child: _PlateInputField(
-          label: countryCode == 'CH'
-              ? 'Kanton'
-              : countryCode == 'AT'
-              ? 'Bezirk'
-              : 'Stadt',
-          controller: regionController,
-          focusNode: regionFocusNode,
-          textInputAction: TextInputAction.next,
-          maxLength: regionMaxLength,
-          inputFormatters: const [
-            _LettersOnlyFormatter(),
-          ],
-          onChanged: onRegionChanged,
-        ),
-      ),
-    ];
-
-    if (countryCode == 'AT') {
-      fields.addAll([
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            label: 'Zahlen',
-            controller: numbersController,
-            focusNode: numbersFocusNode,
-            textInputAction: TextInputAction.next,
-            maxLength: numbersMaxLength,
-            inputFormatters: const [
-              _NumbersOnlyFormatter(),
-            ],
-            onChanged: onNumbersChanged,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            label: 'Buchstaben',
-            controller: lettersController,
-            focusNode: lettersFocusNode,
-            textInputAction: TextInputAction.done,
-            maxLength: lettersMaxLength,
-            inputFormatters: const [
-              _LettersOnlyFormatter(),
-            ],
-            onChanged: onLettersChanged,
-          ),
-        ),
-      ]);
-    } else if (countryCode == 'CH') {
-      fields.addAll([
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            label: 'Zahlen',
-            controller: numbersController,
-            focusNode: numbersFocusNode,
-            textInputAction: TextInputAction.done,
-            maxLength: numbersMaxLength,
-            inputFormatters: const [
-              _NumbersOnlyFormatter(),
-            ],
-            onChanged: onNumbersChanged,
-          ),
-        ),
-      ]);
-    } else {
-      fields.addAll([
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            label: 'Buchstaben',
-            controller: lettersController,
-            focusNode: lettersFocusNode,
-            textInputAction: TextInputAction.next,
-            maxLength: lettersMaxLength,
-            inputFormatters: const [
-              _LettersOnlyFormatter(),
-            ],
-            onChanged: onLettersChanged,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _PlateInputField(
-            label: 'Zahlen',
-            controller: numbersController,
-            focusNode: numbersFocusNode,
-            textInputAction: TextInputAction.done,
-            maxLength: numbersMaxLength,
-            inputFormatters: const [
-              _GermanNumberWithOptionalEFormatter(),
-            ],
-            onChanged: onNumbersChanged,
-          ),
-        ),
-      ]);
-    }
-
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: fields,
-      ),
-    );
-  }
-}
-
-class _PlateInputField extends StatelessWidget {
-  const _PlateInputField({
-    required this.label,
-    required this.controller,
-    required this.focusNode,
-    required this.textInputAction,
-    required this.maxLength,
-    required this.inputFormatters,
-    required this.onChanged,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final TextInputAction textInputAction;
-  final int maxLength;
-  final List<TextInputFormatter> inputFormatters;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.96),
-              fontWeight: FontWeight.w900,
-              fontSize: 15.5,
-            ),
-          ),
-        ),
-        const SizedBox(height: 9),
-        TextField(
-          controller: controller,
-          focusNode: focusNode,
-          maxLength: maxLength,
-          keyboardType: TextInputType.text,
-          textInputAction: textInputAction,
-          textAlign: TextAlign.center,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: inputFormatters,
-          onChanged: onChanged,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 23,
-            letterSpacing: 0.8,
-          ),
-          decoration: InputDecoration(
-            counterText: '',
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.10),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 18,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(
-                color: _carmaBlueLight.withValues(alpha: 0.90),
-                width: 1.4,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1567,82 +1204,6 @@ class _SendReportButton extends StatelessWidget {
       isEnabled: isEnabled,
       isLoading: isLoading,
       onPressed: onPressed,
-    );
-  }
-}
-
-class _LettersOnlyFormatter extends TextInputFormatter {
-  const _LettersOnlyFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
-    final normalized = newValue.text
-        .toUpperCase()
-        .replaceAll(RegExp(r'[^A-ZÄÖÜ]'), '');
-
-    return TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
-    );
-  }
-}
-
-class _NumbersOnlyFormatter extends TextInputFormatter {
-  const _NumbersOnlyFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
-    final normalized = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-
-    return TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
-    );
-  }
-}
-
-class _GermanNumberWithOptionalEFormatter extends TextInputFormatter {
-  const _GermanNumberWithOptionalEFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
-    final upper = newValue.text.toUpperCase();
-    final buffer = StringBuffer();
-
-    var digitCount = 0;
-    var hasE = false;
-
-    for (var i = 0; i < upper.length; i++) {
-      final char = upper[i];
-
-      if (RegExp(r'[0-9]').hasMatch(char)) {
-        if (!hasE && digitCount < 4) {
-          buffer.write(char);
-          digitCount++;
-        }
-        continue;
-      }
-
-      if (char == 'E' && !hasE && digitCount > 0 && i == upper.length - 1) {
-        buffer.write(char);
-        hasE = true;
-      }
-    }
-
-    final normalized = buffer.toString();
-
-    return TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
     );
   }
 }
