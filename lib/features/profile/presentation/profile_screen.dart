@@ -573,11 +573,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    final canSubmit = _canSubmitProfileForVerification;
+
     setState(() {
       _isSaving = false;
       _hasUnsavedChanges = false;
 
-      if (_canSubmitProfileForVerification) {
+      if (canSubmit) {
         _isSubmittedForVerification = true;
         _isVerified = false;
       }
@@ -586,7 +588,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          _canSubmitProfileForVerification
+          canSubmit
               ? 'Profil wurde gespeichert. Deine Verifizierung ist jetzt ausstehend.'
               : 'Profil wurde vorbereitet. Für die Freigabe müssen Name, Fahrzeug und alle Dokumente vollständig sein.',
         ),
@@ -772,6 +774,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       totalDocumentCount: _documentFiles.length,
                       onProfilePhotoTap: _showProfilePhotoSourceSheet,
                     ),
+                    const SizedBox(height: 14),
+                    _ProfileNextStepCard(
+                      hasNameInput: _hasNameInput,
+                      hasPlateInput: _hasPlateInput,
+                      allDocumentsUploaded: _allDocumentsUploaded,
+                      canSubmitProfileForVerification:
+                      _canSubmitProfileForVerification,
+                      isSubmittedForVerification: _isSubmittedForVerification,
+                      isVerified: _isVerified,
+                      isSaving: _isSaving,
+                      onOpenVerification: _openVerificationScreen,
+                      onSaveProfile: _saveProfile,
+                    ),
                     if (_isProfileLocked) ...[
                       const SizedBox(height: 14),
                       _LockedProfileCard(
@@ -878,6 +893,181 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileNextStepCard extends StatelessWidget {
+  const _ProfileNextStepCard({
+    required this.hasNameInput,
+    required this.hasPlateInput,
+    required this.allDocumentsUploaded,
+    required this.canSubmitProfileForVerification,
+    required this.isSubmittedForVerification,
+    required this.isVerified,
+    required this.isSaving,
+    required this.onOpenVerification,
+    required this.onSaveProfile,
+  });
+
+  final bool hasNameInput;
+  final bool hasPlateInput;
+  final bool allDocumentsUploaded;
+  final bool canSubmitProfileForVerification;
+  final bool isSubmittedForVerification;
+  final bool isVerified;
+  final bool isSaving;
+  final VoidCallback onOpenVerification;
+  final VoidCallback onSaveProfile;
+
+  String get _title {
+    if (isVerified) {
+      return 'Profil vollständig verifiziert';
+    }
+
+    if (isSubmittedForVerification) {
+      return 'Verifizierung wird geprüft';
+    }
+
+    if (!hasNameInput) {
+      return 'Persönliche Daten ergänzen';
+    }
+
+    if (!hasPlateInput) {
+      return 'Fahrzeug und Kennzeichen ergänzen';
+    }
+
+    if (!allDocumentsUploaded) {
+      return 'Dokumente hochladen';
+    }
+
+    return 'Profil einreichen';
+  }
+
+  String get _description {
+    if (isVerified) {
+      return 'Dein Profil ist freigeschaltet. Profilbild und Sichtbarkeit kannst du weiterhin ändern.';
+    }
+
+    if (isSubmittedForVerification) {
+      return 'Name, Fahrzeugdaten und Dokumente sind jetzt gesperrt, bis die Prüfung abgeschlossen ist.';
+    }
+
+    if (!hasNameInput) {
+      return 'Trage unten Vorname und Nachname ein. Nach der Verifizierung werden diese Daten geschützt gesperrt.';
+    }
+
+    if (!hasPlateInput) {
+      return 'Ergänze dein Kennzeichen und die Fahrzeugdaten, damit dein Fahrzeug eindeutig zugeordnet werden kann.';
+    }
+
+    if (!allDocumentsUploaded) {
+      return 'Lade Ausweis, Führerschein und Fahrzeugschein hoch, damit dein Profil vorbereitet werden kann.';
+    }
+
+    return 'Alle Pflichtdaten sind vorhanden. Speichere dein Profil, um die lokale Verifizierung auf ausstehend zu setzen.';
+  }
+
+  IconData get _icon {
+    if (isVerified) {
+      return Icons.verified_rounded;
+    }
+
+    if (isSubmittedForVerification) {
+      return Icons.pending_actions_rounded;
+    }
+
+    if (!hasNameInput) {
+      return Icons.badge_outlined;
+    }
+
+    if (!hasPlateInput) {
+      return Icons.directions_car_outlined;
+    }
+
+    if (!allDocumentsUploaded) {
+      return Icons.upload_file_rounded;
+    }
+
+    return Icons.check_circle_outline_rounded;
+  }
+
+  bool get _showDocumentButton {
+    return !isVerified &&
+        !isSubmittedForVerification &&
+        hasNameInput &&
+        hasPlateInput &&
+        !allDocumentsUploaded;
+  }
+
+  bool get _showSubmitButton {
+    return !isVerified &&
+        !isSubmittedForVerification &&
+        canSubmitProfileForVerification;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CarmaBlueIconBox(
+                icon: _icon,
+                size: 48,
+                iconSize: 24,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _description,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w700,
+                        height: 1.34,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_showDocumentButton) ...[
+            const SizedBox(height: 14),
+            CarmaPrimaryButton(
+              label: 'Dokumente hochladen',
+              icon: Icons.arrow_forward_rounded,
+              onPressed: onOpenVerification,
+            ),
+          ],
+          if (_showSubmitButton) ...[
+            const SizedBox(height: 14),
+            CarmaPrimaryButton(
+              label: 'Profil speichern und einreichen',
+              loadingLabel: 'Wird gespeichert...',
+              icon: Icons.verified_user_rounded,
+              isLoading: isSaving,
+              onPressed: onSaveProfile,
+            ),
+          ],
+        ],
       ),
     );
   }
