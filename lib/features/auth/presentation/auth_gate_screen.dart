@@ -44,7 +44,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       child: !_isAuthenticated
           ? AuthFlowScreen(
         key: const ValueKey('auth_flow'),
-        onAuthCompleted: _completeAuth,
+        onAuthFinished: _completeAuth,
       )
           : !_isOnboardingCompleted
           ? OnboardingFlowScreen(

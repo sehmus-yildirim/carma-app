@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'forgot_password_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
-import 'welcome_screen.dart';
 
-enum _AuthStep {
-  welcome,
+enum AuthFlowStep {
   login,
   register,
   forgotPassword,
@@ -15,55 +13,60 @@ enum _AuthStep {
 class AuthFlowScreen extends StatefulWidget {
   const AuthFlowScreen({
     super.key,
-    this.onAuthCompleted,
+    this.onAuthFinished,
   });
 
-  final VoidCallback? onAuthCompleted;
+  final VoidCallback? onAuthFinished;
 
   @override
   State<AuthFlowScreen> createState() => _AuthFlowScreenState();
 }
 
 class _AuthFlowScreenState extends State<AuthFlowScreen> {
-  _AuthStep _step = _AuthStep.login;
+  AuthFlowStep _currentStep = AuthFlowStep.login;
 
-  void _goToWelcome() {
+  void _openLogin() {
     setState(() {
-      _step = _AuthStep.welcome;
+      _currentStep = AuthFlowStep.login;
     });
   }
 
-  void _goToLogin() {
+  void _openRegister() {
     setState(() {
-      _step = _AuthStep.login;
+      _currentStep = AuthFlowStep.register;
     });
   }
 
-  void _goToRegister() {
+  void _openForgotPassword() {
     setState(() {
-      _step = _AuthStep.register;
+      _currentStep = AuthFlowStep.forgotPassword;
     });
   }
 
-  void _goToForgotPassword() {
-    setState(() {
-      _step = _AuthStep.forgotPassword;
-    });
-  }
+  Widget _buildCurrentScreen() {
+    switch (_currentStep) {
+      case AuthFlowStep.login:
+        return LoginScreen(
+          key: const ValueKey('login'),
+          onRegisterPressed: _openRegister,
+          onForgotPasswordPressed: _openForgotPassword,
+          onLoginSuccess: widget.onAuthFinished,
+        );
 
-  void _completeAuth() {
-    if (widget.onAuthCompleted != null) {
-      widget.onAuthCompleted!();
-      return;
+      case AuthFlowStep.register:
+        return RegisterScreen(
+          key: const ValueKey('register'),
+          onBack: _openLogin,
+          onLoginPressed: _openLogin,
+          onRegisterSuccess: widget.onAuthFinished,
+        );
+
+      case AuthFlowStep.forgotPassword:
+        return ForgotPasswordScreen(
+          key: const ValueKey('forgot_password'),
+          onBack: _openLogin,
+        );
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Auth-Flow ist vorbereitet. Die Weiterleitung in die App verbinden wir später.',
-        ),
-      ),
-    );
   }
 
   @override
@@ -72,30 +75,7 @@ class _AuthFlowScreenState extends State<AuthFlowScreen> {
       duration: const Duration(milliseconds: 240),
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
-      child: switch (_step) {
-        _AuthStep.welcome => WelcomeScreen(
-          key: const ValueKey('welcome'),
-          onLoginPressed: _goToLogin,
-          onRegisterPressed: _goToRegister,
-        ),
-        _AuthStep.login => LoginScreen(
-          key: const ValueKey('login'),
-          onBack: _goToWelcome,
-          onLoginSuccess: _completeAuth,
-          onForgotPasswordPressed: _goToForgotPassword,
-          onRegisterPressed: _goToRegister,
-        ),
-        _AuthStep.register => RegisterScreen(
-          key: const ValueKey('register'),
-          onBack: _goToWelcome,
-          onRegisterSuccess: _completeAuth,
-          onLoginPressed: _goToLogin,
-        ),
-        _AuthStep.forgotPassword => ForgotPasswordScreen(
-          key: const ValueKey('forgot_password'),
-          onBack: _goToLogin,
-        ),
-      },
+      child: _buildCurrentScreen(),
     );
   }
 }

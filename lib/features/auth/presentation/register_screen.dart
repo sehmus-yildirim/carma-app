@@ -4,6 +4,7 @@ import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
+import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 
@@ -166,6 +167,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  void _showSocialAuthComingSoon(String provider) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+        Text('$provider Registrierung verbinden wir später mit Firebase.'),
+      ),
+    );
+  }
+
   void _goBack() {
     if (widget.onBack != null) {
       widget.onBack!();
@@ -305,6 +315,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   isEnabled: _canSubmit,
                   isLoading: _isLoading,
                   onPressed: _submitRegister,
+                ),
+                const SizedBox(height: 16),
+                const CarmaAuthDivider(),
+                const SizedBox(height: 16),
+                CarmaSocialAuthButton(
+                  provider: CarmaSocialAuthProvider.google,
+                  onPressed: () => _showSocialAuthComingSoon('Google'),
+                ),
+                const SizedBox(height: 10),
+                CarmaSocialAuthButton(
+                  provider: CarmaSocialAuthProvider.apple,
+                  onPressed: () => _showSocialAuthComingSoon('Apple'),
                 ),
                 const SizedBox(height: 12),
                 CarmaSecondaryButton(
