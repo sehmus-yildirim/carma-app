@@ -28,7 +28,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   _ChatsView _selectedView = _ChatsView.chats;
 
   // TODO: Später durch echte Firebase-Daten ersetzen.
-  bool _hasIncomingRequest = true;
+  bool _hasIncomingRequest = false;
   bool _hasOutgoingRequest = false;
   bool _hasActiveChat = false;
 
@@ -138,11 +138,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         height: 1.35,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    _ChatsSegmentedControl(
-                      selectedView: _selectedView,
-                      onChanged: _selectView,
-                    ),
+                    const SizedBox(height: 18),
+                    const _MvpInfoCard(),
+                    const SizedBox(height: 18),
                     _ChatsSegmentedControl(
                       selectedView: _selectedView,
                       onChanged: _selectView,
@@ -150,6 +148,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     const SizedBox(height: 16),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
                       child: _selectedView == _ChatsView.chats
                           ? _ChatsOverview(
                         key: const ValueKey('chats_view'),
@@ -170,6 +170,38 @@ class _ChatsScreenState extends State<ChatsScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _MvpInfoCard extends StatelessWidget {
+  const _MvpInfoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CarmaBlueIconBox(
+            icon: Icons.info_outline_rounded,
+            size: 44,
+            iconSize: 23,
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Text(
+              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir später mit Firebase.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.80),
+                fontWeight: FontWeight.w700,
+                height: 1.36,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -316,7 +348,7 @@ class _ChatsOverview extends StatelessWidget {
       description: 'Angenommene Anfragen werden hier als Chat angezeigt.',
       bodyText: hasActiveChat
           ? 'Ein aktiver Chat ist verfügbar.'
-          : 'Noch keine aktiven Chats.',
+          : 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.',
       onTap: onOpenActiveChats,
     );
   }
@@ -348,7 +380,7 @@ class _RequestsOverview extends StatelessWidget {
           'Anfragen von Nutzern, die dich über dein Kennzeichen gefunden haben.',
           bodyText: hasIncomingRequest
               ? 'Neue Anfrage wartet auf deine Entscheidung.'
-              : 'Aktuell gibt es keine offenen Anfragen.',
+              : 'Aktuell gibt es keine offenen Anfragen. Neue Kontakte erscheinen hier zuerst zur Freigabe.',
           onTap: onOpenIncoming,
         ),
         const SizedBox(height: 14),
@@ -360,7 +392,7 @@ class _RequestsOverview extends StatelessWidget {
           'Anfragen, die du nach einer Kennzeichen-Suche verschickt hast.',
           bodyText: hasOutgoingRequest
               ? 'Eine Anfrage wartet auf Antwort.'
-              : 'Du hast aktuell keine Anfrage gesendet.',
+              : 'Du hast aktuell keine Anfrage gesendet. Später erscheinen hier offene Anfragen aus der Suche.',
           onTap: onOpenOutgoing,
         ),
       ],
@@ -426,10 +458,11 @@ class _OverviewCard extends StatelessWidget {
                           const SizedBox(height: 5),
                           Text(
                             description,
-                            style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color:
-                              Colors.white.withValues(alpha: 0.68),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.68),
                               fontWeight: FontWeight.w600,
                               height: 1.35,
                             ),
@@ -568,7 +601,7 @@ class _IncomingRequestsScreen extends StatelessWidget {
         icon: Icons.mark_email_unread_outlined,
         title: 'Keine offenen Anfragen',
         description:
-        'Sobald dich jemand über dein Kennzeichen kontaktiert, erscheint die Anfrage hier.',
+        'Sobald dich jemand über dein Kennzeichen kontaktiert, erscheint die Anfrage hier. Du entscheidest dann, ob daraus ein Chat wird.',
       ),
     );
   }
@@ -638,7 +671,7 @@ class _ActiveChatsScreen extends StatelessWidget {
         icon: Icons.chat_bubble_outline_rounded,
         title: 'Noch keine aktiven Chats',
         description:
-        'Sobald eine Anfrage angenommen wird, erscheint die Unterhaltung hier.',
+        'Sobald eine Anfrage angenommen wird, erscheint die Unterhaltung hier. Bis dahin bleibt dieser Bereich bewusst leer.',
       ),
     );
   }
@@ -897,8 +930,7 @@ class _ActiveChatListTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style:
                         Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                          Colors.white.withValues(alpha: 0.68),
+                          color: Colors.white.withValues(alpha: 0.68),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -960,6 +992,38 @@ class _EmptyListCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.70),
               fontWeight: FontWeight.w700,
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: Colors.white.withValues(alpha: 0.055),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.cloud_off_outlined,
+                  color: Colors.white.withValues(alpha: 0.76),
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Live-Daten werden später mit Firebase geladen.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1193,7 +1257,6 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                     20,
                     18 + keyboardInset,
                   ),
-
                   child: Column(
                     children: [
                       _CompactChatInfoCard(
@@ -1338,17 +1401,39 @@ class _ChatEmptySpace extends StatelessWidget {
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(
-        minHeight: 220,
+        minHeight: 260,
       ),
       alignment: Alignment.topCenter,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-      child: Text(
-        'Noch keine Nachrichten',
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Colors.white.withValues(alpha: 0.48),
-          fontWeight: FontWeight.w700,
-        ),
+      child: Column(
+        children: [
+          const SizedBox(height: 18),
+          CarmaBlueIconBox(
+            icon: Icons.chat_bubble_outline_rounded,
+            size: 60,
+            iconSize: 30,
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Noch keine Nachrichten',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Dieser Chat ist lokal vorbereitet. Nachrichten, Anhänge und Zustellstatus werden später mit Firebase verbunden.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontWeight: FontWeight.w700,
+              height: 1.38,
+            ),
+          ),
+        ],
       ),
     );
   }
