@@ -7,9 +7,13 @@ import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/carma_switch_row.dart';
 import '../../../shared/widgets/glass_card.dart';
 
-
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({
+    super.key,
+    required this.onLogout,
+  });
+
+  final VoidCallback onLogout;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -29,11 +33,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _confirmLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF101827),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Abmelden?',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: Text(
+            'Du wirst lokal abgemeldet und kommst zurück zum Login. Firebase-Logout verbinden wir später.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Abbrechen',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.74),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text(
+                'Abmelden',
+                style: TextStyle(
+                  color: Color(0xFFFF8A8A),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true || !mounted) {
+      return;
+    }
+
+    Navigator.of(context).pop();
+    widget.onLogout();
+  }
+
   void _openDetailPage({
     required IconData icon,
     required String title,
     required String description,
     required List<_SettingsDetailItem> items,
+    ValueChanged<String>? onItemTap,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -42,7 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: title,
           description: description,
           items: items,
-          onItemTap: _showComingSoon,
+          onItemTap: onItemTap ?? _showComingSoon,
         ),
       ),
     );
@@ -74,6 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.logout_rounded,
           title: 'Abmelden',
           description: 'Sicher vom aktuellen Gerät abmelden.',
+          isDestructive: true,
         ),
         _SettingsDetailItem(
           icon: Icons.delete_forever_rounded,
@@ -83,6 +147,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           isDestructive: true,
         ),
       ],
+      onItemTap: (title) {
+        if (title == 'Abmelden') {
+          _confirmLogout();
+          return;
+        }
+
+        _showComingSoon(title);
+      },
     );
   }
 

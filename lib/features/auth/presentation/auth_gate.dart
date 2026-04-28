@@ -7,6 +7,10 @@ import 'auth_screen.dart';
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -21,7 +25,9 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
-          return const AppShell();
+          return AppShell(
+            onLogout: _signOut,
+          );
         }
 
         return const AuthScreen();

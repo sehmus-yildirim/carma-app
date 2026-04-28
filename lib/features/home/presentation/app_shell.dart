@@ -9,7 +9,12 @@ import 'dashboard_screen.dart';
 const Color _navAccentBlue = Color(0xFF139CFF);
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({
+    super.key,
+    required this.onLogout,
+  });
+
+  final VoidCallback onLogout;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -17,14 +22,6 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
-
-  static const List<Widget> _screens = [
-    DashboardScreen(),
-    ChatsScreen(),
-    ReportScreen(),
-    ProfileScreen(),
-    SettingsScreen(),
-  ];
 
   void _onTabSelected(int index) {
     if (_selectedIndex == index) {
@@ -39,13 +36,20 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final screens = [
+      const DashboardScreen(),
+      const ChatsScreen(),
+      const ReportScreen(),
+      const ProfileScreen(),
+      SettingsScreen(onLogout: widget.onLogout),
+    ];
 
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
       body: IndexedStack(
         index: _selectedIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
