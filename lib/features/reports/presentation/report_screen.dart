@@ -14,6 +14,7 @@ import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_section_title.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../domain/report_draft.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
 const Color _carmaBlueLight = Color(0xFF63D5FF);
@@ -78,31 +79,37 @@ class _ReportScreenState extends State<ReportScreen> {
     return _plateConfig.numbersMaxLength;
   }
 
-  bool get _hasPlateInput {
-    final region = _regionController.text.trim();
-    final letters = _lettersController.text.trim();
-    final numbers = _numbersController.text.trim();
-
-    if (_countryCode == 'CH') {
-      return region.isNotEmpty && numbers.isNotEmpty;
-    }
-
-    return region.isNotEmpty && letters.isNotEmpty && numbers.isNotEmpty;
+  ReportDraftCategory? get _draftCategory {
+    return switch (_selectedCategory) {
+      _ReportCategory.vehicleOpen => ReportDraftCategory.vehicleOpen,
+      _ReportCategory.lightsOrElectric => ReportDraftCategory.lightsOrElectric,
+      _ReportCategory.vehicleBlocked => ReportDraftCategory.vehicleBlocked,
+      _ReportCategory.visibleDamage => ReportDraftCategory.visibleDamage,
+      _ReportCategory.acuteDanger => ReportDraftCategory.acuteDanger,
+      _ReportCategory.policeOnSite => ReportDraftCategory.policeOnSite,
+      null => null,
+    };
   }
 
-  bool get _hasLocation {
-    if (_useGpsLocation) {
-      return _position != null;
-    }
-
-    return _addressController.text.trim().isNotEmpty;
+  ReportDraft get _reportDraft {
+    return ReportDraft(
+      senderUserId: 'local-user',
+      countryCode: _countryCode,
+      region: _regionController.text.trim(),
+      letters: _lettersController.text.trim(),
+      numbers: _numbersController.text.trim(),
+      category: _draftCategory,
+      message: _noteController.text.trim(),
+      useGpsLocation: _useGpsLocation,
+      manualAddress: _addressController.text.trim(),
+      latitude: _position?.latitude,
+      longitude: _position?.longitude,
+      imageLocalPath: _capturedPhoto?.path,
+    );
   }
 
   bool get _canSend {
-    return _selectedCategory != null &&
-        _hasPlateInput &&
-        _hasLocation &&
-        !_isSending;
+    return _reportDraft.canSubmit && !_isSending;
   }
 
   @override
@@ -310,7 +317,9 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Future<void> _sendReport() async {
-    if (!_canSend) {
+    final reportDraft = _reportDraft;
+
+    if (!reportDraft.canSubmit || _isSending) {
       setState(() {
         _errorMessage =
         'Bitte wähle einen Hinweis, gib ein Kennzeichen ein und füge einen Ort hinzu.';
@@ -331,10 +340,14 @@ class _ReportScreenState extends State<ReportScreen> {
       return;
     }
 
+    final preparedReport = reportDraft.toReport(
+      id: 'local-report-${DateTime.now().millisecondsSinceEpoch}',
+    );
+
     setState(() {
       _isSending = false;
       _successMessage =
-      'Dein Hinweis wurde vorbereitet. Die echte anonyme Zustellung verbinden wir später mit Firebase.';
+      'Dein Hinweis „${preparedReport.typeLabel}“ wurde vorbereitet. Die echte anonyme Zustellung verbinden wir später mit Firebase.';
     });
   }
 
