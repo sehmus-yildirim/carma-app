@@ -320,8 +320,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const _SafetyNoticeCard(),
+                    const _SettingsInfoCard(),
                     const SizedBox(height: 18),
+                    const _SettingsGroupTitle(
+                      title: 'Konto',
+                      icon: Icons.person_outline_rounded,
+                    ),
+                    const SizedBox(height: 10),
                     _SettingsOverviewCard(
                       icon: Icons.admin_panel_settings_rounded,
                       title: 'Konto & Sicherheit',
@@ -329,7 +334,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Login, Passwort, Abmeldung und Konto löschen.',
                       onTap: _openAccountSecurity,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
+                    const _SettingsGroupTitle(
+                      title: 'App',
+                      icon: Icons.notifications_none_rounded,
+                    ),
+                    const SizedBox(height: 10),
                     _NotificationSettingsCard(
                       notifyContactRequests: _notifyContactRequests,
                       notifyChats: _notifyChats,
@@ -356,7 +366,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
+                    const _SettingsGroupTitle(
+                      title: 'Schutz & Daten',
+                      icon: Icons.shield_outlined,
+                    ),
+                    const SizedBox(height: 10),
                     _SettingsOverviewCard(
                       icon: Icons.privacy_tip_rounded,
                       title: 'Datenschutz',
@@ -372,7 +387,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Missbrauch melden, Regeln ansehen und Nutzer blockieren.',
                       onTap: _openSafety,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 18),
+                    const _SettingsGroupTitle(
+                      title: 'Hilfe & Rechtliches',
+                      icon: Icons.help_outline_rounded,
+                    ),
+                    const SizedBox(height: 10),
                     _SettingsOverviewCard(
                       icon: Icons.support_agent_rounded,
                       title: 'Support',
@@ -401,8 +421,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class _SafetyNoticeCard extends StatelessWidget {
-  const _SafetyNoticeCard();
+class _SettingsInfoCard extends StatelessWidget {
+  const _SettingsInfoCard();
 
   @override
   Widget build(BuildContext context) {
@@ -429,6 +449,38 @@ class _SafetyNoticeCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SettingsGroupTitle extends StatelessWidget {
+  const _SettingsGroupTitle({
+    required this.title,
+    required this.icon,
+  });
+
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white.withValues(alpha: 0.72),
+          size: 20,
+        ),
+        const SizedBox(width: 9),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.78),
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -610,7 +662,7 @@ class _AppVersionCard extends StatelessWidget {
           const SizedBox(width: 11),
           Expanded(
             child: Text(
-              'Carma · Version 1.0.0',
+              'Carma · Version 1.0.0 · Lokaler MVP',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.72),
                 fontWeight: FontWeight.w800,
