@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/plate/plate_country_config.dart';
+import '../domain/profile_document_mapper.dart';
+import '../domain/profile_draft.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_country_selector_card.dart';
@@ -278,6 +280,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool get _canSubmitProfileForVerification {
     return _hasNameInput && _hasPlateInput && _allDocumentsUploaded;
+  }
+
+  Map<String, String?> get _documentLocalPathsByTitle {
+    return _documentFiles.map((title, file) {
+      return MapEntry(title, file?.path);
+    });
+  }
+
+  ProfileDraft get _profileDraft {
+    return ProfileDraft(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      countryCode: _countryCode,
+      region: _regionController.text.trim(),
+      letters: _lettersController.text.trim(),
+      numbers: _numbersController.text.trim(),
+      brand: _selectedBrand,
+      model: _selectedModel,
+      color: _selectedColor,
+      allowContactRequests: _allowContactRequests,
+      allowAnonymousReports: _allowAnonymousReports,
+      documentLocalPaths: ProfileDocumentMapper.toDocumentLocalPaths(
+        _documentLocalPathsByTitle,
+      ),
+      profilePhotoLocalPath: _profilePhoto?.path,
+      isSubmittedForVerification: _isSubmittedForVerification,
+      isVerified: _isVerified,
+    );
   }
 
   String get _displayName {
@@ -573,7 +603,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    final canSubmit = _canSubmitProfileForVerification;
+    final userProfile = _profileDraft.toUserProfile();
+    final canSubmit = userProfile.canSubmitForVerification;
 
     setState(() {
       _isSaving = false;
