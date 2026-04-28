@@ -64,7 +64,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
 
   String get _title {
     return switch (_currentStep) {
-      0 => 'So funktioniert Carma',
+      0 => 'Willkommen bei Carma',
       1 => 'Profil vorbereiten',
       2 => 'Fahrzeug hinzufügen',
       3 => 'Verifizierung verstehen',
@@ -90,60 +90,86 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(
-              20,
-              18,
-              20,
-              28 + keyboardInset,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CarmaSubPageHeader(
-                  icon: _icon,
-                  title: _title,
-                  onBack: _goBack,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                keyboardDismissBehavior:
+                ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  18,
+                  20,
+                  28 + keyboardInset,
                 ),
-                const SizedBox(height: 18),
-                _ProgressCard(
-                  currentStep: _currentStep,
-                  totalSteps: _lastStep + 1,
-                  progress: _progress,
-                ),
-                const SizedBox(height: 18),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: _OnboardingStepContent(
-                    key: ValueKey(_currentStep),
-                    step: _currentStep,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight - 46,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CarmaSubPageHeader(
+                        icon: _icon,
+                        title: _title,
+                        onBack: _goBack,
+                      ),
+                      const SizedBox(height: 18),
+                      _ProgressCard(
+                        currentStep: _currentStep,
+                        totalSteps: _lastStep + 1,
+                        progress: _progress,
+                      ),
+                      const SizedBox(height: 18),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 240),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, animation) {
+                          final offsetAnimation = Tween<Offset>(
+                            begin: const Offset(0.035, 0),
+                            end: Offset.zero,
+                          ).animate(animation);
+
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: offsetAnimation,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: _OnboardingStepContent(
+                          key: ValueKey(_currentStep),
+                          step: _currentStep,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Spacer(),
+                      CarmaPrimaryButton(
+                        label: _isLastStep ? 'Carma starten' : 'Weiter',
+                        icon: _isLastStep
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.arrow_forward_rounded,
+                        onPressed: _goNext,
+                      ),
+                      if (_currentStep > 0) ...[
+                        const SizedBox(height: 12),
+                        CarmaSecondaryButton(
+                          label: 'Zurück',
+                          icon: Icons.arrow_back_rounded,
+                          borderRadius: 24,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 18,
+                          ),
+                          onPressed: _goBack,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                CarmaPrimaryButton(
-                  label: _isLastStep ? 'Carma starten' : 'Weiter',
-                  icon: _isLastStep
-                      ? Icons.check_circle_outline_rounded
-                      : Icons.arrow_forward_rounded,
-                  onPressed: _goNext,
-                ),
-                const SizedBox(height: 12),
-                if (_currentStep > 0)
-                  CarmaSecondaryButton(
-                    label: 'Zurück',
-                    icon: Icons.arrow_back_rounded,
-                    borderRadius: 24,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 18,
-                    ),
-                    onPressed: _goBack,
-                  ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -169,12 +195,25 @@ class _ProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Schritt ${currentStep + 1} von $totalSteps',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Schritt ${currentStep + 1} von $totalSteps',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                '${((currentStep + 1) / totalSteps * 100).round()}%',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           ClipRRect(
@@ -219,13 +258,27 @@ class _IntroStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: const [
+    return const Column(
+      children: [
         _HeroInfoCard(
           icon: Icons.shield_rounded,
-          title: 'Carma ist geschützt aufgebaut.',
+          title: 'Sicher kommunizieren rund ums Fahrzeug.',
           description:
-          'Du kannst Kennzeichen suchen, Hinweise senden und Kontaktanfragen verwalten. Damit das sicher bleibt, arbeitet Carma mit Profil- und Fahrzeugverifizierung.',
+          'Carma hilft dir, Kennzeichen zu suchen, Kontaktanfragen zu verwalten und sachliche Hinweise zu senden — ohne deine privaten Daten unnötig offenzulegen.',
+          points: [
+            _HeroInfoPoint(
+              icon: Icons.search_rounded,
+              text: 'Kennzeichen suchen und Kontakt ermöglichen.',
+            ),
+            _HeroInfoPoint(
+              icon: Icons.chat_bubble_outline_rounded,
+              text: 'Geschützte Kommunikation statt Zettel am Auto.',
+            ),
+            _HeroInfoPoint(
+              icon: Icons.verified_user_outlined,
+              text: 'Mehr Vertrauen durch Profil- und Fahrzeugprüfung.',
+            ),
+          ],
         ),
         SizedBox(height: 12),
         CarmaMessageCard(
@@ -245,9 +298,23 @@ class _ProfileStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return const _HeroInfoCard(
       icon: Icons.person_rounded,
-      title: 'Dein Profil braucht echte Basisdaten.',
+      title: 'Dein Profil bleibt kontrolliert sichtbar.',
       description:
-      'Vorname und Nachname werden für die Verifizierung vorbereitet. In der App wird später nur ein geschützter Anzeigename wie „Max M.“ sichtbar.',
+      'Für die spätere Verifizierung werden echte Basisdaten vorbereitet. Nach außen erscheint nur ein geschützter Anzeigename.',
+      points: [
+        _HeroInfoPoint(
+          icon: Icons.badge_outlined,
+          text: 'Vorname und Nachname werden für die Prüfung vorbereitet.',
+        ),
+        _HeroInfoPoint(
+          icon: Icons.visibility_outlined,
+          text: 'Deine Sichtbarkeit kannst du später selbst steuern.',
+        ),
+        _HeroInfoPoint(
+          icon: Icons.lock_outline_rounded,
+          text: 'Sensible Daten werden nicht öffentlich angezeigt.',
+        ),
+      ],
     );
   }
 }
@@ -261,7 +328,21 @@ class _VehicleStep extends StatelessWidget {
       icon: Icons.directions_car_filled_rounded,
       title: 'Dein Fahrzeug wird eindeutig zugeordnet.',
       description:
-      'Kennzeichen, Marke, Modell und Farbe müssen später mit dem Fahrzeugschein übereinstimmen. Dadurch wird Missbrauch deutlich reduziert.',
+      'Damit Carma vertrauenswürdig bleibt, müssen Kennzeichen und Fahrzeugdaten später nachvollziehbar zum Fahrzeughalter passen.',
+      points: [
+        _HeroInfoPoint(
+          icon: Icons.pin_outlined,
+          text: 'Kennzeichen wird je Land passend erfasst.',
+        ),
+        _HeroInfoPoint(
+          icon: Icons.directions_car_outlined,
+          text: 'Marke, Modell und Farbe helfen bei klarer Zuordnung.',
+        ),
+        _HeroInfoPoint(
+          icon: Icons.gpp_good_outlined,
+          text: 'Das reduziert Missbrauch und falsche Kontaktversuche.',
+        ),
+      ],
     );
   }
 }
@@ -271,13 +352,27 @@ class _VerificationStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: const [
+    return const Column(
+      children: [
         _HeroInfoCard(
           icon: Icons.verified_user_rounded,
-          title: 'Volle Nutzung erst nach Verifizierung.',
+          title: 'Volle Nutzung nach Verifizierung.',
           description:
-          'Dokumente wie Ausweis, Führerschein und Fahrzeugschein werden später sicher hochgeladen und geprüft. Bis dahin bleibt dieser Ablauf lokal vorbereitet.',
+          'Dokumente wie Ausweis, Führerschein und Fahrzeugschein werden später sicher hochgeladen und geprüft.',
+          points: [
+            _HeroInfoPoint(
+              icon: Icons.assignment_ind_outlined,
+              text: 'Identität und Fahrzeugbezug werden geprüft.',
+            ),
+            _HeroInfoPoint(
+              icon: Icons.lock_outline_rounded,
+              text: 'Geprüfte Daten werden danach lokal gesperrt.',
+            ),
+            _HeroInfoPoint(
+              icon: Icons.photo_camera_outlined,
+              text: 'Profilbild und Sichtbarkeit bleiben änderbar.',
+            ),
+          ],
         ),
         SizedBox(height: 12),
         CarmaMessageCard(
@@ -295,11 +390,13 @@ class _HeroInfoCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.description,
+    required this.points,
   });
 
   final IconData icon;
   final String title;
   final String description;
+  final List<_HeroInfoPoint> points;
 
   @override
   Widget build(BuildContext context) {
@@ -331,6 +428,72 @@ class _HeroInfoCard extends StatelessWidget {
               fontWeight: FontWeight.w700,
               fontSize: 16.5,
               height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Column(
+            children: List.generate(points.length, (index) {
+              final point = points[index];
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == points.length - 1 ? 0 : 10,
+                ),
+                child: _HeroPointRow(point: point),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroInfoPoint {
+  const _HeroInfoPoint({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+}
+
+class _HeroPointRow extends StatelessWidget {
+  const _HeroPointRow({
+    required this.point,
+  });
+
+  final _HeroInfoPoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withValues(alpha: 0.055),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            point.icon,
+            color: const Color(0xFF63D5FF),
+            size: 21,
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              point.text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.76),
+                fontWeight: FontWeight.w700,
+                height: 1.28,
+              ),
             ),
           ),
         ],
