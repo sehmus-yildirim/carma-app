@@ -111,6 +111,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _openLegalContent(String title) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _LegalContentScreen(
+          content: _LegalContent.forTitle(title),
+        ),
+      ),
+    );
+  }
+
   void _openAccountSecurity() {
     _openDetailPage(
       icon: Icons.admin_panel_settings_rounded,
@@ -256,7 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _openDetailPage(
       icon: Icons.description_rounded,
       title: 'Rechtliches',
-      description: 'AGB, Datenschutz, Impressum und App-Informationen.',
+      description: 'AGB, Datenschutz, Impressum, Lizenzen und App-Informationen.',
       items: const [
         _SettingsDetailItem(
           icon: Icons.article_outlined,
@@ -276,9 +286,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _SettingsDetailItem(
           icon: Icons.info_outline_rounded,
           title: 'Über Carma',
-          description: 'App-Version, Lizenzen und Projektinformationen.',
+          description: 'App-Version, Zweck und Projektinformationen.',
+        ),
+        _SettingsDetailItem(
+          icon: Icons.workspace_premium_outlined,
+          title: 'Lizenzen',
+          description: 'Open-Source-Lizenzen und verwendete Pakete.',
         ),
       ],
+      onItemTap: _openLegalContent,
     );
   }
 
@@ -405,7 +421,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.description_rounded,
                       title: 'Rechtliches',
                       description:
-                      'AGB, Datenschutz, Impressum und Über Carma.',
+                      'AGB, Datenschutz, Impressum, Lizenzen und Über Carma.',
                       onTap: _openLegal,
                     ),
                     const SizedBox(height: 18),
@@ -750,6 +766,307 @@ class _SettingsDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _LegalContentScreen extends StatelessWidget {
+  const _LegalContentScreen({
+    required this.content,
+  });
+
+  final _LegalContent content;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return CarmaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              28 + keyboardInset,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CarmaSubPageHeader(
+                  icon: content.icon,
+                  title: content.title,
+                  onBack: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  content.description,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16.5,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const _LegalDraftNotice(),
+                const SizedBox(height: 18),
+                GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: List.generate(content.sections.length, (index) {
+                      final section = content.sections[index];
+
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom:
+                          index == content.sections.length - 1 ? 0 : 16,
+                        ),
+                        child: _LegalSectionBlock(section: section),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LegalDraftNotice extends StatelessWidget {
+  const _LegalDraftNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(15),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CarmaBlueIconBox(
+            icon: Icons.edit_note_rounded,
+            size: 42,
+            iconSize: 22,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Diese Seite ist ein lokaler MVP-Platzhalter. Die finalen Rechtstexte müssen vor Veröffentlichung juristisch geprüft und ersetzt werden.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w700,
+                height: 1.34,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalSectionBlock extends StatelessWidget {
+  const _LegalSectionBlock({
+    required this.section,
+  });
+
+  final _LegalSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            section.title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 17,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            section.body,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w700,
+              height: 1.36,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalContent {
+  const _LegalContent({
+    required this.title,
+    required this.icon,
+    required this.description,
+    required this.sections,
+  });
+
+  final String title;
+  final IconData icon;
+  final String description;
+  final List<_LegalSection> sections;
+
+  factory _LegalContent.forTitle(String title) {
+    return switch (title) {
+      'AGB' => const _LegalContent(
+        title: 'AGB',
+        icon: Icons.article_outlined,
+        description:
+        'Vorbereitete Struktur für die Allgemeinen Geschäftsbedingungen von Carma.',
+        sections: [
+          _LegalSection(
+            title: 'Geltungsbereich',
+            body:
+            'Hier werden später die Bedingungen für die Nutzung von Carma beschrieben. Dazu gehören Konto, Profil, Fahrzeugdaten, Kontaktanfragen, Chats und anonyme Hinweise.',
+          ),
+          _LegalSection(
+            title: 'Nutzung der App',
+            body:
+            'Carma soll eine geschützte Kommunikation rund um Fahrzeuge ermöglichen. Missbrauch, falsche Angaben und belästigende Kontaktaufnahme werden später geregelt.',
+          ),
+          _LegalSection(
+            title: 'Verifizierung',
+            body:
+            'Die Nutzung bestimmter Funktionen kann später von einer Identitäts- und Fahrzeugprüfung abhängig sein.',
+          ),
+        ],
+      ),
+      'Datenschutzerklärung' => const _LegalContent(
+        title: 'Datenschutz',
+        icon: Icons.privacy_tip_outlined,
+        description:
+        'Vorbereitete Struktur für Datenschutzinformationen in Carma.',
+        sections: [
+          _LegalSection(
+            title: 'Verarbeitete Daten',
+            body:
+            'Später werden hier Konto-, Profil-, Fahrzeug-, Verifizierungs-, Kontakt- und Kommunikationsdaten beschrieben.',
+          ),
+          _LegalSection(
+            title: 'Zwecke der Verarbeitung',
+            body:
+            'Daten werden benötigt, um geschützte Kontaktaufnahme, Missbrauchsschutz, Verifizierung und App-Betrieb zu ermöglichen.',
+          ),
+          _LegalSection(
+            title: 'Speicherung und Löschung',
+            body:
+            'Speicherfristen, Löschkonzepte und Nutzerrechte werden vor Veröffentlichung final definiert.',
+          ),
+        ],
+      ),
+      'Impressum' => const _LegalContent(
+        title: 'Impressum',
+        icon: Icons.business_rounded,
+        description:
+        'Vorbereitete Anbieterkennzeichnung für die spätere Veröffentlichung.',
+        sections: [
+          _LegalSection(
+            title: 'Anbieter',
+            body:
+            'Hier werden später Name/Firma, Anschrift und gesetzliche Anbieterinformationen eingetragen.',
+          ),
+          _LegalSection(
+            title: 'Kontakt',
+            body:
+            'Hier werden später E-Mail-Adresse, Support-Kontakt und weitere Kontaktwege ergänzt.',
+          ),
+          _LegalSection(
+            title: 'Verantwortlichkeit',
+            body:
+            'Weitere rechtlich erforderliche Angaben werden vor Veröffentlichung ergänzt.',
+          ),
+        ],
+      ),
+      'Über Carma' => const _LegalContent(
+        title: 'Über Carma',
+        icon: Icons.info_outline_rounded,
+        description:
+        'Kurze Projekt- und App-Informationen für den lokalen MVP.',
+        sections: [
+          _LegalSection(
+            title: 'Was ist Carma?',
+            body:
+            'Carma ist eine App zur geschützten Kommunikation rund um Fahrzeuge, Kennzeichen, Kontaktanfragen und sachliche Hinweise.',
+          ),
+          _LegalSection(
+            title: 'Aktueller Stand',
+            body:
+            'Dieser Build ist ein lokaler MVP. Viele Funktionen sind UI-seitig vorbereitet und werden später mit Firebase verbunden.',
+          ),
+          _LegalSection(
+            title: 'Version',
+            body: 'Carma · Version 1.0.0 · Lokaler MVP',
+          ),
+        ],
+      ),
+      'Lizenzen' => const _LegalContent(
+        title: 'Lizenzen',
+        icon: Icons.workspace_premium_outlined,
+        description:
+        'Vorbereitete Übersicht für Open-Source-Lizenzen und verwendete Pakete.',
+        sections: [
+          _LegalSection(
+            title: 'Flutter & Dart',
+            body:
+            'Carma wird mit Flutter und Dart entwickelt. Lizenzinformationen werden später vollständig über die App-Lizenzübersicht ergänzt.',
+          ),
+          _LegalSection(
+            title: 'Pakete',
+            body:
+            'Verwendete Pakete wie Firebase, Image Picker und weitere Abhängigkeiten werden vor Veröffentlichung geprüft und dokumentiert.',
+          ),
+          _LegalSection(
+            title: 'Lizenzübersicht',
+            body:
+            'Eine native Flutter-Lizenzseite kann später zusätzlich über showLicensePage eingebunden werden.',
+          ),
+        ],
+      ),
+      _ => _LegalContent(
+        title: title,
+        icon: Icons.description_rounded,
+        description: 'Vorbereitete Rechtliches-Seite.',
+        sections: const [
+          _LegalSection(
+            title: 'Noch nicht final',
+            body:
+            'Diese Seite wird später mit finalen Inhalten und juristischer Prüfung ergänzt.',
+          ),
+        ],
+      ),
+    };
+  }
+}
+
+class _LegalSection {
+  const _LegalSection({
+    required this.title,
+    required this.body,
+  });
+
+  final String title;
+  final String body;
 }
 
 class _SettingsDetailItem {
