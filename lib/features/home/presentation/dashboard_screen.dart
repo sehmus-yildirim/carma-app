@@ -40,6 +40,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Position? _position;
   PlateSearchResult? _result;
 
+  SearchCredit _searchCredit = SearchCredit.freeDefault(
+    userId: 'local-user',
+  );
+
   bool _isLoadingLocation = true;
   bool _isSearching = false;
   bool _isRequestingContact = false;
@@ -80,6 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool get _canSearch {
     return _hasPlateInput &&
         _position != null &&
+        _searchCredit.hasRemaining &&
         !_isLoadingLocation &&
         !_isSearching;
   }
@@ -223,6 +228,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _searchPlate() async {
     final position = _position;
 
+    if (_searchCredit.isExhausted) {
+      setState(() {
+        _errorMessage =
+        'Du hast dein lokales Suchlimit erreicht. Später kannst du über Credits weitere Suchen freischalten.';
+      });
+      return;
+    }
+
     if (position == null || !_canSearch) {
       if (_locationError != null) {
         setState(() {
@@ -250,6 +263,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       setState(() {
         _result = result;
+        _searchCredit = _searchCredit.consume();
         _isSearching = false;
       });
     } catch (error) {
@@ -426,6 +440,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
+                    _SearchCreditCard(
+                      searchCredit: _searchCredit,
+                    ),
+                    const SizedBox(height: 14),
                     CarmaCountrySelectorCard(
                       selectedCountryCode: _countryCode,
                       onChanged: _changeCountry,
@@ -481,6 +499,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _SearchCreditCard extends StatelessWidget {
+  const _SearchCreditCard({
+    required this.searchCredit,
+  });
+
+  final SearchCredit searchCredit;
+
+  @override
+  Widget build(BuildContext context) {
+    final isExhausted = searchCredit.isExhausted;
+
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _carmaBlueDark,
+                  _carmaBlue,
+                  _carmaBlueLight,
+                ],
+              ),
+            ),
+            child: Icon(
+              isExhausted
+                  ? Icons.lock_outline_rounded
+                  : Icons.search_rounded,
+              color: Colors.white,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isExhausted ? 'Suchlimit erreicht' : 'Kostenlose Suchen',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  isExhausted
+                      ? 'Später kannst du über Credits weitere Suchen freischalten.'
+                      : '${searchCredit.remaining} von ${searchCredit.limit} Suchen verfügbar.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.70),
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
