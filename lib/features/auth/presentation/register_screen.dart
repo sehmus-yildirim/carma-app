@@ -6,6 +6,7 @@ import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../domain/registration_legal_consent_builder.dart';
 
 const Color _carmaBlueLight = Color(0xFF63D5FF);
 const String _carmaLogoAsset = 'assets/images/carma_logo.png';
@@ -158,10 +159,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
+      userId: 'local-user',
+    );
+
     setState(() {
       _isLoading = false;
       _successMessage =
-      'Konto wurde lokal vorbereitet. Firebase Auth und Zustimmungsspeicherung verbinden wir später.';
+      '${legalConsents.length} Zustimmungen wurden lokal vorbereitet. Firebase Auth und Zustimmungsspeicherung verbinden wir später.';
     });
 
     widget.onRegisterSuccess?.call();
