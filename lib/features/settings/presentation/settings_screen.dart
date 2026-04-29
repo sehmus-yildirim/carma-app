@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/config/carma_app_config.dart';
 import '../../../shared/legal/legal_versions.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
@@ -267,7 +268,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _openDetailPage(
       icon: Icons.description_rounded,
       title: 'Rechtliches',
-      description: 'AGB, Datenschutz, Impressum, Lizenzen und App-Informationen.',
+      description:
+      'AGB, Datenschutz, Impressum, Lizenzen und App-Informationen.',
       items: const [
         _SettingsDetailItem(
           icon: Icons.article_outlined,
@@ -679,7 +681,7 @@ class _AppVersionCard extends StatelessWidget {
           const SizedBox(width: 11),
           Expanded(
             child: Text(
-              'Carma · Version 1.0.0 · Lokaler MVP',
+              CarmaAppConfig.appVersionLabel,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.72),
                 fontWeight: FontWeight.w800,
@@ -1045,27 +1047,27 @@ class _LegalContent {
           ),
         ],
       ),
-      'Über Carma' => const _LegalContent(
+      'Über Carma' => _LegalContent(
         title: 'Über Carma',
         icon: Icons.info_outline_rounded,
         description:
         'Kurze Projekt- und App-Informationen für den lokalen MVP.',
         sections: [
-          _LegalSection(
+          const _LegalSection(
             title: 'Was ist Carma?',
             body:
             'Carma ist eine App zur geschützten Kommunikation rund um Fahrzeuge, Kennzeichen, Kontaktanfragen und sachliche Hinweise.',
           ),
-          _LegalSection(
+          const _LegalSection(
             title: 'Aktueller Stand',
             body:
             'Dieser Build ist ein lokaler MVP. Viele Funktionen sind UI-seitig vorbereitet und werden später mit Firebase verbunden.',
           ),
           _LegalSection(
             title: 'Version',
-            body: 'Carma · Version 1.0.0 · Lokaler MVP',
+            body: CarmaAppConfig.appVersionLabel,
           ),
-          _LegalSection(
+          const _LegalSection(
             title: 'Rechtsversionen',
             body:
             'AGB: ${LegalVersions.terms} · Datenschutz: ${LegalVersions.privacy} · Verantwortungsvolle Nutzung: ${LegalVersions.responsibleUse} · Keine Notfallnutzung: ${LegalVersions.noEmergencyUse}',
