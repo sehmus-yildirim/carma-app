@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/carma_models.dart';
+import '../../../shared/config/carma_app_config.dart';
 import '../../home/presentation/app_shell.dart';
 import '../../onboarding/presentation/onboarding_flow_screen.dart';
 import 'auth_flow_screen.dart';
@@ -26,7 +27,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   void _completeAuth() {
     setState(() {
       _appUserState = AppUserState.localRegistered(
-        userId: 'local-user',
+        userId: CarmaAppConfig.localUserId,
       );
     });
   }

@@ -6,6 +6,7 @@ import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../../shared/config/carma_app_config.dart';
 import '../domain/registration_legal_consent_builder.dart';
 
 const Color _carmaBlueLight = Color(0xFF63D5FF);
@@ -160,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
-      userId: 'local-user',
+      userId: CarmaAppConfig.localUserId,
     );
 
     setState(() {

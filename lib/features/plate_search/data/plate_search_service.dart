@@ -1,13 +1,16 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 import 'plate_search_result.dart';
+import '../../../shared/config/carma_app_config.dart';
 
 class PlateSearchService {
   PlateSearchService({
     FirebaseFunctions? functions,
-    bool useMock = true,
-  })  : _functions =
-      functions ?? FirebaseFunctions.instanceFor(region: 'europe-west3'),
+    bool useMock = CarmaAppConfig.useMockPlateSearch,
+  })  : _functions = functions ??
+      FirebaseFunctions.instanceFor(
+        region: CarmaAppConfig.firebaseRegion,
+      ),
         _useMock = useMock;
 
   final FirebaseFunctions _functions;
