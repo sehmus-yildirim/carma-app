@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/legal/legal_versions.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_page_header.dart';
@@ -809,6 +810,12 @@ class _LegalContentScreen extends StatelessWidget {
                     height: 1.35,
                   ),
                 ),
+                if (content.versionLabel != null) ...[
+                  const SizedBox(height: 18),
+                  _LegalVersionCard(
+                    versionLabel: content.versionLabel!,
+                  ),
+                ],
                 const SizedBox(height: 18),
                 const _LegalDraftNotice(),
                 const SizedBox(height: 18),
@@ -832,6 +839,41 @@ class _LegalContentScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LegalVersionCard extends StatelessWidget {
+  const _LegalVersionCard({
+    required this.versionLabel,
+  });
+
+  final String versionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(15),
+      child: Row(
+        children: [
+          CarmaBlueIconBox(
+            icon: Icons.verified_outlined,
+            size: 42,
+            iconSize: 22,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              versionLabel,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w800,
+                height: 1.34,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -920,12 +962,14 @@ class _LegalContent {
     required this.icon,
     required this.description,
     required this.sections,
+    this.versionLabel,
   });
 
   final String title;
   final IconData icon;
   final String description;
   final List<_LegalSection> sections;
+  final String? versionLabel;
 
   factory _LegalContent.forTitle(String title) {
     return switch (title) {
@@ -934,6 +978,7 @@ class _LegalContent {
         icon: Icons.article_outlined,
         description:
         'Vorbereitete Struktur für die Allgemeinen Geschäftsbedingungen von Carma.',
+        versionLabel: 'Aktuelle AGB-Version: ${LegalVersions.terms}',
         sections: [
           _LegalSection(
             title: 'Geltungsbereich',
@@ -957,6 +1002,8 @@ class _LegalContent {
         icon: Icons.privacy_tip_outlined,
         description:
         'Vorbereitete Struktur für Datenschutzinformationen in Carma.',
+        versionLabel:
+        'Aktuelle Datenschutz-Version: ${LegalVersions.privacy}',
         sections: [
           _LegalSection(
             title: 'Verarbeitete Daten',
@@ -1017,6 +1064,11 @@ class _LegalContent {
           _LegalSection(
             title: 'Version',
             body: 'Carma · Version 1.0.0 · Lokaler MVP',
+          ),
+          _LegalSection(
+            title: 'Rechtsversionen',
+            body:
+            'AGB: ${LegalVersions.terms} · Datenschutz: ${LegalVersions.privacy} · Verantwortungsvolle Nutzung: ${LegalVersions.responsibleUse} · Keine Notfallnutzung: ${LegalVersions.noEmergencyUse}',
           ),
         ],
       ),
