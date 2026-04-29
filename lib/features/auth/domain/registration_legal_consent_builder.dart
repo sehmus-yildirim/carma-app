@@ -1,12 +1,8 @@
+import '../../../shared/legal/legal_versions.dart';
 import '../../../shared/models/carma_models.dart';
 
 class RegistrationLegalConsentBuilder {
   const RegistrationLegalConsentBuilder._();
-
-  static const String currentTermsVersion = '1.0.0';
-  static const String currentPrivacyVersion = '1.0.0';
-  static const String currentResponsibleUseVersion = '1.0.0';
-  static const String currentNoEmergencyUseVersion = '1.0.0';
 
   static List<LegalConsent> buildLocalConsents({
     required String userId,
@@ -16,31 +12,31 @@ class RegistrationLegalConsentBuilder {
 
     return [
       LegalConsent(
-        id: '${userId}_terms_$currentTermsVersion',
+        id: '${userId}_terms_${LegalVersions.terms}',
         userId: userId,
         type: LegalConsentType.terms,
-        version: currentTermsVersion,
+        version: LegalVersions.terms,
         acceptedAt: timestamp,
       ),
       LegalConsent(
-        id: '${userId}_privacy_$currentPrivacyVersion',
+        id: '${userId}_privacy_${LegalVersions.privacy}',
         userId: userId,
         type: LegalConsentType.privacy,
-        version: currentPrivacyVersion,
+        version: LegalVersions.privacy,
         acceptedAt: timestamp,
       ),
       LegalConsent(
-        id: '${userId}_responsible_use_$currentResponsibleUseVersion',
+        id: '${userId}_responsible_use_${LegalVersions.responsibleUse}',
         userId: userId,
         type: LegalConsentType.responsibleUse,
-        version: currentResponsibleUseVersion,
+        version: LegalVersions.responsibleUse,
         acceptedAt: timestamp,
       ),
       LegalConsent(
-        id: '${userId}_no_emergency_use_$currentNoEmergencyUseVersion',
+        id: '${userId}_no_emergency_use_${LegalVersions.noEmergencyUse}',
         userId: userId,
         type: LegalConsentType.noEmergencyUse,
-        version: currentNoEmergencyUseVersion,
+        version: LegalVersions.noEmergencyUse,
         acceptedAt: timestamp,
       ),
     ];
