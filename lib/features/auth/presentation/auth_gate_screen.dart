@@ -13,39 +13,39 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateScreenState extends State<AuthGateScreen> {
-  AccountStatus? _accountStatus;
+  AppUserState? _appUserState;
 
   bool get _isAuthenticated {
-    return _accountStatus != null;
+    return _appUserState != null;
   }
 
   bool get _isOnboardingCompleted {
-    return _accountStatus?.isOnboardingCompleted ?? false;
+    return _appUserState?.accountStatus.isOnboardingCompleted ?? false;
   }
 
   void _completeAuth() {
     setState(() {
-      _accountStatus = AccountStatus.localRegistered(
+      _appUserState = AppUserState.localRegistered(
         userId: 'local-user',
       );
     });
   }
 
   void _completeOnboarding() {
-    final currentStatus = _accountStatus;
+    final currentState = _appUserState;
 
-    if (currentStatus == null) {
+    if (currentState == null) {
       return;
     }
 
     setState(() {
-      _accountStatus = currentStatus.markOnboardingCompleted();
+      _appUserState = currentState.markOnboardingCompleted();
     });
   }
 
   void _backToAuth() {
     setState(() {
-      _accountStatus = null;
+      _appUserState = null;
     });
   }
 
