@@ -1,6 +1,7 @@
 export 'carma_plate.dart';
 export 'chat.dart';
 export 'contact_request.dart';
+export 'legal_consent.dart';
 export 'message.dart';
 export 'report.dart';
 export 'search_credit.dart';
