@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../shared/models/carma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_country_selector_card.dart';
@@ -63,16 +64,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _plateConfig.numbersMaxLength;
   }
 
+  CarmaPlate get _currentPlate {
+    return CarmaPlate(
+      countryCode: _countryCode,
+      region: _regionController.text.trim(),
+      letters: _lettersController.text.trim(),
+      numbers: _numbersController.text.trim(),
+    );
+  }
+
   bool get _hasPlateInput {
-    final region = _regionController.text.trim();
-    final letters = _lettersController.text.trim();
-    final numbers = _numbersController.text.trim();
-
-    if (_countryCode == 'CH') {
-      return region.isNotEmpty && numbers.isNotEmpty;
-    }
-
-    return region.isNotEmpty && letters.isNotEmpty && numbers.isNotEmpty;
+    return _currentPlate.isComplete;
   }
 
   bool get _canSearch {
@@ -92,12 +94,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String get _displayPlate {
-    return formatDisplayPlate(
+    final displayPlate = formatDisplayPlate(
       countryCode: _countryCode,
       region: _regionController.text,
       letters: _lettersController.text,
       numbers: _numbersController.text,
     );
+
+    return displayPlate.isEmpty ? _currentPlate.displayValue : displayPlate;
   }
 
   @override
@@ -311,7 +315,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return 'Für diesen Treffer existiert bereits eine Anfrage.';
     }
 
-    return 'Die Suche ist aktuell noch nicht vollständig verbunden. Das Backend richten wir im nächsten Schritt ein.';
+    return 'Die Suche ist aktuell noch nicht vollständig verbunden. Das Backend richten wir später ein.';
   }
 
   void _handleRegionChanged(String value) {
@@ -402,7 +406,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Jemanden gesehen der dir gefällt?',
+                      'Fahrzeughalter geschützt kontaktieren',
                       style:
                       Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
@@ -413,7 +417,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Dann tippe hier das Kennzeichen ein.',
+                      'Gib ein Kennzeichen ein, um eine geschützte Kontaktanfrage vorzubereiten.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withValues(alpha: 0.78),
                         fontWeight: FontWeight.w800,
