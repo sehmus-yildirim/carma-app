@@ -34,7 +34,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscurePassword = true;
   bool _obscureRepeatPassword = true;
-  bool _acceptedTerms = false;
+  bool _acceptedLegal = false;
+  bool _acceptedResponsibleUse = false;
   bool _isLoading = false;
 
   String? _errorMessage;
@@ -56,7 +57,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return _hasEmail &&
         _hasPassword &&
         _hasRepeatPassword &&
-        _acceptedTerms &&
+        _acceptedLegal &&
+        _acceptedResponsibleUse &&
         !_isLoading;
   }
 
@@ -126,10 +128,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (!_acceptedTerms) {
+    if (!_acceptedLegal) {
       setState(() {
         _errorMessage =
-        'Bitte bestätige, dass du Carma verantwortungsvoll nutzt.';
+        'Bitte akzeptiere die AGB und Datenschutzhinweise, um fortzufahren.';
+        _successMessage = null;
+      });
+      return;
+    }
+
+    if (!_acceptedResponsibleUse) {
+      setState(() {
+        _errorMessage =
+        'Bitte bestätige, dass du Carma verantwortungsvoll und nicht für Notfälle nutzt.';
         _successMessage = null;
       });
       return;
@@ -150,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() {
       _isLoading = false;
       _successMessage =
-      'Konto wurde lokal vorbereitet. Firebase Auth verbinden wir später.';
+      'Konto wurde lokal vorbereitet. Firebase Auth und Zustimmungsspeicherung verbinden wir später.';
     });
 
     widget.onRegisterSuccess?.call();
@@ -280,11 +291,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                _VerificationInfoCard(
-                  acceptedTerms: _acceptedTerms,
-                  onChanged: (value) {
+                _RegistrationLegalCard(
+                  acceptedLegal: _acceptedLegal,
+                  acceptedResponsibleUse: _acceptedResponsibleUse,
+                  onLegalChanged: (value) {
                     setState(() {
-                      _acceptedTerms = value;
+                      _acceptedLegal = value;
+                      _errorMessage = null;
+                      _successMessage = null;
+                    });
+                  },
+                  onResponsibleUseChanged: (value) {
+                    setState(() {
+                      _acceptedResponsibleUse = value;
                       _errorMessage = null;
                       _successMessage = null;
                     });
@@ -424,48 +443,85 @@ class _TopBackButton extends StatelessWidget {
   }
 }
 
-class _VerificationInfoCard extends StatelessWidget {
-  const _VerificationInfoCard({
-    required this.acceptedTerms,
-    required this.onChanged,
+class _RegistrationLegalCard extends StatelessWidget {
+  const _RegistrationLegalCard({
+    required this.acceptedLegal,
+    required this.acceptedResponsibleUse,
+    required this.onLegalChanged,
+    required this.onResponsibleUseChanged,
   });
 
-  final bool acceptedTerms;
-  final ValueChanged<bool> onChanged;
+  final bool acceptedLegal;
+  final bool acceptedResponsibleUse;
+  final ValueChanged<bool> onLegalChanged;
+  final ValueChanged<bool> onResponsibleUseChanged;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          Checkbox(
-            value: acceptedTerms,
-            activeColor: const Color(0xFF139CFF),
-            checkColor: Colors.white,
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.42),
-              width: 1.4,
-            ),
-            onChanged: (value) => onChanged(value ?? false),
+          _ConsentRow(
+            value: acceptedLegal,
+            onChanged: onLegalChanged,
+            text:
+            'Ich akzeptiere die AGB und Datenschutzhinweise von Carma. Mir ist bewusst, dass meine Angaben später für Konto, Profil, Fahrzeug, Verifizierung und Missbrauchsschutz verarbeitet werden.',
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Ich nutze Carma verantwortungsvoll. Mir ist bewusst, dass Missbrauch, falsche Meldungen oder Belästigung zur Sperrung führen können.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.76),
-                  fontWeight: FontWeight.w700,
-                  height: 1.34,
-                ),
-              ),
-            ),
+          const SizedBox(height: 10),
+          _ConsentRow(
+            value: acceptedResponsibleUse,
+            onChanged: onResponsibleUseChanged,
+            text:
+            'Ich nutze Carma nur verantwortungsvoll. Carma ist keine Notfall-, Polizei- oder Abschlepp-App. Missbrauch, falsche Meldungen, Belästigung oder falsche Fahrzeugdaten können zur Sperrung führen.',
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ConsentRow extends StatelessWidget {
+  const _ConsentRow({
+    required this.value,
+    required this.onChanged,
+    required this.text,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Checkbox(
+          value: value,
+          activeColor: const Color(0xFF139CFF),
+          checkColor: Colors.white,
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.42),
+            width: 1.4,
+          ),
+          onChanged: (nextValue) => onChanged(nextValue ?? false),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.76),
+                fontWeight: FontWeight.w700,
+                height: 1.34,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
