@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/models/carma_models.dart';
 import '../../home/presentation/app_shell.dart';
 import '../../onboarding/presentation/onboarding_flow_screen.dart';
 import 'auth_flow_screen.dart';
@@ -12,26 +13,39 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateScreenState extends State<AuthGateScreen> {
-  bool _isAuthenticated = false;
-  bool _isOnboardingCompleted = false;
+  AccountStatus? _accountStatus;
+
+  bool get _isAuthenticated {
+    return _accountStatus != null;
+  }
+
+  bool get _isOnboardingCompleted {
+    return _accountStatus?.isOnboardingCompleted ?? false;
+  }
 
   void _completeAuth() {
     setState(() {
-      _isAuthenticated = true;
-      _isOnboardingCompleted = false;
+      _accountStatus = AccountStatus.localRegistered(
+        userId: 'local-user',
+      );
     });
   }
 
   void _completeOnboarding() {
+    final currentStatus = _accountStatus;
+
+    if (currentStatus == null) {
+      return;
+    }
+
     setState(() {
-      _isOnboardingCompleted = true;
+      _accountStatus = currentStatus.markOnboardingCompleted();
     });
   }
 
   void _backToAuth() {
     setState(() {
-      _isAuthenticated = false;
-      _isOnboardingCompleted = false;
+      _accountStatus = null;
     });
   }
 
