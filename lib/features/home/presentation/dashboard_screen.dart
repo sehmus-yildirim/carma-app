@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../shared/config/carma_app_config.dart';
+import '../../../shared/domain/app_feature_gate.dart';
 import '../../../shared/models/carma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/widgets/carma_background.dart';
@@ -18,7 +20,12 @@ const Color _carmaBlueLight = Color(0xFF63D5FF);
 const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({
+    super.key,
+    required this.userState,
+  });
+
+  final AppUserState userState;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -40,9 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Position? _position;
   PlateSearchResult? _result;
 
-  SearchCredit _searchCredit = SearchCredit.freeDefault(
-    userId: 'local-user',
-  );
+  late SearchCredit _searchCredit;
 
   bool _isLoadingLocation = true;
   bool _isSearching = false;
@@ -68,6 +73,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _plateConfig.numbersMaxLength;
   }
 
+  AppUserState get _effectiveUserState {
+    return widget.userState.copyWith(
+      searchCredit: _searchCredit,
+    );
+  }
+
+  AppFeatureDecision get _searchGateDecision {
+    return AppFeatureGate.evaluate(
+      userState: _effectiveUserState,
+      feature: AppFeature.plateSearch,
+    );
+  }
+
+  AppFeatureDecision get _contactGateDecision {
+    return AppFeatureGate.evaluate(
+      userState: _effectiveUserState,
+      feature: AppFeature.contactRequest,
+    );
+  }
+
   CarmaPlate get _currentPlate {
     return CarmaPlate(
       countryCode: _countryCode,
@@ -84,7 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool get _canSearch {
     return _hasPlateInput &&
         _position != null &&
-        _searchCredit.hasRemaining &&
+        _searchGateDecision.isAllowed &&
         !_isLoadingLocation &&
         !_isSearching;
   }
@@ -112,6 +137,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+
+    _searchCredit = widget.userState.searchCredit;
 
     _regionController.addListener(_refresh);
     _lettersController.addListener(_refresh);
@@ -227,11 +254,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _searchPlate() async {
     final position = _position;
+    final gateDecision = _searchGateDecision;
 
-    if (_searchCredit.isExhausted) {
+    if (!gateDecision.isAllowed) {
       setState(() {
-        _errorMessage =
-        'Du hast dein lokales Suchlimit erreicht. Später kannst du über Credits weitere Suchen freischalten.';
+        _errorMessage = gateDecision.reason ??
+            'Die Kennzeichen-Suche ist aktuell nicht verfügbar.';
+        _successMessage = null;
       });
       return;
     }
@@ -240,8 +269,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (_locationError != null) {
         setState(() {
           _errorMessage = _locationError;
+          _successMessage = null;
         });
+        return;
       }
+
+      setState(() {
+        _errorMessage =
+        'Bitte gib ein vollständiges Kennzeichen ein und aktiviere den Standort.';
+        _successMessage = null;
+      });
       return;
     }
 
@@ -258,7 +295,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         plate: _plateValue,
         latitude: position.latitude,
         longitude: position.longitude,
-        radiusKm: 5,
+        radiusKm: CarmaAppConfig.defaultSearchRadiusKm,
       );
 
       setState(() {
@@ -275,6 +312,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _requestContact() async {
+    final gateDecision = _contactGateDecision;
+
+    if (!gateDecision.isAllowed) {
+      setState(() {
+        _errorMessage =
+            gateDecision.reason ?? 'Kontaktanfragen sind aktuell nicht verfügbar.';
+        _successMessage = null;
+      });
+      return;
+    }
+
     final result = _result;
 
     if (result == null || result.targetUid == null || result.plateKey == null) {

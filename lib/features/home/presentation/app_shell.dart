@@ -41,7 +41,9 @@ class _AppShellState extends State<AppShell> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     final screens = [
-      const DashboardScreen(),
+      DashboardScreen(
+        userState: widget.userState,
+      ),
       const ChatsScreen(),
       const ReportScreen(),
       const ProfileScreen(),
