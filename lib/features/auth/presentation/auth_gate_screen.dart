@@ -7,6 +7,17 @@ import '../../onboarding/presentation/onboarding_flow_screen.dart';
 import '../domain/registration_legal_consent_builder.dart';
 import 'auth_flow_screen.dart';
 
+enum _LocalTestMode {
+  normal,
+  searchLimitReached,
+  verificationPending,
+  verified,
+  restricted,
+  suspended,
+}
+
+const _LocalTestMode _localTestMode = _LocalTestMode.normal;
+
 class AuthGateScreen extends StatefulWidget {
   const AuthGateScreen({super.key});
 
@@ -25,16 +36,66 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     return _appUserState?.accountStatus.isOnboardingCompleted ?? false;
   }
 
-  void _completeAuth() {
+  AppUserState _buildLocalUserState() {
+    final userId = CarmaAppConfig.localUserId;
+    final now = DateTime.now();
+
     final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
-      userId: CarmaAppConfig.localUserId,
+      userId: userId,
     );
 
+    final baseState = AppUserState.localRegistered(
+      userId: userId,
+      legalConsents: legalConsents,
+      now: now,
+    ).markOnboardingCompleted();
+
+    return switch (_localTestMode) {
+      _LocalTestMode.normal => baseState,
+      _LocalTestMode.searchLimitReached => baseState.copyWith(
+        searchCredit: baseState.searchCredit.copyWith(
+          used: baseState.searchCredit.limit,
+          updatedAt: now,
+        ),
+      ),
+      _LocalTestMode.verificationPending => baseState.markVerificationPending(),
+      _LocalTestMode.verified => baseState.markVerified(),
+      _LocalTestMode.restricted => baseState.copyWith(
+        accountStatus: baseState.accountStatus.restrict(
+          reason: 'Lokaler Test: Konto eingeschränkt.',
+          until: now.add(const Duration(days: 7)),
+        ),
+        moderationActions: [
+          ...baseState.moderationActions,
+          ModerationAction.localRestriction(
+            userId: userId,
+            reason: ModerationReason.other,
+            endsAt: now.add(const Duration(days: 7)),
+            note: 'Lokaler Testmodus: Feature-Einschränkung aktiv.',
+            now: now,
+          ),
+        ],
+      ),
+      _LocalTestMode.suspended => baseState.copyWith(
+        accountStatus: baseState.accountStatus.suspend(
+          reason: 'Lokaler Test: Konto gesperrt.',
+        ),
+        moderationActions: [
+          ...baseState.moderationActions,
+          ModerationAction.localSuspension(
+            userId: userId,
+            reason: ModerationReason.other,
+            note: 'Lokaler Testmodus: Kontosperre aktiv.',
+            now: now,
+          ),
+        ],
+      ),
+    };
+  }
+
+  void _completeAuth() {
     setState(() {
-      _appUserState = AppUserState.localRegistered(
-        userId: CarmaAppConfig.localUserId,
-        legalConsents: legalConsents,
-      );
+      _appUserState = _buildLocalUserState();
     });
   }
 
