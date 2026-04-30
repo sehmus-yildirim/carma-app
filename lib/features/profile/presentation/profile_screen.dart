@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../shared/domain/app_feature_gate.dart';
+import '../../../shared/models/carma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../domain/profile_document_mapper.dart';
 import '../domain/profile_draft.dart';
@@ -24,7 +26,12 @@ const Color _carmaBlueLight = Color(0xFF63D5FF);
 const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({
+    super.key,
+    required this.userState,
+  });
+
+  final AppUserState userState;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -247,6 +254,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   int get _numbersMaxLength {
     return _plateConfig.numbersMaxLength;
+  }
+
+  AppFeatureDecision get _verificationGateDecision {
+    return AppFeatureGate.evaluate(
+      userState: widget.userState,
+      feature: AppFeature.profileVerification,
+    );
   }
 
   bool get _hasNameInput {
@@ -591,6 +605,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    final gateDecision = _verificationGateDecision;
+
+    if (!gateDecision.isAllowed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            gateDecision.reason ??
+                'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+          ),
+        ),
+      );
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -628,6 +656,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openVerificationScreen() {
+    final gateDecision = _verificationGateDecision;
+
+    if (!gateDecision.isAllowed && !_isProfileLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            gateDecision.reason ??
+                'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+          ),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _VerificationScreen(
