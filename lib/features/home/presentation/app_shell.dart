@@ -53,7 +53,10 @@ class _AppShellState extends State<AppShell> {
       ProfileScreen(
         userState: widget.userState,
       ),
-      SettingsScreen(onLogout: widget.onLogout),
+      SettingsScreen(
+        userState: widget.userState,
+        onLogout: widget.onLogout,
+      ),
     ];
 
     return Scaffold(

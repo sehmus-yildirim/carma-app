@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/config/carma_app_config.dart';
 import '../../../shared/legal/legal_versions.dart';
+import '../../../shared/models/carma_models.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_page_header.dart';
@@ -12,9 +13,11 @@ import '../../../shared/widgets/glass_card.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
+    required this.userState,
     required this.onLogout,
   });
 
+  final AppUserState userState;
   final VoidCallback onLogout;
 
   @override
@@ -340,6 +343,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 18),
                     const _SettingsInfoCard(),
+                    const SizedBox(height: 14),
+                    _AccountStateCard(
+                      userState: widget.userState,
+                    ),
                     const SizedBox(height: 18),
                     const _SettingsGroupTitle(
                       title: 'Konto',
@@ -464,6 +471,65 @@ class _SettingsInfoCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 height: 1.36,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountStateCard extends StatelessWidget {
+  const _AccountStateCard({
+    required this.userState,
+  });
+
+  final AppUserState userState;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CarmaBlueIconBox(
+            icon: Icons.manage_accounts_rounded,
+            size: 46,
+            iconSize: 24,
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Kontostatus',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Lokaler MVP-Nutzer · ${userState.userId}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.76),
+                    fontWeight: FontWeight.w800,
+                    height: 1.32,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Suchkontingent: ${userState.searchCredit.remaining} von ${userState.searchCredit.limit} verfügbar.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.62),
+                    fontWeight: FontWeight.w700,
+                    height: 1.32,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
