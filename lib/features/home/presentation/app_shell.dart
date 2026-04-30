@@ -45,7 +45,9 @@ class _AppShellState extends State<AppShell> {
         userState: widget.userState,
       ),
       const ChatsScreen(),
-      const ReportScreen(),
+      ReportScreen(
+        userState: widget.userState,
+      ),
       const ProfileScreen(),
       SettingsScreen(onLogout: widget.onLogout),
     ];

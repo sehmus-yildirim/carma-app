@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../shared/domain/app_feature_gate.dart';
+import '../../../shared/models/carma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_country_selector_card.dart';
@@ -30,7 +32,12 @@ enum _ReportCategory {
 }
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({super.key});
+  const ReportScreen({
+    super.key,
+    required this.userState,
+  });
+
+  final AppUserState userState;
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -79,6 +86,13 @@ class _ReportScreenState extends State<ReportScreen> {
     return _plateConfig.numbersMaxLength;
   }
 
+  AppFeatureDecision get _reportGateDecision {
+    return AppFeatureGate.evaluate(
+      userState: widget.userState,
+      feature: AppFeature.anonymousReport,
+    );
+  }
+
   ReportDraftCategory? get _draftCategory {
     return switch (_selectedCategory) {
       _ReportCategory.vehicleOpen => ReportDraftCategory.vehicleOpen,
@@ -93,7 +107,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
   ReportDraft get _reportDraft {
     return ReportDraft(
-      senderUserId: 'local-user',
+      senderUserId: widget.userState.userId,
       countryCode: _countryCode,
       region: _regionController.text.trim(),
       letters: _lettersController.text.trim(),
@@ -109,7 +123,7 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   bool get _canSend {
-    return _reportDraft.canSubmit && !_isSending;
+    return _reportDraft.canSubmit && _reportGateDecision.isAllowed && !_isSending;
   }
 
   @override
@@ -317,12 +331,24 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Future<void> _sendReport() async {
+    final gateDecision = _reportGateDecision;
+
+    if (!gateDecision.isAllowed) {
+      setState(() {
+        _errorMessage =
+            gateDecision.reason ?? 'Anonyme Hinweise sind aktuell nicht verfügbar.';
+        _successMessage = null;
+      });
+      return;
+    }
+
     final reportDraft = _reportDraft;
 
     if (!reportDraft.canSubmit || _isSending) {
       setState(() {
         _errorMessage =
         'Bitte wähle einen Hinweis, gib ein Kennzeichen ein und füge einen Ort hinzu.';
+        _successMessage = null;
       });
       return;
     }
