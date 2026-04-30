@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/domain/app_feature_gate.dart';
+import '../../../shared/models/carma_models.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_page_header.dart';
@@ -18,7 +20,12 @@ enum _ChatsView {
 }
 
 class ChatsScreen extends StatefulWidget {
-  const ChatsScreen({super.key});
+  const ChatsScreen({
+    super.key,
+    required this.userState,
+  });
+
+  final AppUserState userState;
 
   @override
   State<ChatsScreen> createState() => _ChatsScreenState();
@@ -31,6 +38,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
   bool _hasIncomingRequest = false;
   bool _hasOutgoingRequest = false;
   bool _hasActiveChat = false;
+
+  AppFeatureDecision get _chatGateDecision {
+    return AppFeatureGate.evaluate(
+      userState: widget.userState,
+      feature: AppFeature.chat,
+    );
+  }
 
   String get _currentFirstName {
     final fullName =
@@ -104,6 +118,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final chatGateDecision = _chatGateDecision;
 
     return CarmaBackground(
       child: SafeArea(
@@ -141,29 +156,36 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     const SizedBox(height: 18),
                     const _MvpInfoCard(),
                     const SizedBox(height: 18),
-                    _ChatsSegmentedControl(
-                      selectedView: _selectedView,
-                      onChanged: _selectView,
-                    ),
-                    const SizedBox(height: 16),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      child: _selectedView == _ChatsView.chats
-                          ? _ChatsOverview(
-                        key: const ValueKey('chats_view'),
-                        hasActiveChat: _hasActiveChat,
-                        onOpenActiveChats: _openActiveChatsScreen,
+                    if (!chatGateDecision.isAllowed)
+                      _ChatAccessBlockedCard(
+                        message: chatGateDecision.reason ??
+                            'Chats sind aktuell nicht verfügbar.',
                       )
-                          : _RequestsOverview(
-                        key: const ValueKey('requests_view'),
-                        hasIncomingRequest: _hasIncomingRequest,
-                        hasOutgoingRequest: _hasOutgoingRequest,
-                        onOpenIncoming: _openIncomingRequestsScreen,
-                        onOpenOutgoing: _openOutgoingRequestsScreen,
+                    else ...[
+                      _ChatsSegmentedControl(
+                        selectedView: _selectedView,
+                        onChanged: _selectView,
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: _selectedView == _ChatsView.chats
+                            ? _ChatsOverview(
+                          key: const ValueKey('chats_view'),
+                          hasActiveChat: _hasActiveChat,
+                          onOpenActiveChats: _openActiveChatsScreen,
+                        )
+                            : _RequestsOverview(
+                          key: const ValueKey('requests_view'),
+                          hasIncomingRequest: _hasIncomingRequest,
+                          hasOutgoingRequest: _hasOutgoingRequest,
+                          onOpenIncoming: _openIncomingRequestsScreen,
+                          onOpenOutgoing: _openOutgoingRequestsScreen,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -199,6 +221,56 @@ class _MvpInfoCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 height: 1.36,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatAccessBlockedCard extends StatelessWidget {
+  const _ChatAccessBlockedCard({
+    required this.message,
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CarmaBlueIconBox(
+            icon: Icons.lock_outline_rounded,
+            size: 48,
+            iconSize: 24,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Chats nicht verfügbar',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontWeight: FontWeight.w700,
+                    height: 1.34,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -462,7 +534,8 @@ class _OverviewCard extends StatelessWidget {
                                 .textTheme
                                 .bodyMedium
                                 ?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.68),
+                              color:
+                              Colors.white.withValues(alpha: 0.68),
                               fontWeight: FontWeight.w600,
                               height: 1.35,
                             ),
@@ -930,7 +1003,8 @@ class _ActiveChatListTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style:
                         Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.68),
+                          color:
+                          Colors.white.withValues(alpha: 0.68),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
