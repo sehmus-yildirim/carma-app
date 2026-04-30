@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/models/carma_models.dart';
 import '../../chats/presentation/chats_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../reports/presentation/report_screen.dart';
@@ -11,9 +12,11 @@ const Color _navAccentBlue = Color(0xFF139CFF);
 class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
+    required this.userState,
     required this.onLogout,
   });
 
+  final AppUserState userState;
   final VoidCallback onLogout;
 
   @override
@@ -36,6 +39,7 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
+
     final screens = [
       const DashboardScreen(),
       const ChatsScreen(),

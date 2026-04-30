@@ -75,6 +75,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       )
           : AppShell(
         key: const ValueKey('app_shell'),
+        userState: _appUserState!,
         onLogout: _backToAuth,
       ),
     );
