@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/models/carma_models.dart';
 import '../../../shared/config/carma_app_config.dart';
+import '../../../shared/models/carma_models.dart';
 import '../../home/presentation/app_shell.dart';
 import '../../onboarding/presentation/onboarding_flow_screen.dart';
+import '../domain/registration_legal_consent_builder.dart';
 import 'auth_flow_screen.dart';
 
 class AuthGateScreen extends StatefulWidget {
@@ -25,9 +26,14 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   }
 
   void _completeAuth() {
+    final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
+      userId: CarmaAppConfig.localUserId,
+    );
+
     setState(() {
       _appUserState = AppUserState.localRegistered(
         userId: CarmaAppConfig.localUserId,
+        legalConsents: legalConsents,
       );
     });
   }
