@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -123,7 +124,10 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   bool get _canSend {
-    return _reportDraft.canSubmit && _reportGateDecision.isAllowed && !_isSending;
+    return _reportDraft.canSubmit &&
+        _reportGateDecision.isAllowed &&
+        !_isSending &&
+        !_isLoadingLocation;
   }
 
   @override
@@ -234,6 +238,10 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Future<void> _loadLocation() async {
+    if (_isLoadingLocation) {
+      return;
+    }
+
     setState(() {
       _isLoadingLocation = true;
       _locationError = null;
@@ -243,7 +251,12 @@ class _ReportScreenState extends State<ReportScreen> {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
+          _position = null;
           _locationError =
           'Standortdienste sind deaktiviert. Du kannst alternativ eine Adresse eingeben.';
           _isLoadingLocation = false;
@@ -259,7 +272,12 @@ class _ReportScreenState extends State<ReportScreen> {
       }
 
       if (permission == LocationPermission.denied) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
+          _position = null;
           _locationError =
           'Standortberechtigung wurde verweigert. Du kannst alternativ eine Adresse eingeben.';
           _isLoadingLocation = false;
@@ -269,7 +287,12 @@ class _ReportScreenState extends State<ReportScreen> {
       }
 
       if (permission == LocationPermission.deniedForever) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
+          _position = null;
           _locationError =
           'Standortberechtigung wurde dauerhaft verweigert. Bitte nutze die manuelle Adresse.';
           _isLoadingLocation = false;
@@ -282,15 +305,37 @@ class _ReportScreenState extends State<ReportScreen> {
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
-      );
+      ).timeout(const Duration(seconds: 8));
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _position = position;
         _locationError = null;
         _isLoadingLocation = false;
+        _useGpsLocation = true;
+      });
+    } on TimeoutException {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _position = null;
+        _locationError =
+        'Standort lädt zu lange. Bitte setze im Emulator einen Standort oder nutze die manuelle Adresse.';
+        _isLoadingLocation = false;
+        _useGpsLocation = false;
       });
     } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
+        _position = null;
         _locationError =
         'Standort konnte nicht geladen werden. Du kannst alternativ eine Adresse eingeben.';
         _isLoadingLocation = false;
@@ -313,10 +358,18 @@ class _ReportScreenState extends State<ReportScreen> {
         return;
       }
 
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _capturedPhoto = image;
       });
     } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _errorMessage =
         'Kamera konnte nicht geöffnet werden. Bitte prüfe die Kameraberechtigung.';
@@ -337,6 +390,15 @@ class _ReportScreenState extends State<ReportScreen> {
       setState(() {
         _errorMessage =
             gateDecision.reason ?? 'Anonyme Hinweise sind aktuell nicht verfügbar.';
+        _successMessage = null;
+      });
+      return;
+    }
+
+    if (_isLoadingLocation) {
+      setState(() {
+        _errorMessage =
+        'Standort wird noch geladen. Bitte warte kurz oder nutze die manuelle Adresse.';
         _successMessage = null;
       });
       return;
@@ -807,40 +869,51 @@ class _LocationCard extends StatelessWidget {
               onRetry: onRetryLocation,
             )
           else
-            TextField(
-              controller: addressController,
-              textInputAction: TextInputAction.done,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Adresse + Hausnummer, PLZ u. Ort',
-                hintMaxLines: 1,
-                hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.50),
-                  fontWeight: FontWeight.w700,
-                ),
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.08),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 17,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.10),
+            Column(
+              children: [
+                if (locationError != null) ...[
+                  _InlineStatusBox(
+                    icon: Icons.location_off_rounded,
+                    text: locationError!,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                TextField(
+                  controller: addressController,
+                  textInputAction: TextInputAction.done,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Adresse + Hausnummer, PLZ u. Ort',
+                    hintMaxLines: 1,
+                    hintStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.50),
+                      fontWeight: FontWeight.w700,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.08),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 17,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.10),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide(
+                        color: _carmaBlueLight.withValues(alpha: 0.90),
+                        width: 1.4,
+                      ),
+                    ),
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide(
-                    color: _carmaBlueLight.withValues(alpha: 0.90),
-                    width: 1.4,
-                  ),
-                ),
-              ),
+              ],
             ),
         ],
       ),
