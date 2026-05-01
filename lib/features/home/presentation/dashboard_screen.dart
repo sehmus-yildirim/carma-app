@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -106,12 +108,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _currentPlate.isComplete;
   }
 
-  bool get _canSearch {
+  bool get _canAttemptSearch {
     return _hasPlateInput &&
-        _position != null &&
         _searchGateDecision.isAllowed &&
         !_isLoadingLocation &&
         !_isSearching;
+  }
+
+  bool get _canSearch {
+    return _canAttemptSearch && _position != null;
   }
 
   String get _plateValue {
@@ -200,7 +205,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
+          _position = null;
           _locationError =
           'Standortdienste sind deaktiviert. Bitte aktiviere GPS auf deinem Gerät.';
           _isLoadingLocation = false;
@@ -215,7 +225,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       if (permission == LocationPermission.denied) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
+          _position = null;
           _locationError =
           'Standortberechtigung wurde verweigert. Die Suche ist ohne Standort nicht möglich.';
           _isLoadingLocation = false;
@@ -224,7 +239,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       if (permission == LocationPermission.deniedForever) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
+          _position = null;
           _locationError =
           'Standortberechtigung wurde dauerhaft verweigert. Bitte erlaube Standortzugriff in den App-Einstellungen.';
           _isLoadingLocation = false;
@@ -236,15 +256,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
-      );
+      ).timeout(const Duration(seconds: 8));
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _position = position;
         _locationError = null;
         _isLoadingLocation = false;
       });
-    } catch (_) {
+    } on TimeoutException {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
+        _position = null;
+        _locationError =
+        'Standort lädt zu lange. Bitte prüfe GPS oder setze im Emulator einen Standort.';
+        _isLoadingLocation = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _position = null;
         _locationError =
         'Standort konnte nicht geladen werden. Bitte versuche es erneut.';
         _isLoadingLocation = false;
@@ -265,20 +305,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (position == null || !_canSearch) {
-      if (_locationError != null) {
-        setState(() {
-          _errorMessage = _locationError;
-          _successMessage = null;
-        });
-        return;
-      }
-
+    if (!_hasPlateInput) {
       setState(() {
-        _errorMessage =
-        'Bitte gib ein vollständiges Kennzeichen ein und aktiviere den Standort.';
+        _errorMessage = 'Bitte gib ein vollständiges Kennzeichen ein.';
         _successMessage = null;
       });
+      return;
+    }
+
+    if (_isLoadingLocation) {
+      setState(() {
+        _errorMessage = 'Standort wird noch geladen. Bitte warte kurz.';
+        _successMessage = null;
+      });
+      return;
+    }
+
+    if (position == null) {
+      setState(() {
+        _errorMessage = _locationError ??
+            'Bitte aktiviere den Standort, damit die Suche in deiner Nähe möglich ist.';
+        _successMessage = null;
+      });
+      return;
+    }
+
+    if (!_canSearch) {
       return;
     }
 
@@ -298,12 +350,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         radiusKm: CarmaAppConfig.defaultSearchRadiusKm,
       );
 
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _result = result;
         _searchCredit = _searchCredit.consume();
         _isSearching = false;
       });
     } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _errorMessage = _mapFirebaseError(error);
         _isSearching = false;
@@ -341,12 +401,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         plateKey: result.plateKey!,
       );
 
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _successMessage =
         'Kontaktanfrage wurde gesendet. Sobald sie angenommen wird, erscheint der Chat im Chat-Bereich.';
         _isRequestingContact = false;
       });
     } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _errorMessage = _mapFirebaseError(error);
         _isRequestingContact = false;
@@ -511,15 +579,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 12),
                     _SearchButtonCard(
-                      isEnabled: _canSearch,
+                      isEnabled: _canAttemptSearch,
                       isLoading: _isSearching,
                       onPressed: _searchPlate,
                     ),
+                    if (_isLoadingLocation) ...[
+                      const SizedBox(height: 12),
+                      const _LocationLoadingCard(),
+                    ],
                     if (_locationError != null) ...[
                       const SizedBox(height: 12),
                       CarmaMessageCard(
                         icon: Icons.location_off_rounded,
                         message: _locationError!,
+                      ),
+                      const SizedBox(height: 10),
+                      _RetryLocationButton(
+                        isLoading: _isLoadingLocation,
+                        onPressed: _loadLocation,
                       ),
                     ],
                     if (_errorMessage != null) ...[
@@ -548,6 +625,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _LocationLoadingCard extends StatelessWidget {
+  const _LocationLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(15),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _carmaBlueDark,
+                  _carmaBlue,
+                  _carmaBlueLight,
+                ],
+              ),
+            ),
+            child: const Icon(
+              Icons.my_location_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Text(
+              'Standort wird geladen...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w800,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RetryLocationButton extends StatelessWidget {
+  const _RetryLocationButton({
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return CarmaPrimaryButton(
+      label: 'Standort erneut laden',
+      loadingLabel: 'Standort lädt...',
+      icon: Icons.refresh_rounded,
+      iconSize: 25,
+      fontSize: 17,
+      isEnabled: !isLoading,
+      isLoading: isLoading,
+      onPressed: onPressed,
     );
   }
 }
@@ -583,9 +731,7 @@ class _SearchCreditCard extends StatelessWidget {
               ),
             ),
             child: Icon(
-              isExhausted
-                  ? Icons.lock_outline_rounded
-                  : Icons.search_rounded,
+              isExhausted ? Icons.lock_outline_rounded : Icons.search_rounded,
               color: Colors.white,
               size: 23,
             ),
