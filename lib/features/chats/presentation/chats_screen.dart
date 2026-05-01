@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
@@ -19,6 +18,16 @@ enum _ChatsView {
   requests,
 }
 
+enum _LocalChatTestMode {
+  empty,
+  incomingRequest,
+  outgoingRequest,
+  activeChat,
+  activeChatWithMessages,
+}
+
+const _LocalChatTestMode _localChatTestMode = _LocalChatTestMode.empty;
+
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({
     super.key,
@@ -34,10 +43,10 @@ class ChatsScreen extends StatefulWidget {
 class _ChatsScreenState extends State<ChatsScreen> {
   _ChatsView _selectedView = _ChatsView.chats;
 
-  // TODO: Später durch echte Firebase-Daten ersetzen.
-  bool _hasIncomingRequest = false;
-  bool _hasOutgoingRequest = false;
-  bool _hasActiveChat = false;
+  late bool _hasIncomingRequest;
+  late bool _hasOutgoingRequest;
+  late bool _hasActiveChat;
+  late List<_LocalChatMessage> _chatMessages;
 
   AppFeatureDecision get _chatGateDecision {
     return AppFeatureGate.evaluate(
@@ -47,14 +56,42 @@ class _ChatsScreenState extends State<ChatsScreen> {
   }
 
   String get _currentFirstName {
-    final fullName =
-        FirebaseAuth.instance.currentUser?.displayName?.trim() ?? '';
+    return 'Carma Nutzer';
+  }
 
-    if (fullName.isEmpty) {
-      return 'Carma Nutzer';
-    }
+  @override
+  void initState() {
+    super.initState();
 
-    return fullName.split(RegExp(r'\s+')).first.trim();
+    _hasIncomingRequest = _localChatTestMode == _LocalChatTestMode.incomingRequest;
+    _hasOutgoingRequest = _localChatTestMode == _LocalChatTestMode.outgoingRequest;
+    _hasActiveChat = _localChatTestMode == _LocalChatTestMode.activeChat ||
+        _localChatTestMode == _LocalChatTestMode.activeChatWithMessages;
+
+    _chatMessages = _localChatTestMode == _LocalChatTestMode.activeChatWithMessages
+        ? _buildLocalChatMessages()
+        : <_LocalChatMessage>[];
+  }
+
+  List<_LocalChatMessage> _buildLocalChatMessages() {
+    return const [
+      _LocalChatMessage(
+        text:
+        'Hey, ich bin gerade an deinem Fahrzeug vorbeigefahren. Dein Fenster scheint noch offen zu sein.',
+        isMine: false,
+        timeLabel: '14:21',
+      ),
+      _LocalChatMessage(
+        text: 'Danke dir für den Hinweis. Ich schaue sofort nach.',
+        isMine: true,
+        timeLabel: '14:23',
+      ),
+      _LocalChatMessage(
+        text: 'Gerne. Ich wollte nur kurz Bescheid geben.',
+        isMine: false,
+        timeLabel: '14:24',
+      ),
+    ];
   }
 
   void _selectView(_ChatsView view) {
@@ -77,6 +114,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
               _hasIncomingRequest = false;
               _hasActiveChat = true;
               _selectedView = _ChatsView.chats;
+              _chatMessages = const [
+                _LocalChatMessage(
+                  text:
+                  'Kontaktanfrage angenommen. Ihr könnt jetzt geschützt schreiben.',
+                  isMine: false,
+                  timeLabel: 'Jetzt',
+                  isSystem: true,
+                ),
+              ];
             });
           },
           onDecline: () {
@@ -110,6 +156,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       MaterialPageRoute(
         builder: (_) => _ActiveChatsScreen(
           hasActiveChat: _hasActiveChat,
+          messages: _chatMessages,
         ),
       ),
     );
@@ -175,6 +222,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                             ? _ChatsOverview(
                           key: const ValueKey('chats_view'),
                           hasActiveChat: _hasActiveChat,
+                          messageCount: _chatMessages.length,
                           onOpenActiveChats: _openActiveChatsScreen,
                         )
                             : _RequestsOverview(
@@ -195,6 +243,20 @@ class _ChatsScreenState extends State<ChatsScreen> {
       ),
     );
   }
+}
+
+class _LocalChatMessage {
+  const _LocalChatMessage({
+    required this.text,
+    required this.isMine,
+    required this.timeLabel,
+    this.isSystem = false,
+  });
+
+  final String text;
+  final bool isMine;
+  final String timeLabel;
+  final bool isSystem;
 }
 
 class _MvpInfoCard extends StatelessWidget {
@@ -405,10 +467,12 @@ class _ChatsOverview extends StatelessWidget {
   const _ChatsOverview({
     super.key,
     required this.hasActiveChat,
+    required this.messageCount,
     required this.onOpenActiveChats,
   });
 
   final bool hasActiveChat;
+  final int messageCount;
   final VoidCallback onOpenActiveChats;
 
   @override
@@ -419,7 +483,9 @@ class _ChatsOverview extends StatelessWidget {
       count: hasActiveChat ? '1' : '0',
       description: 'Angenommene Anfragen werden hier als Chat angezeigt.',
       bodyText: hasActiveChat
-          ? 'Ein aktiver Chat ist verfügbar.'
+          ? messageCount > 0
+          ? '$messageCount lokale Beispielnachrichten verfügbar.'
+          : 'Ein aktiver Chat ist verfügbar.'
           : 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.',
       onTap: onOpenActiveChats,
     );
@@ -534,8 +600,7 @@ class _OverviewCard extends StatelessWidget {
                                 .textTheme
                                 .bodyMedium
                                 ?.copyWith(
-                              color:
-                              Colors.white.withValues(alpha: 0.68),
+                              color: Colors.white.withValues(alpha: 0.68),
                               fontWeight: FontWeight.w600,
                               height: 1.35,
                             ),
@@ -573,8 +638,7 @@ class _OverviewCard extends StatelessWidget {
                           bodyText,
                           style:
                           Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color:
-                            Colors.white.withValues(alpha: 0.74),
+                            color: Colors.white.withValues(alpha: 0.74),
                             fontWeight: FontWeight.w700,
                             height: 1.3,
                           ),
@@ -719,9 +783,11 @@ class _OutgoingRequestsScreen extends StatelessWidget {
 class _ActiveChatsScreen extends StatelessWidget {
   const _ActiveChatsScreen({
     required this.hasActiveChat,
+    required this.messages,
   });
 
   final bool hasActiveChat;
+  final List<_LocalChatMessage> messages;
 
   @override
   Widget build(BuildContext context) {
@@ -732,10 +798,13 @@ class _ActiveChatsScreen extends StatelessWidget {
       'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
       child: hasActiveChat
           ? _ActiveChatListTile(
+        hasMessages: messages.isNotEmpty,
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => const _ChatConversationScreen(),
+              builder: (_) => _ChatConversationScreen(
+                initialMessages: messages,
+              ),
             ),
           );
         },
@@ -828,7 +897,7 @@ class _IncomingRequestCard extends StatelessWidget {
           const SizedBox(height: 18),
           const _RequestTextBox(
             text:
-            'Hey, ich bin [Vorname]. Ich bin gerade mit dem [Farbe] [Marke] [Modell] an dir vorbeigefahren.',
+            'Hey, ich bin Carma Nutzer. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
           ),
           const SizedBox(height: 18),
           Row(
@@ -874,7 +943,7 @@ class _OutgoingRequestCard extends StatelessWidget {
           const SizedBox(height: 18),
           _RequestTextBox(
             text:
-            'Hey, ich bin $currentFirstName. Ich bin gerade mit dem [Farbe] [Marke] [Modell] an dir vorbeigefahren.',
+            'Hey, ich bin $currentFirstName. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
           ),
           const SizedBox(height: 18),
           _SheetSecondaryButton(
@@ -912,7 +981,7 @@ class _RequestUserHeader extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '[Farbe] [Marke] [Modell]',
+                'Schwarz BMW 1er',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -961,9 +1030,11 @@ class _RequestTextBox extends StatelessWidget {
 
 class _ActiveChatListTile extends StatelessWidget {
   const _ActiveChatListTile({
+    required this.hasMessages,
     required this.onTap,
   });
 
+  final bool hasMessages;
   final VoidCallback onTap;
 
   @override
@@ -998,13 +1069,14 @@ class _ActiveChatListTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        '[Farbe] [Marke] [Modell]',
+                        hasMessages
+                            ? 'Letzte Nachricht: Danke dir für den Hinweis.'
+                            : 'Schwarz BMW 1er',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
                         Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                          Colors.white.withValues(alpha: 0.68),
+                          color: Colors.white.withValues(alpha: 0.68),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -1249,7 +1321,11 @@ class _SheetSecondaryButton extends StatelessWidget {
 }
 
 class _ChatConversationScreen extends StatefulWidget {
-  const _ChatConversationScreen();
+  const _ChatConversationScreen({
+    required this.initialMessages,
+  });
+
+  final List<_LocalChatMessage> initialMessages;
 
   @override
   State<_ChatConversationScreen> createState() =>
@@ -1259,11 +1335,13 @@ class _ChatConversationScreen extends StatefulWidget {
 class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
 
+  late List<_LocalChatMessage> _messages;
   bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
+    _messages = [...widget.initialMessages];
     _messageController.addListener(_handleMessageChanged);
   }
 
@@ -1301,13 +1379,20 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
-    _messageController.clear();
+    final message = _messageController.text.trim();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Nachrichten werden später mit Firebase verbunden.'),
-      ),
-    );
+    setState(() {
+      _messages = [
+        ..._messages,
+        _LocalChatMessage(
+          text: message,
+          isMine: true,
+          timeLabel: 'Jetzt',
+        ),
+      ];
+    });
+
+    _messageController.clear();
   }
 
   @override
@@ -1337,7 +1422,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                         onBack: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(height: 14),
-                      const _ChatEmptySpace(),
+                      if (_messages.isEmpty)
+                        const _ChatEmptySpace()
+                      else
+                        _ChatMessageList(
+                          messages: _messages,
+                        ),
                     ],
                   ),
                 ),
@@ -1398,14 +1488,14 @@ class _CompactChatInfoCard extends StatelessWidget {
               Expanded(
                 child: _VehicleInfoPill(
                   label: 'Modell',
-                  value: '[Modell]',
+                  value: 'BMW 1er',
                 ),
               ),
               SizedBox(width: 8),
               Expanded(
                 child: _VehicleInfoPill(
-                  label: 'Typ',
-                  value: '[Typ]',
+                  label: 'Farbe',
+                  value: 'Schwarz',
                 ),
               ),
             ],
@@ -1462,6 +1552,118 @@ class _VehicleInfoPill extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatMessageList extends StatelessWidget {
+  const _ChatMessageList({
+    required this.messages,
+  });
+
+  final List<_LocalChatMessage> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: messages.map((message) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _ChatMessageBubble(
+            message: message,
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _ChatMessageBubble extends StatelessWidget {
+  const _ChatMessageBubble({
+    required this.message,
+  });
+
+  final _LocalChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message.isSystem) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: Colors.white.withValues(alpha: 0.06),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.10),
+          ),
+        ),
+        child: Text(
+          message.text,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.68),
+            fontWeight: FontWeight.w800,
+            height: 1.3,
+          ),
+        ),
+      );
+    }
+
+    return Align(
+      alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.74,
+        ),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(message.isMine ? 20 : 5),
+            bottomRight: Radius.circular(message.isMine ? 5 : 20),
+          ),
+          gradient: message.isMine
+              ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              _carmaBlueDark,
+              _carmaBlue,
+              _carmaBlueLight,
+            ],
+          )
+              : null,
+          color: message.isMine ? null : Colors.white.withValues(alpha: 0.09),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: message.isMine ? 0.18 : 0.10),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment:
+          message.isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                height: 1.32,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              message.timeLabel,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.64),
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
