@@ -29,4 +29,36 @@ class SearchCreditRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
+
+  Future<SearchCredit?> loadSearchCredit({required String userId}) async {
+    final snapshot = await _searchCreditDocument(userId).get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    final data = snapshot.data();
+
+    if (data == null) {
+      return null;
+    }
+
+    return SearchCredit.fromMap(data).normalizeForCurrentMonth();
+  }
+
+  Stream<SearchCredit?> watchSearchCredit({required String userId}) {
+    return _searchCreditDocument(userId).snapshots().map((snapshot) {
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      final data = snapshot.data();
+
+      if (data == null) {
+        return null;
+      }
+
+      return SearchCredit.fromMap(data).normalizeForCurrentMonth();
+    });
+  }
 }
