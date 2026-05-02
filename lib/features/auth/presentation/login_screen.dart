@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/carma_background.dart';
@@ -6,6 +7,7 @@ import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../data/auth_service.dart';
 
 const Color _carmaBlueLight = Color(0xFF63D5FF);
 
@@ -30,6 +32,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final AuthService _authService = AuthService();
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -101,19 +105,115 @@ class _LoginScreenState extends State<LoginScreen> {
       _successMessage = null;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 650));
+    try {
+      await _authService.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _successMessage = 'Erfolgreich eingeloggt.';
+      });
+
+      widget.onLoginSuccess?.call();
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = 'Login konnte gerade nicht durchgeführt werden.';
+        _successMessage = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  Future<void> _submitGoogleLogin() async {
+    FocusScope.of(context).unfocus();
 
     setState(() {
-      _isLoading = false;
-      _successMessage =
-      'Login wurde lokal vorbereitet. Firebase Auth verbinden wir später.';
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
     });
 
-    widget.onLoginSuccess?.call();
+    try {
+      await _authService.signInWithGoogle();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _successMessage = 'Google-Anmeldung erfolgreich.';
+      });
+
+      widget.onLoginSuccess?.call();
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = 'Google Login konnte gerade nicht durchgeführt werden.';
+        _successMessage = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _mapFirebaseAuthError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'Die E-Mail-Adresse ist ungültig.';
+      case 'user-disabled':
+        return 'Dieses Nutzerkonto wurde deaktiviert.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'E-Mail oder Passwort ist falsch.';
+      case 'network-request-failed':
+        return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
+      case 'operation-not-allowed':
+        return 'Diese Anmeldemethode ist in Firebase nicht aktiviert.';
+      case 'aborted-by-user':
+        return 'Die Anmeldung wurde abgebrochen.';
+      default:
+        return error.message ?? 'Ein unbekannter Login-Fehler ist aufgetreten.';
+    }
   }
 
   void _openForgotPassword() {
@@ -123,9 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Passwort zurücksetzen verbinden wir im nächsten Schritt.'),
-      ),
+      const SnackBar(content: Text('Passwort zurücksetzen ist vorbereitet.')),
     );
   }
 
@@ -136,16 +234,14 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Registrierung verbinden wir im nächsten Schritt.'),
-      ),
+      const SnackBar(content: Text('Registrierung ist vorbereitet.')),
     );
   }
 
-  void _showSocialAuthComingSoon(String provider) {
+  void _showAppleAuthComingSoon() {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$provider Login verbinden wir später mit Firebase.'),
+      const SnackBar(
+        content: Text('Apple Login wird später mit dem iOS-Setup aktiviert.'),
       ),
     );
   }
@@ -170,21 +266,14 @@ class _LoginScreenState extends State<LoginScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(
-              20,
-              18,
-              20,
-              28 + keyboardInset,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (canPop)
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: _TopBackButton(
-                      onTap: _goBack,
-                    ),
+                    child: _TopBackButton(onTap: _goBack),
                   ),
                 SizedBox(height: canPop ? 14 : 8),
                 const _LoginBrandHeader(),
@@ -213,11 +302,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                         },
                         suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
                           icon: Icon(
                             _obscurePassword
                                 ? Icons.visibility_outlined
@@ -230,13 +321,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: _openForgotPassword,
+                          onPressed: _isLoading ? null : _openForgotPassword,
                           child: Text(
                             'Passwort vergessen?',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: _carmaBlueLight,
-                              fontWeight: FontWeight.w900,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: _carmaBlueLight,
+                                  fontWeight: FontWeight.w900,
+                                ),
                           ),
                         ),
                       ),
@@ -271,12 +363,24 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 CarmaSocialAuthButton(
                   provider: CarmaSocialAuthProvider.google,
-                  onPressed: () => _showSocialAuthComingSoon('Google'),
+                  onPressed: () {
+                    if (_isLoading) {
+                      return;
+                    }
+
+                    _submitGoogleLogin();
+                  },
                 ),
                 const SizedBox(height: 10),
                 CarmaSocialAuthButton(
                   provider: CarmaSocialAuthProvider.apple,
-                  onPressed: () => _showSocialAuthComingSoon('Apple'),
+                  onPressed: () {
+                    if (_isLoading) {
+                      return;
+                    }
+
+                    _showAppleAuthComingSoon();
+                  },
                 ),
                 const SizedBox(height: 12),
                 CarmaSecondaryButton(
@@ -287,7 +391,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     horizontal: 18,
                     vertical: 18,
                   ),
-                  onPressed: _openRegister,
+                  onPressed: () {
+                    if (_isLoading) {
+                      return;
+                    }
+
+                    _openRegister();
+                  },
                 ),
               ],
             ),
@@ -315,9 +425,7 @@ class _LoginBrandHeader extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.10),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
               ),
               child: const Icon(
                 Icons.directions_car_filled_rounded,
@@ -344,9 +452,7 @@ class _LoginBrandHeader extends StatelessWidget {
 }
 
 class _TopBackButton extends StatelessWidget {
-  const _TopBackButton({
-    required this.onTap,
-  });
+  const _TopBackButton({required this.onTap});
 
   final VoidCallback onTap;
 
@@ -363,14 +469,9 @@ class _TopBackButton extends StatelessWidget {
           height: 52,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.10),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
           ),
-          child: const Icon(
-            Icons.arrow_back_rounded,
-            color: Colors.white,
-          ),
+          child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
         ),
       ),
     );
@@ -452,10 +553,7 @@ class _AuthTextField extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.50),
           fontWeight: FontWeight.w700,
         ),
-        prefixIcon: Icon(
-          icon,
-          color: Colors.white.withValues(alpha: 0.78),
-        ),
+        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.08),
@@ -465,9 +563,7 @@ class _AuthTextField extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.10),
-          ),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),

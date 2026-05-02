@@ -1,9 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/config/carma_app_config.dart';
 import '../../../shared/models/carma_models.dart';
 import '../../home/presentation/app_shell.dart';
 import '../../onboarding/presentation/onboarding_flow_screen.dart';
+import '../data/auth_service.dart';
 import '../domain/registration_legal_consent_builder.dart';
 import 'auth_flow_screen.dart';
 
@@ -26,29 +27,29 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateScreenState extends State<AuthGateScreen> {
-  AppUserState? _appUserState;
+  final AuthService _authService = AuthService();
 
-  bool get _isAuthenticated {
-    return _appUserState != null;
-  }
+  final Set<String> _onboardingCompletedUserIds = <String>{};
 
-  bool get _isOnboardingCompleted {
-    return _appUserState?.accountStatus.isOnboardingCompleted ?? false;
-  }
-
-  AppUserState _buildLocalUserState() {
-    final userId = CarmaAppConfig.localUserId;
+  AppUserState _buildUserState(User user) {
+    final userId = user.uid;
     final now = DateTime.now();
 
     final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
       userId: userId,
     );
 
-    final baseState = AppUserState.localRegistered(
+    var baseState = AppUserState.localRegistered(
       userId: userId,
       legalConsents: legalConsents,
       now: now,
-    ).markOnboardingCompleted();
+    );
+
+    if (_onboardingCompletedUserIds.contains(userId)) {
+      baseState = baseState.markOnboardingCompleted();
+    } else {
+      baseState = baseState.markOnboardingCompleted();
+    }
 
     return switch (_localTestMode) {
       _LocalTestMode.normal => baseState,
@@ -93,52 +94,65 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     };
   }
 
-  void _completeAuth() {
+  void _completeOnboarding(String userId) {
     setState(() {
-      _appUserState = _buildLocalUserState();
+      _onboardingCompletedUserIds.add(userId);
     });
   }
 
-  void _completeOnboarding() {
-    final currentState = _appUserState;
+  Future<void> _logout() async {
+    await _authService.signOut();
 
-    if (currentState == null) {
+    if (!mounted) {
       return;
     }
 
     setState(() {
-      _appUserState = currentState.markOnboardingCompleted();
-    });
-  }
-
-  void _backToAuth() {
-    setState(() {
-      _appUserState = null;
+      _onboardingCompletedUserIds.clear();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
-      child: !_isAuthenticated
-          ? AuthFlowScreen(
-        key: const ValueKey('auth_flow'),
-        onAuthFinished: _completeAuth,
-      )
-          : !_isOnboardingCompleted
-          ? OnboardingFlowScreen(
+    return StreamBuilder<User?>(
+      stream: _authService.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final user = snapshot.data;
+
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: user == null
+              ? const AuthFlowScreen(key: ValueKey('auth_flow'))
+              : _buildAuthenticatedArea(user),
+        );
+      },
+    );
+  }
+
+  Widget _buildAuthenticatedArea(User user) {
+    final userState = _buildUserState(user);
+    final isOnboardingCompleted = userState.accountStatus.isOnboardingCompleted;
+
+    if (!isOnboardingCompleted) {
+      return OnboardingFlowScreen(
         key: const ValueKey('onboarding_flow'),
-        onCompleted: _completeOnboarding,
-        onBack: _backToAuth,
-      )
-          : AppShell(
-        key: const ValueKey('app_shell'),
-        userState: _appUserState!,
-        onLogout: _backToAuth,
-      ),
+        onCompleted: () => _completeOnboarding(user.uid),
+        onBack: _logout,
+      );
+    }
+
+    return AppShell(
+      key: const ValueKey('app_shell'),
+      userState: userState,
+      onLogout: _logout,
     );
   }
 }

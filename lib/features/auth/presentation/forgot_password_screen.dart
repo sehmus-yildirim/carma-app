@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/carma_background.dart';
@@ -5,12 +6,10 @@ import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../data/auth_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({
-    super.key,
-    this.onBack,
-  });
+  const ForgotPasswordScreen({super.key, this.onBack});
 
   final VoidCallback? onBack;
 
@@ -19,6 +18,8 @@ class ForgotPasswordScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final AuthService _authService = AuthService();
+
   final TextEditingController _emailController = TextEditingController();
 
   bool _isLoading = false;
@@ -81,17 +82,56 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       _successMessage = null;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 650));
+    try {
+      await _authService.sendPasswordResetEmail(email: email);
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _successMessage =
+            'Wenn ein Konto zu dieser E-Mail existiert, wurde ein Link zum Zurücksetzen gesendet.';
+      });
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = 'Der Reset-Link konnte gerade nicht gesendet werden.';
+        _successMessage = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
 
-    setState(() {
-      _isLoading = false;
-      _successMessage =
-      'Wenn ein Konto zu dieser E-Mail existiert, wird später ein Link zum Zurücksetzen gesendet.';
-    });
+  String _mapFirebaseAuthError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'Die E-Mail-Adresse ist ungültig.';
+      case 'user-disabled':
+        return 'Dieses Nutzerkonto wurde deaktiviert.';
+      case 'network-request-failed':
+        return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
+      default:
+        return error.message ??
+            'Der Reset-Link konnte gerade nicht gesendet werden.';
+    }
   }
 
   void _goBack() {
@@ -113,12 +153,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(
-              20,
-              18,
-              20,
-              28 + keyboardInset,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -129,7 +164,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Gib deine E-Mail-Adresse ein. Später senden wir dir darüber einen sicheren Link zum Zurücksetzen deines Passworts.',
+                  'Gib deine E-Mail-Adresse ein. Wenn ein Konto existiert, senden wir dir einen sicheren Link zum Zurücksetzen deines Passworts.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.78),
                     fontWeight: FontWeight.w700,
@@ -169,8 +204,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ],
                 const SizedBox(height: 18),
                 CarmaPrimaryButton(
-                  label: 'Link vorbereiten',
-                  loadingLabel: 'Wird vorbereitet...',
+                  label: 'Reset-Link senden',
+                  loadingLabel: 'Wird gesendet...',
                   icon: Icons.mark_email_read_outlined,
                   isEnabled: _canSubmit,
                   isLoading: _isLoading,
@@ -221,10 +256,7 @@ class _AuthTextField extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.50),
           fontWeight: FontWeight.w700,
         ),
-        prefixIcon: Icon(
-          icon,
-          color: Colors.white.withValues(alpha: 0.78),
-        ),
+        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
         filled: true,
         fillColor: Colors.white.withValues(alpha: 0.08),
         contentPadding: const EdgeInsets.symmetric(
@@ -233,9 +265,7 @@ class _AuthTextField extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.10),
-          ),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
