@@ -22,10 +22,7 @@ const Color _carmaBlueLight = Color(0xFF63D5FF);
 const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({
-    super.key,
-    required this.userState,
-  });
+  const DashboardScreen({super.key, required this.userState});
 
   final AppUserState userState;
 
@@ -76,9 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   AppUserState get _effectiveUserState {
-    return widget.userState.copyWith(
-      searchCredit: _searchCredit,
-    );
+    return widget.userState.copyWith(searchCredit: _searchCredit);
   }
 
   AppFeatureDecision get _searchGateDecision {
@@ -143,7 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
 
-    _searchCredit = widget.userState.searchCredit;
+    _searchCredit = widget.userState.searchCredit.normalizeForCurrentMonth();
 
     _regionController.addListener(_refresh);
     _lettersController.addListener(_refresh);
@@ -212,7 +207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _position = null;
           _locationError =
-          'Standortdienste sind deaktiviert. Bitte aktiviere GPS auf deinem Gerät.';
+              'Standortdienste sind deaktiviert. Bitte aktiviere GPS auf deinem Gerät.';
           _isLoadingLocation = false;
         });
         return;
@@ -232,7 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _position = null;
           _locationError =
-          'Standortberechtigung wurde verweigert. Die Suche ist ohne Standort nicht möglich.';
+              'Standortberechtigung wurde verweigert. Die Suche ist ohne Standort nicht möglich.';
           _isLoadingLocation = false;
         });
         return;
@@ -246,7 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _position = null;
           _locationError =
-          'Standortberechtigung wurde dauerhaft verweigert. Bitte erlaube Standortzugriff in den App-Einstellungen.';
+              'Standortberechtigung wurde dauerhaft verweigert. Bitte erlaube Standortzugriff in den App-Einstellungen.';
           _isLoadingLocation = false;
         });
         return;
@@ -275,7 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _position = null;
         _locationError =
-        'Standort lädt zu lange. Bitte prüfe GPS oder setze im Emulator einen Standort.';
+            'Standort lädt zu lange. Bitte prüfe GPS oder setze im Emulator einen Standort.';
         _isLoadingLocation = false;
       });
     } catch (_) {
@@ -286,7 +281,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _position = null;
         _locationError =
-        'Standort konnte nicht geladen werden. Bitte versuche es erneut.';
+            'Standort konnte nicht geladen werden. Bitte versuche es erneut.';
         _isLoadingLocation = false;
       });
     }
@@ -298,7 +293,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (!gateDecision.isAllowed) {
       setState(() {
-        _errorMessage = gateDecision.reason ??
+        _errorMessage =
+            gateDecision.reason ??
             'Die Kennzeichen-Suche ist aktuell nicht verfügbar.';
         _successMessage = null;
       });
@@ -323,7 +319,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (position == null) {
       setState(() {
-        _errorMessage = _locationError ??
+        _errorMessage =
+            _locationError ??
             'Bitte aktiviere den Standort, damit die Suche in deiner Nähe möglich ist.';
         _successMessage = null;
       });
@@ -356,7 +353,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       setState(() {
         _result = result;
-        _searchCredit = _searchCredit.consume();
+
+        if (result.found) {
+          _searchCredit = _searchCredit.consume();
+        }
+
         _isSearching = false;
       });
     } catch (error) {
@@ -377,7 +378,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!gateDecision.isAllowed) {
       setState(() {
         _errorMessage =
-            gateDecision.reason ?? 'Kontaktanfragen sind aktuell nicht verfügbar.';
+            gateDecision.reason ??
+            'Kontaktanfragen sind aktuell nicht verfügbar.';
         _successMessage = null;
       });
       return;
@@ -407,7 +409,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       setState(() {
         _successMessage =
-        'Kontaktanfrage wurde gesendet. Sobald sie angenommen wird, erscheint der Chat im Chat-Bereich.';
+            'Kontaktanfrage wurde gesendet. Sobald sie angenommen wird, erscheint der Chat im Chat-Bereich.';
         _isRequestingContact = false;
       });
     } catch (error) {
@@ -426,7 +428,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final raw = error.toString();
 
     if (raw.contains('resource-exhausted')) {
-      return 'Du hast dein kostenloses Suchlimit erreicht. Später kannst du über Credits weitere Suchen kaufen.';
+      return 'Du hast keine kostenlosen Anfragen oder Credits mehr verfügbar.';
     }
 
     if (raw.contains('unauthenticated')) {
@@ -517,12 +519,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                112 + keyboardInset,
-              ),
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 112 + keyboardInset),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: constraints.maxHeight - 112,
@@ -537,13 +534,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 14),
                     Text(
                       'Fahrzeughalter geschützt kontaktieren',
-                      style:
-                      Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.4,
-                        height: 1.12,
-                      ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.4,
+                            height: 1.12,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -556,9 +553,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _SearchCreditCard(
-                      searchCredit: _searchCredit,
-                    ),
+                    _SearchCreditCard(searchCredit: _searchCredit),
                     const SizedBox(height: 14),
                     CarmaCountrySelectorCard(
                       selectedCountryCode: _countryCode,
@@ -646,11 +641,7 @@ class _LocationLoadingCard extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
+                colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
               ),
             ),
             child: const Icon(
@@ -701,16 +692,48 @@ class _RetryLocationButton extends StatelessWidget {
 }
 
 class _SearchCreditCard extends StatelessWidget {
-  const _SearchCreditCard({
-    required this.searchCredit,
-  });
+  const _SearchCreditCard({required this.searchCredit});
 
   final SearchCredit searchCredit;
 
+  String get _title {
+    if (searchCredit.isExhausted) {
+      return 'Keine Anfragen verfügbar';
+    }
+
+    if (searchCredit.hasFreeRemaining) {
+      return 'Monatliche Anfragen';
+    }
+
+    return 'Credits verfügbar';
+  }
+
+  String get _description {
+    if (searchCredit.hasFreeRemaining) {
+      return '${searchCredit.freeRemainingThisMonth} von ${searchCredit.freeMonthlyLimit} kostenlosen Anfragen in diesem Monat verfügbar.';
+    }
+
+    if (searchCredit.hasPaidRemaining) {
+      return '${searchCredit.availablePaidCredits} Credits verfügbar. Jede verwertbare Anfrage verbraucht 1 Credit.';
+    }
+
+    return 'Deine kostenlosen Anfragen sind aufgebraucht. Credits kaufen wird später freigeschaltet.';
+  }
+
+  IconData get _icon {
+    if (searchCredit.isExhausted) {
+      return Icons.lock_outline_rounded;
+    }
+
+    if (searchCredit.hasPaidRemaining && !searchCredit.hasFreeRemaining) {
+      return Icons.toll_rounded;
+    }
+
+    return Icons.search_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isExhausted = searchCredit.isExhausted;
-
     return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -723,18 +746,10 @@ class _SearchCreditCard extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
+                colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
               ),
             ),
-            child: Icon(
-              isExhausted ? Icons.lock_outline_rounded : Icons.search_rounded,
-              color: Colors.white,
-              size: 23,
-            ),
+            child: Icon(_icon, color: Colors.white, size: 23),
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -742,7 +757,7 @@ class _SearchCreditCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isExhausted ? 'Suchlimit erreicht' : 'Kostenlose Suchen',
+                  _title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -751,9 +766,7 @@ class _SearchCreditCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  isExhausted
-                      ? 'Später kannst du über Credits weitere Suchen freischalten.'
-                      : '${searchCredit.remaining} von ${searchCredit.limit} Suchen verfügbar.',
+                  _description,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.white.withValues(alpha: 0.70),
                     fontWeight: FontWeight.w700,
@@ -783,8 +796,8 @@ class _SearchButtonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CarmaPrimaryButton(
-      label: 'Suchen',
-      loadingLabel: 'Suche läuft...',
+      label: 'Anfrage prüfen',
+      loadingLabel: 'Prüfung läuft...',
       icon: Icons.search_rounded,
       iconSize: 29,
       fontSize: 19.5,
@@ -822,21 +835,15 @@ class _PlateSearchResultCard extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 gradient: const LinearGradient(
-                  colors: [
-                    _carmaBlueDark,
-                    _carmaBlueLight,
-                  ],
+                  colors: [_carmaBlueDark, _carmaBlueLight],
                 ),
               ),
-              child: const Icon(
-                Icons.search_off_rounded,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.search_off_rounded, color: Colors.white),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                'Kein Nutzer in deiner Nähe gefunden.',
+                'Kein Nutzer in deiner Nähe gefunden. Dafür wurde keine Anfrage verbraucht.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -864,11 +871,7 @@ class _PlateSearchResultCard extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      _carmaBlueDark,
-                      _carmaBlue,
-                      _carmaBlueLight,
-                    ],
+                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
                   ),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.24),
@@ -905,10 +908,7 @@ class _PlateSearchResultCard extends StatelessWidget {
                 : '${result.distanceKm!.toStringAsFixed(1)} km',
           ),
           const SizedBox(height: 10),
-          const _ResultInfoRow(
-            label: 'Status',
-            value: 'Aktiv in deiner Nähe',
-          ),
+          const _ResultInfoRow(label: 'Status', value: 'Aktiv in deiner Nähe'),
           const SizedBox(height: 20),
           _RequestContactButton(
             isLoading: isRequestingContact,
@@ -954,7 +954,7 @@ class _RequestContactButton extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                isLoading ? 'Anfrage läuft...' : 'Anfragen',
+                isLoading ? 'Anfrage läuft...' : 'Kontakt anfragen',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Colors.black.withValues(alpha: 0.84),
                   fontWeight: FontWeight.w900,
@@ -969,10 +969,7 @@ class _RequestContactButton extends StatelessWidget {
 }
 
 class _ResultInfoRow extends StatelessWidget {
-  const _ResultInfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _ResultInfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
