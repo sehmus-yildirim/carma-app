@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -14,6 +15,7 @@ import '../../../shared/widgets/carma_page_header.dart';
 import '../../../shared/widgets/carma_plate_input_card.dart';
 import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../auth/data/search_credit_repository.dart';
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
 
@@ -32,6 +34,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final PlateSearchService _plateSearchService = PlateSearchService();
+  final SearchCreditRepository _searchCreditRepository =
+      SearchCreditRepository();
 
   final TextEditingController _regionController = TextEditingController();
   final TextEditingController _lettersController = TextEditingController();
@@ -41,6 +45,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final FocusNode _lettersFocusNode = FocusNode();
   final FocusNode _numbersFocusNode = FocusNode();
 
+  StreamSubscription<SearchCredit?>? _searchCreditSubscription;
+
   String _countryCode = 'DE';
 
   Position? _position;
@@ -49,12 +55,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late SearchCredit _searchCredit;
 
   bool _isLoadingLocation = true;
+  bool _isLoadingSearchCredit = true;
   bool _isSearching = false;
   bool _isRequestingContact = false;
 
   String? _locationError;
+  String? _creditError;
   String? _errorMessage;
   String? _successMessage;
+
+  String get _effectiveUserId {
+    return FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
+  }
 
   PlateCountryConfig get _plateConfig {
     return plateConfigForCountry(_countryCode);
@@ -73,7 +85,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   AppUserState get _effectiveUserState {
-    return widget.userState.copyWith(searchCredit: _searchCredit);
+    return widget.userState.copyWith(
+      userId: _effectiveUserId,
+      searchCredit: _searchCredit,
+    );
   }
 
   AppFeatureDecision get _searchGateDecision {
@@ -144,11 +159,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _lettersController.addListener(_refresh);
     _numbersController.addListener(_refresh);
 
+    _watchSearchCredit();
     _loadLocation();
   }
 
   @override
   void dispose() {
+    _searchCreditSubscription?.cancel();
+
     _regionController.removeListener(_refresh);
     _lettersController.removeListener(_refresh);
     _numbersController.removeListener(_refresh);
@@ -166,6 +184,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _refresh() {
     setState(() {});
+  }
+
+  void _watchSearchCredit() {
+    final userId = _effectiveUserId;
+
+    if (userId.trim().isEmpty) {
+      setState(() {
+        _isLoadingSearchCredit = false;
+        _creditError =
+            'Credit-Stand konnte nicht geladen werden, weil kein Nutzer angemeldet ist.';
+      });
+      return;
+    }
+
+    _searchCreditSubscription?.cancel();
+
+    setState(() {
+      _isLoadingSearchCredit = true;
+      _creditError = null;
+    });
+
+    _searchCreditSubscription = _searchCreditRepository
+        .watchSearchCredit(userId: userId)
+        .listen(
+          (searchCredit) {
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              if (searchCredit != null) {
+                _searchCredit = searchCredit;
+              }
+
+              _isLoadingSearchCredit = false;
+              _creditError = null;
+            });
+          },
+          onError: (_) {
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _isLoadingSearchCredit = false;
+              _creditError =
+                  'Credit-Stand konnte nicht aus Firestore geladen werden.';
+            });
+          },
+        );
   }
 
   void _clearResultMessages() {
@@ -553,7 +621,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _SearchCreditCard(searchCredit: _searchCredit),
+                    _SearchCreditCard(
+                      searchCredit: _searchCredit,
+                      isLoading: _isLoadingSearchCredit,
+                    ),
+                    if (_creditError != null) ...[
+                      const SizedBox(height: 12),
+                      CarmaMessageCard(
+                        icon: Icons.cloud_off_rounded,
+                        message: _creditError!,
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     CarmaCountrySelectorCard(
                       selectedCountryCode: _countryCode,
@@ -692,11 +770,19 @@ class _RetryLocationButton extends StatelessWidget {
 }
 
 class _SearchCreditCard extends StatelessWidget {
-  const _SearchCreditCard({required this.searchCredit});
+  const _SearchCreditCard({
+    required this.searchCredit,
+    required this.isLoading,
+  });
 
   final SearchCredit searchCredit;
+  final bool isLoading;
 
   String get _title {
+    if (isLoading) {
+      return 'Anfragen werden geladen';
+    }
+
     if (searchCredit.isExhausted) {
       return 'Keine Anfragen verfügbar';
     }
@@ -709,6 +795,10 @@ class _SearchCreditCard extends StatelessWidget {
   }
 
   String get _description {
+    if (isLoading) {
+      return 'Dein aktueller Credit-Stand wird aus Firestore geladen.';
+    }
+
     if (searchCredit.hasFreeRemaining) {
       return '${searchCredit.freeRemainingThisMonth} von ${searchCredit.freeMonthlyLimit} kostenlosen Anfragen in diesem Monat verfügbar.';
     }
@@ -721,6 +811,10 @@ class _SearchCreditCard extends StatelessWidget {
   }
 
   IconData get _icon {
+    if (isLoading) {
+      return Icons.sync_rounded;
+    }
+
     if (searchCredit.isExhausted) {
       return Icons.lock_outline_rounded;
     }
