@@ -50,7 +50,18 @@ service cloud.firestore {
     }
 
     match /plates/{plateId} {
-      allow read, list, create, update, delete: if false;
+      allow read, list: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.isActive == true
+        && request.resource.data.isDeleted == false;
+
+      allow update: if isSignedIn()
+        && resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.ownerUserId == request.auth.uid;
+
+      allow delete: if false;
     }
 
     match /contact_requests/{requestId} {
