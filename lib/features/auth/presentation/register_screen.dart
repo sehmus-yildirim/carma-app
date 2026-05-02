@@ -9,6 +9,7 @@ import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
+import '../data/legal_consent_repository.dart';
 import '../data/user_profile_repository.dart';
 import '../domain/registration_legal_consent_builder.dart';
 
@@ -35,6 +36,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final AuthService _authService = AuthService();
   final UserProfileRepository _userProfileRepository = UserProfileRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
+  final LegalConsentRepository _legalConsentRepository =
+      LegalConsentRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -111,6 +114,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     await _profileRepository.createProfileIfMissing(user);
   }
 
+  Future<int> _saveRegistrationConsents(User user) async {
+    final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
+      userId: user.uid,
+    );
+
+    await _legalConsentRepository.saveRegistrationConsents(
+      userId: user.uid,
+      consents: legalConsents,
+    );
+
+    return legalConsents.length;
+  }
+
   Future<void> _submitRegister() async {
     FocusScope.of(context).unfocus();
 
@@ -182,10 +198,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       await _prepareFirestoreUser(user);
-
-      final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
-        userId: user.uid,
-      );
+      final consentCount = await _saveRegistrationConsents(user);
 
       if (!mounted) {
         return;
@@ -193,7 +206,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       setState(() {
         _successMessage =
-            'Konto erstellt. ${legalConsents.length} Zustimmungen wurden lokal vorbereitet.';
+            'Konto erstellt. $consentCount Zustimmungen wurden gespeichert.';
       });
 
       widget.onRegisterSuccess?.call();
@@ -264,10 +277,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       await _prepareFirestoreUser(user);
-
-      final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
-        userId: user.uid,
-      );
+      final consentCount = await _saveRegistrationConsents(user);
 
       if (!mounted) {
         return;
@@ -275,7 +285,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       setState(() {
         _successMessage =
-            'Google-Registrierung erfolgreich. ${legalConsents.length} Zustimmungen wurden lokal vorbereitet.';
+            'Google-Registrierung erfolgreich. $consentCount Zustimmungen wurden gespeichert.';
       });
 
       widget.onRegisterSuccess?.call();
@@ -344,6 +354,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
       case 'unavailable':
         return 'Firestore ist gerade nicht erreichbar. Bitte versuche es erneut.';
+      case 'already-exists':
+        return 'Die Zustimmung wurde bereits gespeichert.';
       default:
         return error.message ??
             'Firebase konnte die Nutzerdaten gerade nicht speichern.';
