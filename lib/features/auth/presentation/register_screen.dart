@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/config/carma_app_config.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_message_card.dart';
 import '../../../shared/widgets/carma_primary_button.dart';
@@ -9,6 +8,7 @@ import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/auth_service.dart';
+import '../data/user_profile_repository.dart';
 import '../domain/registration_legal_consent_builder.dart';
 
 const Color _carmaBlueLight = Color(0xFF63D5FF);
@@ -32,6 +32,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final AuthService _authService = AuthService();
+  final UserProfileRepository _userProfileRepository = UserProfileRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -164,9 +165,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: password,
       );
 
-      final userId = credential.user?.uid ?? CarmaAppConfig.localUserId;
+      final user = credential.user;
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'missing-user',
+          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+        );
+      }
+
+      await _userProfileRepository.createProfileForUser(user);
+
       final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
-        userId: userId,
+        userId: user.uid,
       );
 
       if (!mounted) {
@@ -226,14 +237,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      await _authService.signInWithGoogle();
+      final credential = await _authService.signInWithGoogle();
+      final user = credential.user;
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'missing-user',
+          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+        );
+      }
+
+      await _userProfileRepository.createProfileForUser(user);
+
+      final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
+        userId: user.uid,
+      );
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _successMessage = 'Google-Registrierung erfolgreich.';
+        _successMessage =
+            'Google-Registrierung erfolgreich. ${legalConsents.length} Zustimmungen wurden lokal vorbereitet.';
       });
 
       widget.onRegisterSuccess?.call();
@@ -279,6 +305,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
       case 'aborted-by-user':
         return 'Die Anmeldung wurde abgebrochen.';
+      case 'missing-user':
+        return 'Der Firebase-Nutzer konnte nicht geladen werden.';
+      case 'permission-denied':
+        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
       default:
         return error.message ??
             'Ein unbekannter Registrierungsfehler ist aufgetreten.';

@@ -8,6 +8,7 @@ import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/auth_service.dart';
+import '../data/user_profile_repository.dart';
 
 const Color _carmaBlueLight = Color(0xFF63D5FF);
 
@@ -33,6 +34,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
+  final UserProfileRepository _userProfileRepository = UserProfileRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -106,10 +108,21 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.signInWithEmailAndPassword(
+      final credential = await _authService.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      final user = credential.user;
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'missing-user',
+          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+        );
+      }
+
+      await _userProfileRepository.createProfileForUser(user);
 
       if (!mounted) {
         return;
@@ -157,7 +170,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await _authService.signInWithGoogle();
+      final credential = await _authService.signInWithGoogle();
+      final user = credential.user;
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'missing-user',
+          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+        );
+      }
+
+      await _userProfileRepository.createProfileForUser(user);
 
       if (!mounted) {
         return;
@@ -211,6 +234,10 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Diese Anmeldemethode ist in Firebase nicht aktiviert.';
       case 'aborted-by-user':
         return 'Die Anmeldung wurde abgebrochen.';
+      case 'missing-user':
+        return 'Der Firebase-Nutzer konnte nicht geladen werden.';
+      case 'permission-denied':
+        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
       default:
         return error.message ?? 'Ein unbekannter Login-Fehler ist aufgetreten.';
     }
