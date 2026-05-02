@@ -7,6 +7,7 @@ import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
 import '../data/user_profile_repository.dart';
 import '../domain/registration_legal_consent_builder.dart';
@@ -33,6 +34,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final AuthService _authService = AuthService();
   final UserProfileRepository _userProfileRepository = UserProfileRepository();
+  final ProfileRepository _profileRepository = ProfileRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -102,6 +104,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = value.trim();
 
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+  }
+
+  Future<void> _prepareFirestoreUser(User user) async {
+    await _userProfileRepository.createProfileForUser(user);
+    await _profileRepository.createProfileIfMissing(user);
   }
 
   Future<void> _submitRegister() async {
@@ -174,7 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
 
-      await _userProfileRepository.createProfileForUser(user);
+      await _prepareFirestoreUser(user);
 
       final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
         userId: user.uid,
@@ -197,6 +204,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       setState(() {
         _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _mapFirebaseError(error);
         _successMessage = null;
       });
     } catch (_) {
@@ -247,7 +263,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
 
-      await _userProfileRepository.createProfileForUser(user);
+      await _prepareFirestoreUser(user);
 
       final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
         userId: user.uid,
@@ -270,6 +286,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       setState(() {
         _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _mapFirebaseError(error);
         _successMessage = null;
       });
     } catch (_) {
@@ -307,11 +332,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return 'Die Anmeldung wurde abgebrochen.';
       case 'missing-user':
         return 'Der Firebase-Nutzer konnte nicht geladen werden.';
-      case 'permission-denied':
-        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
       default:
         return error.message ??
             'Ein unbekannter Registrierungsfehler ist aufgetreten.';
+    }
+  }
+
+  String _mapFirebaseError(FirebaseException error) {
+    switch (error.code) {
+      case 'permission-denied':
+        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
+      case 'unavailable':
+        return 'Firestore ist gerade nicht erreichbar. Bitte versuche es erneut.';
+      default:
+        return error.message ??
+            'Firebase konnte die Nutzerdaten gerade nicht speichern.';
     }
   }
 

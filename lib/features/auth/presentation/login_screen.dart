@@ -7,6 +7,7 @@ import '../../../shared/widgets/carma_primary_button.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
 import '../data/user_profile_repository.dart';
 
@@ -35,6 +36,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   final UserProfileRepository _userProfileRepository = UserProfileRepository();
+  final ProfileRepository _profileRepository = ProfileRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -77,6 +79,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isValidEmail(String value) {
     final email = value.trim();
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+  }
+
+  Future<void> _prepareFirestoreUser(User user) async {
+    await _userProfileRepository.createProfileForUser(user);
+    await _profileRepository.createProfileIfMissing(user);
   }
 
   Future<void> _submitLogin() async {
@@ -122,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
 
-      await _userProfileRepository.createProfileForUser(user);
+      await _prepareFirestoreUser(user);
 
       if (!mounted) {
         return;
@@ -140,6 +147,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       setState(() {
         _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _mapFirebaseError(error);
         _successMessage = null;
       });
     } catch (_) {
@@ -180,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
 
-      await _userProfileRepository.createProfileForUser(user);
+      await _prepareFirestoreUser(user);
 
       if (!mounted) {
         return;
@@ -198,6 +214,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       setState(() {
         _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } on FirebaseException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = _mapFirebaseError(error);
         _successMessage = null;
       });
     } catch (_) {
@@ -236,10 +261,20 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Die Anmeldung wurde abgebrochen.';
       case 'missing-user':
         return 'Der Firebase-Nutzer konnte nicht geladen werden.';
-      case 'permission-denied':
-        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
       default:
         return error.message ?? 'Ein unbekannter Login-Fehler ist aufgetreten.';
+    }
+  }
+
+  String _mapFirebaseError(FirebaseException error) {
+    switch (error.code) {
+      case 'permission-denied':
+        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
+      case 'unavailable':
+        return 'Firestore ist gerade nicht erreichbar. Bitte versuche es erneut.';
+      default:
+        return error.message ??
+            'Firebase konnte die Nutzerdaten gerade nicht speichern.';
     }
   }
 
