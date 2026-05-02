@@ -1,16 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../shared/firebase/carma_firestore_paths.dart';
 import 'user_profile.dart';
 
 class ProfileRepository {
   ProfileRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
   DocumentReference<Map<String, dynamic>> _profileDocument(String uid) {
-    return _firestore.collection('profiles').doc(uid);
+    return _firestore.doc(CarmaFirestorePaths.userProfile(uid));
   }
 
   Stream<UserProfile?> watchProfile(String uid) {
@@ -38,33 +39,32 @@ class ProfileRepository {
     final snapshot = await document.get();
 
     if (snapshot.exists) {
-      await document.update({
-        'email': user.email,
+      await document.set({
+        'uid': user.uid,
+        'email': user.email ?? '',
+        'displayName': user.displayName ?? '',
+        'photoUrl': user.photoURL,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
       return;
     }
 
-    final profile = UserProfile.empty(
-      uid: user.uid,
-      email: user.email ?? '',
-    );
+    final profile = UserProfile.empty(uid: user.uid, email: user.email ?? '');
 
     await document.set({
       ...profile.toFirestore(),
+      'displayName': user.displayName ?? profile.displayName,
+      'photoUrl': user.photoURL,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
   Future<void> saveProfile(UserProfile profile) async {
-    await _profileDocument(profile.uid).set(
-      {
-        ...profile.toFirestore(),
-        'createdAt': profile.createdAt == null
-            ? FieldValue.serverTimestamp()
-            : Timestamp.fromDate(profile.createdAt!),
-      },
-      SetOptions(merge: true),
-    );
+    await _profileDocument(profile.uid).set({
+      ...profile.toFirestore(),
+      'createdAt': profile.createdAt == null
+          ? FieldValue.serverTimestamp()
+          : Timestamp.fromDate(profile.createdAt!),
+    }, SetOptions(merge: true));
   }
 }
