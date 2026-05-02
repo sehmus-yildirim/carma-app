@@ -10,6 +10,7 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
 import '../data/user_profile_repository.dart';
+import '../data/search_credit_repository.dart';
 
 const Color _carmaBlueLight = Color(0xFF63D5FF);
 
@@ -37,6 +38,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   final UserProfileRepository _userProfileRepository = UserProfileRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
+  final SearchCreditRepository _searchCreditRepository =
+      SearchCreditRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -84,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _prepareFirestoreUser(User user) async {
     await _userProfileRepository.createProfileForUser(user);
     await _profileRepository.createProfileIfMissing(user);
+    await _searchCreditRepository.createSearchCreditIfMissing(userId: user.uid);
   }
 
   Future<void> _submitLogin() async {

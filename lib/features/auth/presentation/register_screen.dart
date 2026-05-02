@@ -11,6 +11,7 @@ import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
 import '../data/legal_consent_repository.dart';
 import '../data/user_profile_repository.dart';
+import '../data/search_credit_repository.dart';
 import '../domain/registration_legal_consent_builder.dart';
 
 const Color _carmaBlueLight = Color(0xFF63D5FF);
@@ -38,6 +39,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final ProfileRepository _profileRepository = ProfileRepository();
   final LegalConsentRepository _legalConsentRepository =
       LegalConsentRepository();
+  final SearchCreditRepository _searchCreditRepository =
+      SearchCreditRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -112,6 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _prepareFirestoreUser(User user) async {
     await _userProfileRepository.createProfileForUser(user);
     await _profileRepository.createProfileIfMissing(user);
+    await _searchCreditRepository.createSearchCreditIfMissing(userId: user.uid);
   }
 
   Future<int> _saveRegistrationConsents(User user) async {

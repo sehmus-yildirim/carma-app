@@ -10,6 +10,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isValidInitialSearchCredit(userId, creditId) {
+      return isOwner(userId)
+        && creditId == 'main'
+        && request.resource.data.userId == userId
+        && request.resource.data.used == 0
+        && request.resource.data.limit == 2
+        && request.resource.data.remaining == 2
+        && request.resource.data.paidCredits == 0
+        && request.resource.data.totalAvailableRequests == 2
+        && request.resource.data.resetPeriod == 'monthly'
+        && request.resource.data.periodKey is string;
+    }
+
     match /users/{userId} {
       allow read, create, update: if isOwner(userId);
       allow delete: if false;
@@ -21,7 +34,8 @@ service cloud.firestore {
 
       match /search_credits/{creditId} {
         allow read: if isOwner(userId);
-        allow create, update, delete: if false;
+        allow create: if isValidInitialSearchCredit(userId, creditId);
+        allow update, delete: if false;
       }
 
       match /legal_consents/{consentId} {
