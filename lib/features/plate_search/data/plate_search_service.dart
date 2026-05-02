@@ -1,21 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../shared/config/carma_app_config.dart';
 import '../../../shared/firebase/carma_firestore_paths.dart';
+import '../../../shared/firebase/carma_firestore_schema.dart';
 import 'plate_search_result.dart';
 
 class PlateSearchService {
   PlateSearchService({
+    FirebaseAuth? auth,
     FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
     bool useMock = CarmaAppConfig.useMockPlateSearch,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+  }) : _auth = auth ?? FirebaseAuth.instance,
+       _firestore = firestore ?? FirebaseFirestore.instance,
        _functions =
            functions ??
            FirebaseFunctions.instanceFor(region: CarmaAppConfig.firebaseRegion),
        _useMock = useMock;
 
+  final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
   final bool _useMock;
@@ -57,8 +62,10 @@ class PlateSearchService {
     required String plateKey,
   }) async {
     if (_useMock) {
-      await Future<void>.delayed(const Duration(milliseconds: 450));
-      return 'local-request-${DateTime.now().millisecondsSinceEpoch}';
+      return _createContactRequestInFirestore(
+        targetUid: targetUid,
+        plateKey: plateKey,
+      );
     }
 
     final callable = _functions.httpsCallable('requestPlateContact');
@@ -125,5 +132,62 @@ class PlateSearchService {
       distanceKm: null,
       plateKey: storedPlateKey,
     );
+  }
+
+  Future<String> _createContactRequestInFirestore({
+    required String targetUid,
+    required String plateKey,
+  }) async {
+    final sender = _auth.currentUser;
+
+    if (sender == null) {
+      throw FirebaseException(
+        plugin: 'carma',
+        code: 'unauthenticated',
+        message: 'Bitte melde dich an, um Kontakt anzufragen.',
+      );
+    }
+
+    final senderUserId = sender.uid;
+    final receiverUserId = targetUid.trim();
+
+    if (receiverUserId.isEmpty || plateKey.trim().isEmpty) {
+      throw FirebaseException(
+        plugin: 'carma',
+        code: 'invalid-argument',
+        message: 'Kontaktanfrage konnte nicht vorbereitet werden.',
+      );
+    }
+
+    if (receiverUserId == senderUserId) {
+      throw FirebaseException(
+        plugin: 'carma',
+        code: 'invalid-argument',
+        message: 'Du kannst dich nicht selbst kontaktieren.',
+      );
+    }
+
+    final now = DateTime.now();
+    final expiresAt = now.add(
+      const Duration(
+        hours: FirestoreDocumentDefaults.defaultRequestExpiryHours,
+      ),
+    );
+
+    final document = await _firestore
+        .collection(CarmaFirestoreCollections.contactRequests)
+        .add({
+          'senderUserId': senderUserId,
+          'receiverUserId': receiverUserId,
+          'targetUserId': receiverUserId,
+          'plateKey': plateKey.trim().toUpperCase(),
+          'status': FirestoreContactRequestStatus.pending,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'expiresAt': Timestamp.fromDate(expiresAt),
+          'isDeleted': false,
+        });
+
+    return document.id;
   }
 }
