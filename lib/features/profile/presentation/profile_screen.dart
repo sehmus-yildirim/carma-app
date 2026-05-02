@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -8,6 +10,8 @@ import '../../../shared/models/carma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../domain/profile_document_mapper.dart';
 import '../domain/profile_draft.dart';
+import '../data/profile_repository.dart';
+import '../data/user_profile.dart' as firestore_profile;
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_country_selector_card.dart';
@@ -26,10 +30,7 @@ const Color _carmaBlueLight = Color(0xFF63D5FF);
 const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({
-    super.key,
-    required this.userState,
-  });
+  const ProfileScreen({super.key, required this.userState});
 
   final AppUserState userState;
 
@@ -39,6 +40,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _imagePicker = ImagePicker();
+  final ProfileRepository _profileRepository = ProfileRepository();
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -68,11 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final Map<String, XFile?> _documentFiles = {
     'Ausweis Vorderseite': null,
-    'Ausweis Rückseite': null,
-    'Führerschein Vorderseite': null,
-    'Führerschein Rückseite': null,
+    'Ausweis RÃ¼ckseite': null,
+    'FÃ¼hrerschein Vorderseite': null,
+    'FÃ¼hrerschein RÃ¼ckseite': null,
     'Fahrzeugschein Vorderseite': null,
-    'Fahrzeugschein Rückseite': null,
+    'Fahrzeugschein RÃ¼ckseite': null,
   };
 
   static const Map<String, List<String>> _vehicleModelsByBrand = {
@@ -87,18 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Arteon',
       'Touran',
     ],
-    'BMW': [
-      '1er',
-      '2er',
-      '3er',
-      '4er',
-      '5er',
-      'X1',
-      'X3',
-      'X5',
-      'i3',
-      'i4',
-    ],
+    'BMW': ['1er', '2er', '3er', '4er', '5er', 'X1', 'X3', 'X5', 'i3', 'i4'],
     'Mercedes-Benz': [
       'A-Klasse',
       'B-Klasse',
@@ -111,18 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'GLE',
       'EQE',
     ],
-    'Audi': [
-      'A1',
-      'A3',
-      'A4',
-      'A5',
-      'A6',
-      'Q2',
-      'Q3',
-      'Q5',
-      'Q7',
-      'e-tron',
-    ],
+    'Audi': ['A1', 'A3', 'A4', 'A5', 'A6', 'Q2', 'Q3', 'Q5', 'Q7', 'e-tron'],
     'Opel': [
       'Corsa',
       'Astra',
@@ -172,12 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'EV6',
       'Stonic',
     ],
-    'Tesla': [
-      'Model 3',
-      'Model Y',
-      'Model S',
-      'Model X',
-    ],
+    'Tesla': ['Model 3', 'Model Y', 'Model S', 'Model X'],
     'Skoda': [
       'Fabia',
       'Octavia',
@@ -187,14 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Kodiaq',
       'Enyaq',
     ],
-    'Seat': [
-      'Ibiza',
-      'Leon',
-      'Arona',
-      'Ateca',
-      'Tarraco',
-      'Alhambra',
-    ],
+    'Seat': ['Ibiza', 'Leon', 'Arona', 'Ateca', 'Tarraco', 'Alhambra'],
     'Renault': [
       'Clio',
       'Megane',
@@ -204,33 +172,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Twingo',
       'Zoe',
     ],
-    'Peugeot': [
-      '208',
-      '308',
-      '508',
-      '2008',
-      '3008',
-      '5008',
-      'Rifter',
-    ],
-    'Fiat': [
-      '500',
-      'Panda',
-      'Tipo',
-      'Punto',
-      'Doblo',
-      'Ducato',
-    ],
+    'Peugeot': ['208', '308', '508', '2008', '3008', '5008', 'Rifter'],
+    'Fiat': ['500', 'Panda', 'Tipo', 'Punto', 'Doblo', 'Ducato'],
   };
 
   static const List<String> _vehicleColors = [
     'Schwarz',
-    'Weiß',
+    'WeiÃŸ',
     'Silber',
     'Grau',
     'Blau',
     'Rot',
-    'Grün',
+    'GrÃ¼n',
     'Braun',
     'Beige',
     'Gelb',
@@ -398,7 +351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _clearVehicleVerificationDocuments() {
     _documentFiles['Fahrzeugschein Vorderseite'] = null;
-    _documentFiles['Fahrzeugschein Rückseite'] = null;
+    _documentFiles['Fahrzeugschein RÃ¼ckseite'] = null;
   }
 
   Future<void> _showProfilePhotoSourceSheet() async {
@@ -415,13 +368,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _SheetActionButton(
-                    label: 'Foto aus Aufnahmen wählen',
+                    label: 'Foto aus Aufnahmen wÃ¤hlen',
                     icon: Icons.photo_library_rounded,
                     onTap: () => Navigator.of(context).pop(ImageSource.gallery),
                   ),
                   const SizedBox(height: 10),
                   _SheetActionButton(
-                    label: 'Kamera öffnen',
+                    label: 'Kamera Ã¶ffnen',
                     icon: Icons.photo_camera_rounded,
                     onTap: () => Navigator.of(context).pop(ImageSource.camera),
                   ),
@@ -478,9 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profilbild wurde ausgewählt.'),
-        ),
+        const SnackBar(content: Text('Profilbild wurde ausgewÃ¤hlt.')),
       );
     } catch (_) {
       if (!mounted) {
@@ -490,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Profilbild konnte nicht geladen werden. Bitte prüfe Kamera- oder Fotoberechtigung.',
+            'Profilbild konnte nicht geladen werden. Bitte prÃ¼fe Kamera- oder Fotoberechtigung.',
           ),
         ),
       );
@@ -619,40 +570,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+
+    if (firebaseUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Bitte melde dich erneut an, um dein Profil zu speichern.',
+          ),
+        ),
+      );
+      return;
+    }
+
     FocusScope.of(context).unfocus();
+
+    final draft = _profileDraft;
+    final localUserProfile = draft.toUserProfile(id: firebaseUser.uid);
+    final canSubmit = localUserProfile.canSubmitForVerification;
 
     setState(() {
       _isSaving = true;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 650));
-
-    if (!mounted) {
-      return;
-    }
-
-    final userProfile = _profileDraft.toUserProfile();
-    final canSubmit = userProfile.canSubmitForVerification;
-
-    setState(() {
-      _isSaving = false;
-      _hasUnsavedChanges = false;
-
-      if (canSubmit) {
-        _isSubmittedForVerification = true;
-        _isVerified = false;
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          canSubmit
-              ? 'Profil wurde gespeichert. Deine Verifizierung ist jetzt ausstehend.'
-              : 'Profil wurde vorbereitet. Für die Freigabe müssen Name, Fahrzeug und alle Dokumente vollständig sein.',
+    try {
+      final profile = firestore_profile.UserProfile(
+        uid: firebaseUser.uid,
+        email: firebaseUser.email ?? '',
+        firstName: draft.firstName,
+        lastName: draft.lastName,
+        displayName: _displayName,
+        country: draft.countryCode,
+        countryCode: draft.countryCode,
+        plateRegion: draft.region,
+        plateLetters: draft.letters,
+        plateNumbers: draft.numbers,
+        vehicleBrand: draft.brand,
+        vehicleModel: draft.model,
+        vehicleColor: draft.color,
+        allowContactRequests: draft.allowContactRequests,
+        allowAnonymousReports: draft.allowAnonymousReports,
+        photoUrl: firebaseUser.photoURL,
+        profilePhotoLocalPath: draft.profilePhotoLocalPath,
+        documentLocalPaths: draft.documentLocalPaths.map(
+          (type, path) => MapEntry(type.name, path),
         ),
-      ),
-    );
+        verificationStatus: canSubmit ? 'pending' : 'draft',
+      );
+
+      await _profileRepository.saveProfile(profile);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaving = false;
+        _hasUnsavedChanges = false;
+
+        if (canSubmit) {
+          _isSubmittedForVerification = true;
+          _isVerified = false;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            canSubmit
+                ? 'Profil wurde gespeichert. Deine Verifizierung ist jetzt ausstehend.'
+                : 'Profil wurde gespeichert. Für die Freigabe müssen Name, Fahrzeug und alle Dokumente vollständig sein.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil konnte gerade nicht gespeichert werden.'),
+        ),
+      );
+    }
   }
 
   void _openVerificationScreen() {
@@ -663,7 +668,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         SnackBar(
           content: Text(
             gateDecision.reason ??
-                'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+                'Die Profil-Verifizierung ist aktuell nicht verfÃ¼gbar.',
           ),
         ),
       );
@@ -717,14 +722,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(24),
           ),
           title: const Text(
-            'Neues Profil hinzufügen?',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
+            'Neues Profil hinzufÃ¼gen?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
           ),
           content: const Text(
-            'Wenn du ein neues Profil hinzufügst, wird dein altes Profil gelöscht. Dein neues Profil muss anschließend erneut verifiziert werden.',
+            'Wenn du ein neues Profil hinzufÃ¼gst, wird dein altes Profil gelÃ¶scht. Dein neues Profil muss anschlieÃŸend erneut verifiziert werden.',
             style: TextStyle(
               color: Colors.white70,
               fontWeight: FontWeight.w600,
@@ -794,7 +796,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Neues Profil wurde vorbereitet. Bitte fülle alle Daten erneut aus.',
+          'Neues Profil wurde vorbereitet. Bitte fÃ¼lle alle Daten erneut aus.',
         ),
       ),
     );
@@ -810,12 +812,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                112 + keyboardInset,
-              ),
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 112 + keyboardInset),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: constraints.maxHeight - 112,
@@ -829,7 +826,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Verwalte deine Identität, dein Fahrzeug und deine Sichtbarkeit.',
+                      'Verwalte deine IdentitÃ¤t, dein Fahrzeug und deine Sichtbarkeit.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withValues(alpha: 0.78),
                         fontWeight: FontWeight.w700,
@@ -853,7 +850,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       hasPlateInput: _hasPlateInput,
                       allDocumentsUploaded: _allDocumentsUploaded,
                       canSubmitProfileForVerification:
-                      _canSubmitProfileForVerification,
+                          _canSubmitProfileForVerification,
                       isSubmittedForVerification: _isSubmittedForVerification,
                       isVerified: _isVerified,
                       isSaving: _isSaving,
@@ -870,7 +867,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 18),
                     const CarmaSectionTitle(
                       number: '1',
-                      title: 'Persönliche Daten',
+                      title: 'PersÃ¶nliche Daten',
                     ),
                     const SizedBox(height: 10),
                     _NameCard(
@@ -930,10 +927,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onColorChanged: _onColorChanged,
                     ),
                     const SizedBox(height: 18),
-                    const CarmaSectionTitle(
-                      number: '4',
-                      title: 'Sichtbarkeit',
-                    ),
+                    const CarmaSectionTitle(number: '4', title: 'Sichtbarkeit'),
                     const SizedBox(height: 10),
                     _VisibilityCard(
                       allowContactRequests: _allowContactRequests,
@@ -957,9 +951,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onPressed: _saveProfile,
                       )
                     else
-                      _NewProfileButton(
-                        onPressed: _confirmNewProfile,
-                      ),
+                      _NewProfileButton(onPressed: _confirmNewProfile),
                   ],
                 ),
               ),
@@ -996,19 +988,19 @@ class _ProfileNextStepCard extends StatelessWidget {
 
   String get _title {
     if (isVerified) {
-      return 'Profil vollständig verifiziert';
+      return 'Profil vollstÃ¤ndig verifiziert';
     }
 
     if (isSubmittedForVerification) {
-      return 'Verifizierung wird geprüft';
+      return 'Verifizierung wird geprÃ¼ft';
     }
 
     if (!hasNameInput) {
-      return 'Persönliche Daten ergänzen';
+      return 'PersÃ¶nliche Daten ergÃ¤nzen';
     }
 
     if (!hasPlateInput) {
-      return 'Fahrzeug und Kennzeichen ergänzen';
+      return 'Fahrzeug und Kennzeichen ergÃ¤nzen';
     }
 
     if (!allDocumentsUploaded) {
@@ -1020,23 +1012,23 @@ class _ProfileNextStepCard extends StatelessWidget {
 
   String get _description {
     if (isVerified) {
-      return 'Dein Profil ist freigeschaltet. Profilbild und Sichtbarkeit kannst du weiterhin ändern.';
+      return 'Dein Profil ist freigeschaltet. Profilbild und Sichtbarkeit kannst du weiterhin Ã¤ndern.';
     }
 
     if (isSubmittedForVerification) {
-      return 'Name, Fahrzeugdaten und Dokumente sind jetzt gesperrt, bis die Prüfung abgeschlossen ist.';
+      return 'Name, Fahrzeugdaten und Dokumente sind jetzt gesperrt, bis die PrÃ¼fung abgeschlossen ist.';
     }
 
     if (!hasNameInput) {
-      return 'Trage unten Vorname und Nachname ein. Nach der Verifizierung werden diese Daten geschützt gesperrt.';
+      return 'Trage unten Vorname und Nachname ein. Nach der Verifizierung werden diese Daten geschÃ¼tzt gesperrt.';
     }
 
     if (!hasPlateInput) {
-      return 'Ergänze dein Kennzeichen und die Fahrzeugdaten, damit dein Fahrzeug eindeutig zugeordnet werden kann.';
+      return 'ErgÃ¤nze dein Kennzeichen und die Fahrzeugdaten, damit dein Fahrzeug eindeutig zugeordnet werden kann.';
     }
 
     if (!allDocumentsUploaded) {
-      return 'Lade Ausweis, Führerschein und Fahrzeugschein hoch, damit dein Profil vorbereitet werden kann.';
+      return 'Lade Ausweis, FÃ¼hrerschein und Fahrzeugschein hoch, damit dein Profil vorbereitet werden kann.';
     }
 
     return 'Alle Pflichtdaten sind vorhanden. Speichere dein Profil, um die lokale Verifizierung auf ausstehend zu setzen.';
@@ -1090,11 +1082,7 @@ class _ProfileNextStepCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CarmaBlueIconBox(
-                icon: _icon,
-                size: 48,
-                iconSize: 24,
-              ),
+              CarmaBlueIconBox(icon: _icon, size: 48, iconSize: 24),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -1169,7 +1157,7 @@ class _VisibilityCard extends StatelessWidget {
             icon: Icons.chat_bubble_outline_rounded,
             title: 'Kontaktanfragen erlauben',
             description:
-            'Andere können dich über dein Kennzeichen geschützt kontaktieren.',
+                'Andere kÃ¶nnen dich Ã¼ber dein Kennzeichen geschÃ¼tzt kontaktieren.',
             value: allowContactRequests,
             enabled: true,
             onChanged: onContactRequestsChanged,
@@ -1179,7 +1167,7 @@ class _VisibilityCard extends StatelessWidget {
             icon: Icons.report_outlined,
             title: 'Anonyme Hinweise erlauben',
             description:
-            'Andere können dir sachliche Hinweise zu deinem Fahrzeug senden.',
+                'Andere kÃ¶nnen dir sachliche Hinweise zu deinem Fahrzeug senden.',
             value: allowAnonymousReports,
             enabled: true,
             onChanged: onAnonymousReportsChanged,
@@ -1268,13 +1256,13 @@ class _VerificationScreenState extends State<_VerificationScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _SheetActionButton(
-                    label: 'Foto aus Aufnahmen wählen',
+                    label: 'Foto aus Aufnahmen wÃ¤hlen',
                     icon: Icons.photo_library_rounded,
                     onTap: () => Navigator.of(context).pop(ImageSource.gallery),
                   ),
                   const SizedBox(height: 10),
                   _SheetActionButton(
-                    label: 'Kamera öffnen',
+                    label: 'Kamera Ã¶ffnen',
                     icon: Icons.photo_camera_rounded,
                     onTap: () => Navigator.of(context).pop(ImageSource.camera),
                   ),
@@ -1299,9 +1287,9 @@ class _VerificationScreenState extends State<_VerificationScreen> {
   }
 
   Future<void> _pickDocumentImage(
-      String documentName,
-      ImageSource source,
-      ) async {
+    String documentName,
+    ImageSource source,
+  ) async {
     setState(() {
       _clearMessages();
     });
@@ -1326,16 +1314,12 @@ class _VerificationScreenState extends State<_VerificationScreen> {
       setState(() {});
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$documentName wurde hochgeladen.',
-          ),
-        ),
+        SnackBar(content: Text('$documentName wurde hochgeladen.')),
       );
     } catch (_) {
       setState(() {
         _errorMessage =
-        'Bild konnte nicht geladen werden. Bitte prüfe Kamera- oder Fotoberechtigung.';
+            'Bild konnte nicht geladen werden. Bitte prÃ¼fe Kamera- oder Fotoberechtigung.';
         _successMessage = null;
       });
     }
@@ -1353,7 +1337,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
     if (!widget.hasPlateInput) {
       setState(() {
         _errorMessage =
-        'Bitte gib im Profil zuerst ein vollständiges Kennzeichen an.';
+            'Bitte gib im Profil zuerst ein vollstÃ¤ndiges Kennzeichen an.';
         _successMessage = null;
       });
       return;
@@ -1373,7 +1357,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
     setState(() {
       _isSubmitting = false;
       _successMessage =
-      'Deine Dokumente wurden vorbereitet. Speichere jetzt dein Profil, damit die Verifizierung ausstehend gesetzt wird.';
+          'Deine Dokumente wurden vorbereitet. Speichere jetzt dein Profil, damit die Verifizierung ausstehend gesetzt wird.';
     });
   }
 
@@ -1387,12 +1371,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(
-              20,
-              18,
-              20,
-              28 + keyboardInset,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1403,7 +1382,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Lade deine Dokumente hoch. Dein Konto und dein Fahrzeug werden erst nach Prüfung freigegeben.',
+                  'Lade deine Dokumente hoch. Dein Konto und dein Fahrzeug werden erst nach PrÃ¼fung freigegeben.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white.withValues(alpha: 0.78),
                     fontWeight: FontWeight.w700,
@@ -1420,10 +1399,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
                   selectedColor: widget.selectedColor,
                 ),
                 const SizedBox(height: 18),
-                const CarmaSectionTitle(
-                  number: '1',
-                  title: 'Pflichtdokumente',
-                ),
+                const CarmaSectionTitle(number: '1', title: 'Pflichtdokumente'),
                 const SizedBox(height: 10),
                 _DocumentUploadCard(
                   documentFiles: widget.documentFiles,
@@ -1463,7 +1439,7 @@ class _VerificationScreenState extends State<_VerificationScreen> {
                   const _InlineStatusBox(
                     icon: Icons.lock_outline_rounded,
                     text:
-                    'Diese Dokumente sind gesperrt, solange die Verifizierung aussteht oder abgeschlossen ist.',
+                        'Diese Dokumente sind gesperrt, solange die Verifizierung aussteht oder abgeschlossen ist.',
                   ),
               ],
             ),
@@ -1599,30 +1575,25 @@ class _ProfilePhotoButton extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: image == null
                     ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    _carmaBlueDark,
-                    _carmaBlueLight,
-                  ],
-                )
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [_carmaBlueDark, _carmaBlueLight],
+                      )
                     : null,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.22),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
                 image: image == null
                     ? null
                     : DecorationImage(
-                  image: FileImage(File(image.path)),
-                  fit: BoxFit.cover,
-                ),
+                        image: FileImage(File(image.path)),
+                        fit: BoxFit.cover,
+                      ),
               ),
               child: image == null
                   ? Icon(
-                Icons.person_rounded,
-                color: Colors.white,
-                size: size * 0.56,
-              )
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: size * 0.56,
+                    )
                   : null,
             ),
             Positioned(
@@ -1636,11 +1607,7 @@ class _ProfilePhotoButton extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      _carmaBlueDark,
-                      _carmaBlue,
-                      _carmaBlueLight,
-                    ],
+                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
                   ),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.28),
@@ -1678,12 +1645,12 @@ class _LockedProfileCard extends StatelessWidget {
           _InlineStatusBox(
             icon: Icons.lock_outline_rounded,
             text: isVerified
-                ? 'Dieses Profil ist verifiziert und kann nicht mehr geändert werden. Profilbild und Sichtbarkeit kannst du weiterhin ändern.'
-                : 'Deine Verifizierung ist ausstehend. Name, Fahrzeugdaten und Dokumente sind gesperrt. Profilbild und Sichtbarkeit kannst du weiterhin ändern.',
+                ? 'Dieses Profil ist verifiziert und kann nicht mehr geÃ¤ndert werden. Profilbild und Sichtbarkeit kannst du weiterhin Ã¤ndern.'
+                : 'Deine Verifizierung ist ausstehend. Name, Fahrzeugdaten und Dokumente sind gesperrt. Profilbild und Sichtbarkeit kannst du weiterhin Ã¤ndern.',
           ),
           const SizedBox(height: 12),
           _SecondaryFullWidthButton(
-            label: 'Neues Profil hinzufügen',
+            label: 'Neues Profil hinzufÃ¼gen',
             icon: Icons.person_add_alt_1_rounded,
             onTap: onCreateNewProfile,
           ),
@@ -1729,7 +1696,7 @@ class _NameCard extends StatelessWidget {
           const _InlineStatusBox(
             icon: Icons.info_outline_rounded,
             text:
-            'Vorname und Nachname können nur einmal angegeben werden. In Carma wird später nur der Vorname mit Initiale angezeigt, z. B. Max M.',
+                'Vorname und Nachname kÃ¶nnen nur einmal angegeben werden. In Carma wird spÃ¤ter nur der Vorname mit Initiale angezeigt, z. B. Max M.',
           ),
         ],
       ),
@@ -1809,7 +1776,7 @@ class _VerificationSummaryCard extends StatelessWidget {
           const _InlineStatusBox(
             icon: Icons.fact_check_outlined,
             text:
-            'Der Fahrzeugschein wird mit deinen Fahrzeugdaten abgeglichen. Ein anderes Fahrzeug führt später zur Ablehnung der Verifizierung.',
+                'Der Fahrzeugschein wird mit deinen Fahrzeugdaten abgeglichen. Ein anderes Fahrzeug fÃ¼hrt spÃ¤ter zur Ablehnung der Verifizierung.',
           ),
           const SizedBox(height: 12),
           _PrimaryActionButton(
@@ -1883,7 +1850,7 @@ class _VehicleDataCard extends StatelessWidget {
           const _InlineStatusBox(
             icon: Icons.verified_user_outlined,
             text:
-            'Diese Angaben müssen mit dem Fahrzeugschein übereinstimmen. Änderungen am Fahrzeug setzen die Fahrzeugdokumente zur erneuten Prüfung zurück.',
+                'Diese Angaben mÃ¼ssen mit dem Fahrzeugschein Ã¼bereinstimmen. Ã„nderungen am Fahrzeug setzen die Fahrzeugdokumente zur erneuten PrÃ¼fung zurÃ¼ck.',
           ),
         ],
       ),
@@ -1932,10 +1899,7 @@ class _VerificationVehicleCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _VerificationInfoRow(
-            label: 'Kennzeichen',
-            value: displayPlate,
-          ),
+          _VerificationInfoRow(label: 'Kennzeichen', value: displayPlate),
           const SizedBox(height: 9),
           _VerificationInfoRow(
             label: 'Fahrzeug',
@@ -1945,7 +1909,7 @@ class _VerificationVehicleCard extends StatelessWidget {
           const _InlineStatusBox(
             icon: Icons.warning_amber_rounded,
             text:
-            'Der Fahrzeugschein muss exakt zu diesem Fahrzeug passen. Beispiel: Mercedes-Fahrzeugschein und BMW-Profilangabe wird später abgelehnt.',
+                'Der Fahrzeugschein muss exakt zu diesem Fahrzeug passen. Beispiel: Mercedes-Fahrzeugschein und BMW-Profilangabe wird spÃ¤ter abgelehnt.',
           ),
         ],
       ),
@@ -1954,10 +1918,7 @@ class _VerificationVehicleCard extends StatelessWidget {
 }
 
 class _VerificationInfoRow extends StatelessWidget {
-  const _VerificationInfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _VerificationInfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1970,9 +1931,7 @@ class _VerificationInfoRow extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
         children: [
@@ -2032,7 +1991,7 @@ class _DocumentUploadCard extends StatelessWidget {
           _InlineStatusBox(
             icon: Icons.upload_file_rounded,
             text:
-            '$uploadedDocumentCount von $totalDocumentCount Pflichtdokumenten vorbereitet.',
+                '$uploadedDocumentCount von $totalDocumentCount Pflichtdokumenten vorbereitet.',
           ),
           const SizedBox(height: 14),
           ClipRRect(
@@ -2045,20 +2004,18 @@ class _DocumentUploadCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          ...documentFiles.entries.map(
-                (entry) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _DocumentUploadTile(
-                  title: entry.key,
-                  file: entry.value,
-                  isLocked: isLocked,
-                  onTap: () => onDocumentTap(entry.key),
-                  onRemove: () => onDocumentRemove(entry.key),
-                ),
-              );
-            },
-          ),
+          ...documentFiles.entries.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _DocumentUploadTile(
+                title: entry.key,
+                file: entry.value,
+                isLocked: isLocked,
+                onTap: () => onDocumentTap(entry.key),
+                onRemove: () => onDocumentRemove(entry.key),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -2202,10 +2159,7 @@ class _ProfileTextField extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.50),
             fontWeight: FontWeight.w700,
           ),
-          prefixIcon: Icon(
-            icon,
-            color: Colors.white.withValues(alpha: 0.78),
-          ),
+          prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
           filled: true,
           fillColor: Colors.white.withValues(alpha: 0.08),
           contentPadding: const EdgeInsets.symmetric(
@@ -2214,15 +2168,11 @@ class _ProfileTextField extends StatelessWidget {
           ),
           disabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.10),
-            ),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
@@ -2286,15 +2236,11 @@ class _ProfileDropdown extends StatelessWidget {
           ),
           disabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.10),
-            ),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
@@ -2307,20 +2253,17 @@ class _ProfileDropdown extends StatelessWidget {
         items: items.map((item) {
           return DropdownMenuItem<String>(
             value: item,
-            child: Text(
-              item,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(item, overflow: TextOverflow.ellipsis),
           );
         }).toList(),
         onChanged: enabled
             ? (newValue) {
-          if (newValue == null) {
-            return;
-          }
+                if (newValue == null) {
+                  return;
+                }
 
-          onChanged(newValue);
-        }
+                onChanged(newValue);
+              }
             : null,
       ),
     );
@@ -2328,9 +2271,7 @@ class _ProfileDropdown extends StatelessWidget {
 }
 
 class _UserAvatarPlaceholder extends StatelessWidget {
-  const _UserAvatarPlaceholder({
-    required this.size,
-  });
+  const _UserAvatarPlaceholder({required this.size});
 
   final double size;
 
@@ -2344,29 +2285,17 @@ class _UserAvatarPlaceholder extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            _carmaBlueDark,
-            _carmaBlueLight,
-          ],
+          colors: [_carmaBlueDark, _carmaBlueLight],
         ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
       ),
-      child: Icon(
-        Icons.person_rounded,
-        color: Colors.white,
-        size: size * 0.56,
-      ),
+      child: Icon(Icons.person_rounded, color: Colors.white, size: size * 0.56),
     );
   }
 }
 
 class _InlineStatusBox extends StatelessWidget {
-  const _InlineStatusBox({
-    required this.icon,
-    required this.text,
-  });
+  const _InlineStatusBox({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -2379,17 +2308,11 @@ class _InlineStatusBox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: Colors.white,
-            size: 22,
-          ),
+          Icon(icon, color: Colors.white, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2433,11 +2356,7 @@ class _PrimaryActionButton extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlue,
-                _carmaBlueLight,
-              ],
+              colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
             ),
           ),
           child: Center(
@@ -2446,11 +2365,7 @@ class _PrimaryActionButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 22,
-                  ),
+                  Icon(icon, color: Colors.white, size: 22),
                   const SizedBox(width: 10),
                   Text(
                     label,
@@ -2504,19 +2419,12 @@ class _SheetActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PrimaryActionButton(
-      label: label,
-      icon: icon,
-      onTap: onTap,
-    );
+    return _PrimaryActionButton(label: label, icon: icon, onTap: onTap);
   }
 }
 
 class _SheetSecondaryActionButton extends StatelessWidget {
-  const _SheetSecondaryActionButton({
-    required this.label,
-    required this.onTap,
-  });
+  const _SheetSecondaryActionButton({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -2575,7 +2483,7 @@ class _SubmitVerificationButton extends StatelessWidget {
     return CarmaPrimaryButton(
       label: allDocumentsUploaded
           ? 'Dokumente vorbereitet'
-          : 'Dokumente vollständig hochladen',
+          : 'Dokumente vollstÃ¤ndig hochladen',
       loadingLabel: 'Wird vorbereitet...',
       icon: Icons.verified_user_rounded,
       iconSize: 27,
@@ -2588,16 +2496,14 @@ class _SubmitVerificationButton extends StatelessWidget {
 }
 
 class _NewProfileButton extends StatelessWidget {
-  const _NewProfileButton({
-    required this.onPressed,
-  });
+  const _NewProfileButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return _SecondaryFullWidthButton(
-      label: 'Neues Profil hinzufügen',
+      label: 'Neues Profil hinzufÃ¼gen',
       icon: Icons.person_add_alt_1_rounded,
       onTap: onPressed,
     );
