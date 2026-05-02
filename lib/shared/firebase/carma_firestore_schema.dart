@@ -85,10 +85,23 @@ class FirestoreModerationTypes {
   static const String manualReview = 'manualReview';
 }
 
+class FirestoreCreditTransactionTypes {
+  const FirestoreCreditTransactionTypes._();
+
+  static const String freeRequestUsed = 'freeRequestUsed';
+  static const String paidCreditUsed = 'paidCreditUsed';
+  static const String creditPurchase = 'creditPurchase';
+  static const String refund = 'refund';
+  static const String adminAdjustment = 'adminAdjustment';
+}
+
 class FirestoreDocumentDefaults {
   const FirestoreDocumentDefaults._();
 
-  static const int freeSearchLimit = 5;
+  static const int freeSearchLimit = 2;
+  static const int monthlyFreeRequestLimit = 2;
+  static const int initialPaidCredits = 0;
+
   static const int defaultRequestExpiryHours = 72;
   static const int maxReportMessageLength = 160;
   static const int maxChatMessageLength = 1000;
