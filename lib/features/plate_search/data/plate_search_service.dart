@@ -1,18 +1,22 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
-import 'plate_search_result.dart';
 import '../../../shared/config/carma_app_config.dart';
+import '../../../shared/firebase/carma_firestore_paths.dart';
+import 'plate_search_result.dart';
 
 class PlateSearchService {
   PlateSearchService({
+    FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
     bool useMock = CarmaAppConfig.useMockPlateSearch,
-  })  : _functions = functions ??
-      FirebaseFunctions.instanceFor(
-        region: CarmaAppConfig.firebaseRegion,
-      ),
-        _useMock = useMock;
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions =
+           functions ??
+           FirebaseFunctions.instanceFor(region: CarmaAppConfig.firebaseRegion),
+       _useMock = useMock;
 
+  final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
   final bool _useMock;
 
@@ -20,12 +24,8 @@ class PlateSearchService {
     return value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
   }
 
-  String buildPlateKey({
-    required String countryCode,
-    required String plate,
-  }) {
-    final normalizedPlate = normalizePlate(plate);
-    return '$countryCode:$normalizedPlate';
+  String buildPlateKey({required String countryCode, required String plate}) {
+    return normalizePlate(plate);
   }
 
   Future<PlateSearchResult> searchPlate({
@@ -36,13 +36,7 @@ class PlateSearchService {
     required int radiusKm,
   }) async {
     if (_useMock) {
-      return _searchPlateMock(
-        countryCode: countryCode,
-        plate: plate,
-        latitude: latitude,
-        longitude: longitude,
-        radiusKm: radiusKm,
-      );
+      return _searchPlateFromFirestore(countryCode: countryCode, plate: plate);
     }
 
     final callable = _functions.httpsCallable('searchPlate');
@@ -55,9 +49,7 @@ class PlateSearchService {
       'radiusKm': radiusKm,
     });
 
-    return PlateSearchResult.fromMap(
-      Map<String, dynamic>.from(response.data),
-    );
+    return PlateSearchResult.fromMap(Map<String, dynamic>.from(response.data));
   }
 
   Future<String> requestPlateContact({
@@ -80,34 +72,58 @@ class PlateSearchService {
     return data['requestId'] as String;
   }
 
-  Future<PlateSearchResult> _searchPlateMock({
+  Future<PlateSearchResult> _searchPlateFromFirestore({
     required String countryCode,
     required String plate,
-    required double latitude,
-    required double longitude,
-    required int radiusKm,
   }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 650));
+    await Future<void>.delayed(const Duration(milliseconds: 350));
 
+    final normalizedCountryCode = countryCode.trim().toUpperCase();
     final plateKey = buildPlateKey(
-      countryCode: countryCode,
+      countryCode: normalizedCountryCode,
       plate: plate,
     );
 
-    final normalizedPlate = normalizePlate(plate);
+    if (normalizedCountryCode.isEmpty || plateKey.isEmpty) {
+      return const PlateSearchResult(found: false);
+    }
 
-    if (normalizedPlate.isEmpty || normalizedPlate.endsWith('0')) {
-      return const PlateSearchResult(
-        found: false,
-      );
+    final document = await _firestore
+        .doc(CarmaFirestorePaths.plate(normalizedCountryCode, plateKey))
+        .get();
+
+    if (!document.exists) {
+      return const PlateSearchResult(found: false);
+    }
+
+    final data = document.data();
+
+    if (data == null) {
+      return const PlateSearchResult(found: false);
+    }
+
+    final isActive = data['isActive'] as bool? ?? false;
+    final isDeleted = data['isDeleted'] as bool? ?? true;
+    final allowContactRequests = data['allowContactRequests'] as bool? ?? false;
+
+    if (!isActive || isDeleted || !allowContactRequests) {
+      return const PlateSearchResult(found: false);
+    }
+
+    final ownerUserId = data['ownerUserId'] as String?;
+    final displayName = data['displayName'] as String?;
+    final storedPlateKey = data['plateKey'] as String? ?? plateKey;
+
+    if (ownerUserId == null || ownerUserId.trim().isEmpty) {
+      return const PlateSearchResult(found: false);
     }
 
     return PlateSearchResult(
       found: true,
-      targetUid: 'local-target-user',
-      displayName: 'Carma Nutzer',
-      distanceKm: 1.2,
-      plateKey: plateKey,
+      targetUid: ownerUserId,
+      displayName: displayName?.trim().isEmpty == true ? null : displayName,
+      distanceKm: null,
+      plateKey: storedPlateKey,
     );
   }
 }
