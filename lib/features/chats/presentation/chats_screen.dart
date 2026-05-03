@@ -1045,16 +1045,27 @@ class _ChatConversationScreen extends StatefulWidget {
 }
 
 class _ChatConversationScreenState extends State<_ChatConversationScreen> {
+  final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
   final TextEditingController _messageController = TextEditingController();
 
   late List<_LocalChatMessage> _messages;
   bool _hasText = false;
+  bool _isLoadingMessages = false;
+
+  bool get _hasFirestoreChat {
+    final chatId = widget.chatId?.trim();
+    return chatId != null && chatId.isNotEmpty;
+  }
 
   @override
   void initState() {
     super.initState();
     _messages = [...widget.initialMessages];
     _messageController.addListener(_handleMessageChanged);
+
+    if (_hasFirestoreChat) {
+      _loadFirestoreMessages();
+    }
   }
 
   @override
@@ -1076,11 +1087,66 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     });
   }
 
+  Future<void> _loadFirestoreMessages() async {
+    final chatId = widget.chatId?.trim();
+
+    if (chatId == null || chatId.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMessages = true;
+    });
+
+    try {
+      final records = await _chatRepository.loadMessages(chatId: chatId);
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _messages = records
+            .map(
+              (record) => _LocalChatMessage(
+                text: record.text,
+                isMine: record.senderUserId == currentUserId,
+                timeLabel: _timeLabel(record.createdAt),
+              ),
+            )
+            .toList();
+        _isLoadingMessages = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoadingMessages = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nachrichten konnten nicht geladen werden: $error'),
+        ),
+      );
+    }
+  }
+
+  String _timeLabel(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+
+    return '$hour:$minute';
+  }
+
   void _handleAttach() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Foto aufnehmen oder aus Galerie wÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlen verbinden wir spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter.',
+          'Foto aufnehmen oder aus Galerie wählen verbinden wir später.',
         ),
       ),
     );
@@ -1125,7 +1191,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                         onBack: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(height: 14),
-                      if (_messages.isEmpty)
+                      if (_isLoadingMessages)
+                        const _ChatLoadingSpace()
+                      else if (_messages.isEmpty)
                         const _ChatEmptySpace()
                       else
                         _ChatMessageList(messages: _messages),
@@ -1315,6 +1383,20 @@ class _ChatMessageBubble extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ChatLoadingSpace extends StatelessWidget {
+  const _ChatLoadingSpace();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 220),
+      alignment: Alignment.center,
+      child: const CircularProgressIndicator(),
     );
   }
 }
