@@ -31,6 +31,8 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
 
   late Future<List<ContactRequestRecord>> _future;
 
+  final Set<String> _busyRequestIds = <String>{};
+
   bool get _isIncoming {
     return widget.mode == ContactRequestListMode.incoming;
   }
@@ -63,6 +65,78 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
     setState(() {
       _future = _loadRequests();
     });
+  }
+
+  Future<void> _runRequestAction({
+    required ContactRequestRecord request,
+    required Future<void> Function() action,
+    required String successMessage,
+  }) async {
+    if (_busyRequestIds.contains(request.id)) {
+      return;
+    }
+
+    setState(() {
+      _busyRequestIds.add(request.id);
+    });
+
+    try {
+      await action();
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+
+      _reload();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyRequestIds.remove(request.id);
+        });
+      }
+    }
+  }
+
+  Future<void> _acceptRequest(ContactRequestRecord request) {
+    return _runRequestAction(
+      request: request,
+      successMessage: 'Kontaktanfrage wurde angenommen.',
+      action: () async {
+        await _repository.acceptRequest(requestId: request.id);
+      },
+    );
+  }
+
+  Future<void> _declineRequest(ContactRequestRecord request) {
+    return _runRequestAction(
+      request: request,
+      successMessage: 'Kontaktanfrage wurde abgelehnt.',
+      action: () async {
+        await _repository.declineRequest(requestId: request.id);
+      },
+    );
+  }
+
+  Future<void> _withdrawRequest(ContactRequestRecord request) {
+    return _runRequestAction(
+      request: request,
+      successMessage: 'Kontaktanfrage wurde zurückgezogen.',
+      action: () async {
+        await _repository.withdrawRequest(requestId: request.id);
+      },
+    );
   }
 
   @override
@@ -128,6 +202,10 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
                           _RequestListCard(
                             request: request,
                             isIncoming: _isIncoming,
+                            isBusy: _busyRequestIds.contains(request.id),
+                            onAccept: () => _acceptRequest(request),
+                            onDecline: () => _declineRequest(request),
+                            onWithdraw: () => _withdrawRequest(request),
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -145,10 +223,21 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
 }
 
 class _RequestListCard extends StatelessWidget {
-  const _RequestListCard({required this.request, required this.isIncoming});
+  const _RequestListCard({
+    required this.request,
+    required this.isIncoming,
+    required this.isBusy,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onWithdraw,
+  });
 
   final ContactRequestRecord request;
   final bool isIncoming;
+  final bool isBusy;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  final VoidCallback onWithdraw;
 
   String get _title {
     if (isIncoming) {
@@ -217,11 +306,126 @@ class _RequestListCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (request.isPending) ...[
+                  const SizedBox(height: 14),
+                  _RequestActions(
+                    isIncoming: isIncoming,
+                    isBusy: isBusy,
+                    onAccept: onAccept,
+                    onDecline: onDecline,
+                    onWithdraw: onWithdraw,
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RequestActions extends StatelessWidget {
+  const _RequestActions({
+    required this.isIncoming,
+    required this.isBusy,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onWithdraw,
+  });
+
+  final bool isIncoming;
+  final bool isBusy;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  final VoidCallback onWithdraw;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isIncoming) {
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _RequestActionButton(
+            label: 'Annehmen',
+            icon: Icons.check_rounded,
+            isBusy: isBusy,
+            isPrimary: true,
+            onPressed: onAccept,
+          ),
+          _RequestActionButton(
+            label: 'Ablehnen',
+            icon: Icons.close_rounded,
+            isBusy: isBusy,
+            isPrimary: false,
+            onPressed: onDecline,
+          ),
+        ],
+      );
+    }
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _RequestActionButton(
+          label: 'Zurückziehen',
+          icon: Icons.undo_rounded,
+          isBusy: isBusy,
+          isPrimary: false,
+          onPressed: onWithdraw,
+        ),
+      ],
+    );
+  }
+}
+
+class _RequestActionButton extends StatelessWidget {
+  const _RequestActionButton({
+    required this.label,
+    required this.icon,
+    required this.isBusy,
+    required this.isPrimary,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isBusy;
+  final bool isPrimary;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isBusy) ...[
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ] else ...[
+          Icon(icon, size: 18),
+        ],
+        const SizedBox(width: 8),
+        Text(label),
+      ],
+    );
+
+    if (isPrimary) {
+      return FilledButton(onPressed: isBusy ? null : onPressed, child: child);
+    }
+
+    return OutlinedButton(
+      onPressed: isBusy ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+      ),
+      child: child,
     );
   }
 }
@@ -334,7 +538,7 @@ class _RequestEmptyCard extends StatelessWidget {
           Text(
             isIncoming
                 ? 'Sobald dich jemand über dein Kennzeichen kontaktiert, erscheint die Anfrage hier.'
-                : 'Wenn du eine Kontaktanfrage sendest, erscheint sie hier bis sie angenommen, abgelehnt oder zurückgezogen wird.',
+                : 'Wenn du eine Kontaktanfrage sendest, erscheint sie hier, bis sie angenommen, abgelehnt oder zurückgezogen wird.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.70),

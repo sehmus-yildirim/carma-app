@@ -165,7 +165,7 @@ abstract class ContactRequestRepository {
 
   Future<ContactRequestRecord> acceptRequest({
     required String requestId,
-    required String chatId,
+    String? chatId,
   });
 
   Future<ContactRequestRecord> declineRequest({required String requestId});
@@ -263,7 +263,7 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
   @override
   Future<ContactRequestRecord> acceptRequest({
     required String requestId,
-    required String chatId,
+    String? chatId,
   }) async {
     return _updateRequest(
       requestId: requestId,
@@ -389,7 +389,7 @@ class LocalContactRequestRepository implements ContactRequestRepository {
   @override
   Future<ContactRequestRecord> acceptRequest({
     required String requestId,
-    required String chatId,
+    String? chatId,
   }) async {
     return _updateRequest(
       requestId: requestId,

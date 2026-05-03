@@ -5,7 +5,6 @@ import '../../../shared/models/carma_models.dart';
 import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_page_header.dart';
-import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import 'contact_request_counts_card.dart';
@@ -49,10 +48,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
       userState: widget.userState,
       feature: AppFeature.chat,
     );
-  }
-
-  String get _currentFirstName {
-    return 'Carma Nutzer';
   }
 
   @override
@@ -224,13 +219,11 @@ class _LocalChatMessage {
     required this.text,
     required this.isMine,
     required this.timeLabel,
-    this.isSystem = false,
   });
 
   final String text;
   final bool isMine;
   final String timeLabel;
-  final bool isSystem;
 }
 
 class _MvpInfoCard extends StatelessWidget {
@@ -654,81 +647,6 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
-class _IncomingRequestsScreen extends StatelessWidget {
-  const _IncomingRequestsScreen({
-    required this.hasIncomingRequest,
-    required this.onAccept,
-    required this.onDecline,
-  });
-
-  final bool hasIncomingRequest;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SubPageScaffold(
-      icon: Icons.move_to_inbox_rounded,
-      headerTitle: 'Eingehende Anfragen',
-      subtitle:
-          'Hier entscheidest du, welche Kontaktanfragen angenommen oder abgelehnt werden.',
-      child: hasIncomingRequest
-          ? _IncomingRequestCard(
-              onAccept: () {
-                onAccept();
-                Navigator.of(context).pop();
-              },
-              onDecline: () {
-                onDecline();
-                Navigator.of(context).pop();
-              },
-            )
-          : const _EmptyListCard(
-              icon: Icons.mark_email_unread_outlined,
-              title: 'Keine offenen Anfragen',
-              description:
-                  'Sobald dich jemand ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ber dein Kennzeichen kontaktiert, erscheint die Anfrage hier. Du entscheidest dann, ob daraus ein Chat wird.',
-            ),
-    );
-  }
-}
-
-class _OutgoingRequestsScreen extends StatelessWidget {
-  const _OutgoingRequestsScreen({
-    required this.hasOutgoingRequest,
-    required this.currentFirstName,
-    required this.onWithdraw,
-  });
-
-  final bool hasOutgoingRequest;
-  final String currentFirstName;
-  final VoidCallback onWithdraw;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SubPageScaffold(
-      icon: Icons.outbox_rounded,
-      headerTitle: 'Gesendete Anfragen',
-      subtitle:
-          'Hier siehst du Anfragen, die du nach einer Kennzeichen-Suche gesendet hast.',
-      child: hasOutgoingRequest
-          ? _OutgoingRequestCard(
-              currentFirstName: currentFirstName,
-              onWithdraw: () {
-                onWithdraw();
-                Navigator.of(context).pop();
-              },
-            )
-          : const _EmptyListCard(
-              icon: Icons.schedule_send_outlined,
-              title: 'Keine gesendeten Anfragen',
-              description:
-                  'Wenn du eine Kontaktanfrage sendest, erscheint sie hier bis sie angenommen, abgelehnt oder zurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckgezogen wird.',
-            ),
-    );
-  }
-}
-
 class _ActiveChatsScreen extends StatelessWidget {
   const _ActiveChatsScreen({
     required this.hasActiveChat,
@@ -814,150 +732,6 @@ class _SubPageScaffold extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _IncomingRequestCard extends StatelessWidget {
-  const _IncomingRequestCard({required this.onAccept, required this.onDecline});
-
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _RequestUserHeader(),
-          const SizedBox(height: 18),
-          const _RequestTextBox(
-            text:
-                'Hey, ich bin Carma Nutzer. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _SheetSecondaryButton(
-                  label: 'Ablehnen',
-                  onPressed: onDecline,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SheetPrimaryButton(
-                  label: 'Annehmen',
-                  onPressed: onAccept,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OutgoingRequestCard extends StatelessWidget {
-  const _OutgoingRequestCard({
-    required this.currentFirstName,
-    required this.onWithdraw,
-  });
-
-  final String currentFirstName;
-  final VoidCallback onWithdraw;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _RequestUserHeader(),
-          const SizedBox(height: 18),
-          _RequestTextBox(
-            text:
-                'Hey, ich bin $currentFirstName. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
-          ),
-          const SizedBox(height: 18),
-          _SheetSecondaryButton(
-            label: 'Anfrage zurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckziehen',
-            onPressed: onWithdraw,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RequestUserHeader extends StatelessWidget {
-  const _RequestUserHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const _UserAvatarPlaceholder(size: 54),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Carma Nutzer',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                'Schwarz BMW 1er',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RequestTextBox extends StatelessWidget {
-  const _RequestTextBox({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: Colors.white.withValues(alpha: 0.07),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          height: 1.35,
         ),
       ),
     );
@@ -1154,62 +928,6 @@ class _RoundIconButton extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _SheetPrimaryButton extends StatelessWidget {
-  const _SheetPrimaryButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _carmaBlue.withValues(alpha: 0.24),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetSecondaryButton extends StatelessWidget {
-  const _SheetSecondaryButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CarmaSecondaryButton(label: label, onPressed: onPressed);
   }
 }
 
@@ -1443,27 +1161,6 @@ class _ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.isSystem) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: Colors.white.withValues(alpha: 0.06),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        ),
-        child: Text(
-          message.text,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.68),
-            fontWeight: FontWeight.w800,
-            height: 1.3,
-          ),
-        ),
-      );
-    }
-
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
