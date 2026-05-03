@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
@@ -7,6 +8,7 @@ import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_page_header.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../data/chat_repository.dart';
 import 'contact_request_counts_card.dart';
 import 'contact_request_list_screen.dart';
 
@@ -36,8 +38,11 @@ class ChatsScreen extends StatefulWidget {
 }
 
 class _ChatsScreenState extends State<ChatsScreen> {
+  final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
+
   _ChatsView _selectedView = _ChatsView.chats;
 
+  late Future<List<ChatRecord>> _chatFuture;
   late bool _hasIncomingRequest;
   late bool _hasOutgoingRequest;
   late bool _hasActiveChat;
@@ -48,6 +53,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
       userState: widget.userState,
       feature: AppFeature.chat,
     );
+  }
+
+  String get _effectiveUserId {
+    return FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
   }
 
   @override
@@ -66,6 +75,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
         _localChatTestMode == _LocalChatTestMode.activeChatWithMessages
         ? _buildLocalChatMessages()
         : <_LocalChatMessage>[];
+
+    _chatFuture = _loadChats();
+  }
+
+  Future<List<ChatRecord>> _loadChats() {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      return Future.value(const <ChatRecord>[]);
+    }
+
+    return _chatRepository.loadChats(userId: userId);
   }
 
   List<_LocalChatMessage> _buildLocalChatMessages() {
@@ -122,11 +143,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
     );
   }
 
-  void _openActiveChatsScreen() {
+  void _openActiveChatsScreen({required bool hasFirestoreChats}) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _ActiveChatsScreen(
-          hasActiveChat: _hasActiveChat,
+          hasActiveChat: _hasActiveChat || hasFirestoreChats,
           messages: _chatMessages,
         ),
       ),
@@ -188,11 +209,27 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         switchInCurve: Curves.easeOut,
                         switchOutCurve: Curves.easeIn,
                         child: _selectedView == _ChatsView.chats
-                            ? _ChatsOverview(
+                            ? FutureBuilder<List<ChatRecord>>(
                                 key: const ValueKey('chats_view'),
-                                hasActiveChat: _hasActiveChat,
-                                messageCount: _chatMessages.length,
-                                onOpenActiveChats: _openActiveChatsScreen,
+                                future: _chatFuture,
+                                builder: (context, snapshot) {
+                                  final chats =
+                                      snapshot.data ?? const <ChatRecord>[];
+                                  final isLoading =
+                                      snapshot.connectionState ==
+                                      ConnectionState.waiting;
+
+                                  return _ChatsOverview(
+                                    chats: chats,
+                                    isLoading: isLoading,
+                                    hasLocalActiveChat: _hasActiveChat,
+                                    localMessageCount: _chatMessages.length,
+                                    onOpenActiveChats: () =>
+                                        _openActiveChatsScreen(
+                                          hasFirestoreChats: chats.isNotEmpty,
+                                        ),
+                                  );
+                                },
                               )
                             : _RequestsOverview(
                                 key: const ValueKey('requests_view'),
@@ -422,29 +459,64 @@ class _SegmentButton extends StatelessWidget {
 
 class _ChatsOverview extends StatelessWidget {
   const _ChatsOverview({
-    super.key,
-    required this.hasActiveChat,
-    required this.messageCount,
+    required this.chats,
+    required this.isLoading,
+    required this.hasLocalActiveChat,
+    required this.localMessageCount,
     required this.onOpenActiveChats,
   });
 
-  final bool hasActiveChat;
-  final int messageCount;
+  final List<ChatRecord> chats;
+  final bool isLoading;
+  final bool hasLocalActiveChat;
+  final int localMessageCount;
   final VoidCallback onOpenActiveChats;
+
+  bool get _hasActiveChat {
+    return chats.isNotEmpty || hasLocalActiveChat;
+  }
+
+  String get _count {
+    if (isLoading) {
+      return '...';
+    }
+
+    if (chats.isNotEmpty) {
+      return chats.length.toString();
+    }
+
+    return hasLocalActiveChat ? '1' : '0';
+  }
+
+  String get _bodyText {
+    if (isLoading) {
+      return 'Aktive Chats werden geladen...';
+    }
+
+    if (chats.isNotEmpty) {
+      return chats.length == 1
+          ? 'Ein aktiver Chat wurde aus Firestore geladen.'
+          : '${chats.length} aktive Chats wurden aus Firestore geladen.';
+    }
+
+    if (hasLocalActiveChat) {
+      return localMessageCount > 0
+          ? '$localMessageCount lokale Beispielnachrichten verfügbar.'
+          : 'Ein lokaler Beispielchat ist verfügbar.';
+    }
+
+    return 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.';
+  }
 
   @override
   Widget build(BuildContext context) {
     return _OverviewCard(
       icon: Icons.forum_rounded,
       title: 'Aktive Chats',
-      count: hasActiveChat ? '1' : '0',
+      count: _count,
       description: 'Angenommene Anfragen werden hier als Chat angezeigt.',
-      bodyText: hasActiveChat
-          ? messageCount > 0
-                ? '$messageCount lokale Beispielnachrichten verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar.'
-                : 'Ein aktiver Chat ist verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar.'
-          : 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.',
-      onTap: onOpenActiveChats,
+      bodyText: _bodyText,
+      onTap: _hasActiveChat ? onOpenActiveChats : () {},
     );
   }
 }
