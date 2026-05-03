@@ -52,6 +52,10 @@ class PlateRepository {
         numbers: numbers,
       ),
       'displayName': displayName,
+      'vehicleBrand': profile.vehicleBrand?.trim(),
+      'vehicleModel': profile.vehicleModel?.trim(),
+      'vehicleColor': profile.vehicleColor?.trim(),
+      'vehicleLabel': _vehicleLabel(profile),
       'allowContactRequests': profile.allowContactRequests,
       'verificationStatus': profile.verificationStatus,
       'isActive': true,
@@ -59,6 +63,35 @@ class PlateRepository {
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  String _vehicleLabel(UserProfile profile) {
+    final parts = <String>[
+      if ((profile.vehicleColor ?? '').trim().isNotEmpty)
+        _vehicleColorAdjective(profile.vehicleColor!),
+      if ((profile.vehicleBrand ?? '').trim().isNotEmpty)
+        profile.vehicleBrand!.trim(),
+      if ((profile.vehicleModel ?? '').trim().isNotEmpty)
+        profile.vehicleModel!.trim(),
+    ];
+
+    return parts.join(' ').trim();
+  }
+
+  String _vehicleColorAdjective(String color) {
+    return switch (color.trim().toLowerCase()) {
+      'schwarz' => 'schwarzer',
+      'weiß' || 'weiss' => 'weißer',
+      'silber' => 'silberner',
+      'grau' => 'grauer',
+      'blau' => 'blauer',
+      'rot' => 'roter',
+      'grün' || 'gruen' => 'grüner',
+      'braun' => 'brauner',
+      'gelb' => 'gelber',
+      'orange' => 'oranger',
+      _ => color.trim(),
+    };
   }
 
   String normalizePlateValue(String value) {

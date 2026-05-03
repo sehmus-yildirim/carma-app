@@ -9,7 +9,7 @@ import '../../../shared/widgets/carma_page_header.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/chat_repository.dart';
-import 'contact_request_counts_card.dart';
+
 import 'contact_request_list_screen.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
@@ -190,8 +190,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     ),
                     const SizedBox(height: 18),
                     const _MvpInfoCard(),
-                    const SizedBox(height: 12),
-                    ContactRequestCountsCard(userState: widget.userState),
                     const SizedBox(height: 18),
                     if (!chatGateDecision.isAllowed)
                       _ChatAccessBlockedCard(

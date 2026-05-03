@@ -62,6 +62,10 @@ class PlateSearchService {
     required String plateKey,
     String? receiverDisplayName,
     String? displayPlate,
+    String? vehicleBrand,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehicleLabel,
   }) async {
     if (_useMock) {
       return _createContactRequestInFirestore(
@@ -69,6 +73,10 @@ class PlateSearchService {
         plateKey: plateKey,
         receiverDisplayName: receiverDisplayName,
         displayPlate: displayPlate,
+        vehicleBrand: vehicleBrand,
+        vehicleModel: vehicleModel,
+        vehicleColor: vehicleColor,
+        vehicleLabel: vehicleLabel,
       );
     }
 
@@ -79,6 +87,10 @@ class PlateSearchService {
       'plateKey': plateKey,
       'receiverDisplayName': receiverDisplayName,
       'displayPlate': displayPlate,
+      'vehicleBrand': vehicleBrand,
+      'vehicleModel': vehicleModel,
+      'vehicleColor': vehicleColor,
+      'vehicleLabel': vehicleLabel,
     });
 
     final data = Map<String, dynamic>.from(response.data);
@@ -131,12 +143,21 @@ class PlateSearchService {
       return const PlateSearchResult(found: false);
     }
 
+    if (ownerUserId == _auth.currentUser?.uid) {
+      return const PlateSearchResult(found: false);
+    }
+
     return PlateSearchResult(
       found: true,
       targetUid: ownerUserId,
       displayName: displayName?.trim().isEmpty == true ? null : displayName,
       distanceKm: null,
       plateKey: storedPlateKey,
+      displayPlate: data['displayPlate'] as String?,
+      vehicleBrand: data['vehicleBrand'] as String?,
+      vehicleModel: data['vehicleModel'] as String?,
+      vehicleColor: data['vehicleColor'] as String?,
+      vehicleLabel: data['vehicleLabel'] as String?,
     );
   }
 
@@ -145,6 +166,10 @@ class PlateSearchService {
     required String plateKey,
     String? receiverDisplayName,
     String? displayPlate,
+    String? vehicleBrand,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehicleLabel,
   }) async {
     final sender = _auth.currentUser;
 
@@ -183,6 +208,16 @@ class PlateSearchService {
         receiverDisplayName?.trim().isNotEmpty == true
         ? receiverDisplayName!.trim()
         : 'Carma Nutzer';
+    final normalizedVehicleBrand = vehicleBrand?.trim();
+    final normalizedVehicleModel = vehicleModel?.trim();
+    final normalizedVehicleColor = vehicleColor?.trim();
+    final normalizedVehicleLabel = vehicleLabel?.trim().isNotEmpty == true
+        ? vehicleLabel!.trim()
+        : _vehicleLabel(
+            color: normalizedVehicleColor,
+            brand: normalizedVehicleBrand,
+            model: normalizedVehicleModel,
+          );
 
     final now = DateTime.now();
     final expiresAt = now.add(
@@ -201,6 +236,10 @@ class PlateSearchService {
           'senderDisplayName': senderDisplayName,
           'receiverDisplayName': normalizedReceiverDisplayName,
           'displayPlate': normalizedDisplayPlate,
+          'vehicleBrand': normalizedVehicleBrand,
+          'vehicleModel': normalizedVehicleModel,
+          'vehicleColor': normalizedVehicleColor,
+          'vehicleLabel': normalizedVehicleLabel,
           'status': FirestoreContactRequestStatus.pending,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -209,6 +248,37 @@ class PlateSearchService {
         });
 
     return document.id;
+  }
+
+  String _vehicleLabel({
+    required String? color,
+    required String? brand,
+    required String? model,
+  }) {
+    final parts = <String>[
+      if (color != null && color.trim().isNotEmpty)
+        _vehicleColorAdjective(color),
+      if (brand != null && brand.trim().isNotEmpty) brand.trim(),
+      if (model != null && model.trim().isNotEmpty) model.trim(),
+    ];
+
+    return parts.join(' ').trim();
+  }
+
+  String _vehicleColorAdjective(String color) {
+    return switch (color.trim().toLowerCase()) {
+      'schwarz' => 'schwarzer',
+      'weiß' || 'weiss' => 'weißer',
+      'silber' => 'silberner',
+      'grau' => 'grauer',
+      'blau' => 'blauer',
+      'rot' => 'roter',
+      'grün' || 'gruen' => 'grüner',
+      'braun' => 'brauner',
+      'gelb' => 'gelber',
+      'orange' => 'oranger',
+      _ => color.trim(),
+    };
   }
 
   Future<String> _loadCurrentUserDisplayName(String userId) async {

@@ -25,6 +25,10 @@ class ContactRequestRecord {
     this.senderDisplayName,
     this.receiverDisplayName,
     this.displayPlate,
+    this.vehicleBrand,
+    this.vehicleModel,
+    this.vehicleColor,
+    this.vehicleLabel,
     this.updatedAt,
     this.expiresAt,
     this.chatId,
@@ -41,6 +45,10 @@ class ContactRequestRecord {
   final String? senderDisplayName;
   final String? receiverDisplayName;
   final String? displayPlate;
+  final String? vehicleBrand;
+  final String? vehicleModel;
+  final String? vehicleColor;
+  final String? vehicleLabel;
   final DateTime? updatedAt;
   final DateTime? expiresAt;
   final String? chatId;
@@ -51,6 +59,52 @@ class ContactRequestRecord {
 
   bool get isAccepted {
     return status == ContactRequestStatus.accepted;
+  }
+
+  String get vehicleTitle {
+    final label = vehicleLabel?.trim();
+
+    if (label != null && label.isNotEmpty) {
+      return label;
+    }
+
+    final parts = <String>[
+      if (vehicleColor != null && vehicleColor!.trim().isNotEmpty)
+        _vehicleColorAdjective(vehicleColor!),
+      if (vehicleBrand != null && vehicleBrand!.trim().isNotEmpty)
+        vehicleBrand!.trim(),
+      if (vehicleModel != null && vehicleModel!.trim().isNotEmpty)
+        vehicleModel!.trim(),
+    ];
+
+    final title = parts.join(' ').trim();
+    return title.isEmpty ? 'Fahrzeug' : title;
+  }
+
+  String get introMessage {
+    final title = vehicleTitle;
+
+    if (title == 'Fahrzeug') {
+      return 'Hey, ich möchte dich zu diesem Fahrzeug kontaktieren.';
+    }
+
+    return 'Hey, ich bin der Fahrer im $title.';
+  }
+
+  static String _vehicleColorAdjective(String color) {
+    return switch (color.trim().toLowerCase()) {
+      'schwarz' => 'schwarzer',
+      'weiß' || 'weiss' => 'weißer',
+      'silber' => 'silberner',
+      'grau' => 'grauer',
+      'blau' => 'blauer',
+      'rot' => 'roter',
+      'grün' || 'gruen' => 'grüner',
+      'braun' => 'brauner',
+      'gelb' => 'gelber',
+      'orange' => 'oranger',
+      _ => color.trim(),
+    };
   }
 
   String get statusLabel {
@@ -77,6 +131,10 @@ class ContactRequestRecord {
     String? senderDisplayName,
     String? receiverDisplayName,
     String? displayPlate,
+    String? vehicleBrand,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehicleLabel,
     DateTime? updatedAt,
     DateTime? expiresAt,
     String? chatId,
@@ -93,6 +151,10 @@ class ContactRequestRecord {
       senderDisplayName: senderDisplayName ?? this.senderDisplayName,
       receiverDisplayName: receiverDisplayName ?? this.receiverDisplayName,
       displayPlate: displayPlate ?? this.displayPlate,
+      vehicleBrand: vehicleBrand ?? this.vehicleBrand,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      vehicleColor: vehicleColor ?? this.vehicleColor,
+      vehicleLabel: vehicleLabel ?? this.vehicleLabel,
       updatedAt: updatedAt ?? this.updatedAt,
       expiresAt: expiresAt ?? this.expiresAt,
       chatId: chatId ?? this.chatId,
@@ -116,6 +178,10 @@ class ContactRequestRecord {
       senderDisplayName: data['senderDisplayName'] as String?,
       receiverDisplayName: data['receiverDisplayName'] as String?,
       displayPlate: data['displayPlate'] as String?,
+      vehicleBrand: data['vehicleBrand'] as String?,
+      vehicleModel: data['vehicleModel'] as String?,
+      vehicleColor: data['vehicleColor'] as String?,
+      vehicleLabel: data['vehicleLabel'] as String?,
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       expiresAt: _dateTimeFromValue(data['expiresAt']),
       chatId: data['chatId'] as String?,

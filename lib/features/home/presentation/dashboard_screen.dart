@@ -980,7 +980,7 @@ class _PlateSearchResultCard extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
-                  result.displayName ?? 'Carma Nutzer',
+                  result.vehicleTitle,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,

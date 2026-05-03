@@ -249,11 +249,7 @@ class _RequestListCard extends StatelessWidget {
   final VoidCallback onWithdraw;
 
   String get _title {
-    if (isIncoming) {
-      return _safeText(request.senderDisplayName, 'Carma Nutzer');
-    }
-
-    return _safeText(request.receiverDisplayName, 'Carma Nutzer');
+    return request.vehicleTitle;
   }
 
   String get _subtitle {
@@ -307,12 +303,24 @@ class _RequestListCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Status: ${request.statusLabel}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.58),
-                    fontWeight: FontWeight.w800,
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    color: Colors.white.withValues(alpha: 0.07),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Text(
+                    request.introMessage,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.86),
+                      fontWeight: FontWeight.w800,
+                      height: 1.35,
+                    ),
                   ),
                 ),
                 if (request.isPending) ...[
