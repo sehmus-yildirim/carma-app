@@ -176,29 +176,21 @@ class FirestoreChatRepository implements ChatRepository {
     final now = DateTime.now();
     final trimmedSystemMessage = systemMessage?.trim();
 
-    await _firestore.runTransaction((transaction) async {
-      final existingSnapshot = await transaction.get(chatDocument);
-
-      if (existingSnapshot.exists) {
-        return;
-      }
-
-      transaction.set(chatDocument, {
-        'participants': uniqueParticipants,
-        'status': FirestoreChatStatus.active,
-        'requestId': requestId,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
-        'lastMessage':
-            trimmedSystemMessage == null || trimmedSystemMessage.isEmpty
-            ? null
-            : trimmedSystemMessage,
-        'lastMessageAt':
-            trimmedSystemMessage == null || trimmedSystemMessage.isEmpty
-            ? null
-            : Timestamp.fromDate(now),
-        'isDeleted': false,
-      });
+    await chatDocument.set({
+      'participants': uniqueParticipants,
+      'status': FirestoreChatStatus.active,
+      'requestId': requestId,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+      'lastMessage':
+          trimmedSystemMessage == null || trimmedSystemMessage.isEmpty
+          ? null
+          : trimmedSystemMessage,
+      'lastMessageAt':
+          trimmedSystemMessage == null || trimmedSystemMessage.isEmpty
+          ? null
+          : Timestamp.fromDate(now),
+      'isDeleted': false,
     });
 
     final snapshot = await chatDocument.get();

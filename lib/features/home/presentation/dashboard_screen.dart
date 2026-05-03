@@ -994,18 +994,6 @@ class _PlateSearchResultCard extends StatelessWidget {
             label: 'Kennzeichen',
             value: fallbackDisplayPlate.isEmpty ? '-' : fallbackDisplayPlate,
           ),
-          const SizedBox(height: 10),
-          _ResultInfoRow(
-            label: 'Entfernung',
-            value: result.distanceKm == null
-                ? 'In deiner NÃƒÂ¤he'
-                : '${result.distanceKm!.toStringAsFixed(1)} km',
-          ),
-          const SizedBox(height: 10),
-          const _ResultInfoRow(
-            label: 'Status',
-            value: 'Aktiv in deiner NÃƒÂ¤he',
-          ),
           const SizedBox(height: 20),
           _RequestContactButton(
             isLoading: isRequestingContact,

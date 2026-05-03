@@ -85,10 +85,10 @@ class ContactRequestRecord {
     final title = vehicleTitle;
 
     if (title == 'Fahrzeug') {
-      return 'Hey, ich möchte dich zu diesem Fahrzeug kontaktieren.';
+      return 'Hey, ich bin der Fahrer dieses Fahrzeugs. Ich bin eben an dir vorbeigefahren.';
     }
 
-    return 'Hey, ich bin der Fahrer im $title.';
+    return 'Hey, ich bin der Fahrer im $title. Ich bin eben an dir vorbeigefahren.';
   }
 
   static String _vehicleColorAdjective(String color) {
