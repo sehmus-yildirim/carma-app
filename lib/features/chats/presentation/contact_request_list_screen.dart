@@ -6,7 +6,9 @@ import '../../../shared/widgets/carma_background.dart';
 import '../../../shared/widgets/carma_blue_icon_box.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../data/chat_repository.dart';
 import '../data/contact_request_repository.dart';
+import '../domain/accept_contact_request_use_case.dart';
 
 enum ContactRequestListMode { incoming, outgoing }
 
@@ -28,6 +30,7 @@ class ContactRequestListScreen extends StatefulWidget {
 class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
   final FirestoreContactRequestRepository _repository =
       FirestoreContactRequestRepository();
+  final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
 
   late Future<List<ContactRequestRecord>> _future;
 
@@ -112,9 +115,15 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
   Future<void> _acceptRequest(ContactRequestRecord request) {
     return _runRequestAction(
       request: request,
-      successMessage: 'Kontaktanfrage wurde angenommen.',
+      successMessage:
+          'Kontaktanfrage wurde angenommen. Ein Chat wurde erstellt.',
       action: () async {
-        await _repository.acceptRequest(requestId: request.id);
+        final useCase = AcceptContactRequestUseCase(
+          contactRequestRepository: _repository,
+          chatRepository: _chatRepository,
+        );
+
+        await useCase(request: request);
       },
     );
   }
