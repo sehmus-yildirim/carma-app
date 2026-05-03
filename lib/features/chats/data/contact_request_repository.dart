@@ -1,3 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../../shared/firebase/carma_firestore_paths.dart';
+import '../../../shared/firebase/carma_firestore_schema.dart';
+
 enum ContactRequestStatus {
   pending,
   accepted,
@@ -18,6 +23,7 @@ class ContactRequestRecord {
     required this.status,
     required this.createdAt,
     this.updatedAt,
+    this.expiresAt,
     this.chatId,
   });
 
@@ -30,6 +36,7 @@ class ContactRequestRecord {
   final ContactRequestStatus status;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final DateTime? expiresAt;
   final String? chatId;
 
   bool get isPending {
@@ -38,6 +45,17 @@ class ContactRequestRecord {
 
   bool get isAccepted {
     return status == ContactRequestStatus.accepted;
+  }
+
+  String get statusLabel {
+    return switch (status) {
+      ContactRequestStatus.pending => 'Ausstehend',
+      ContactRequestStatus.accepted => 'Angenommen',
+      ContactRequestStatus.declined => 'Abgelehnt',
+      ContactRequestStatus.withdrawn => 'ZurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckgezogen',
+      ContactRequestStatus.expired => 'Abgelaufen',
+      ContactRequestStatus.blocked => 'Blockiert',
+    };
   }
 
   ContactRequestRecord copyWith({
@@ -50,6 +68,7 @@ class ContactRequestRecord {
     ContactRequestStatus? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? expiresAt,
     String? chatId,
   }) {
     return ContactRequestRecord(
@@ -62,8 +81,52 @@ class ContactRequestRecord {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      expiresAt: expiresAt ?? this.expiresAt,
       chatId: chatId ?? this.chatId,
     );
+  }
+
+  factory ContactRequestRecord.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data() ?? const <String, dynamic>{};
+
+    return ContactRequestRecord(
+      id: document.id,
+      senderUserId: data['senderUserId'] as String? ?? '',
+      receiverUserId: data['receiverUserId'] as String? ?? '',
+      countryCode: data['countryCode'] as String? ?? '',
+      plateKey: data['plateKey'] as String? ?? '',
+      message: data['message'] as String? ?? '',
+      status: _statusFromName(data['status'] as String?),
+      createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
+      updatedAt: _dateTimeFromValue(data['updatedAt']),
+      expiresAt: _dateTimeFromValue(data['expiresAt']),
+      chatId: data['chatId'] as String?,
+    );
+  }
+
+  static ContactRequestStatus _statusFromName(String? name) {
+    return ContactRequestStatus.values.firstWhere(
+      (status) => status.name == name,
+      orElse: () => ContactRequestStatus.pending,
+    );
+  }
+
+  static DateTime? _dateTimeFromValue(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
   }
 }
 
@@ -89,13 +152,163 @@ abstract class ContactRequestRepository {
     required String chatId,
   });
 
+  Future<ContactRequestRecord> declineRequest({required String requestId});
+
+  Future<ContactRequestRecord> withdrawRequest({required String requestId});
+}
+
+class FirestoreContactRequestRepository implements ContactRequestRepository {
+  FirestoreContactRequestRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
+
+  CollectionReference<Map<String, dynamic>> get _collection {
+    return _firestore.collection(CarmaFirestoreCollections.contactRequests);
+  }
+
+  Stream<List<ContactRequestRecord>> watchIncomingRequests({
+    required String userId,
+  }) {
+    return _collection
+        .where('receiverUserId', isEqualTo: userId)
+        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
+        .snapshots()
+        .map(_recordsFromSnapshot);
+  }
+
+  Stream<List<ContactRequestRecord>> watchOutgoingRequests({
+    required String userId,
+  }) {
+    return _collection
+        .where('senderUserId', isEqualTo: userId)
+        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
+        .snapshots()
+        .map(_recordsFromSnapshot);
+  }
+
+  @override
+  Future<List<ContactRequestRecord>> loadIncomingRequests({
+    required String userId,
+  }) async {
+    final snapshot = await _collection
+        .where('receiverUserId', isEqualTo: userId)
+        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
+        .get();
+
+    return _recordsFromSnapshot(snapshot);
+  }
+
+  @override
+  Future<List<ContactRequestRecord>> loadOutgoingRequests({
+    required String userId,
+  }) async {
+    final snapshot = await _collection
+        .where('senderUserId', isEqualTo: userId)
+        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
+        .get();
+
+    return _recordsFromSnapshot(snapshot);
+  }
+
+  @override
+  Future<ContactRequestRecord> createRequest({
+    required String senderUserId,
+    required String receiverUserId,
+    required String countryCode,
+    required String plateKey,
+    required String message,
+  }) async {
+    final now = DateTime.now();
+    final expiresAt = now.add(
+      const Duration(
+        hours: FirestoreDocumentDefaults.defaultRequestExpiryHours,
+      ),
+    );
+
+    final document = await _collection.add({
+      'senderUserId': senderUserId,
+      'receiverUserId': receiverUserId,
+      'targetUserId': receiverUserId,
+      'countryCode': countryCode.toUpperCase(),
+      'plateKey': plateKey.trim().toUpperCase(),
+      'message': message.trim(),
+      'status': FirestoreContactRequestStatus.pending,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'expiresAt': Timestamp.fromDate(expiresAt),
+      'isDeleted': false,
+    });
+
+    final snapshot = await document.get();
+    return ContactRequestRecord.fromFirestore(snapshot);
+  }
+
+  @override
+  Future<ContactRequestRecord> acceptRequest({
+    required String requestId,
+    required String chatId,
+  }) async {
+    return _updateRequest(
+      requestId: requestId,
+      status: ContactRequestStatus.accepted,
+      chatId: chatId,
+    );
+  }
+
+  @override
   Future<ContactRequestRecord> declineRequest({
     required String requestId,
-  });
+  }) async {
+    return _updateRequest(
+      requestId: requestId,
+      status: ContactRequestStatus.declined,
+    );
+  }
 
+  @override
   Future<ContactRequestRecord> withdrawRequest({
     required String requestId,
-  });
+  }) async {
+    return _updateRequest(
+      requestId: requestId,
+      status: ContactRequestStatus.withdrawn,
+    );
+  }
+
+  Future<ContactRequestRecord> _updateRequest({
+    required String requestId,
+    required ContactRequestStatus status,
+    String? chatId,
+  }) async {
+    final document = _collection.doc(requestId);
+
+    final updateData = <String, dynamic>{
+      'status': status.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (chatId != null) {
+      updateData['chatId'] = chatId;
+    }
+
+    await document.set(updateData, SetOptions(merge: true));
+
+    final snapshot = await document.get();
+    return ContactRequestRecord.fromFirestore(snapshot);
+  }
+
+  List<ContactRequestRecord> _recordsFromSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final records = snapshot.docs
+        .map(ContactRequestRecord.fromFirestore)
+        .where((request) => !request.isAccepted)
+        .toList();
+
+    records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return records;
+  }
 }
 
 class LocalContactRequestRepository implements ContactRequestRepository {
@@ -112,9 +325,9 @@ class LocalContactRequestRepository implements ContactRequestRepository {
     return _requests
         .where(
           (request) =>
-      request.receiverUserId == userId &&
-          request.status == ContactRequestStatus.pending,
-    )
+              request.receiverUserId == userId &&
+              request.status == ContactRequestStatus.pending,
+        )
         .toList();
   }
 
@@ -125,9 +338,9 @@ class LocalContactRequestRepository implements ContactRequestRepository {
     return _requests
         .where(
           (request) =>
-      request.senderUserId == userId &&
-          request.status == ContactRequestStatus.pending,
-    )
+              request.senderUserId == userId &&
+              request.status == ContactRequestStatus.pending,
+        )
         .toList();
   }
 
