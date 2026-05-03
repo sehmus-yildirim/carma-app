@@ -60,11 +60,15 @@ class PlateSearchService {
   Future<String> requestPlateContact({
     required String targetUid,
     required String plateKey,
+    String? receiverDisplayName,
+    String? displayPlate,
   }) async {
     if (_useMock) {
       return _createContactRequestInFirestore(
         targetUid: targetUid,
         plateKey: plateKey,
+        receiverDisplayName: receiverDisplayName,
+        displayPlate: displayPlate,
       );
     }
 
@@ -73,6 +77,8 @@ class PlateSearchService {
     final response = await callable.call<Map<String, dynamic>>({
       'targetUid': targetUid,
       'plateKey': plateKey,
+      'receiverDisplayName': receiverDisplayName,
+      'displayPlate': displayPlate,
     });
 
     final data = Map<String, dynamic>.from(response.data);
@@ -137,6 +143,8 @@ class PlateSearchService {
   Future<String> _createContactRequestInFirestore({
     required String targetUid,
     required String plateKey,
+    String? receiverDisplayName,
+    String? displayPlate,
   }) async {
     final sender = _auth.currentUser;
 
@@ -167,6 +175,15 @@ class PlateSearchService {
       );
     }
 
+    final senderDisplayName = await _loadCurrentUserDisplayName(senderUserId);
+    final normalizedDisplayPlate = displayPlate?.trim().isNotEmpty == true
+        ? displayPlate!.trim()
+        : plateKey.trim().toUpperCase();
+    final normalizedReceiverDisplayName =
+        receiverDisplayName?.trim().isNotEmpty == true
+        ? receiverDisplayName!.trim()
+        : 'Carma Nutzer';
+
     final now = DateTime.now();
     final expiresAt = now.add(
       const Duration(
@@ -181,6 +198,9 @@ class PlateSearchService {
           'receiverUserId': receiverUserId,
           'targetUserId': receiverUserId,
           'plateKey': plateKey.trim().toUpperCase(),
+          'senderDisplayName': senderDisplayName,
+          'receiverDisplayName': normalizedReceiverDisplayName,
+          'displayPlate': normalizedDisplayPlate,
           'status': FirestoreContactRequestStatus.pending,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -189,5 +209,47 @@ class PlateSearchService {
         });
 
     return document.id;
+  }
+
+  Future<String> _loadCurrentUserDisplayName(String userId) async {
+    try {
+      final profile = await _firestore
+          .doc(CarmaFirestorePaths.userProfile(userId))
+          .get();
+
+      final data = profile.data();
+
+      if (data == null) {
+        return _fallbackDisplayName();
+      }
+
+      final firstName = data['firstName'] as String? ?? '';
+      final lastName = data['lastName'] as String? ?? '';
+      final displayName = data['displayName'] as String? ?? '';
+
+      final fullName = '$firstName $lastName'.trim();
+
+      if (fullName.isNotEmpty) {
+        return fullName;
+      }
+
+      if (displayName.trim().isNotEmpty) {
+        return displayName.trim();
+      }
+
+      return _fallbackDisplayName();
+    } catch (_) {
+      return _fallbackDisplayName();
+    }
+  }
+
+  String _fallbackDisplayName() {
+    final authDisplayName = _auth.currentUser?.displayName;
+
+    if (authDisplayName != null && authDisplayName.trim().isNotEmpty) {
+      return authDisplayName.trim();
+    }
+
+    return 'Carma Nutzer';
   }
 }

@@ -275,7 +275,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _position = null;
           _locationError =
-              'Standortdienste sind deaktiviert. Bitte aktiviere GPS auf deinem Gerät.';
+              'Standortdienste sind deaktiviert. Bitte aktiviere GPS auf deinem GerÃƒÂ¤t.';
           _isLoadingLocation = false;
         });
         return;
@@ -295,7 +295,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _position = null;
           _locationError =
-              'Standortberechtigung wurde verweigert. Die Suche ist ohne Standort nicht möglich.';
+              'Standortberechtigung wurde verweigert. Die Suche ist ohne Standort nicht mÃƒÂ¶glich.';
           _isLoadingLocation = false;
         });
         return;
@@ -338,7 +338,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _position = null;
         _locationError =
-            'Standort lädt zu lange. Bitte prüfe GPS oder setze im Emulator einen Standort.';
+            'Standort lÃƒÂ¤dt zu lange. Bitte prÃƒÂ¼fe GPS oder setze im Emulator einen Standort.';
         _isLoadingLocation = false;
       });
     } catch (_) {
@@ -363,7 +363,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _errorMessage =
             gateDecision.reason ??
-            'Die Kennzeichen-Suche ist aktuell nicht verfügbar.';
+            'Die Kennzeichen-Suche ist aktuell nicht verfÃƒÂ¼gbar.';
         _successMessage = null;
       });
       return;
@@ -371,7 +371,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (!_hasPlateInput) {
       setState(() {
-        _errorMessage = 'Bitte gib ein vollständiges Kennzeichen ein.';
+        _errorMessage = 'Bitte gib ein vollstÃƒÂ¤ndiges Kennzeichen ein.';
         _successMessage = null;
       });
       return;
@@ -389,7 +389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _errorMessage =
             _locationError ??
-            'Bitte aktiviere den Standort, damit die Suche in deiner Nähe möglich ist.';
+            'Bitte aktiviere den Standort, damit die Suche in deiner NÃƒÂ¤he mÃƒÂ¶glich ist.';
         _successMessage = null;
       });
       return;
@@ -447,7 +447,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _errorMessage =
             gateDecision.reason ??
-            'Kontaktanfragen sind aktuell nicht verfügbar.';
+            'Kontaktanfragen sind aktuell nicht verfÃƒÂ¼gbar.';
         _successMessage = null;
       });
       return;
@@ -496,15 +496,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final raw = error.toString();
 
     if (raw.contains('resource-exhausted')) {
-      return 'Du hast keine kostenlosen Anfragen oder Credits mehr verfügbar.';
+      return 'Du hast keine kostenlosen Anfragen oder Credits mehr verfÃƒÂ¼gbar.';
     }
 
     if (raw.contains('unauthenticated')) {
-      return 'Bitte melde dich an, um Kennzeichen suchen zu können.';
+      return 'Bitte melde dich an, um Kennzeichen suchen zu kÃƒÂ¶nnen.';
     }
 
     if (raw.contains('invalid-argument')) {
-      return 'Bitte prüfe deine Eingaben.';
+      return 'Bitte prÃƒÂ¼fe deine Eingaben.';
     }
 
     if (raw.contains('permission-denied')) {
@@ -512,10 +512,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     if (raw.contains('already-exists')) {
-      return 'Für diesen Treffer existiert bereits eine Anfrage.';
+      return 'FÃƒÂ¼r diesen Treffer existiert bereits eine Anfrage.';
     }
 
-    return 'Die Suche ist aktuell noch nicht vollständig verbunden. Das Backend richten wir später ein.';
+    return 'Die Suche ist aktuell noch nicht vollstÃƒÂ¤ndig verbunden. Das Backend richten wir spÃƒÂ¤ter ein.';
   }
 
   void _handleRegionChanged(String value) {
@@ -601,7 +601,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Fahrzeughalter geschützt kontaktieren',
+                      'Fahrzeughalter geschÃƒÂ¼tzt kontaktieren',
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: Colors.white,
@@ -612,7 +612,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Gib ein Kennzeichen ein, um eine geschützte Kontaktanfrage vorzubereiten.',
+                      'Gib ein Kennzeichen ein, um eine geschÃƒÂ¼tzte Kontaktanfrage vorzubereiten.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withValues(alpha: 0.78),
                         fontWeight: FontWeight.w800,
@@ -758,7 +758,7 @@ class _RetryLocationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return CarmaPrimaryButton(
       label: 'Standort erneut laden',
-      loadingLabel: 'Standort lädt...',
+      loadingLabel: 'Standort lÃƒÂ¤dt...',
       icon: Icons.refresh_rounded,
       iconSize: 25,
       fontSize: 17,
@@ -784,14 +784,14 @@ class _SearchCreditCard extends StatelessWidget {
     }
 
     if (searchCredit.isExhausted) {
-      return 'Keine Anfragen verfügbar';
+      return 'Keine Anfragen verfÃƒÂ¼gbar';
     }
 
     if (searchCredit.hasFreeRemaining) {
       return 'Monatliche Anfragen';
     }
 
-    return 'Credits verfügbar';
+    return 'Credits verfÃƒÂ¼gbar';
   }
 
   String get _description {
@@ -800,14 +800,14 @@ class _SearchCreditCard extends StatelessWidget {
     }
 
     if (searchCredit.hasFreeRemaining) {
-      return '${searchCredit.freeRemainingThisMonth} von ${searchCredit.freeMonthlyLimit} kostenlosen Anfragen in diesem Monat verfügbar.';
+      return '${searchCredit.freeRemainingThisMonth} von ${searchCredit.freeMonthlyLimit} kostenlosen Anfragen in diesem Monat verfÃƒÂ¼gbar.';
     }
 
     if (searchCredit.hasPaidRemaining) {
-      return '${searchCredit.availablePaidCredits} Credits verfügbar. Jede verwertbare Anfrage verbraucht 1 Credit.';
+      return '${searchCredit.availablePaidCredits} Credits verfÃƒÂ¼gbar. Jede verwertbare Anfrage verbraucht 1 Credit.';
     }
 
-    return 'Deine kostenlosen Anfragen sind aufgebraucht. Credits kaufen wird später freigeschaltet.';
+    return 'Deine kostenlosen Anfragen sind aufgebraucht. Credits kaufen wird spÃƒÂ¤ter freigeschaltet.';
   }
 
   IconData get _icon {
@@ -890,8 +890,8 @@ class _SearchButtonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CarmaPrimaryButton(
-      label: 'Anfrage prüfen',
-      loadingLabel: 'Prüfung läuft...',
+      label: 'Anfrage prÃƒÂ¼fen',
+      loadingLabel: 'PrÃƒÂ¼fung lÃƒÂ¤uft...',
       icon: Icons.search_rounded,
       iconSize: 29,
       fontSize: 19.5,
@@ -937,7 +937,7 @@ class _PlateSearchResultCard extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                'Kein Nutzer in deiner Nähe gefunden. Dafür wurde keine Anfrage verbraucht.',
+                'Kein Nutzer in deiner NÃƒÂ¤he gefunden. DafÃƒÂ¼r wurde keine Anfrage verbraucht.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -998,11 +998,14 @@ class _PlateSearchResultCard extends StatelessWidget {
           _ResultInfoRow(
             label: 'Entfernung',
             value: result.distanceKm == null
-                ? 'In deiner Nähe'
+                ? 'In deiner NÃƒÂ¤he'
                 : '${result.distanceKm!.toStringAsFixed(1)} km',
           ),
           const SizedBox(height: 10),
-          const _ResultInfoRow(label: 'Status', value: 'Aktiv in deiner Nähe'),
+          const _ResultInfoRow(
+            label: 'Status',
+            value: 'Aktiv in deiner NÃƒÂ¤he',
+          ),
           const SizedBox(height: 20),
           _RequestContactButton(
             isLoading: isRequestingContact,
@@ -1048,7 +1051,7 @@ class _RequestContactButton extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                isLoading ? 'Anfrage läuft...' : 'Kontakt anfragen',
+                isLoading ? 'Anfrage lÃƒÂ¤uft...' : 'Kontakt anfragen',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Colors.black.withValues(alpha: 0.84),
                   fontWeight: FontWeight.w900,
