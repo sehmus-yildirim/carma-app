@@ -1051,6 +1051,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   late List<_LocalChatMessage> _messages;
   bool _hasText = false;
   bool _isLoadingMessages = false;
+  bool _isSendingMessage = false;
 
   bool get _hasFirestoreChat {
     final chatId = widget.chatId?.trim();
@@ -1152,21 +1153,85 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     );
   }
 
-  void _handleSend() {
-    if (!_hasText) {
+  Future<void> _handleSend() async {
+    if (!_hasText || _isSendingMessage) {
       return;
     }
 
     final message = _messageController.text.trim();
 
+    if (message.isEmpty) {
+      return;
+    }
+
+    final chatId = widget.chatId?.trim();
+
+    if (chatId == null || chatId.isEmpty) {
+      setState(() {
+        _messages = [
+          ..._messages,
+          _LocalChatMessage(text: message, isMine: true, timeLabel: 'Jetzt'),
+        ];
+      });
+
+      _messageController.clear();
+      return;
+    }
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (currentUserId == null || currentUserId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Du musst angemeldet sein, um Nachrichten zu senden.'),
+        ),
+      );
+      return;
+    }
+
     setState(() {
-      _messages = [
-        ..._messages,
-        _LocalChatMessage(text: message, isMine: true, timeLabel: 'Jetzt'),
-      ];
+      _isSendingMessage = true;
     });
 
-    _messageController.clear();
+    try {
+      final sentMessage = await _chatRepository.sendTextMessage(
+        chatId: chatId,
+        senderUserId: currentUserId,
+        text: message,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _messages = [
+          ..._messages,
+          _LocalChatMessage(
+            text: sentMessage.text,
+            isMine: true,
+            timeLabel: _timeLabel(sentMessage.createdAt),
+          ),
+        ];
+        _isSendingMessage = false;
+      });
+
+      _messageController.clear();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nachricht konnte nicht gesendet werden: $error'),
+        ),
+      );
+    }
   }
 
   @override
