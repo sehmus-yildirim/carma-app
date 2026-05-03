@@ -8,15 +8,13 @@ import '../../../shared/widgets/carma_page_header.dart';
 import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
+import 'contact_request_counts_card.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
 const Color _carmaBlueLight = Color(0xFF63D5FF);
 const Color _carmaBlueDark = Color(0xFF0A76FF);
 
-enum _ChatsView {
-  chats,
-  requests,
-}
+enum _ChatsView { chats, requests }
 
 enum _LocalChatTestMode {
   empty,
@@ -29,10 +27,7 @@ enum _LocalChatTestMode {
 const _LocalChatTestMode _localChatTestMode = _LocalChatTestMode.empty;
 
 class ChatsScreen extends StatefulWidget {
-  const ChatsScreen({
-    super.key,
-    required this.userState,
-  });
+  const ChatsScreen({super.key, required this.userState});
 
   final AppUserState userState;
 
@@ -63,12 +58,16 @@ class _ChatsScreenState extends State<ChatsScreen> {
   void initState() {
     super.initState();
 
-    _hasIncomingRequest = _localChatTestMode == _LocalChatTestMode.incomingRequest;
-    _hasOutgoingRequest = _localChatTestMode == _LocalChatTestMode.outgoingRequest;
-    _hasActiveChat = _localChatTestMode == _LocalChatTestMode.activeChat ||
+    _hasIncomingRequest =
+        _localChatTestMode == _LocalChatTestMode.incomingRequest;
+    _hasOutgoingRequest =
+        _localChatTestMode == _LocalChatTestMode.outgoingRequest;
+    _hasActiveChat =
+        _localChatTestMode == _LocalChatTestMode.activeChat ||
         _localChatTestMode == _LocalChatTestMode.activeChatWithMessages;
 
-    _chatMessages = _localChatTestMode == _LocalChatTestMode.activeChatWithMessages
+    _chatMessages =
+        _localChatTestMode == _LocalChatTestMode.activeChatWithMessages
         ? _buildLocalChatMessages()
         : <_LocalChatMessage>[];
   }
@@ -77,12 +76,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
     return const [
       _LocalChatMessage(
         text:
-        'Hey, ich bin gerade an deinem Fahrzeug vorbeigefahren. Dein Fenster scheint noch offen zu sein.',
+            'Hey, ich bin gerade an deinem Fahrzeug vorbeigefahren. Dein Fenster scheint noch offen zu sein.',
         isMine: false,
         timeLabel: '14:21',
       ),
       _LocalChatMessage(
-        text: 'Danke dir für den Hinweis. Ich schaue sofort nach.',
+        text: 'Danke dir fÃƒÂ¼r den Hinweis. Ich schaue sofort nach.',
         isMine: true,
         timeLabel: '14:23',
       ),
@@ -117,7 +116,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
               _chatMessages = const [
                 _LocalChatMessage(
                   text:
-                  'Kontaktanfrage angenommen. Ihr könnt jetzt geschützt schreiben.',
+                      'Kontaktanfrage angenommen. Ihr kÃƒÂ¶nnt jetzt geschÃƒÂ¼tzt schreiben.',
                   isMine: false,
                   timeLabel: 'Jetzt',
                   isSystem: true,
@@ -173,12 +172,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                112 + keyboardInset,
-              ),
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 112 + keyboardInset),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: constraints.maxHeight - 112,
@@ -202,11 +196,14 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     ),
                     const SizedBox(height: 18),
                     const _MvpInfoCard(),
+                    const SizedBox(height: 12),
+                    ContactRequestCountsCard(userState: widget.userState),
                     const SizedBox(height: 18),
                     if (!chatGateDecision.isAllowed)
                       _ChatAccessBlockedCard(
-                        message: chatGateDecision.reason ??
-                            'Chats sind aktuell nicht verfügbar.',
+                        message:
+                            chatGateDecision.reason ??
+                            'Chats sind aktuell nicht verfÃƒÂ¼gbar.',
                       )
                     else ...[
                       _ChatsSegmentedControl(
@@ -220,18 +217,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         switchOutCurve: Curves.easeIn,
                         child: _selectedView == _ChatsView.chats
                             ? _ChatsOverview(
-                          key: const ValueKey('chats_view'),
-                          hasActiveChat: _hasActiveChat,
-                          messageCount: _chatMessages.length,
-                          onOpenActiveChats: _openActiveChatsScreen,
-                        )
+                                key: const ValueKey('chats_view'),
+                                hasActiveChat: _hasActiveChat,
+                                messageCount: _chatMessages.length,
+                                onOpenActiveChats: _openActiveChatsScreen,
+                              )
                             : _RequestsOverview(
-                          key: const ValueKey('requests_view'),
-                          hasIncomingRequest: _hasIncomingRequest,
-                          hasOutgoingRequest: _hasOutgoingRequest,
-                          onOpenIncoming: _openIncomingRequestsScreen,
-                          onOpenOutgoing: _openOutgoingRequestsScreen,
-                        ),
+                                key: const ValueKey('requests_view'),
+                                hasIncomingRequest: _hasIncomingRequest,
+                                hasOutgoingRequest: _hasOutgoingRequest,
+                                onOpenIncoming: _openIncomingRequestsScreen,
+                                onOpenOutgoing: _openOutgoingRequestsScreen,
+                              ),
                       ),
                     ],
                   ],
@@ -277,7 +274,7 @@ class _MvpInfoCard extends StatelessWidget {
           const SizedBox(width: 13),
           Expanded(
             child: Text(
-              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir später mit Firebase.',
+              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir spÃƒÂ¤ter mit Firebase.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.80),
                 fontWeight: FontWeight.w700,
@@ -292,9 +289,7 @@ class _MvpInfoCard extends StatelessWidget {
 }
 
 class _ChatAccessBlockedCard extends StatelessWidget {
-  const _ChatAccessBlockedCard({
-    required this.message,
-  });
+  const _ChatAccessBlockedCard({required this.message});
 
   final String message;
 
@@ -316,7 +311,7 @@ class _ChatAccessBlockedCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chats nicht verfügbar',
+                  'Chats nicht verfÃƒÂ¼gbar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -408,14 +403,10 @@ class _SegmentButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             gradient: isSelected
                 ? const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlue,
-                _carmaBlueLight,
-              ],
-            )
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
+                  )
                 : null,
             color: isSelected ? null : Colors.white.withValues(alpha: 0.04),
             border: Border.all(
@@ -425,22 +416,18 @@ class _SegmentButton extends StatelessWidget {
             ),
             boxShadow: isSelected
                 ? [
-              BoxShadow(
-                color: _carmaBlue.withValues(alpha: 0.26),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ]
+                    BoxShadow(
+                      color: _carmaBlue.withValues(alpha: 0.26),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
                 : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: Colors.white,
-                size: 22,
-              ),
+              Icon(icon, color: Colors.white, size: 22),
               const SizedBox(width: 9),
               Flexible(
                 child: Text(
@@ -484,8 +471,8 @@ class _ChatsOverview extends StatelessWidget {
       description: 'Angenommene Anfragen werden hier als Chat angezeigt.',
       bodyText: hasActiveChat
           ? messageCount > 0
-          ? '$messageCount lokale Beispielnachrichten verfügbar.'
-          : 'Ein aktiver Chat ist verfügbar.'
+                ? '$messageCount lokale Beispielnachrichten verfÃƒÂ¼gbar.'
+                : 'Ein aktiver Chat ist verfÃƒÂ¼gbar.'
           : 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.',
       onTap: onOpenActiveChats,
     );
@@ -515,7 +502,7 @@ class _RequestsOverview extends StatelessWidget {
           title: 'Eingehende Anfragen',
           count: hasIncomingRequest ? '1' : '0',
           description:
-          'Anfragen von Nutzern, die dich über dein Kennzeichen gefunden haben.',
+              'Anfragen von Nutzern, die dich ÃƒÂ¼ber dein Kennzeichen gefunden haben.',
           bodyText: hasIncomingRequest
               ? 'Neue Anfrage wartet auf deine Entscheidung.'
               : 'Aktuell gibt es keine offenen Anfragen. Neue Kontakte erscheinen hier zuerst zur Freigabe.',
@@ -527,10 +514,10 @@ class _RequestsOverview extends StatelessWidget {
           title: 'Gesendete Anfragen',
           count: hasOutgoingRequest ? '1' : '0',
           description:
-          'Anfragen, die du nach einer Kennzeichen-Suche verschickt hast.',
+              'Anfragen, die du nach einer Kennzeichen-Suche verschickt hast.',
           bodyText: hasOutgoingRequest
               ? 'Eine Anfrage wartet auf Antwort.'
-              : 'Du hast aktuell keine Anfrage gesendet. Später erscheinen hier offene Anfragen aus der Suche.',
+              : 'Du hast aktuell keine Anfrage gesendet. SpÃƒÂ¤ter erscheinen hier offene Anfragen aus der Suche.',
           onTap: onOpenOutgoing,
         ),
       ],
@@ -571,11 +558,7 @@ class _OverviewCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    CarmaBlueIconBox(
-                      icon: icon,
-                      size: 48,
-                      iconSize: 24,
-                    ),
+                    CarmaBlueIconBox(icon: icon, size: 48, iconSize: 24),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -583,35 +566,29 @@ class _OverviewCard extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 19,
-                              letterSpacing: -0.2,
-                            ),
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 19,
+                                  letterSpacing: -0.2,
+                                ),
                           ),
                           const SizedBox(height: 5),
                           Text(
                             description,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.68),
-                              fontWeight: FontWeight.w600,
-                              height: 1.35,
-                            ),
+                                  color: Colors.white.withValues(alpha: 0.68),
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.35,
+                                ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    _CountBadge(
-                      count: count,
-                    ),
+                    _CountBadge(count: count),
                   ],
                 ),
                 const SizedBox(height: 18),
@@ -636,12 +613,12 @@ class _OverviewCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           bodyText,
-                          style:
-                          Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.74),
-                            fontWeight: FontWeight.w700,
-                            height: 1.3,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.74),
+                                fontWeight: FontWeight.w700,
+                                height: 1.3,
+                              ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -663,9 +640,7 @@ class _OverviewCard extends StatelessWidget {
 }
 
 class _CountBadge extends StatelessWidget {
-  const _CountBadge({
-    required this.count,
-  });
+  const _CountBadge({required this.count});
 
   final String count;
 
@@ -680,10 +655,7 @@ class _CountBadge extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            _carmaBlueDark,
-            _carmaBlueLight,
-          ],
+          colors: [_carmaBlueDark, _carmaBlueLight],
         ),
         boxShadow: [
           BoxShadow(
@@ -722,24 +694,24 @@ class _IncomingRequestsScreen extends StatelessWidget {
       icon: Icons.move_to_inbox_rounded,
       headerTitle: 'Eingehende Anfragen',
       subtitle:
-      'Hier entscheidest du, welche Kontaktanfragen angenommen oder abgelehnt werden.',
+          'Hier entscheidest du, welche Kontaktanfragen angenommen oder abgelehnt werden.',
       child: hasIncomingRequest
           ? _IncomingRequestCard(
-        onAccept: () {
-          onAccept();
-          Navigator.of(context).pop();
-        },
-        onDecline: () {
-          onDecline();
-          Navigator.of(context).pop();
-        },
-      )
+              onAccept: () {
+                onAccept();
+                Navigator.of(context).pop();
+              },
+              onDecline: () {
+                onDecline();
+                Navigator.of(context).pop();
+              },
+            )
           : const _EmptyListCard(
-        icon: Icons.mark_email_unread_outlined,
-        title: 'Keine offenen Anfragen',
-        description:
-        'Sobald dich jemand über dein Kennzeichen kontaktiert, erscheint die Anfrage hier. Du entscheidest dann, ob daraus ein Chat wird.',
-      ),
+              icon: Icons.mark_email_unread_outlined,
+              title: 'Keine offenen Anfragen',
+              description:
+                  'Sobald dich jemand ÃƒÂ¼ber dein Kennzeichen kontaktiert, erscheint die Anfrage hier. Du entscheidest dann, ob daraus ein Chat wird.',
+            ),
     );
   }
 }
@@ -761,21 +733,21 @@ class _OutgoingRequestsScreen extends StatelessWidget {
       icon: Icons.outbox_rounded,
       headerTitle: 'Gesendete Anfragen',
       subtitle:
-      'Hier siehst du Anfragen, die du nach einer Kennzeichen-Suche gesendet hast.',
+          'Hier siehst du Anfragen, die du nach einer Kennzeichen-Suche gesendet hast.',
       child: hasOutgoingRequest
           ? _OutgoingRequestCard(
-        currentFirstName: currentFirstName,
-        onWithdraw: () {
-          onWithdraw();
-          Navigator.of(context).pop();
-        },
-      )
+              currentFirstName: currentFirstName,
+              onWithdraw: () {
+                onWithdraw();
+                Navigator.of(context).pop();
+              },
+            )
           : const _EmptyListCard(
-        icon: Icons.schedule_send_outlined,
-        title: 'Keine gesendeten Anfragen',
-        description:
-        'Wenn du eine Kontaktanfrage sendest, erscheint sie hier bis sie angenommen, abgelehnt oder zurückgezogen wird.',
-      ),
+              icon: Icons.schedule_send_outlined,
+              title: 'Keine gesendeten Anfragen',
+              description:
+                  'Wenn du eine Kontaktanfrage sendest, erscheint sie hier bis sie angenommen, abgelehnt oder zurÃƒÂ¼ckgezogen wird.',
+            ),
     );
   }
 }
@@ -795,26 +767,25 @@ class _ActiveChatsScreen extends StatelessWidget {
       icon: Icons.forum_rounded,
       headerTitle: 'Aktive Chats',
       subtitle:
-      'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
+          'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
       child: hasActiveChat
           ? _ActiveChatListTile(
-        hasMessages: messages.isNotEmpty,
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => _ChatConversationScreen(
-                initialMessages: messages,
-              ),
-            ),
-          );
-        },
-      )
+              hasMessages: messages.isNotEmpty,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        _ChatConversationScreen(initialMessages: messages),
+                  ),
+                );
+              },
+            )
           : const _EmptyListCard(
-        icon: Icons.chat_bubble_outline_rounded,
-        title: 'Noch keine aktiven Chats',
-        description:
-        'Sobald eine Anfrage angenommen wird, erscheint die Unterhaltung hier. Bis dahin bleibt dieser Bereich bewusst leer.',
-      ),
+              icon: Icons.chat_bubble_outline_rounded,
+              title: 'Noch keine aktiven Chats',
+              description:
+                  'Sobald eine Anfrage angenommen wird, erscheint die Unterhaltung hier. Bis dahin bleibt dieser Bereich bewusst leer.',
+            ),
     );
   }
 }
@@ -842,12 +813,7 @@ class _SubPageScaffold extends StatelessWidget {
         body: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(
-              20,
-              18,
-              20,
-              112 + keyboardInset,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 112 + keyboardInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -878,10 +844,7 @@ class _SubPageScaffold extends StatelessWidget {
 }
 
 class _IncomingRequestCard extends StatelessWidget {
-  const _IncomingRequestCard({
-    required this.onAccept,
-    required this.onDecline,
-  });
+  const _IncomingRequestCard({required this.onAccept, required this.onDecline});
 
   final VoidCallback onAccept;
   final VoidCallback onDecline;
@@ -897,7 +860,7 @@ class _IncomingRequestCard extends StatelessWidget {
           const SizedBox(height: 18),
           const _RequestTextBox(
             text:
-            'Hey, ich bin Carma Nutzer. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
+                'Hey, ich bin Carma Nutzer. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
           ),
           const SizedBox(height: 18),
           Row(
@@ -943,11 +906,11 @@ class _OutgoingRequestCard extends StatelessWidget {
           const SizedBox(height: 18),
           _RequestTextBox(
             text:
-            'Hey, ich bin $currentFirstName. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
+                'Hey, ich bin $currentFirstName. Ich bin gerade mit dem schwarzen BMW 1er an dir vorbeigefahren.',
           ),
           const SizedBox(height: 18),
           _SheetSecondaryButton(
-            label: 'Anfrage zurückziehen',
+            label: 'Anfrage zurÃƒÂ¼ckziehen',
             onPressed: onWithdraw,
           ),
         ],
@@ -998,9 +961,7 @@ class _RequestUserHeader extends StatelessWidget {
 }
 
 class _RequestTextBox extends StatelessWidget {
-  const _RequestTextBox({
-    required this.text,
-  });
+  const _RequestTextBox({required this.text});
 
   final String text;
 
@@ -1012,9 +973,7 @@ class _RequestTextBox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         color: Colors.white.withValues(alpha: 0.07),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Text(
         text,
@@ -1029,10 +988,7 @@ class _RequestTextBox extends StatelessWidget {
 }
 
 class _ActiveChatListTile extends StatelessWidget {
-  const _ActiveChatListTile({
-    required this.hasMessages,
-    required this.onTap,
-  });
+  const _ActiveChatListTile({required this.hasMessages, required this.onTap});
 
   final bool hasMessages;
   final VoidCallback onTap;
@@ -1060,22 +1016,21 @@ class _ActiveChatListTile extends StatelessWidget {
                         'Carma Nutzer',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                        Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                            ),
                       ),
                       const SizedBox(height: 5),
                       Text(
                         hasMessages
-                            ? 'Letzte Nachricht: Danke dir für den Hinweis.'
+                            ? 'Letzte Nachricht: Danke dir fÃƒÂ¼r den Hinweis.'
                             : 'Schwarz BMW 1er',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                        Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.68),
                           fontWeight: FontWeight.w700,
                         ),
@@ -1115,11 +1070,7 @@ class _EmptyListCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       child: Column(
         children: [
-          CarmaBlueIconBox(
-            icon: icon,
-            size: 64,
-            iconSize: 32,
-          ),
+          CarmaBlueIconBox(icon: icon, size: 64, iconSize: 32),
           const SizedBox(height: 18),
           Text(
             title,
@@ -1147,9 +1098,7 @@ class _EmptyListCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               color: Colors.white.withValues(alpha: 0.055),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
             ),
             child: Row(
               children: [
@@ -1161,7 +1110,7 @@ class _EmptyListCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Live-Daten werden später mit Firebase geladen.',
+                    'Live-Daten werden spÃƒÂ¤ter mit Firebase geladen.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.72),
                       fontWeight: FontWeight.w700,
@@ -1179,9 +1128,7 @@ class _EmptyListCard extends StatelessWidget {
 }
 
 class _UserAvatarPlaceholder extends StatelessWidget {
-  const _UserAvatarPlaceholder({
-    required this.size,
-  });
+  const _UserAvatarPlaceholder({required this.size});
 
   final double size;
 
@@ -1195,29 +1142,17 @@ class _UserAvatarPlaceholder extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            _carmaBlueDark,
-            _carmaBlueLight,
-          ],
+          colors: [_carmaBlueDark, _carmaBlueLight],
         ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
       ),
-      child: Icon(
-        Icons.person_rounded,
-        color: Colors.white,
-        size: size * 0.56,
-      ),
+      child: Icon(Icons.person_rounded, color: Colors.white, size: size * 0.56),
     );
   }
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _RoundIconButton({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -1236,15 +1171,9 @@ class _RoundIconButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 22,
-          ),
+          child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
     );
@@ -1252,10 +1181,7 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _SheetPrimaryButton extends StatelessWidget {
-  const _SheetPrimaryButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _SheetPrimaryButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
@@ -1274,11 +1200,7 @@ class _SheetPrimaryButton extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlue,
-                _carmaBlueLight,
-              ],
+              colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
             ),
             boxShadow: [
               BoxShadow(
@@ -1303,27 +1225,19 @@ class _SheetPrimaryButton extends StatelessWidget {
 }
 
 class _SheetSecondaryButton extends StatelessWidget {
-  const _SheetSecondaryButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _SheetSecondaryButton({required this.label, required this.onPressed});
 
   final String label;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return CarmaSecondaryButton(
-      label: label,
-      onPressed: onPressed,
-    );
+    return CarmaSecondaryButton(label: label, onPressed: onPressed);
   }
 }
 
 class _ChatConversationScreen extends StatefulWidget {
-  const _ChatConversationScreen({
-    required this.initialMessages,
-  });
+  const _ChatConversationScreen({required this.initialMessages});
 
   final List<_LocalChatMessage> initialMessages;
 
@@ -1368,7 +1282,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Foto aufnehmen oder aus Galerie wählen verbinden wir später.',
+          'Foto aufnehmen oder aus Galerie wÃƒÂ¤hlen verbinden wir spÃƒÂ¤ter.',
         ),
       ),
     );
@@ -1384,11 +1298,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     setState(() {
       _messages = [
         ..._messages,
-        _LocalChatMessage(
-          text: message,
-          isMine: true,
-          timeLabel: 'Jetzt',
-        ),
+        _LocalChatMessage(text: message, isMine: true, timeLabel: 'Jetzt'),
       ];
     });
 
@@ -1409,13 +1319,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
               Expanded(
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    18,
-                    20,
-                    18 + keyboardInset,
-                  ),
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(20, 18, 20, 18 + keyboardInset),
                   child: Column(
                     children: [
                       _CompactChatInfoCard(
@@ -1425,9 +1330,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                       if (_messages.isEmpty)
                         const _ChatEmptySpace()
                       else
-                        _ChatMessageList(
-                          messages: _messages,
-                        ),
+                        _ChatMessageList(messages: _messages),
                     ],
                   ),
                 ),
@@ -1447,9 +1350,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 }
 
 class _CompactChatInfoCard extends StatelessWidget {
-  const _CompactChatInfoCard({
-    required this.onBack,
-  });
+  const _CompactChatInfoCard({required this.onBack});
 
   final VoidCallback onBack;
 
@@ -1461,10 +1362,7 @@ class _CompactChatInfoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _RoundIconButton(
-                icon: Icons.arrow_back_rounded,
-                onTap: onBack,
-              ),
+              _RoundIconButton(icon: Icons.arrow_back_rounded, onTap: onBack),
               const SizedBox(width: 12),
               const _UserAvatarPlaceholder(size: 46),
               const SizedBox(width: 12),
@@ -1486,17 +1384,11 @@ class _CompactChatInfoCard extends StatelessWidget {
           const Row(
             children: [
               Expanded(
-                child: _VehicleInfoPill(
-                  label: 'Modell',
-                  value: 'BMW 1er',
-                ),
+                child: _VehicleInfoPill(label: 'Modell', value: 'BMW 1er'),
               ),
               SizedBox(width: 8),
               Expanded(
-                child: _VehicleInfoPill(
-                  label: 'Farbe',
-                  value: 'Schwarz',
-                ),
+                child: _VehicleInfoPill(label: 'Farbe', value: 'Schwarz'),
               ),
             ],
           ),
@@ -1507,10 +1399,7 @@ class _CompactChatInfoCard extends StatelessWidget {
 }
 
 class _VehicleInfoPill extends StatelessWidget {
-  const _VehicleInfoPill({
-    required this.label,
-    required this.value,
-  });
+  const _VehicleInfoPill({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1518,16 +1407,11 @@ class _VehicleInfoPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 11,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
         children: [
@@ -1558,9 +1442,7 @@ class _VehicleInfoPill extends StatelessWidget {
 }
 
 class _ChatMessageList extends StatelessWidget {
-  const _ChatMessageList({
-    required this.messages,
-  });
+  const _ChatMessageList({required this.messages});
 
   final List<_LocalChatMessage> messages;
 
@@ -1570,9 +1452,7 @@ class _ChatMessageList extends StatelessWidget {
       children: messages.map((message) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: _ChatMessageBubble(
-            message: message,
-          ),
+          child: _ChatMessageBubble(message: message),
         );
       }).toList(),
     );
@@ -1580,9 +1460,7 @@ class _ChatMessageList extends StatelessWidget {
 }
 
 class _ChatMessageBubble extends StatelessWidget {
-  const _ChatMessageBubble({
-    required this.message,
-  });
+  const _ChatMessageBubble({required this.message});
 
   final _LocalChatMessage message;
 
@@ -1595,9 +1473,7 @@ class _ChatMessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           color: Colors.white.withValues(alpha: 0.06),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.10),
-          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
         ),
         child: Text(
           message.text,
@@ -1627,14 +1503,10 @@ class _ChatMessageBubble extends StatelessWidget {
           ),
           gradient: message.isMine
               ? const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              _carmaBlueDark,
-              _carmaBlue,
-              _carmaBlueLight,
-            ],
-          )
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
+                )
               : null,
           color: message.isMine ? null : Colors.white.withValues(alpha: 0.09),
           border: Border.all(
@@ -1642,8 +1514,9 @@ class _ChatMessageBubble extends StatelessWidget {
           ),
         ),
         child: Column(
-          crossAxisAlignment:
-          message.isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: message.isMine
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Text(
               message.text,
@@ -1676,9 +1549,7 @@ class _ChatEmptySpace extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(
-        minHeight: 260,
-      ),
+      constraints: const BoxConstraints(minHeight: 260),
       alignment: Alignment.topCenter,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
       child: Column(
@@ -1701,7 +1572,7 @@ class _ChatEmptySpace extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Dieser Chat ist lokal vorbereitet. Nachrichten, Anhänge und Zustellstatus werden später mit Firebase verbunden.',
+            'Dieser Chat ist lokal vorbereitet. Nachrichten, AnhÃƒÂ¤nge und Zustellstatus werden spÃƒÂ¤ter mit Firebase verbunden.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.62),
@@ -1781,10 +1652,7 @@ class _MessageComposer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            _SendButton(
-              isEnabled: hasText,
-              onTap: onSend,
-            ),
+            _SendButton(isEnabled: hasText, onTap: onSend),
           ],
         ),
       ),
@@ -1793,10 +1661,7 @@ class _MessageComposer extends StatelessWidget {
 }
 
 class _ComposerIconButton extends StatelessWidget {
-  const _ComposerIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _ComposerIconButton({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -1815,15 +1680,9 @@ class _ComposerIconButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 23,
-          ),
+          child: Icon(icon, color: Colors.white, size: 23),
         ),
       ),
     );
@@ -1831,10 +1690,7 @@ class _ComposerIconButton extends StatelessWidget {
 }
 
 class _SendButton extends StatelessWidget {
-  const _SendButton({
-    required this.isEnabled,
-    required this.onTap,
-  });
+  const _SendButton({required this.isEnabled, required this.onTap});
 
   final bool isEnabled;
   final VoidCallback onTap;
@@ -1857,11 +1713,7 @@ class _SendButton extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
+                colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
               ),
             ),
             child: const Icon(
