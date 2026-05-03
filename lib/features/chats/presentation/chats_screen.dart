@@ -9,6 +9,7 @@ import '../../../shared/widgets/carma_secondary_button.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import 'contact_request_counts_card.dart';
+import 'contact_request_list_screen.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
 const Color _carmaBlueLight = Color(0xFF63D5FF);
@@ -81,7 +82,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
         timeLabel: '14:21',
       ),
       _LocalChatMessage(
-        text: 'Danke dir fÃƒÂ¼r den Hinweis. Ich schaue sofort nach.',
+        text:
+            'Danke dir fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r den Hinweis. Ich schaue sofort nach.',
         isMine: true,
         timeLabel: '14:23',
       ),
@@ -106,29 +108,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
   void _openIncomingRequestsScreen() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _IncomingRequestsScreen(
-          hasIncomingRequest: _hasIncomingRequest,
-          onAccept: () {
-            setState(() {
-              _hasIncomingRequest = false;
-              _hasActiveChat = true;
-              _selectedView = _ChatsView.chats;
-              _chatMessages = const [
-                _LocalChatMessage(
-                  text:
-                      'Kontaktanfrage angenommen. Ihr kÃƒÂ¶nnt jetzt geschÃƒÂ¼tzt schreiben.',
-                  isMine: false,
-                  timeLabel: 'Jetzt',
-                  isSystem: true,
-                ),
-              ];
-            });
-          },
-          onDecline: () {
-            setState(() {
-              _hasIncomingRequest = false;
-            });
-          },
+        builder: (_) => ContactRequestListScreen(
+          userState: widget.userState,
+          mode: ContactRequestListMode.incoming,
         ),
       ),
     );
@@ -137,14 +119,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
   void _openOutgoingRequestsScreen() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _OutgoingRequestsScreen(
-          hasOutgoingRequest: _hasOutgoingRequest,
-          currentFirstName: _currentFirstName,
-          onWithdraw: () {
-            setState(() {
-              _hasOutgoingRequest = false;
-            });
-          },
+        builder: (_) => ContactRequestListScreen(
+          userState: widget.userState,
+          mode: ContactRequestListMode.outgoing,
         ),
       ),
     );
@@ -203,7 +180,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       _ChatAccessBlockedCard(
                         message:
                             chatGateDecision.reason ??
-                            'Chats sind aktuell nicht verfÃƒÂ¼gbar.',
+                            'Chats sind aktuell nicht verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar.',
                       )
                     else ...[
                       _ChatsSegmentedControl(
@@ -274,7 +251,7 @@ class _MvpInfoCard extends StatelessWidget {
           const SizedBox(width: 13),
           Expanded(
             child: Text(
-              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir spÃƒÂ¤ter mit Firebase.',
+              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter mit Firebase.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.80),
                 fontWeight: FontWeight.w700,
@@ -311,7 +288,7 @@ class _ChatAccessBlockedCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chats nicht verfÃƒÂ¼gbar',
+                  'Chats nicht verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -471,8 +448,8 @@ class _ChatsOverview extends StatelessWidget {
       description: 'Angenommene Anfragen werden hier als Chat angezeigt.',
       bodyText: hasActiveChat
           ? messageCount > 0
-                ? '$messageCount lokale Beispielnachrichten verfÃƒÂ¼gbar.'
-                : 'Ein aktiver Chat ist verfÃƒÂ¼gbar.'
+                ? '$messageCount lokale Beispielnachrichten verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar.'
+                : 'Ein aktiver Chat ist verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar.'
           : 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.',
       onTap: onOpenActiveChats,
     );
@@ -502,7 +479,7 @@ class _RequestsOverview extends StatelessWidget {
           title: 'Eingehende Anfragen',
           count: hasIncomingRequest ? '1' : '0',
           description:
-              'Anfragen von Nutzern, die dich ÃƒÂ¼ber dein Kennzeichen gefunden haben.',
+              'Anfragen von Nutzern, die dich ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ber dein Kennzeichen gefunden haben.',
           bodyText: hasIncomingRequest
               ? 'Neue Anfrage wartet auf deine Entscheidung.'
               : 'Aktuell gibt es keine offenen Anfragen. Neue Kontakte erscheinen hier zuerst zur Freigabe.',
@@ -517,7 +494,7 @@ class _RequestsOverview extends StatelessWidget {
               'Anfragen, die du nach einer Kennzeichen-Suche verschickt hast.',
           bodyText: hasOutgoingRequest
               ? 'Eine Anfrage wartet auf Antwort.'
-              : 'Du hast aktuell keine Anfrage gesendet. SpÃƒÂ¤ter erscheinen hier offene Anfragen aus der Suche.',
+              : 'Du hast aktuell keine Anfrage gesendet. SpÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter erscheinen hier offene Anfragen aus der Suche.',
           onTap: onOpenOutgoing,
         ),
       ],
@@ -710,7 +687,7 @@ class _IncomingRequestsScreen extends StatelessWidget {
               icon: Icons.mark_email_unread_outlined,
               title: 'Keine offenen Anfragen',
               description:
-                  'Sobald dich jemand ÃƒÂ¼ber dein Kennzeichen kontaktiert, erscheint die Anfrage hier. Du entscheidest dann, ob daraus ein Chat wird.',
+                  'Sobald dich jemand ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ber dein Kennzeichen kontaktiert, erscheint die Anfrage hier. Du entscheidest dann, ob daraus ein Chat wird.',
             ),
     );
   }
@@ -746,7 +723,7 @@ class _OutgoingRequestsScreen extends StatelessWidget {
               icon: Icons.schedule_send_outlined,
               title: 'Keine gesendeten Anfragen',
               description:
-                  'Wenn du eine Kontaktanfrage sendest, erscheint sie hier bis sie angenommen, abgelehnt oder zurÃƒÂ¼ckgezogen wird.',
+                  'Wenn du eine Kontaktanfrage sendest, erscheint sie hier bis sie angenommen, abgelehnt oder zurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckgezogen wird.',
             ),
     );
   }
@@ -910,7 +887,7 @@ class _OutgoingRequestCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _SheetSecondaryButton(
-            label: 'Anfrage zurÃƒÂ¼ckziehen',
+            label: 'Anfrage zurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckziehen',
             onPressed: onWithdraw,
           ),
         ],
@@ -1026,7 +1003,7 @@ class _ActiveChatListTile extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         hasMessages
-                            ? 'Letzte Nachricht: Danke dir fÃƒÂ¼r den Hinweis.'
+                            ? 'Letzte Nachricht: Danke dir fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r den Hinweis.'
                             : 'Schwarz BMW 1er',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1110,7 +1087,7 @@ class _EmptyListCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Live-Daten werden spÃƒÂ¤ter mit Firebase geladen.',
+                    'Live-Daten werden spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter mit Firebase geladen.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.72),
                       fontWeight: FontWeight.w700,
@@ -1282,7 +1259,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Foto aufnehmen oder aus Galerie wÃƒÂ¤hlen verbinden wir spÃƒÂ¤ter.',
+          'Foto aufnehmen oder aus Galerie wÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤hlen verbinden wir spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter.',
         ),
       ),
     );
@@ -1572,7 +1549,7 @@ class _ChatEmptySpace extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Dieser Chat ist lokal vorbereitet. Nachrichten, AnhÃƒÂ¤nge und Zustellstatus werden spÃƒÂ¤ter mit Firebase verbunden.',
+            'Dieser Chat ist lokal vorbereitet. Nachrichten, AnhÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nge und Zustellstatus werden spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter mit Firebase verbunden.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.62),
