@@ -22,6 +22,9 @@ class ContactRequestRecord {
     required this.message,
     required this.status,
     required this.createdAt,
+    this.senderDisplayName,
+    this.receiverDisplayName,
+    this.displayPlate,
     this.updatedAt,
     this.expiresAt,
     this.chatId,
@@ -35,6 +38,9 @@ class ContactRequestRecord {
   final String message;
   final ContactRequestStatus status;
   final DateTime createdAt;
+  final String? senderDisplayName;
+  final String? receiverDisplayName;
+  final String? displayPlate;
   final DateTime? updatedAt;
   final DateTime? expiresAt;
   final String? chatId;
@@ -52,7 +58,8 @@ class ContactRequestRecord {
       ContactRequestStatus.pending => 'Ausstehend',
       ContactRequestStatus.accepted => 'Angenommen',
       ContactRequestStatus.declined => 'Abgelehnt',
-      ContactRequestStatus.withdrawn => 'ZurÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ckgezogen',
+      ContactRequestStatus.withdrawn =>
+        'ZurÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ckgezogen',
       ContactRequestStatus.expired => 'Abgelaufen',
       ContactRequestStatus.blocked => 'Blockiert',
     };
@@ -67,6 +74,9 @@ class ContactRequestRecord {
     String? message,
     ContactRequestStatus? status,
     DateTime? createdAt,
+    String? senderDisplayName,
+    String? receiverDisplayName,
+    String? displayPlate,
     DateTime? updatedAt,
     DateTime? expiresAt,
     String? chatId,
@@ -80,6 +90,9 @@ class ContactRequestRecord {
       message: message ?? this.message,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      senderDisplayName: senderDisplayName ?? this.senderDisplayName,
+      receiverDisplayName: receiverDisplayName ?? this.receiverDisplayName,
+      displayPlate: displayPlate ?? this.displayPlate,
       updatedAt: updatedAt ?? this.updatedAt,
       expiresAt: expiresAt ?? this.expiresAt,
       chatId: chatId ?? this.chatId,
@@ -100,6 +113,9 @@ class ContactRequestRecord {
       message: data['message'] as String? ?? '',
       status: _statusFromName(data['status'] as String?),
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
+      senderDisplayName: data['senderDisplayName'] as String?,
+      receiverDisplayName: data['receiverDisplayName'] as String?,
+      displayPlate: data['displayPlate'] as String?,
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       expiresAt: _dateTimeFromValue(data['expiresAt']),
       chatId: data['chatId'] as String?,

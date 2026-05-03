@@ -20,7 +20,7 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
   final FirestoreContactRequestRepository _repository =
       FirestoreContactRequestRepository();
 
-  late Future<_ContactRequestCounts> _future;
+  late Future<_ContactRequestData> _future;
 
   @override
   void initState() {
@@ -28,15 +28,15 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
     _future = _load();
   }
 
-  Future<_ContactRequestCounts> _load() async {
+  Future<_ContactRequestData> _load() async {
     final userId =
         FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
 
     if (userId.trim().isEmpty) {
-      return const _ContactRequestCounts(
+      return const _ContactRequestData(
         userId: '',
-        incoming: 0,
-        outgoing: 0,
+        incoming: [],
+        outgoing: [],
         error: 'Keine eingeloggte FirebaseAuth UID gefunden.',
       );
     }
@@ -45,16 +45,16 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
       final incoming = await _repository.loadIncomingRequests(userId: userId);
       final outgoing = await _repository.loadOutgoingRequests(userId: userId);
 
-      return _ContactRequestCounts(
+      return _ContactRequestData(
         userId: userId,
-        incoming: incoming.length,
-        outgoing: outgoing.length,
+        incoming: incoming,
+        outgoing: outgoing,
       );
     } catch (error) {
-      return _ContactRequestCounts(
+      return _ContactRequestData(
         userId: userId,
-        incoming: 0,
-        outgoing: 0,
+        incoming: [],
+        outgoing: [],
         error: error.toString(),
       );
     }
@@ -68,15 +68,12 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_ContactRequestCounts>(
+    return FutureBuilder<_ContactRequestData>(
       future: _future,
       builder: (context, snapshot) {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
         final data = snapshot.data;
-
         final hasError = data?.error != null;
-        final incoming = data?.incoming ?? 0;
-        final outgoing = data?.outgoing ?? 0;
 
         return GlassCard(
           padding: const EdgeInsets.all(16),
@@ -92,56 +89,14 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
               ),
               const SizedBox(width: 13),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Kontaktanfragen',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 17,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    if (isLoading)
-                      Text(
-                        'Anfragen werden geladen...',
+                child: isLoading
+                    ? Text(
+                        'Kontaktanfragen werden geladen...',
                         style: _bodyStyle(context),
                       )
-                    else if (hasError)
-                      Text(
-                        'Fehler beim Laden:\n${data!.error}',
-                        style: _bodyStyle(context),
-                      )
-                    else ...[
-                      Text('Eingehend: $incoming', style: _bodyStyle(context)),
-                      const SizedBox(height: 3),
-                      Text('Gesendet: $outgoing', style: _bodyStyle(context)),
-                      const SizedBox(height: 6),
-                      Text(
-                        'UID: ${data?.shortUserId ?? '-'}',
-                        style: _bodyStyle(context).copyWith(
-                          color: Colors.white.withValues(alpha: 0.56),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: _reload,
-                      child: Text(
-                        'Aktualisieren',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          decoration: TextDecoration.underline,
-                          decorationColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                    : hasError
+                    ? _ErrorContent(error: data!.error!, onReload: _reload)
+                    : _RequestContent(data: data!, onReload: _reload),
               ),
             ],
           ),
@@ -159,8 +114,230 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
   }
 }
 
-class _ContactRequestCounts {
-  const _ContactRequestCounts({
+class _RequestContent extends StatelessWidget {
+  const _RequestContent({required this.data, required this.onReload});
+
+  final _ContactRequestData data;
+  final VoidCallback onReload;
+
+  @override
+  Widget build(BuildContext context) {
+    final incomingPreview = data.incoming.take(3).toList();
+    final outgoingPreview = data.outgoing.take(3).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Kontaktanfragen',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 17,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Eingehend: ${data.incoming.length} · Gesendet: ${data.outgoing.length}',
+          style: _bodyStyle(context),
+        ),
+        const SizedBox(height: 12),
+        if (incomingPreview.isNotEmpty) ...[
+          _SectionTitle(label: 'Eingehend'),
+          const SizedBox(height: 8),
+          ...incomingPreview.map(
+            (request) => _RequestMiniTile(
+              title: _safeText(request.senderDisplayName, 'Carma Nutzer'),
+              subtitle:
+                  'Kennzeichen: ${_safeText(request.displayPlate, request.plateKey)}',
+              status: request.statusLabel,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (outgoingPreview.isNotEmpty) ...[
+          _SectionTitle(label: 'Gesendet'),
+          const SizedBox(height: 8),
+          ...outgoingPreview.map(
+            (request) => _RequestMiniTile(
+              title: _safeText(request.receiverDisplayName, 'Carma Nutzer'),
+              subtitle:
+                  'Kennzeichen: ${_safeText(request.displayPlate, request.plateKey)}',
+              status: request.statusLabel,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (incomingPreview.isEmpty && outgoingPreview.isEmpty)
+          Text(
+            'Keine offenen Kontaktanfragen gefunden.',
+            style: _bodyStyle(context),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          'UID: ${data.shortUserId}',
+          style: _bodyStyle(
+            context,
+          ).copyWith(color: Colors.white.withValues(alpha: 0.52), fontSize: 12),
+        ),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: onReload,
+          child: Text(
+            'Aktualisieren',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              decoration: TextDecoration.underline,
+              decorationColor: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _safeText(String? value, String fallback) {
+    final trimmed = value?.trim();
+
+    if (trimmed == null || trimmed.isEmpty) {
+      return fallback;
+    }
+
+    return trimmed;
+  }
+
+  TextStyle _bodyStyle(BuildContext context) {
+    return Theme.of(context).textTheme.bodyMedium!.copyWith(
+      color: Colors.white.withValues(alpha: 0.78),
+      fontWeight: FontWeight.w700,
+      height: 1.35,
+    );
+  }
+}
+
+class _ErrorContent extends StatelessWidget {
+  const _ErrorContent({required this.error, required this.onReload});
+
+  final String error;
+  final VoidCallback onReload;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Kontaktanfragen',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Fehler beim Laden:\n$error',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white.withValues(alpha: 0.78),
+            fontWeight: FontWeight.w700,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: onReload,
+          child: Text(
+            'Erneut versuchen',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              decoration: TextDecoration.underline,
+              decorationColor: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: Colors.white,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
+class _RequestMiniTile extends StatelessWidget {
+  const _RequestMiniTile({
+    required this.title,
+    required this.subtitle,
+    required this.status,
+  });
+
+  final String title;
+  final String subtitle;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            status,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.58),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactRequestData {
+  const _ContactRequestData({
     required this.userId,
     required this.incoming,
     required this.outgoing,
@@ -168,8 +345,8 @@ class _ContactRequestCounts {
   });
 
   final String userId;
-  final int incoming;
-  final int outgoing;
+  final List<ContactRequestRecord> incoming;
+  final List<ContactRequestRecord> outgoing;
   final String? error;
 
   String get shortUserId {
