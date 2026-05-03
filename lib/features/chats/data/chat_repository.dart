@@ -17,6 +17,15 @@ class ChatRecord {
     this.requestId,
     this.lastMessage,
     this.lastMessageAt,
+    this.senderUserId,
+    this.receiverUserId,
+    this.senderDisplayName,
+    this.receiverDisplayName,
+    this.displayPlate,
+    this.vehicleBrand,
+    this.vehicleModel,
+    this.vehicleColor,
+    this.vehicleLabel,
   });
 
   final String id;
@@ -27,9 +36,83 @@ class ChatRecord {
   final String? requestId;
   final String? lastMessage;
   final DateTime? lastMessageAt;
+  final String? senderUserId;
+  final String? receiverUserId;
+  final String? senderDisplayName;
+  final String? receiverDisplayName;
+  final String? displayPlate;
+  final String? vehicleBrand;
+  final String? vehicleModel;
+  final String? vehicleColor;
+  final String? vehicleLabel;
 
   bool get isActive {
     return status == ChatStatus.active;
+  }
+
+  String displayNameFor(String currentUserId) {
+    final isSender = senderUserId == currentUserId;
+    final candidate = isSender ? receiverDisplayName : senderDisplayName;
+    final trimmed = candidate?.trim();
+
+    if (trimmed != null && trimmed.isNotEmpty) {
+      return trimmed;
+    }
+
+    return 'Carma Nutzer';
+  }
+
+  String get vehicleTitle {
+    final label = vehicleLabel?.trim();
+
+    if (label != null && label.isNotEmpty) {
+      return label;
+    }
+
+    final parts = <String>[
+      if (vehicleColor != null && vehicleColor!.trim().isNotEmpty)
+        _vehicleColorAdjective(vehicleColor!),
+      if (vehicleBrand != null && vehicleBrand!.trim().isNotEmpty)
+        vehicleBrand!.trim(),
+      if (vehicleModel != null && vehicleModel!.trim().isNotEmpty)
+        vehicleModel!.trim(),
+    ];
+
+    final title = parts.join(' ').trim();
+    return title.isEmpty ? 'Fahrzeug' : title;
+  }
+
+  String get vehicleModelLabel {
+    final parts = <String>[
+      if (vehicleBrand != null && vehicleBrand!.trim().isNotEmpty)
+        vehicleBrand!.trim(),
+      if (vehicleModel != null && vehicleModel!.trim().isNotEmpty)
+        vehicleModel!.trim(),
+    ];
+
+    final label = parts.join(' ').trim();
+    return label.isEmpty ? 'Fahrzeug' : label;
+  }
+
+  String get vehicleColorLabel {
+    final color = vehicleColor?.trim();
+    return color == null || color.isEmpty ? '-' : color;
+  }
+
+  static String _vehicleColorAdjective(String color) {
+    return switch (color.trim().toLowerCase()) {
+      'schwarz' => 'schwarzer',
+      'weiß' || 'weiss' => 'weißer',
+      'silber' => 'silberner',
+      'grau' => 'grauer',
+      'blau' => 'blauer',
+      'rot' => 'roter',
+      'grün' || 'gruen' => 'grüner',
+      'braun' => 'brauner',
+      'gelb' => 'gelber',
+      'orange' => 'oranger',
+      _ => color.trim(),
+    };
   }
 
   ChatRecord copyWith({
@@ -41,6 +124,15 @@ class ChatRecord {
     String? requestId,
     String? lastMessage,
     DateTime? lastMessageAt,
+    String? senderUserId,
+    String? receiverUserId,
+    String? senderDisplayName,
+    String? receiverDisplayName,
+    String? displayPlate,
+    String? vehicleBrand,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehicleLabel,
   }) {
     return ChatRecord(
       id: id ?? this.id,
@@ -51,6 +143,15 @@ class ChatRecord {
       requestId: requestId ?? this.requestId,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+      senderUserId: senderUserId ?? this.senderUserId,
+      receiverUserId: receiverUserId ?? this.receiverUserId,
+      senderDisplayName: senderDisplayName ?? this.senderDisplayName,
+      receiverDisplayName: receiverDisplayName ?? this.receiverDisplayName,
+      displayPlate: displayPlate ?? this.displayPlate,
+      vehicleBrand: vehicleBrand ?? this.vehicleBrand,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      vehicleColor: vehicleColor ?? this.vehicleColor,
+      vehicleLabel: vehicleLabel ?? this.vehicleLabel,
     );
   }
 }

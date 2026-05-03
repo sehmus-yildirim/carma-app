@@ -729,6 +729,8 @@ class _ActiveChatsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
     if (chats.isNotEmpty) {
       return _SubPageScaffold(
         icon: Icons.forum_rounded,
@@ -739,13 +741,19 @@ class _ActiveChatsScreen extends StatelessWidget {
           children: [
             for (final chat in chats) ...[
               _ActiveChatListTile(
-                hasMessages: chat.lastMessage?.trim().isNotEmpty == true,
+                title: chat.displayNameFor(currentUserId),
+                subtitle: chat.lastMessage?.trim().isNotEmpty == true
+                    ? 'Letzte Nachricht: '
+                    : chat.vehicleTitle,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => _ChatConversationScreen(
                         chatId: chat.id,
                         initialMessages: const <_LocalChatMessage>[],
+                        displayName: chat.displayNameFor(currentUserId),
+                        vehicleModel: chat.vehicleModelLabel,
+                        vehicleColor: chat.vehicleColorLabel,
                       ),
                     ),
                   );
@@ -765,7 +773,10 @@ class _ActiveChatsScreen extends StatelessWidget {
           'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
       child: hasLocalActiveChat
           ? _ActiveChatListTile(
-              hasMessages: messages.isNotEmpty,
+              title: 'Carma Nutzer',
+              subtitle: messages.isNotEmpty
+                  ? 'Letzte Nachricht: '
+                  : 'BMW 1er · Schwarz',
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -839,9 +850,14 @@ class _SubPageScaffold extends StatelessWidget {
 }
 
 class _ActiveChatListTile extends StatelessWidget {
-  const _ActiveChatListTile({required this.hasMessages, required this.onTap});
+  const _ActiveChatListTile({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
-  final bool hasMessages;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   @override
@@ -864,7 +880,7 @@ class _ActiveChatListTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Carma Nutzer',
+                        title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium
@@ -876,9 +892,7 @@ class _ActiveChatListTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        hasMessages
-                            ? 'Letzte Nachricht: Danke dir fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r den Hinweis.'
-                            : 'Schwarz BMW 1er',
+                        subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1032,10 +1046,19 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _ChatConversationScreen extends StatefulWidget {
-  const _ChatConversationScreen({required this.initialMessages, this.chatId});
+  const _ChatConversationScreen({
+    required this.initialMessages,
+    this.chatId,
+    this.displayName = 'Carma Nutzer',
+    this.vehicleModel = 'BMW 1er',
+    this.vehicleColor = 'Schwarz',
+  });
 
   final List<_LocalChatMessage> initialMessages;
   final String? chatId;
+  final String displayName;
+  final String vehicleModel;
+  final String vehicleColor;
 
   @override
   State<_ChatConversationScreen> createState() =>
@@ -1251,6 +1274,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                   child: Column(
                     children: [
                       _CompactChatInfoCard(
+                        displayName: widget.displayName,
+                        vehicleModel: widget.vehicleModel,
+                        vehicleColor: widget.vehicleColor,
                         onBack: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(height: 14),
@@ -1279,8 +1305,16 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 }
 
 class _CompactChatInfoCard extends StatelessWidget {
-  const _CompactChatInfoCard({required this.onBack});
+  const _CompactChatInfoCard({
+    required this.displayName,
+    required this.vehicleModel,
+    required this.vehicleColor,
+    required this.onBack,
+  });
 
+  final String displayName;
+  final String vehicleModel;
+  final String vehicleColor;
   final VoidCallback onBack;
 
   @override
@@ -1297,7 +1331,7 @@ class _CompactChatInfoCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Carma Nutzer',
+                  displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1310,14 +1344,14 @@ class _CompactChatInfoCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          const Row(
+          Row(
             children: [
               Expanded(
-                child: _VehicleInfoPill(label: 'Modell', value: 'BMW 1er'),
+                child: _VehicleInfoPill(label: 'Modell', value: vehicleModel),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
-                child: _VehicleInfoPill(label: 'Farbe', value: 'Schwarz'),
+                child: _VehicleInfoPill(label: 'Farbe', value: vehicleColor),
               ),
             ],
           ),
