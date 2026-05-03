@@ -143,11 +143,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
     );
   }
 
-  void _openActiveChatsScreen({required bool hasFirestoreChats}) {
+  void _openActiveChatsScreen({required List<ChatRecord> chats}) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _ActiveChatsScreen(
-          hasActiveChat: _hasActiveChat || hasFirestoreChats,
+          chats: chats,
+          hasLocalActiveChat: _hasActiveChat,
           messages: _chatMessages,
         ),
       ),
@@ -225,9 +226,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                     hasLocalActiveChat: _hasActiveChat,
                                     localMessageCount: _chatMessages.length,
                                     onOpenActiveChats: () =>
-                                        _openActiveChatsScreen(
-                                          hasFirestoreChats: chats.isNotEmpty,
-                                        ),
+                                        _openActiveChatsScreen(chats: chats),
                                   );
                                 },
                               )
@@ -721,21 +720,52 @@ class _CountBadge extends StatelessWidget {
 
 class _ActiveChatsScreen extends StatelessWidget {
   const _ActiveChatsScreen({
-    required this.hasActiveChat,
+    required this.chats,
+    required this.hasLocalActiveChat,
     required this.messages,
   });
 
-  final bool hasActiveChat;
+  final List<ChatRecord> chats;
+  final bool hasLocalActiveChat;
   final List<_LocalChatMessage> messages;
 
   @override
   Widget build(BuildContext context) {
+    if (chats.isNotEmpty) {
+      return _SubPageScaffold(
+        icon: Icons.forum_rounded,
+        headerTitle: 'Aktive Chats',
+        subtitle:
+            'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
+        child: Column(
+          children: [
+            for (final chat in chats) ...[
+              _ActiveChatListTile(
+                hasMessages: chat.lastMessage?.trim().isNotEmpty == true,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => _ChatConversationScreen(
+                        chatId: chat.id,
+                        initialMessages: const <_LocalChatMessage>[],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      );
+    }
+
     return _SubPageScaffold(
       icon: Icons.forum_rounded,
       headerTitle: 'Aktive Chats',
       subtitle:
           'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
-      child: hasActiveChat
+      child: hasLocalActiveChat
           ? _ActiveChatListTile(
               hasMessages: messages.isNotEmpty,
               onTap: () {
@@ -1004,9 +1034,10 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _ChatConversationScreen extends StatefulWidget {
-  const _ChatConversationScreen({required this.initialMessages});
+  const _ChatConversationScreen({required this.initialMessages, this.chatId});
 
   final List<_LocalChatMessage> initialMessages;
+  final String? chatId;
 
   @override
   State<_ChatConversationScreen> createState() =>
