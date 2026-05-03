@@ -1,15 +1,11 @@
-enum ChatStatus {
-  active,
-  archived,
-  blocked,
-  deleted,
-}
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum ChatMessageType {
-  text,
-  image,
-  system,
-}
+import '../../../shared/firebase/carma_firestore_paths.dart';
+import '../../../shared/firebase/carma_firestore_schema.dart';
+
+enum ChatStatus { active, archived, blocked, deleted }
+
+enum ChatMessageType { text, image, system }
 
 class ChatRecord {
   const ChatRecord({
@@ -108,9 +104,7 @@ class ChatMessageRecord {
 }
 
 abstract class ChatRepository {
-  Future<List<ChatRecord>> loadChats({
-    required String userId,
-  });
+  Future<List<ChatRecord>> loadChats({required String userId});
 
   Future<ChatRecord> createChat({
     required List<String> participants,
@@ -118,9 +112,7 @@ abstract class ChatRepository {
     String? systemMessage,
   });
 
-  Future<List<ChatMessageRecord>> loadMessages({
-    required String chatId,
-  });
+  Future<List<ChatMessageRecord>> loadMessages({required String chatId});
 
   Future<ChatMessageRecord> sendTextMessage({
     required String chatId,
@@ -133,31 +125,279 @@ abstract class ChatRepository {
     required String text,
   });
 
-  Future<ChatRecord> archiveChat({
+  Future<ChatRecord> archiveChat({required String chatId});
+}
+
+class FirestoreChatRepository implements ChatRepository {
+  FirestoreChatRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
+
+  CollectionReference<Map<String, dynamic>> get _chatsCollection {
+    return _firestore.collection(CarmaFirestoreCollections.chats);
+  }
+
+  @override
+  Future<List<ChatRecord>> loadChats({required String userId}) async {
+    final snapshot = await _chatsCollection
+        .where('participants', arrayContains: userId)
+        .where('status', isEqualTo: FirestoreChatStatus.active)
+        .get();
+
+    final chats = snapshot.docs.map(_chatFromSnapshot).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    return chats;
+  }
+
+  @override
+  Future<ChatRecord> createChat({
+    required List<String> participants,
+    String? requestId,
+    String? systemMessage,
+  }) async {
+    final uniqueParticipants =
+        participants
+            .map((participant) => participant.trim())
+            .where((participant) => participant.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+    if (uniqueParticipants.length < 2) {
+      throw ArgumentError('A chat requires at least two participants.');
+    }
+
+    final chatDocument = requestId == null || requestId.trim().isEmpty
+        ? _chatsCollection.doc()
+        : _chatsCollection.doc('request_${requestId.trim()}');
+
+    final now = DateTime.now();
+    final trimmedSystemMessage = systemMessage?.trim();
+
+    await _firestore.runTransaction((transaction) async {
+      final existingSnapshot = await transaction.get(chatDocument);
+
+      if (existingSnapshot.exists) {
+        return;
+      }
+
+      transaction.set(chatDocument, {
+        'participants': uniqueParticipants,
+        'status': FirestoreChatStatus.active,
+        'requestId': requestId,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+        'lastMessage':
+            trimmedSystemMessage == null || trimmedSystemMessage.isEmpty
+            ? null
+            : trimmedSystemMessage,
+        'lastMessageAt':
+            trimmedSystemMessage == null || trimmedSystemMessage.isEmpty
+            ? null
+            : Timestamp.fromDate(now),
+        'isDeleted': false,
+      });
+    });
+
+    final snapshot = await chatDocument.get();
+    return _chatFromSnapshot(snapshot);
+  }
+
+  @override
+  Future<List<ChatMessageRecord>> loadMessages({required String chatId}) async {
+    final snapshot = await _messagesCollection(
+      chatId,
+    ).where('isDeleted', isEqualTo: false).get();
+
+    final messages = snapshot.docs.map(_messageFromSnapshot).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    return messages;
+  }
+
+  @override
+  Future<ChatMessageRecord> sendTextMessage({
     required String chatId,
-  });
+    required String senderUserId,
+    required String text,
+  }) async {
+    final trimmedText = text.trim();
+
+    if (trimmedText.isEmpty) {
+      throw ArgumentError('Message text must not be empty.');
+    }
+
+    if (trimmedText.length > FirestoreDocumentDefaults.maxChatMessageLength) {
+      throw ArgumentError('Message text is too long.');
+    }
+
+    final now = DateTime.now();
+    final messageDocument = _messagesCollection(chatId).doc();
+
+    await _firestore.runTransaction((transaction) async {
+      final chatDocument = _chatsCollection.doc(chatId);
+
+      transaction.set(messageDocument, {
+        'chatId': chatId,
+        'senderUserId': senderUserId,
+        'type': FirestoreMessageTypes.text,
+        'text': trimmedText,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+        'isDeleted': false,
+      });
+
+      transaction.set(chatDocument, {
+        'lastMessage': trimmedText,
+        'lastMessageAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
+    });
+
+    final snapshot = await messageDocument.get();
+    return _messageFromSnapshot(snapshot);
+  }
+
+  @override
+  Future<ChatMessageRecord> addSystemMessage({
+    required String chatId,
+    required String text,
+  }) async {
+    final trimmedText = text.trim();
+
+    if (trimmedText.isEmpty) {
+      throw ArgumentError('System message text must not be empty.');
+    }
+
+    final now = DateTime.now();
+    final messageDocument = _messagesCollection(chatId).doc();
+
+    await messageDocument.set({
+      'chatId': chatId,
+      'senderUserId': 'system',
+      'type': FirestoreMessageTypes.system,
+      'text': trimmedText,
+      'createdAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+      'isDeleted': false,
+    });
+
+    final snapshot = await messageDocument.get();
+    return _messageFromSnapshot(snapshot);
+  }
+
+  @override
+  Future<ChatRecord> archiveChat({required String chatId}) async {
+    final chatDocument = _chatsCollection.doc(chatId);
+
+    await chatDocument.set({
+      'status': FirestoreChatStatus.archived,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final snapshot = await chatDocument.get();
+    return _chatFromSnapshot(snapshot);
+  }
+
+  CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
+    return _chatsCollection
+        .doc(chatId)
+        .collection(CarmaFirestoreCollections.messages);
+  }
+
+  ChatRecord _chatFromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final data = snapshot.data() ?? const <String, dynamic>{};
+
+    return ChatRecord(
+      id: snapshot.id,
+      participants: _stringListFromValue(data['participants']),
+      status: _chatStatusFromName(data['status'] as String?),
+      createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
+      updatedAt: _dateTimeFromValue(data['updatedAt']) ?? DateTime(1970),
+      requestId: data['requestId'] as String?,
+      lastMessage: data['lastMessage'] as String?,
+      lastMessageAt: _dateTimeFromValue(data['lastMessageAt']),
+    );
+  }
+
+  ChatMessageRecord _messageFromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final data = snapshot.data() ?? const <String, dynamic>{};
+
+    return ChatMessageRecord(
+      id: snapshot.id,
+      chatId: data['chatId'] as String? ?? '',
+      senderUserId: data['senderUserId'] as String? ?? '',
+      type: _messageTypeFromName(data['type'] as String?),
+      text: data['text'] as String? ?? '',
+      createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
+      updatedAt: _dateTimeFromValue(data['updatedAt']) ?? DateTime(1970),
+      isDeleted: data['isDeleted'] as bool? ?? false,
+    );
+  }
+
+  static ChatStatus _chatStatusFromName(String? name) {
+    return ChatStatus.values.firstWhere(
+      (status) => status.name == name,
+      orElse: () => ChatStatus.active,
+    );
+  }
+
+  static ChatMessageType _messageTypeFromName(String? name) {
+    return ChatMessageType.values.firstWhere(
+      (type) => type.name == name,
+      orElse: () => ChatMessageType.text,
+    );
+  }
+
+  static List<String> _stringListFromValue(Object? value) {
+    if (value is Iterable) {
+      return value.whereType<String>().toList();
+    }
+
+    return const <String>[];
+  }
+
+  static DateTime? _dateTimeFromValue(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
+  }
 }
 
 class LocalChatRepository implements ChatRepository {
   LocalChatRepository({
     List<ChatRecord> seedChats = const [],
     List<ChatMessageRecord> seedMessages = const [],
-  })  : _chats = [...seedChats],
-        _messages = [...seedMessages];
+  }) : _chats = [...seedChats],
+       _messages = [...seedMessages];
 
   final List<ChatRecord> _chats;
   final List<ChatMessageRecord> _messages;
 
   @override
-  Future<List<ChatRecord>> loadChats({
-    required String userId,
-  }) async {
+  Future<List<ChatRecord>> loadChats({required String userId}) async {
     return _chats
         .where(
           (chat) =>
-      chat.participants.contains(userId) &&
-          chat.status == ChatStatus.active,
-    )
+              chat.participants.contains(userId) &&
+              chat.status == ChatStatus.active,
+        )
         .toList();
   }
 
@@ -201,13 +441,9 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
-  Future<List<ChatMessageRecord>> loadMessages({
-    required String chatId,
-  }) async {
+  Future<List<ChatMessageRecord>> loadMessages({required String chatId}) async {
     return _messages
-        .where(
-          (message) => message.chatId == chatId && !message.isDeleted,
-    )
+        .where((message) => message.chatId == chatId && !message.isDeleted)
         .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   }
@@ -280,9 +516,7 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatRecord> archiveChat({
-    required String chatId,
-  }) async {
+  Future<ChatRecord> archiveChat({required String chatId}) async {
     final index = _chats.indexWhere((chat) => chat.id == chatId);
 
     if (index < 0) {
