@@ -112,20 +112,51 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
     }
   }
 
-  Future<void> _acceptRequest(ContactRequestRecord request) {
-    return _runRequestAction(
-      request: request,
-      successMessage:
-          'Kontaktanfrage wurde angenommen. Ein Chat wurde erstellt.',
-      action: () async {
-        final useCase = AcceptContactRequestUseCase(
-          contactRequestRepository: _repository,
-          chatRepository: _chatRepository,
-        );
+  Future<void> _acceptRequest(ContactRequestRecord request) async {
+    if (_busyRequestIds.contains(request.id)) {
+      return;
+    }
 
-        await useCase(request: request);
-      },
-    );
+    setState(() {
+      _busyRequestIds.add(request.id);
+    });
+
+    try {
+      final useCase = AcceptContactRequestUseCase(
+        contactRequestRepository: _repository,
+        chatRepository: _chatRepository,
+      );
+
+      final result = await useCase(request: request);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Kontaktanfrage wurde angenommen. Der Chat wurde geöffnet.',
+          ),
+        ),
+      );
+
+      Navigator.of(context).pop(result.chat.id);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: ')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyRequestIds.remove(request.id);
+        });
+      }
+    }
   }
 
   Future<void> _declineRequest(ContactRequestRecord request) {

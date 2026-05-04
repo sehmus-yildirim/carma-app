@@ -121,12 +121,31 @@ class _ChatsScreenState extends State<ChatsScreen> {
     });
   }
 
-  void _openIncomingRequestsScreen() {
-    Navigator.of(context).push(
+  Future<void> _openIncomingRequestsScreen() async {
+    final acceptedChatId = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => ContactRequestListScreen(
           userState: widget.userState,
           mode: ContactRequestListMode.incoming,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    final chatId = acceptedChatId?.trim();
+
+    if (chatId == null || chatId.isEmpty) {
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _ChatConversationScreen(
+          chatId: chatId,
+          initialMessages: const <_LocalChatMessage>[],
         ),
       ),
     );
