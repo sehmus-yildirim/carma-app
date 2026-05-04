@@ -18,15 +18,16 @@ const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 enum _ChatsView { chats, requests }
 
-enum _LocalChatTestMode {
-  empty,
-  incomingRequest,
-  outgoingRequest,
-  activeChat,
-  activeChatWithMessages,
-}
+enum _LocalChatTestMode { empty, activeChat, activeChatWithMessages }
 
 const _LocalChatTestMode _localChatTestMode = _LocalChatTestMode.empty;
+
+class _RequestCounts {
+  const _RequestCounts({required this.incoming, required this.outgoing});
+
+  final int incoming;
+  final int outgoing;
+}
 
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({super.key, required this.userState});
@@ -43,8 +44,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   _ChatsView _selectedView = _ChatsView.chats;
 
   late Future<List<ChatRecord>> _chatFuture;
-  late bool _hasIncomingRequest;
-  late bool _hasOutgoingRequest;
+  late Future<_RequestCounts> _requestCountsFuture;
   late bool _hasActiveChat;
   late List<_LocalChatMessage> _chatMessages;
 
@@ -62,11 +62,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
   @override
   void initState() {
     super.initState();
-
-    _hasIncomingRequest =
-        _localChatTestMode == _LocalChatTestMode.incomingRequest;
-    _hasOutgoingRequest =
-        _localChatTestMode == _LocalChatTestMode.outgoingRequest;
     _hasActiveChat =
         _localChatTestMode == _LocalChatTestMode.activeChat ||
         _localChatTestMode == _LocalChatTestMode.activeChatWithMessages;
@@ -247,12 +242,28 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                   );
                                 },
                               )
-                            : _RequestsOverview(
+                            : FutureBuilder<_RequestCounts>(
                                 key: const ValueKey('requests_view'),
-                                hasIncomingRequest: _hasIncomingRequest,
-                                hasOutgoingRequest: _hasOutgoingRequest,
-                                onOpenIncoming: _openIncomingRequestsScreen,
-                                onOpenOutgoing: _openOutgoingRequestsScreen,
+                                future: _requestCountsFuture,
+                                builder: (context, snapshot) {
+                                  final counts =
+                                      snapshot.data ??
+                                      const _RequestCounts(
+                                        incoming: 0,
+                                        outgoing: 0,
+                                      );
+                                  final isLoading =
+                                      snapshot.connectionState ==
+                                      ConnectionState.waiting;
+
+                                  return _RequestsOverview(
+                                    incomingCount: counts.incoming,
+                                    outgoingCount: counts.outgoing,
+                                    isLoading: isLoading,
+                                    onOpenIncoming: _openIncomingRequestsScreen,
+                                    onOpenOutgoing: _openOutgoingRequestsScreen,
+                                  );
+                                },
                               ),
                       ),
                     ],
@@ -539,17 +550,54 @@ class _ChatsOverview extends StatelessWidget {
 
 class _RequestsOverview extends StatelessWidget {
   const _RequestsOverview({
-    super.key,
-    required this.hasIncomingRequest,
-    required this.hasOutgoingRequest,
+    required this.incomingCount,
+    required this.outgoingCount,
+    required this.isLoading,
     required this.onOpenIncoming,
     required this.onOpenOutgoing,
   });
 
-  final bool hasIncomingRequest;
-  final bool hasOutgoingRequest;
+  final int incomingCount;
+  final int outgoingCount;
+  final bool isLoading;
   final VoidCallback onOpenIncoming;
   final VoidCallback onOpenOutgoing;
+
+  String get _incomingCountLabel {
+    return isLoading ? '...' : incomingCount.toString();
+  }
+
+  String get _outgoingCountLabel {
+    return isLoading ? '...' : outgoingCount.toString();
+  }
+
+  bool get _hasIncomingRequests {
+    return incomingCount > 0;
+  }
+
+  bool get _hasOutgoingRequests {
+    return outgoingCount > 0;
+  }
+
+  String get _incomingBodyText {
+    if (!_hasIncomingRequests) {
+      return 'Aktuell gibt es keine offenen Anfragen. Neue Kontakte erscheinen hier zuerst zur Freigabe.';
+    }
+
+    return incomingCount == 1
+        ? 'Eine offene Anfrage wartet auf deine Entscheidung.'
+        : ' offene Anfragen warten auf deine Entscheidung.';
+  }
+
+  String get _outgoingBodyText {
+    if (!_hasOutgoingRequests) {
+      return 'Du hast aktuell keine Anfrage gesendet. Später erscheinen hier offene Anfragen aus der Suche.';
+    }
+
+    return outgoingCount == 1
+        ? 'Eine gesendete Anfrage wartet auf Antwort.'
+        : ' gesendete Anfragen warten auf Antwort.';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -558,24 +606,20 @@ class _RequestsOverview extends StatelessWidget {
         _OverviewCard(
           icon: Icons.move_to_inbox_rounded,
           title: 'Eingehende Anfragen',
-          count: hasIncomingRequest ? '1' : '0',
+          count: _incomingCountLabel,
           description:
-              'Anfragen von Nutzern, die dich ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ber dein Kennzeichen gefunden haben.',
-          bodyText: hasIncomingRequest
-              ? 'Neue Anfrage wartet auf deine Entscheidung.'
-              : 'Aktuell gibt es keine offenen Anfragen. Neue Kontakte erscheinen hier zuerst zur Freigabe.',
+              'Anfragen von Nutzern, die dich über dein Kennzeichen gefunden haben.',
+          bodyText: _incomingBodyText,
           onTap: onOpenIncoming,
         ),
         const SizedBox(height: 14),
         _OverviewCard(
           icon: Icons.outbox_rounded,
           title: 'Gesendete Anfragen',
-          count: hasOutgoingRequest ? '1' : '0',
+          count: _outgoingCountLabel,
           description:
               'Anfragen, die du nach einer Kennzeichen-Suche verschickt hast.',
-          bodyText: hasOutgoingRequest
-              ? 'Eine Anfrage wartet auf Antwort.'
-              : 'Du hast aktuell keine Anfrage gesendet. SpÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter erscheinen hier offene Anfragen aus der Suche.',
+          bodyText: _outgoingBodyText,
           onTap: onOpenOutgoing,
         ),
       ],
