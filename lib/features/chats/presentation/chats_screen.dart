@@ -9,6 +9,7 @@ import '../../../shared/widgets/carma_page_header.dart';
 import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/chat_repository.dart';
+import '../data/contact_request_repository.dart';
 
 import 'contact_request_list_screen.dart';
 
@@ -44,7 +45,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
   _ChatsView _selectedView = _ChatsView.chats;
 
   late Future<List<ChatRecord>> _chatFuture;
-  late Future<_RequestCounts> _requestCountsFuture;
+  Future<_RequestCounts> _requestCountsFuture = Future.value(
+    const _RequestCounts(incoming: 0, outgoing: 0),
+  );
   late bool _hasActiveChat;
   late List<_LocalChatMessage> _chatMessages;
 
@@ -72,6 +75,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         : <_LocalChatMessage>[];
 
     _chatFuture = _loadChats();
+    _requestCountsFuture = _loadRequestCounts();
   }
 
   Future<List<ChatRecord>> _loadChats() {
@@ -82,6 +86,29 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
 
     return _chatRepository.loadChats(userId: userId);
+  }
+
+  Future<_RequestCounts> _loadRequestCounts() async {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      return const _RequestCounts(incoming: 0, outgoing: 0);
+    }
+
+    final repository = FirestoreContactRequestRepository();
+
+    final incomingRequests = await repository.loadIncomingRequests(
+      userId: userId,
+    );
+
+    final outgoingRequests = await repository.loadOutgoingRequests(
+      userId: userId,
+    );
+
+    return _RequestCounts(
+      incoming: incomingRequests.length,
+      outgoing: outgoingRequests.length,
+    );
   }
 
   List<_LocalChatMessage> _buildLocalChatMessages() {
