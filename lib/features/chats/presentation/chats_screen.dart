@@ -1852,6 +1852,120 @@ class _MessageComposer extends StatelessWidget {
   final VoidCallback onAttach;
   final VoidCallback onSend;
 
+  void _showComposerMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _openAttachmentSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF101827),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: Colors.white.withValues(alpha: 0.24),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Anhang senden',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  children: [
+                    _AttachmentSheetAction(
+                      icon: Icons.photo_library_rounded,
+                      label: 'Foto',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        onAttach();
+                      },
+                    ),
+                    _AttachmentSheetAction(
+                      icon: Icons.photo_camera_rounded,
+                      label: 'Kamera',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showComposerMessage(
+                          context,
+                          'Kamera verbinden wir im nächsten Schritt.',
+                        );
+                      },
+                    ),
+                    _AttachmentSheetAction(
+                      icon: Icons.location_on_rounded,
+                      label: 'Standort',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showComposerMessage(
+                          context,
+                          'Standort senden verbinden wir im nächsten Schritt.',
+                        );
+                      },
+                    ),
+                    _AttachmentSheetAction(
+                      icon: Icons.person_rounded,
+                      label: 'Kontakt',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showComposerMessage(
+                          context,
+                          'Kontakt senden verbinden wir im nächsten Schritt.',
+                        );
+                      },
+                    ),
+                    _AttachmentSheetAction(
+                      icon: Icons.insert_drive_file_rounded,
+                      label: 'Dokument',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showComposerMessage(
+                          context,
+                          'Dokument senden verbinden wir im nächsten Schritt.',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleVoiceMemo(BuildContext context) {
+    _showComposerMessage(
+      context,
+      'Sprachmemo verbinden wir im nächsten Schritt.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -1862,8 +1976,8 @@ class _MessageComposer extends StatelessWidget {
         child: Row(
           children: [
             _ComposerIconButton(
-              icon: Icons.add_photo_alternate_outlined,
-              onTap: onAttach,
+              icon: Icons.add_rounded,
+              onTap: () => _openAttachmentSheet(context),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1885,29 +1999,70 @@ class _MessageComposer extends StatelessWidget {
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.08),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
+                    horizontal: 16,
                     vertical: 13,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(19),
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.10),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(19),
-                    borderSide: BorderSide(
-                      color: _carmaBlueLight.withValues(alpha: 0.88),
-                      width: 1.3,
-                    ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 10),
-            _SendButton(isEnabled: hasText, onTap: onSend),
+            _SendButton(
+              isEnabled: true,
+              icon: hasText ? Icons.send_rounded : Icons.mic_rounded,
+              onTap: hasText ? onSend : () => _handleVoiceMemo(context),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AttachmentSheetAction extends StatelessWidget {
+  const _AttachmentSheetAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 92,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.white.withValues(alpha: 0.08),
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: 58,
+                height: 58,
+                child: Icon(icon, color: Colors.white, size: 27),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1943,37 +2098,48 @@ class _ComposerIconButton extends StatelessWidget {
 }
 
 class _SendButton extends StatelessWidget {
-  const _SendButton({required this.isEnabled, required this.onTap});
+  const _SendButton({
+    required this.isEnabled,
+    required this.icon,
+    required this.onTap,
+  });
 
   final bool isEnabled;
+  final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: isEnabled ? 1 : 0.45,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTap: isEnabled ? onTap : null,
-          customBorder: const CircleBorder(),
-          child: Ink(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
+    final enabled = isEnabled;
+
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        customBorder: const CircleBorder(),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: enabled ? 1 : 0.45,
+          child: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: _carmaBlue.withValues(alpha: 0.24),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: const Icon(
-              Icons.send_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
+            child: Icon(icon, color: Colors.white, size: 22),
           ),
         ),
       ),
