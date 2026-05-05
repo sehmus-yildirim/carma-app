@@ -19,7 +19,15 @@ const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 enum _ChatsView { chats, requests }
 
-enum _ChatMenuAction { favorite, delete, block, report }
+enum _ChatMenuAction {
+  favorite,
+  mute,
+  vehicleDetails,
+  archive,
+  delete,
+  block,
+  report,
+}
 
 enum _LocalChatTestMode { empty, activeChat, activeChatWithMessages }
 
@@ -824,7 +832,138 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _ChatOverflowMenu extends StatelessWidget {
-  const _ChatOverflowMenu();
+  const _ChatOverflowMenu({this.title, this.subtitle});
+
+  final String? title;
+  final String? subtitle;
+
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showVehicleDetails(BuildContext context) async {
+    final safeTitle = title?.trim().isNotEmpty == true
+        ? title!.trim()
+        : 'Carma Nutzer';
+
+    final safeSubtitle = subtitle?.trim().isNotEmpty == true
+        ? subtitle!.trim()
+        : 'Fahrzeugdetails sind aktuell nicht verfügbar.';
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Fahrzeugdetails'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                safeTitle,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(safeSubtitle),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Schließen'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmAction({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required String resultMessage,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(confirmLabel),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      _showSnackBar(context, resultMessage);
+    }
+  }
+
+  Future<void> _handleAction(
+    BuildContext context,
+    _ChatMenuAction action,
+  ) async {
+    switch (action) {
+      case _ChatMenuAction.favorite:
+        _showSnackBar(context, 'Chat wurde als Favorit vorgemerkt.');
+      case _ChatMenuAction.mute:
+        _showSnackBar(
+          context,
+          'Benachrichtigungen wurden zum Stummschalten vorgemerkt.',
+        );
+      case _ChatMenuAction.vehicleDetails:
+        await _showVehicleDetails(context);
+      case _ChatMenuAction.archive:
+        await _confirmAction(
+          context: context,
+          title: 'Chat archivieren?',
+          message:
+              'Der Chat wird aus der aktiven Übersicht entfernt, bleibt aber für Sicherheit und Meldungen nachvollziehbar.',
+          confirmLabel: 'Archivieren',
+          resultMessage: 'Chat wurde zum Archivieren vorgemerkt.',
+        );
+      case _ChatMenuAction.delete:
+        await _confirmAction(
+          context: context,
+          title: 'Chat löschen?',
+          message:
+              'Der Chat wird für dich entfernt. Sicherheitsrelevante Daten können geschützt erhalten bleiben.',
+          confirmLabel: 'Löschen',
+          resultMessage: 'Chat wurde zum Löschen vorgemerkt.',
+        );
+      case _ChatMenuAction.block:
+        await _confirmAction(
+          context: context,
+          title: 'Nutzer blockieren?',
+          message:
+              'Blockierte Nutzer können dich nicht mehr über diesen Chat kontaktieren.',
+          confirmLabel: 'Blockieren',
+          resultMessage: 'Nutzer wurde zum Blockieren vorgemerkt.',
+        );
+      case _ChatMenuAction.report:
+        await _confirmAction(
+          context: context,
+          title: 'Nutzer melden?',
+          message:
+              'Die Meldung wird später mit Chat-ID, Nutzer-ID und Grund an den Meldebereich übergeben.',
+          confirmLabel: 'Melden',
+          resultMessage: 'Meldung wurde vorgemerkt.',
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -832,26 +971,24 @@ class _ChatOverflowMenu extends StatelessWidget {
       tooltip: 'Chat-Einstellungen',
       icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
       color: const Color(0xFF101827),
-      onSelected: (action) {
-        final message = switch (action) {
-          _ChatMenuAction.favorite =>
-            'Favoriten speichern wir im nächsten Schritt dauerhaft.',
-          _ChatMenuAction.delete =>
-            'Chat löschen verbinden wir im nächsten Schritt.',
-          _ChatMenuAction.block =>
-            'Blockieren verbinden wir im nächsten Schritt.',
-          _ChatMenuAction.report => 'Melden verbinden wir im nächsten Schritt.',
-        };
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
-      },
+      onSelected: (action) => _handleAction(context, action),
       itemBuilder: (context) {
         return const [
           PopupMenuItem(
             value: _ChatMenuAction.favorite,
             child: Text('Zu Favoriten hinzufügen'),
+          ),
+          PopupMenuItem(
+            value: _ChatMenuAction.mute,
+            child: Text('Benachrichtigungen stummschalten'),
+          ),
+          PopupMenuItem(
+            value: _ChatMenuAction.vehicleDetails,
+            child: Text('Fahrzeugdetails anzeigen'),
+          ),
+          PopupMenuItem(
+            value: _ChatMenuAction.archive,
+            child: Text('Chat archivieren'),
           ),
           PopupMenuItem(
             value: _ChatMenuAction.delete,
@@ -1499,7 +1636,7 @@ class _CompactChatInfoCard extends StatelessWidget {
 
               const SizedBox(width: 8),
 
-              const _ChatOverflowMenu(),
+              _ChatOverflowMenu(title: displayName, subtitle: ' · '),
             ],
           ),
 
