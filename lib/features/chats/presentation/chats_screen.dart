@@ -19,6 +19,8 @@ const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 enum _ChatsView { chats, requests }
 
+enum _ChatMenuAction { favorite, delete, block, report }
+
 enum _LocalChatTestMode { empty, activeChat, activeChatWithMessages }
 
 const _LocalChatTestMode _localChatTestMode = _LocalChatTestMode.empty;
@@ -821,6 +823,54 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
+class _ChatOverflowMenu extends StatelessWidget {
+  const _ChatOverflowMenu();
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_ChatMenuAction>(
+      tooltip: 'Chat-Einstellungen',
+      icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+      color: const Color(0xFF101827),
+      onSelected: (action) {
+        final message = switch (action) {
+          _ChatMenuAction.favorite =>
+            'Favoriten speichern wir im nächsten Schritt dauerhaft.',
+          _ChatMenuAction.delete =>
+            'Chat löschen verbinden wir im nächsten Schritt.',
+          _ChatMenuAction.block =>
+            'Blockieren verbinden wir im nächsten Schritt.',
+          _ChatMenuAction.report => 'Melden verbinden wir im nächsten Schritt.',
+        };
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      },
+      itemBuilder: (context) {
+        return const [
+          PopupMenuItem(
+            value: _ChatMenuAction.favorite,
+            child: Text('Zu Favoriten hinzufügen'),
+          ),
+          PopupMenuItem(
+            value: _ChatMenuAction.delete,
+            child: Text('Chat löschen'),
+          ),
+          PopupMenuItem(
+            value: _ChatMenuAction.block,
+            child: Text('Nutzer blockieren'),
+          ),
+          PopupMenuItem(
+            value: _ChatMenuAction.report,
+            child: Text('Nutzer melden'),
+          ),
+        ];
+      },
+    );
+  }
+}
+
 class _ActiveChatsScreen extends StatelessWidget {
   const _ActiveChatsScreen({
     required this.chats,
@@ -1446,8 +1496,13 @@ class _CompactChatInfoCard extends StatelessWidget {
                   ),
                 ),
               ),
+
+              const SizedBox(width: 8),
+
+              const _ChatOverflowMenu(),
             ],
           ),
+
           const SizedBox(height: 14),
           Row(
             children: [
