@@ -310,6 +310,75 @@ class FirestoreChatRepository implements ChatRepository {
     return messages;
   }
 
+  Future<void> setTypingStatus({
+    required String chatId,
+    required String userId,
+    required bool isTyping,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      return;
+    }
+
+    await _chatsCollection.doc(trimmedChatId).set({
+      'typingBy': {trimmedUserId: isTyping},
+      'typingUpdatedAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+    }, SetOptions(merge: true));
+  }
+
+  Stream<bool> watchOtherTypingStatus({
+    required String chatId,
+    required String currentUserId,
+  }) {
+    final trimmedChatId = chatId.trim();
+    final trimmedCurrentUserId = currentUserId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedCurrentUserId.isEmpty) {
+      return Stream<bool>.value(false);
+    }
+
+    return _chatsCollection.doc(trimmedChatId).snapshots().map((snapshot) {
+      final data = snapshot.data();
+
+      if (data == null) {
+        return false;
+      }
+
+      final typingBy = data['typingBy'];
+      final typingUpdatedAtBy = data['typingUpdatedAtBy'];
+
+      if (typingBy is! Map || typingUpdatedAtBy is! Map) {
+        return false;
+      }
+
+      final now = DateTime.now();
+
+      for (final entry in typingBy.entries) {
+        final userId = entry.key?.toString() ?? '';
+
+        if (userId.isEmpty || userId == trimmedCurrentUserId) {
+          continue;
+        }
+
+        if (entry.value != true) {
+          continue;
+        }
+
+        final updatedAt = _dateTimeFromValue(typingUpdatedAtBy[userId]);
+
+        if (updatedAt == null) {
+          continue;
+        }
+
+        return now.difference(updatedAt).inSeconds <= 6;
+      }
+
+      return false;
+    });
+  }
+
   @override
   Future<ChatMessageRecord> sendTextMessage({
     required String chatId,

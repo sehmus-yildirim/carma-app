@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1366,7 +1367,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _hasText = false;
   bool _isLoadingMessages = false;
   bool _isSendingMessage = false;
-  final bool _isOtherUserTyping = false;
+  bool _isOtherUserTyping = false;
+  bool _isCurrentUserTyping = false;
+  DateTime? _lastTypingWriteAt;
+  Timer? _typingStopTimer;
+  StreamSubscription<bool>? _typingSubscription;
 
   bool get _hasFirestoreChat {
     final chatId = widget.chatId?.trim();
@@ -1381,6 +1386,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
     if (_hasFirestoreChat) {
       _loadFirestoreMessages();
+      _watchTypingStatus();
     }
   }
 
@@ -1394,6 +1400,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   void _handleMessageChanged() {
     final nextHasText = _messageController.text.trim().isNotEmpty;
 
+    _handleTypingChanged(nextHasText);
+
     if (_hasText == nextHasText) {
       return;
     }
@@ -1401,6 +1409,84 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     setState(() {
       _hasText = nextHasText;
     });
+  }
+
+  void _watchTypingStatus() {
+    final chatId = widget.chatId?.trim();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    if (chatId == null || chatId.isEmpty || currentUserId.isEmpty) {
+      return;
+    }
+
+    _typingSubscription?.cancel();
+    _typingSubscription = _chatRepository
+        .watchOtherTypingStatus(chatId: chatId, currentUserId: currentUserId)
+        .listen((isTyping) {
+          if (!mounted || _isOtherUserTyping == isTyping) {
+            return;
+          }
+
+          setState(() {
+            _isOtherUserTyping = isTyping;
+          });
+        });
+  }
+
+  void _handleTypingChanged(bool hasText) {
+    if (!_hasFirestoreChat) {
+      return;
+    }
+
+    _typingStopTimer?.cancel();
+
+    if (!hasText) {
+      _setCurrentUserTyping(false);
+      return;
+    }
+
+    final now = DateTime.now();
+    final shouldWriteTyping =
+        !_isCurrentUserTyping ||
+        _lastTypingWriteAt == null ||
+        now.difference(_lastTypingWriteAt!).inSeconds >= 2;
+
+    if (shouldWriteTyping) {
+      _setCurrentUserTyping(true);
+    }
+
+    _typingStopTimer = Timer(const Duration(seconds: 4), () {
+      _setCurrentUserTyping(false);
+    });
+  }
+
+  Future<void> _setCurrentUserTyping(bool isTyping) async {
+    final chatId = widget.chatId?.trim();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (chatId == null ||
+        chatId.isEmpty ||
+        currentUserId == null ||
+        currentUserId.isEmpty) {
+      return;
+    }
+
+    if (_isCurrentUserTyping == isTyping && !isTyping) {
+      return;
+    }
+
+    _isCurrentUserTyping = isTyping;
+    _lastTypingWriteAt = DateTime.now();
+
+    try {
+      await _chatRepository.setTypingStatus(
+        chatId: chatId,
+        userId: currentUserId,
+        isTyping: isTyping,
+      );
+    } catch (_) {
+      // Typing ist nur ein Komfortsignal und darf den Chat nicht blockieren.
+    }
   }
 
   Future<void> _loadFirestoreMessages() async {
