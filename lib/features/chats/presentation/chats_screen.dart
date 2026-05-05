@@ -143,6 +143,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
     });
   }
 
+  void _refreshChatsAndRequests() {
+    setState(() {
+      _chatFuture = _loadChats();
+      _requestCountsFuture = _loadRequestCounts();
+    });
+  }
+
   Future<void> _openIncomingRequestsScreen() async {
     final acceptedChatId = await Navigator.of(context).push<String>(
       MaterialPageRoute(
@@ -157,13 +164,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
       return;
     }
 
+    _refreshChatsAndRequests();
+
     final chatId = acceptedChatId?.trim();
 
     if (chatId == null || chatId.isEmpty) {
       return;
     }
 
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _ChatConversationScreen(
           chatId: chatId,
@@ -171,6 +180,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ),
       ),
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    _refreshChatsAndRequests();
   }
 
   void _openOutgoingRequestsScreen() {
