@@ -1366,6 +1366,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _hasText = false;
   bool _isLoadingMessages = false;
   bool _isSendingMessage = false;
+  final bool _isOtherUserTyping = false;
 
   bool get _hasFirestoreChat {
     final chatId = widget.chatId?.trim();
@@ -1579,6 +1580,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                         const _ChatEmptySpace()
                       else
                         _ChatMessageList(messages: _messages),
+                      if (_isOtherUserTyping)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: _TypingIndicatorBubble(),
+                        ),
                     ],
                   ),
                 ),
@@ -1865,7 +1871,11 @@ class _ChatMessageBubble extends StatelessWidget {
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
+                    colors: [
+                      Color(0xFF064FAF),
+                      Color(0xFF0872D8),
+                      Color(0xFF0B8FEF),
+                    ],
                   )
                 : null,
             color: message.isMine ? null : Colors.white.withValues(alpha: 0.09),
@@ -1971,6 +1981,97 @@ class _ChatLoadingSpace extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 220),
       alignment: Alignment.center,
       child: const CircularProgressIndicator(),
+    );
+  }
+}
+
+class _TypingIndicatorBubble extends StatelessWidget {
+  const _TypingIndicatorBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+            bottomLeft: Radius.circular(5),
+            bottomRight: Radius.circular(20),
+          ),
+          color: Colors.white.withValues(alpha: 0.09),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _TypingDot(delay: 0),
+            const SizedBox(width: 4),
+            _TypingDot(delay: 120),
+            const SizedBox(width: 4),
+            _TypingDot(delay: 240),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TypingDot extends StatefulWidget {
+  const _TypingDot({required this.delay});
+
+  final int delay;
+
+  @override
+  State<_TypingDot> createState() => _TypingDotState();
+}
+
+class _TypingDotState extends State<_TypingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 760),
+    );
+
+    _opacity = Tween<double>(
+      begin: 0.35,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    Future<void>.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) {
+        _controller.repeat(reverse: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.82),
+        ),
+      ),
     );
   }
 }
