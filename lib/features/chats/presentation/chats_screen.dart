@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
 import '../../../shared/models/carma_models.dart';
@@ -1724,57 +1725,236 @@ class _ChatMessageBubble extends StatelessWidget {
 
   final _LocalChatMessage message;
 
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showMessageActions(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF101827),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: Colors.white.withValues(alpha: 0.24),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    for (final emoji in const [
+                      '❤️',
+                      '👍',
+                      '😂',
+                      '😮',
+                      '😢',
+                      '🙏',
+                    ])
+                      _MessageReactionButton(
+                        emoji: emoji,
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          _showSnackBar(context, 'Reaktion  vorgemerkt.');
+                        },
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _MessageActionTile(
+                  icon: Icons.reply_rounded,
+                  label: 'Antworten',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _showSnackBar(
+                      context,
+                      'Antworten verbinden wir im nächsten Schritt.',
+                    );
+                  },
+                ),
+                _MessageActionTile(
+                  icon: Icons.forward_rounded,
+                  label: 'Weiterleiten',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _showSnackBar(
+                      context,
+                      'Weiterleiten verbinden wir im nächsten Schritt.',
+                    );
+                  },
+                ),
+                _MessageActionTile(
+                  icon: Icons.copy_rounded,
+                  label: 'Kopieren',
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: message.text));
+                    Navigator.of(sheetContext).pop();
+                    _showSnackBar(context, 'Nachricht wurde kopiert.');
+                  },
+                ),
+                _MessageActionTile(
+                  icon: Icons.star_border_rounded,
+                  label: 'Mit Stern markieren',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _showSnackBar(
+                      context,
+                      'Nachricht wurde als Stern vorgemerkt.',
+                    );
+                  },
+                ),
+                _MessageActionTile(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'Löschen',
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _showSnackBar(
+                      context,
+                      'Nachricht löschen verbinden wir im nächsten Schritt.',
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final timeStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Colors.white.withValues(alpha: 0.72),
+      fontWeight: FontWeight.w800,
+      fontSize: 11,
+    );
+
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.74,
-        ),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 9),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: Radius.circular(message.isMine ? 20 : 5),
-            bottomRight: Radius.circular(message.isMine ? 5 : 20),
+      child: GestureDetector(
+        onLongPress: () => _showMessageActions(context),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.76,
           ),
-          gradient: message.isMine
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
-                )
-              : null,
-          color: message.isMine ? null : Colors.white.withValues(alpha: 0.09),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: message.isMine ? 0.18 : 0.10),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: message.isMine
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.text,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                height: 1.32,
+          padding: const EdgeInsets.fromLTRB(14, 10, 12, 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(20),
+              topRight: const Radius.circular(20),
+              bottomLeft: Radius.circular(message.isMine ? 20 : 5),
+              bottomRight: Radius.circular(message.isMine ? 5 : 20),
+            ),
+            gradient: message.isMine
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
+                  )
+                : null,
+            color: message.isMine ? null : Colors.white.withValues(alpha: 0.09),
+            border: Border.all(
+              color: Colors.white.withValues(
+                alpha: message.isMine ? 0.18 : 0.10,
               ),
             ),
-            const SizedBox(height: 5),
-            Text(
-              message.timeLabel,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.64),
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
+          ),
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 7,
+            runSpacing: 3,
+            children: [
+              Text(
+                message.text,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  height: 1.28,
+                ),
               ),
-            ),
-          ],
+              Text(message.timeLabel, style: timeStyle),
+              if (message.isMine)
+                const Icon(
+                  Icons.done_all_rounded,
+                  size: 17,
+                  color: Color(0xFF8FE7FF),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageReactionButton extends StatelessWidget {
+  const _MessageReactionButton({required this.emoji, required this.onTap});
+
+  final String emoji;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.08),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Center(
+            child: Text(emoji, style: const TextStyle(fontSize: 22)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageActionTile extends StatelessWidget {
+  const _MessageActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? Colors.redAccent : Colors.white;
+
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: color),
+      title: Text(
+        label,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -2110,36 +2290,45 @@ class _SendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = isEnabled;
-
     return Material(
       color: Colors.transparent,
       shape: const CircleBorder(),
       child: InkWell(
-        onTap: enabled ? onTap : null,
+        onTap: isEnabled ? onTap : null,
         customBorder: const CircleBorder(),
-        child: AnimatedOpacity(
+        child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          opacity: enabled ? 1 : 0.45,
-          child: Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.24),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: isEnabled
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
+                  )
+                : null,
+            color: isEnabled ? null : Colors.white.withValues(alpha: 0.10),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: isEnabled ? 0.0 : 0.14),
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            boxShadow: isEnabled
+                ? [
+                    BoxShadow(
+                      color: _carmaBlue.withValues(alpha: 0.24),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Icon(
+            icon,
+            color: isEnabled
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.42),
+            size: 22,
           ),
         ),
       ),
