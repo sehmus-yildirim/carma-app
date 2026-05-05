@@ -337,11 +337,13 @@ class _LocalChatMessage {
     required this.text,
     required this.isMine,
     required this.timeLabel,
+    this.isReadByOther = false,
   });
 
   final String text;
   final bool isMine;
   final String timeLabel;
+  final bool isReadByOther;
 }
 
 class _MvpInfoCard extends StatelessWidget {
@@ -1571,7 +1573,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       setState(() {
         _messages = [
           ..._messages,
-          _LocalChatMessage(text: message, isMine: true, timeLabel: 'Jetzt'),
+          _LocalChatMessage(
+            text: message,
+            isMine: true,
+            timeLabel: 'Jetzt',
+            isReadByOther: false,
+          ),
         ];
       });
 

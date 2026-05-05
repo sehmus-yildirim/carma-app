@@ -310,6 +310,69 @@ class FirestoreChatRepository implements ChatRepository {
     return messages;
   }
 
+  Future<void> markChatRead({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      return;
+    }
+
+    await _chatsCollection.doc(trimmedChatId).set({
+      'lastReadAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+    }, SetOptions(merge: true));
+  }
+
+  Future<DateTime?> loadOtherLastReadAt({
+    required String chatId,
+    required String currentUserId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedCurrentUserId = currentUserId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedCurrentUserId.isEmpty) {
+      return null;
+    }
+
+    final snapshot = await _chatsCollection.doc(trimmedChatId).get();
+    final data = snapshot.data();
+
+    if (data == null) {
+      return null;
+    }
+
+    final lastReadAtBy = data['lastReadAtBy'];
+
+    if (lastReadAtBy is! Map) {
+      return null;
+    }
+
+    DateTime? latestOtherReadAt;
+
+    for (final entry in lastReadAtBy.entries) {
+      final userId = entry.key?.toString() ?? '';
+
+      if (userId.isEmpty || userId == trimmedCurrentUserId) {
+        continue;
+      }
+
+      final readAt = _dateTimeFromValue(entry.value);
+
+      if (readAt == null) {
+        continue;
+      }
+
+      if (latestOtherReadAt == null || readAt.isAfter(latestOtherReadAt)) {
+        latestOtherReadAt = readAt;
+      }
+    }
+
+    return latestOtherReadAt;
+  }
+
   Future<void> setTypingStatus({
     required String chatId,
     required String userId,
