@@ -227,6 +227,8 @@ abstract class ChatRepository {
   });
 
   Future<ChatRecord> archiveChat({required String chatId});
+
+  Future<ChatRecord> deleteChat({required String chatId});
 }
 
 class FirestoreChatRepository implements ChatRepository {
@@ -574,6 +576,20 @@ class FirestoreChatRepository implements ChatRepository {
     return _chatFromSnapshot(snapshot);
   }
 
+  @override
+  Future<ChatRecord> deleteChat({required String chatId}) async {
+    final chatDocument = _chatsCollection.doc(chatId);
+
+    await chatDocument.set({
+      'status': ChatStatus.deleted.name,
+      'isDeleted': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final snapshot = await chatDocument.get();
+    return _chatFromSnapshot(snapshot);
+  }
+
   CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
     return _chatsCollection
         .doc(chatId)
@@ -798,6 +814,23 @@ class LocalChatRepository implements ChatRepository {
 
     final updated = _chats[index].copyWith(
       status: ChatStatus.archived,
+      updatedAt: DateTime.now(),
+    );
+
+    _chats[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<ChatRecord> deleteChat({required String chatId}) async {
+    final index = _chats.indexWhere((chat) => chat.id == chatId);
+
+    if (index < 0) {
+      throw StateError('Chat not found: $chatId');
+    }
+
+    final updated = _chats[index].copyWith(
+      status: ChatStatus.deleted,
       updatedAt: DateTime.now(),
     );
 

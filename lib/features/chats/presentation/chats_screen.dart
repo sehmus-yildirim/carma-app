@@ -846,8 +846,12 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _ChatOverflowMenu extends StatelessWidget {
-  const _ChatOverflowMenu({this.title, this.subtitle});
+  static final FirestoreChatRepository _chatRepository =
+      FirestoreChatRepository();
 
+  const _ChatOverflowMenu({this.chatId, this.title, this.subtitle});
+
+  final String? chatId;
   final String? title;
   final String? subtitle;
 
@@ -941,22 +945,40 @@ class _ChatOverflowMenu extends StatelessWidget {
       case _ChatMenuAction.vehicleDetails:
         await _showVehicleDetails(context);
       case _ChatMenuAction.archive:
-        await _confirmAction(
+        await _runChatStatusAction(
           context: context,
           title: 'Chat archivieren?',
           message:
               'Der Chat wird aus der aktiven Übersicht entfernt, bleibt aber für Sicherheit und Meldungen nachvollziehbar.',
           confirmLabel: 'Archivieren',
-          resultMessage: 'Chat wurde zum Archivieren vorgemerkt.',
+          successMessage: 'Chat wurde archiviert.',
+          action: () async {
+            final id = chatId?.trim();
+
+            if (id == null || id.isEmpty) {
+              throw StateError('Chat-ID fehlt.');
+            }
+
+            await _chatRepository.archiveChat(chatId: id);
+          },
         );
       case _ChatMenuAction.delete:
-        await _confirmAction(
+        await _runChatStatusAction(
           context: context,
           title: 'Chat löschen?',
           message:
-              'Der Chat wird für dich entfernt. Sicherheitsrelevante Daten können geschützt erhalten bleiben.',
+              'Der Chat wird aus deiner aktiven Übersicht entfernt. Sicherheitsrelevante Daten können geschützt erhalten bleiben.',
           confirmLabel: 'Löschen',
-          resultMessage: 'Chat wurde zum Löschen vorgemerkt.',
+          successMessage: 'Chat wurde gelöscht.',
+          action: () async {
+            final id = chatId?.trim();
+
+            if (id == null || id.isEmpty) {
+              throw StateError('Chat-ID fehlt.');
+            }
+
+            await _chatRepository.deleteChat(chatId: id);
+          },
         );
       case _ChatMenuAction.block:
         await _confirmAction(
@@ -976,6 +998,70 @@ class _ChatOverflowMenu extends StatelessWidget {
           confirmLabel: 'Melden',
           resultMessage: 'Meldung wurde vorgemerkt.',
         );
+    }
+  }
+
+  Future<void> _runChatStatusAction({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    required String successMessage,
+    required Future<void> Function() action,
+  }) async {
+    final id = chatId?.trim();
+
+    if (id == null || id.isEmpty) {
+      _showSnackBar(
+        context,
+        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF101827),
+          title: Text(title, style: const TextStyle(color: Colors.white)),
+          content: Text(
+            message,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.76)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Abbrechen'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(confirmLabel),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await action();
+
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, successMessage);
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
     }
   }
 
@@ -1051,8 +1137,8 @@ class _ActiveChatsScreen extends StatelessWidget {
                 subtitle: chat.lastMessage?.trim().isNotEmpty == true
                     ? 'Letzte Nachricht: '
                     : chat.vehicleTitle,
-                onTap: () {
-                  Navigator.of(context).push(
+                onTap: () async {
+                  final didChange = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
                       builder: (_) => _ChatConversationScreen(
                         chatId: chat.id,
@@ -1063,6 +1149,10 @@ class _ActiveChatsScreen extends StatelessWidget {
                       ),
                     ),
                   );
+
+                  if (didChange == true && context.mounted) {
+                    Navigator.of(context).pop(true);
+                  }
                 },
               ),
               const SizedBox(height: 12),
@@ -1746,6 +1836,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                         vehicleModel: widget.vehicleModel,
                         vehicleColor: widget.vehicleColor,
                         onBack: () => Navigator.of(context).pop(),
+                        chatId: widget.chatId,
                       ),
                       const SizedBox(height: 14),
                       if (_isLoadingMessages)
@@ -1783,13 +1874,14 @@ class _CompactChatInfoCard extends StatelessWidget {
     required this.vehicleModel,
     required this.vehicleColor,
     required this.onBack,
+    this.chatId,
   });
 
   final String displayName;
   final String vehicleModel;
   final String vehicleColor;
   final VoidCallback onBack;
-
+  final String? chatId;
   @override
   Widget build(BuildContext context) {
     return GlassCard(
@@ -1817,7 +1909,11 @@ class _CompactChatInfoCard extends StatelessWidget {
 
               const SizedBox(width: 8),
 
-              _ChatOverflowMenu(title: displayName, subtitle: ' · '),
+              _ChatOverflowMenu(
+                chatId: chatId,
+                title: displayName,
+                subtitle: ' · ',
+              ),
             ],
           ),
 
