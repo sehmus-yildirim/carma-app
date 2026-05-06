@@ -26,6 +26,8 @@ class ChatRecord {
     this.vehicleModel,
     this.vehicleColor,
     this.vehicleLabel,
+    this.favoriteBy = const <String, bool>{},
+    this.mutedBy = const <String, bool>{},
   });
 
   final String id;
@@ -45,6 +47,16 @@ class ChatRecord {
   final String? vehicleModel;
   final String? vehicleColor;
   final String? vehicleLabel;
+  final Map<String, bool> favoriteBy;
+  final Map<String, bool> mutedBy;
+
+  bool isFavoriteFor(String userId) {
+    return favoriteBy[userId] == true;
+  }
+
+  bool isMutedFor(String userId) {
+    return mutedBy[userId] == true;
+  }
 
   bool get isActive {
     return status == ChatStatus.active;
@@ -133,6 +145,8 @@ class ChatRecord {
     String? vehicleModel,
     String? vehicleColor,
     String? vehicleLabel,
+    Map<String, bool>? favoriteBy,
+    Map<String, bool>? mutedBy,
   }) {
     return ChatRecord(
       id: id ?? this.id,
@@ -152,6 +166,8 @@ class ChatRecord {
       vehicleModel: vehicleModel ?? this.vehicleModel,
       vehicleColor: vehicleColor ?? this.vehicleColor,
       vehicleLabel: vehicleLabel ?? this.vehicleLabel,
+      favoriteBy: favoriteBy ?? this.favoriteBy,
+      mutedBy: mutedBy ?? this.mutedBy,
     );
   }
 }
@@ -249,7 +265,16 @@ class FirestoreChatRepository implements ChatRepository {
         .get();
 
     final chats = snapshot.docs.map(_chatFromSnapshot).toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      ..sort((a, b) {
+        final aFavorite = a.isFavoriteFor(userId);
+        final bFavorite = b.isFavoriteFor(userId);
+
+        if (aFavorite != bFavorite) {
+          return aFavorite ? -1 : 1;
+        }
+
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
 
     return chats;
   }
@@ -696,6 +721,8 @@ class FirestoreChatRepository implements ChatRepository {
       requestId: data['requestId'] as String?,
       lastMessage: data['lastMessage'] as String?,
       lastMessageAt: _dateTimeFromValue(data['lastMessageAt']),
+      favoriteBy: _boolMapFromValue(data['favoriteBy']),
+      mutedBy: _boolMapFromValue(data['mutedBy']),
     );
   }
 
@@ -736,6 +763,16 @@ class FirestoreChatRepository implements ChatRepository {
     }
 
     return const <String>[];
+  }
+
+  static Map<String, bool> _boolMapFromValue(Object? value) {
+    if (value is Map) {
+      return value.map(
+        (key, mapValue) => MapEntry(key.toString(), mapValue == true),
+      );
+    }
+
+    return const <String, bool>{};
   }
 
   static DateTime? _dateTimeFromValue(Object? value) {

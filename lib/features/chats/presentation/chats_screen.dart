@@ -1289,9 +1289,10 @@ class _ActiveChatsScreen extends StatelessWidget {
             for (final chat in chats) ...[
               _ActiveChatListTile(
                 title: chat.displayNameFor(currentUserId),
-                subtitle: chat.lastMessage?.trim().isNotEmpty == true
-                    ? 'Letzte Nachricht: '
-                    : chat.vehicleTitle,
+                subtitle:
+                    '${chat.isFavoriteFor(currentUserId) ? '★ ' : ''}'
+                    '${chat.isMutedFor(currentUserId) ? '🔕 ' : ''}'
+                    '${chat.lastMessage?.trim().isNotEmpty == true ? 'Letzte Nachricht: ' : chat.vehicleTitle}',
                 onTap: () async {
                   final didChange = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
