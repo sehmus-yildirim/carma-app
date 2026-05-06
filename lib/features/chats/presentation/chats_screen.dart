@@ -19,6 +19,12 @@ const Color _carmaBlue = Color(0xFF139CFF);
 const Color _carmaBlueLight = Color(0xFF63D5FF);
 const Color _carmaBlueDark = Color(0xFF0A76FF);
 
+const Color _myMessageBlueDark = Color(0xFF03172F);
+const Color _myMessageBlue = Color(0xFF08264A);
+const Color _myMessageBlueLight = Color(0xFF0D3566);
+const Color _myMessageBorder = Color(0xFF164A86);
+const Color _myMessageCheckBlue = Color(0xFF7FD6FF);
+
 enum _ChatsView { chats, requests }
 
 enum _ChatMenuAction {
@@ -495,7 +501,11 @@ class _SegmentButton extends StatelessWidget {
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
+                    colors: [
+                      _myMessageBlueDark,
+                      _myMessageBlue,
+                      _myMessageBlueLight,
+                    ],
                   )
                 : null,
             color: isSelected ? null : Colors.white.withValues(alpha: 0.04),
@@ -1965,17 +1975,17 @@ class _ChatMessageBubble extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF064FAF),
-                      Color(0xFF0872D8),
-                      Color(0xFF0B8FEF),
+                      _myMessageBlueDark,
+                      _myMessageBlue,
+                      _myMessageBlueLight,
                     ],
                   )
                 : null,
             color: message.isMine ? null : Colors.white.withValues(alpha: 0.09),
             border: Border.all(
-              color: Colors.white.withValues(
-                alpha: message.isMine ? 0.18 : 0.10,
-              ),
+              color: message.isMine
+                  ? _myMessageBorder
+                  : Colors.white.withValues(alpha: 0.10),
             ),
           ),
           child: Wrap(
@@ -1997,7 +2007,7 @@ class _ChatMessageBubble extends StatelessWidget {
                 const Icon(
                   Icons.done_all_rounded,
                   size: 17,
-                  color: Color(0xFF8FE7FF),
+                  color: _myMessageCheckBlue,
                 ),
             ],
           ),
@@ -2500,7 +2510,11 @@ class _SendButton extends StatelessWidget {
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
+                    colors: [
+                      _myMessageBlueDark,
+                      _myMessageBlue,
+                      _myMessageBlueLight,
+                    ],
                   )
                 : null,
             color: isEnabled ? null : Colors.white.withValues(alpha: 0.10),
