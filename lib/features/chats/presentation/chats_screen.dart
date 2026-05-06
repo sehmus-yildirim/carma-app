@@ -898,6 +898,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   Future<void> _confirmAction({
     required BuildContext context,
     required String title,
@@ -927,6 +928,91 @@ class _ChatOverflowMenu extends StatelessWidget {
 
     if (confirmed == true && context.mounted) {
       _showSnackBar(context, resultMessage);
+    }
+  }
+
+  Future<void> _runReportAction(BuildContext context) async {
+    final id = chatId?.trim();
+
+    if (id == null || id.isEmpty) {
+      _showSnackBar(
+        context,
+        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
+      );
+      return;
+    }
+
+    final reasonController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF101827),
+          title: const Text(
+            'Nutzer melden?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: TextField(
+            controller: reasonController,
+            maxLines: 3,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Grund optional eingeben',
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.48)),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.08),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Abbrechen'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Melden'),
+            ),
+          ],
+        );
+      },
+    );
+
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+      if (currentUserId == null || currentUserId.isEmpty) {
+        throw StateError('Du musst angemeldet sein.');
+      }
+
+      await _chatRepository.reportChat(
+        chatId: id,
+        reporterUserId: currentUserId,
+        reason: reason.isEmpty ? 'Chat gemeldet' : reason,
+      );
+
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, 'Meldung wurde gesendet.');
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, 'Meldung konnte nicht gesendet werden: $error');
     }
   }
 
@@ -981,23 +1067,33 @@ class _ChatOverflowMenu extends StatelessWidget {
           },
         );
       case _ChatMenuAction.block:
-        await _confirmAction(
+        await _runChatStatusAction(
           context: context,
           title: 'Nutzer blockieren?',
           message:
               'Blockierte Nutzer können dich nicht mehr über diesen Chat kontaktieren.',
           confirmLabel: 'Blockieren',
-          resultMessage: 'Nutzer wurde zum Blockieren vorgemerkt.',
+          successMessage: 'Nutzer wurde blockiert.',
+          action: () async {
+            final id = chatId?.trim();
+            final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+            if (id == null || id.isEmpty) {
+              throw StateError('Chat-ID fehlt.');
+            }
+
+            if (currentUserId == null || currentUserId.isEmpty) {
+              throw StateError('Du musst angemeldet sein.');
+            }
+
+            await _chatRepository.blockChat(
+              chatId: id,
+              blockedByUserId: currentUserId,
+            );
+          },
         );
       case _ChatMenuAction.report:
-        await _confirmAction(
-          context: context,
-          title: 'Nutzer melden?',
-          message:
-              'Die Meldung wird später mit Chat-ID, Nutzer-ID und Grund an den Meldebereich übergeben.',
-          confirmLabel: 'Melden',
-          resultMessage: 'Meldung wurde vorgemerkt.',
-        );
+        await _runReportAction(context);
     }
   }
 

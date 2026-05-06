@@ -563,6 +563,54 @@ class FirestoreChatRepository implements ChatRepository {
     return _messageFromSnapshot(snapshot);
   }
 
+  Future<ChatRecord> blockChat({
+    required String chatId,
+    required String blockedByUserId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = blockedByUserId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and blocker user ID must not be empty.');
+    }
+
+    final chatDocument = _chatsCollection.doc(trimmedChatId);
+
+    await chatDocument.set({
+      'status': ChatStatus.blocked.name,
+      'blockedBy': trimmedUserId,
+      'blockedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final snapshot = await chatDocument.get();
+    return _chatFromSnapshot(snapshot);
+  }
+
+  Future<void> reportChat({
+    required String chatId,
+    required String reporterUserId,
+    String reason = 'Chat gemeldet',
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedReporterId = reporterUserId.trim();
+    final trimmedReason = reason.trim();
+
+    if (trimmedChatId.isEmpty || trimmedReporterId.isEmpty) {
+      throw ArgumentError('Chat ID and reporter user ID must not be empty.');
+    }
+
+    await _firestore.collection('reports').add({
+      'type': 'chat',
+      'chatId': trimmedChatId,
+      'reporterUserId': trimmedReporterId,
+      'reason': trimmedReason.isEmpty ? 'Chat gemeldet' : trimmedReason,
+      'status': 'open',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   @override
   Future<ChatRecord> archiveChat({required String chatId}) async {
     final chatDocument = _chatsCollection.doc(chatId);
