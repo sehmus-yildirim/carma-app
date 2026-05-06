@@ -1289,10 +1289,11 @@ class _ActiveChatsScreen extends StatelessWidget {
             for (final chat in chats) ...[
               _ActiveChatListTile(
                 title: chat.displayNameFor(currentUserId),
-                subtitle:
-                    '${chat.isFavoriteFor(currentUserId) ? '★ ' : ''}'
-                    '${chat.isMutedFor(currentUserId) ? '🔕 ' : ''}'
-                    '${chat.lastMessage?.trim().isNotEmpty == true ? 'Letzte Nachricht: ' : chat.vehicleTitle}',
+                subtitle: chat.lastMessage?.trim().isNotEmpty == true
+                    ? 'Letzte Nachricht: ${chat.lastMessage!.trim()}'
+                    : chat.vehicleTitle,
+                isFavorite: chat.isFavoriteFor(currentUserId),
+                isMuted: chat.isMutedFor(currentUserId),
                 onTap: () async {
                   final didChange = await Navigator.of(context).push<bool>(
                     MaterialPageRoute(
@@ -1406,14 +1407,20 @@ class _ActiveChatListTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.isFavorite = false,
+    this.isMuted = false,
   });
 
   final String title;
   final String subtitle;
+  final bool isFavorite;
+  final bool isMuted;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final hasStateIcons = isFavorite || isMuted;
+
     return GlassCard(
       padding: EdgeInsets.zero,
       child: Material(
@@ -1431,25 +1438,46 @@ class _ActiveChatListTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 18,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 17,
+                                  ),
                             ),
+                          ),
+                          if (hasStateIcons) ...[
+                            const SizedBox(width: 8),
+                            if (isFavorite)
+                              const _ChatStateIcon(
+                                icon: Icons.star_rounded,
+                                tooltip: 'Favorit',
+                              ),
+                            if (isFavorite && isMuted) const SizedBox(width: 6),
+                            if (isMuted)
+                              const _ChatStateIcon(
+                                icon: Icons.notifications_off_rounded,
+                                tooltip: 'Stummgeschaltet',
+                              ),
+                          ],
+                        ],
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 6),
                       Text(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.68),
+                          color: Colors.white.withValues(alpha: 0.66),
                           fontWeight: FontWeight.w700,
+                          height: 1.28,
                         ),
                       ),
                     ],
@@ -1458,12 +1486,40 @@ class _ActiveChatListTile extends StatelessWidget {
                 const SizedBox(width: 10),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.72),
-                  size: 28,
+                  color: Colors.white.withValues(alpha: 0.42),
+                  size: 26,
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatStateIcon extends StatelessWidget {
+  const _ChatStateIcon({required this.icon, required this.tooltip});
+
+  final IconData icon;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.09),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: Icon(
+          icon,
+          color: Colors.white.withValues(alpha: 0.84),
+          size: 16,
         ),
       ),
     );
