@@ -1022,11 +1022,28 @@ class _ChatOverflowMenu extends StatelessWidget {
   ) async {
     switch (action) {
       case _ChatMenuAction.favorite:
-        _showSnackBar(context, 'Chat wurde als Favorit vorgemerkt.');
+        await _runChatPreferenceAction(
+          context: context,
+          successMessage: 'Chat wurde zu Favoriten hinzugefügt.',
+          action: ({required String chatId, required String userId}) async {
+            await _chatRepository.setChatFavorite(
+              chatId: chatId,
+              userId: userId,
+              isFavorite: true,
+            );
+          },
+        );
       case _ChatMenuAction.mute:
-        _showSnackBar(
-          context,
-          'Benachrichtigungen wurden zum Stummschalten vorgemerkt.',
+        await _runChatPreferenceAction(
+          context: context,
+          successMessage: 'Chat wurde stummgeschaltet.',
+          action: ({required String chatId, required String userId}) async {
+            await _chatRepository.setChatMuted(
+              chatId: chatId,
+              userId: userId,
+              isMuted: true,
+            );
+          },
         );
       case _ChatMenuAction.vehicleDetails:
         await _showVehicleDetails(context);
@@ -1094,6 +1111,48 @@ class _ChatOverflowMenu extends StatelessWidget {
         );
       case _ChatMenuAction.report:
         await _runReportAction(context);
+    }
+  }
+
+  Future<void> _runChatPreferenceAction({
+    required BuildContext context,
+    required Future<void> Function({
+      required String chatId,
+      required String userId,
+    })
+    action,
+    required String successMessage,
+  }) async {
+    final id = chatId?.trim();
+
+    if (id == null || id.isEmpty) {
+      _showSnackBar(
+        context,
+        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
+      );
+      return;
+    }
+
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+      if (currentUserId == null || currentUserId.isEmpty) {
+        throw StateError('Du musst angemeldet sein.');
+      }
+
+      await action(chatId: id, userId: currentUserId);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, successMessage);
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
     }
   }
 

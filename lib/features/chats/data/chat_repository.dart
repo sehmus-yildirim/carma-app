@@ -563,6 +563,44 @@ class FirestoreChatRepository implements ChatRepository {
     return _messageFromSnapshot(snapshot);
   }
 
+  Future<void> setChatFavorite({
+    required String chatId,
+    required String userId,
+    required bool isFavorite,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    await _chatsCollection.doc(trimmedChatId).set({
+      'favoriteBy': {trimmedUserId: isFavorite},
+      'favoriteUpdatedAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> setChatMuted({
+    required String chatId,
+    required String userId,
+    required bool isMuted,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    await _chatsCollection.doc(trimmedChatId).set({
+      'mutedBy': {trimmedUserId: isMuted},
+      'mutedUpdatedAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<ChatRecord> blockChat({
     required String chatId,
     required String blockedByUserId,
