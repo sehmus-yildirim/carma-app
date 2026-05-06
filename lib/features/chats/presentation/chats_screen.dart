@@ -1384,6 +1384,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   DateTime? _lastTypingWriteAt;
   Timer? _typingStopTimer;
   StreamSubscription<bool>? _typingSubscription;
+  StreamSubscription<DateTime?>? _readReceiptSubscription;
 
   bool get _hasFirestoreChat {
     final chatId = widget.chatId?.trim();
@@ -1399,6 +1400,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     if (_hasFirestoreChat) {
       _loadFirestoreMessages();
       _watchTypingStatus();
+      _watchReadReceipts();
     }
   }
 
@@ -1443,6 +1445,75 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             _isOtherUserTyping = isTyping;
           });
         });
+  }
+
+  void _watchReadReceipts() {
+    final chatId = widget.chatId?.trim();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    if (chatId == null || chatId.isEmpty || currentUserId.isEmpty) {
+      return;
+    }
+
+    _readReceiptSubscription?.cancel();
+    _readReceiptSubscription = _chatRepository
+        .watchOtherLastReadAt(chatId: chatId, currentUserId: currentUserId)
+        .listen(_applyOtherLastReadAt);
+  }
+
+  void _applyOtherLastReadAt(DateTime? otherLastReadAt) {
+    if (!mounted || otherLastReadAt == null) {
+      return;
+    }
+
+    var changed = false;
+
+    final nextMessages = _messages.map((message) {
+      if (!message.isMine || message.isReadByOther) {
+        return message;
+      }
+
+      final parsedTime = _timeFromLabel(message.timeLabel);
+
+      if (parsedTime == null || parsedTime.isAfter(otherLastReadAt)) {
+        return message;
+      }
+
+      changed = true;
+
+      return _LocalChatMessage(
+        text: message.text,
+        isMine: message.isMine,
+        timeLabel: message.timeLabel,
+        isReadByOther: true,
+      );
+    }).toList();
+
+    if (!changed) {
+      return;
+    }
+
+    setState(() {
+      _messages = nextMessages;
+    });
+  }
+
+  DateTime? _timeFromLabel(String label) {
+    final parts = label.split(':');
+
+    if (parts.length != 2) {
+      return null;
+    }
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+
+    if (hour == null || minute == null) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour, minute);
   }
 
   void _handleTypingChanged(bool hasText) {

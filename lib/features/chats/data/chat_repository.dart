@@ -373,6 +373,54 @@ class FirestoreChatRepository implements ChatRepository {
     return latestOtherReadAt;
   }
 
+  Stream<DateTime?> watchOtherLastReadAt({
+    required String chatId,
+    required String currentUserId,
+  }) {
+    final trimmedChatId = chatId.trim();
+    final trimmedCurrentUserId = currentUserId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedCurrentUserId.isEmpty) {
+      return Stream<DateTime?>.value(null);
+    }
+
+    return _chatsCollection.doc(trimmedChatId).snapshots().map((snapshot) {
+      final data = snapshot.data();
+
+      if (data == null) {
+        return null;
+      }
+
+      final lastReadAtBy = data['lastReadAtBy'];
+
+      if (lastReadAtBy is! Map) {
+        return null;
+      }
+
+      DateTime? latestOtherReadAt;
+
+      for (final entry in lastReadAtBy.entries) {
+        final userId = entry.key?.toString() ?? '';
+
+        if (userId.isEmpty || userId == trimmedCurrentUserId) {
+          continue;
+        }
+
+        final readAt = _dateTimeFromValue(entry.value);
+
+        if (readAt == null) {
+          continue;
+        }
+
+        if (latestOtherReadAt == null || readAt.isAfter(latestOtherReadAt)) {
+          latestOtherReadAt = readAt;
+        }
+      }
+
+      return latestOtherReadAt;
+    });
+  }
+
   Future<void> setTypingStatus({
     required String chatId,
     required String userId,
