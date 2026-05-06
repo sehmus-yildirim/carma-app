@@ -139,7 +139,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       ),
       _LocalChatMessage(
         text:
-            'Danke dir fÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼r den Hinweis. Ich schaue sofort nach.',
+            'Danke dir fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r den Hinweis. Ich schaue sofort nach.',
         isMine: true,
         timeLabel: '14:23',
       ),
@@ -269,7 +269,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       _ChatAccessBlockedCard(
                         message:
                             chatGateDecision.reason ??
-                            'Chats sind aktuell nicht verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar.',
+                            'Chats sind aktuell nicht verfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gbar.',
                       )
                     else ...[
                       _ChatsSegmentedControl(
@@ -343,12 +343,14 @@ class _LocalChatMessage {
     required this.text,
     required this.isMine,
     required this.timeLabel,
+    this.messageId,
     this.isReadByOther = false,
   });
 
   final String text;
   final bool isMine;
   final String timeLabel;
+  final String? messageId;
   final bool isReadByOther;
 }
 
@@ -370,7 +372,7 @@ class _MvpInfoCard extends StatelessWidget {
           const SizedBox(width: 13),
           Expanded(
             child: Text(
-              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter mit Firebase.',
+              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ter mit Firebase.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.80),
                 fontWeight: FontWeight.w700,
@@ -407,7 +409,7 @@ class _ChatAccessBlockedCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chats nicht verfÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼gbar',
+                  'Chats nicht verfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gbar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -594,8 +596,8 @@ class _ChatsOverview extends StatelessWidget {
 
     if (hasLocalActiveChat) {
       return localMessageCount > 0
-          ? '$localMessageCount lokale Beispielnachrichten verfügbar.'
-          : 'Ein lokaler Beispielchat ist verfügbar.';
+          ? '$localMessageCount lokale Beispielnachrichten verfÃ¼gbar.'
+          : 'Ein lokaler Beispielchat ist verfÃ¼gbar.';
     }
 
     return 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.';
@@ -657,7 +659,7 @@ class _RequestsOverview extends StatelessWidget {
 
   String get _outgoingBodyText {
     if (!_hasOutgoingRequests) {
-      return 'Du hast aktuell keine Anfrage gesendet. Später erscheinen hier offene Anfragen aus der Suche.';
+      return 'Du hast aktuell keine Anfrage gesendet. SpÃ¤ter erscheinen hier offene Anfragen aus der Suche.';
     }
 
     return outgoingCount == 1
@@ -674,7 +676,7 @@ class _RequestsOverview extends StatelessWidget {
           title: 'Eingehende Anfragen',
           count: _incomingCountLabel,
           description:
-              'Anfragen von Nutzern, die dich über dein Kennzeichen gefunden haben.',
+              'Anfragen von Nutzern, die dich Ã¼ber dein Kennzeichen gefunden haben.',
           bodyText: _incomingBodyText,
           onTap: onOpenIncoming,
         ),
@@ -868,7 +870,7 @@ class _ChatOverflowMenu extends StatelessWidget {
 
     final safeSubtitle = subtitle?.trim().isNotEmpty == true
         ? subtitle!.trim()
-        : 'Fahrzeugdetails sind aktuell nicht verfügbar.';
+        : 'Fahrzeugdetails sind aktuell nicht verfÃ¼gbar.';
 
     await showDialog<void>(
       context: context,
@@ -890,7 +892,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Schließen'),
+              child: const Text('SchlieÃŸen'),
             ),
           ],
         );
@@ -937,7 +939,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
+        'Diese Aktion ist fÃ¼r lokale Beispielchats noch nicht verfÃ¼gbar.',
       );
       return;
     }
@@ -1024,7 +1026,7 @@ class _ChatOverflowMenu extends StatelessWidget {
       case _ChatMenuAction.favorite:
         await _runChatPreferenceAction(
           context: context,
-          successMessage: 'Chat wurde zu Favoriten hinzugefügt.',
+          successMessage: 'Chat wurde zu Favoriten hinzugefÃ¼gt.',
           action: ({required String chatId, required String userId}) async {
             await _chatRepository.setChatFavorite(
               chatId: chatId,
@@ -1052,7 +1054,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           context: context,
           title: 'Chat archivieren?',
           message:
-              'Der Chat wird aus der aktiven Übersicht entfernt, bleibt aber für Sicherheit und Meldungen nachvollziehbar.',
+              'Der Chat wird aus der aktiven Ãœbersicht entfernt, bleibt aber fÃ¼r Sicherheit und Meldungen nachvollziehbar.',
           confirmLabel: 'Archivieren',
           successMessage: 'Chat wurde archiviert.',
           action: () async {
@@ -1068,11 +1070,11 @@ class _ChatOverflowMenu extends StatelessWidget {
       case _ChatMenuAction.delete:
         await _runChatStatusAction(
           context: context,
-          title: 'Chat löschen?',
+          title: 'Chat lÃ¶schen?',
           message:
-              'Der Chat wird aus deiner aktiven Übersicht entfernt. Sicherheitsrelevante Daten können geschützt erhalten bleiben.',
-          confirmLabel: 'Löschen',
-          successMessage: 'Chat wurde gelöscht.',
+              'Der Chat wird aus deiner aktiven Ãœbersicht entfernt. Sicherheitsrelevante Daten kÃ¶nnen geschÃ¼tzt erhalten bleiben.',
+          confirmLabel: 'LÃ¶schen',
+          successMessage: 'Chat wurde gelÃ¶scht.',
           action: () async {
             final id = chatId?.trim();
 
@@ -1088,7 +1090,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           context: context,
           title: 'Nutzer blockieren?',
           message:
-              'Blockierte Nutzer können dich nicht mehr über diesen Chat kontaktieren.',
+              'Blockierte Nutzer kÃ¶nnen dich nicht mehr Ã¼ber diesen Chat kontaktieren.',
           confirmLabel: 'Blockieren',
           successMessage: 'Nutzer wurde blockiert.',
           action: () async {
@@ -1128,7 +1130,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
+        'Diese Aktion ist fÃ¼r lokale Beispielchats noch nicht verfÃ¼gbar.',
       );
       return;
     }
@@ -1152,7 +1154,7 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
+      _showSnackBar(context, 'Aktion konnte nicht ausgefÃ¼hrt werden: $error');
     }
   }
 
@@ -1169,7 +1171,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
+        'Diese Aktion ist fÃ¼r lokale Beispielchats noch nicht verfÃ¼gbar.',
       );
       return;
     }
@@ -1216,7 +1218,7 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
+      _showSnackBar(context, 'Aktion konnte nicht ausgefÃ¼hrt werden: $error');
     }
   }
 
@@ -1231,7 +1233,7 @@ class _ChatOverflowMenu extends StatelessWidget {
         return const [
           PopupMenuItem(
             value: _ChatMenuAction.favorite,
-            child: Text('Zu Favoriten hinzufügen'),
+            child: Text('Zu Favoriten hinzufÃ¼gen'),
           ),
           PopupMenuItem(
             value: _ChatMenuAction.mute,
@@ -1247,7 +1249,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           ),
           PopupMenuItem(
             value: _ChatMenuAction.delete,
-            child: Text('Chat löschen'),
+            child: Text('Chat lÃ¶schen'),
           ),
           PopupMenuItem(
             value: _ChatMenuAction.block,
@@ -1329,7 +1331,7 @@ class _ActiveChatsScreen extends StatelessWidget {
               title: 'Carma Nutzer',
               subtitle: messages.isNotEmpty
                   ? 'Letzte Nachricht: '
-                  : 'BMW 1er · Schwarz',
+                  : 'BMW 1er Â· Schwarz',
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -1583,7 +1585,7 @@ class _EmptyListCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Live-Daten werden spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter mit Firebase geladen.',
+                    'Live-Daten werden spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ter mit Firebase geladen.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.72),
                       fontWeight: FontWeight.w700,
@@ -1900,6 +1902,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 text: record.text,
                 isMine: record.senderUserId == currentUserId,
                 timeLabel: _timeLabel(record.createdAt),
+                messageId: record.id,
               ),
             )
             .toList();
@@ -1933,10 +1936,50 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Foto aufnehmen oder aus Galerie wählen verbinden wir später.',
+          'Foto aufnehmen oder aus Galerie wÃ¤hlen verbinden wir spÃ¤ter.',
         ),
       ),
     );
+  }
+
+  Future<void> _handleDeleteMessage(_LocalChatMessage message) async {
+    final chatId = widget.chatId?.trim();
+    final messageId = message.messageId?.trim();
+
+    if (chatId == null ||
+        chatId.isEmpty ||
+        messageId == null ||
+        messageId.isEmpty) {
+      setState(() {
+        _messages = _messages
+            .where((item) => !identical(item, message))
+            .toList();
+      });
+      return;
+    }
+
+    try {
+      await _chatRepository.deleteMessage(chatId: chatId, messageId: messageId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _messages = _messages
+            .where((item) => item.messageId != message.messageId)
+            .toList();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nachricht wurde gelÃƒÂ¶scht.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nachricht konnte nicht gelÃƒÂ¶scht werden: $error'),
+        ),
+      );
+    }
   }
 
   Future<void> _handleSend() async {
@@ -2002,6 +2045,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             text: sentMessage.text,
             isMine: true,
             timeLabel: _timeLabel(sentMessage.createdAt),
+            messageId: sentMessage.id,
           ),
         ];
         _isSendingMessage = false;
@@ -2056,7 +2100,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                       else if (_messages.isEmpty)
                         const _ChatEmptySpace()
                       else
-                        _ChatMessageList(messages: _messages),
+                        _ChatMessageList(
+                          messages: _messages,
+                          onDeleteMessage: _handleDeleteMessage,
+                        ),
                       if (_isOtherUserTyping)
                         const Padding(
                           padding: EdgeInsets.only(top: 4),
@@ -2124,7 +2171,7 @@ class _CompactChatInfoCard extends StatelessWidget {
               _ChatOverflowMenu(
                 chatId: chatId,
                 title: displayName,
-                subtitle: ' · ',
+                subtitle: ' Â· ',
               ),
             ],
           ),
@@ -2191,9 +2238,13 @@ class _VehicleInfoPill extends StatelessWidget {
 }
 
 class _ChatMessageList extends StatelessWidget {
-  const _ChatMessageList({required this.messages});
+  const _ChatMessageList({
+    required this.messages,
+    required this.onDeleteMessage,
+  });
 
   final List<_LocalChatMessage> messages;
+  final ValueChanged<_LocalChatMessage> onDeleteMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -2201,7 +2252,10 @@ class _ChatMessageList extends StatelessWidget {
       children: messages.map((message) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
-          child: _ChatMessageBubble(message: message),
+          child: _ChatMessageBubble(
+            message: message,
+            onDeleteMessage: onDeleteMessage,
+          ),
         );
       }).toList(),
     );
@@ -2209,9 +2263,13 @@ class _ChatMessageList extends StatelessWidget {
 }
 
 class _ChatMessageBubble extends StatelessWidget {
-  const _ChatMessageBubble({required this.message});
+  const _ChatMessageBubble({
+    required this.message,
+    required this.onDeleteMessage,
+  });
 
   final _LocalChatMessage message;
+  final ValueChanged<_LocalChatMessage> onDeleteMessage;
 
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
@@ -2246,12 +2304,12 @@ class _ChatMessageBubble extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     for (final emoji in const [
-                      '❤️',
-                      '👍',
-                      '😂',
-                      '😮',
-                      '😢',
-                      '🙏',
+                      'â¤ï¸',
+                      'ðŸ‘',
+                      'ðŸ˜‚',
+                      'ðŸ˜®',
+                      'ðŸ˜¢',
+                      'ðŸ™',
                     ])
                       _MessageReactionButton(
                         emoji: emoji,
@@ -2270,7 +2328,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     Navigator.of(sheetContext).pop();
                     _showSnackBar(
                       context,
-                      'Antworten verbinden wir im nächsten Schritt.',
+                      'Antworten verbinden wir im nÃ¤chsten Schritt.',
                     );
                   },
                 ),
@@ -2281,7 +2339,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     Navigator.of(sheetContext).pop();
                     _showSnackBar(
                       context,
-                      'Weiterleiten verbinden wir im nächsten Schritt.',
+                      'Weiterleiten verbinden wir im nÃ¤chsten Schritt.',
                     );
                   },
                 ),
@@ -2307,13 +2365,13 @@ class _ChatMessageBubble extends StatelessWidget {
                 ),
                 _MessageActionTile(
                   icon: Icons.delete_outline_rounded,
-                  label: 'Löschen',
+                  label: 'LÃ¶schen',
                   isDestructive: true,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     _showSnackBar(
                       context,
-                      'Nachricht löschen verbinden wir im nächsten Schritt.',
+                      'Nachricht lÃ¶schen verbinden wir im nÃ¤chsten Schritt.',
                     );
                   },
                 ),
@@ -2588,7 +2646,7 @@ class _ChatEmptySpace extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Dieser Chat ist lokal vorbereitet. Nachrichten, AnhÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤nge und Zustellstatus werden spÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¤ter mit Firebase verbunden.',
+            'Dieser Chat ist lokal vorbereitet. Nachrichten, AnhÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nge und Zustellstatus werden spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ter mit Firebase verbunden.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.62),
@@ -2675,7 +2733,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Kamera verbinden wir im nächsten Schritt.',
+                          'Kamera verbinden wir im nÃ¤chsten Schritt.',
                         );
                       },
                     ),
@@ -2686,7 +2744,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Standort senden verbinden wir im nächsten Schritt.',
+                          'Standort senden verbinden wir im nÃ¤chsten Schritt.',
                         );
                       },
                     ),
@@ -2697,7 +2755,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Kontakt senden verbinden wir im nächsten Schritt.',
+                          'Kontakt senden verbinden wir im nÃ¤chsten Schritt.',
                         );
                       },
                     ),
@@ -2708,7 +2766,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Dokument senden verbinden wir im nächsten Schritt.',
+                          'Dokument senden verbinden wir im nÃ¤chsten Schritt.',
                         );
                       },
                     ),
@@ -2725,7 +2783,7 @@ class _MessageComposer extends StatelessWidget {
   void _handleVoiceMemo(BuildContext context) {
     _showComposerMessage(
       context,
-      'Sprachmemo verbinden wir im nächsten Schritt.',
+      'Sprachmemo verbinden wir im nÃ¤chsten Schritt.',
     );
   }
 

@@ -245,6 +245,11 @@ abstract class ChatRepository {
   Future<ChatRecord> archiveChat({required String chatId});
 
   Future<ChatRecord> deleteChat({required String chatId});
+
+  Future<void> deleteMessage({
+    required String chatId,
+    required String messageId,
+  });
 }
 
 class FirestoreChatRepository implements ChatRepository {
@@ -701,6 +706,24 @@ class FirestoreChatRepository implements ChatRepository {
     return _chatFromSnapshot(snapshot);
   }
 
+  @override
+  Future<void> deleteMessage({
+    required String chatId,
+    required String messageId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedMessageId = messageId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedMessageId.isEmpty) {
+      throw ArgumentError('Chat ID and message ID must not be empty.');
+    }
+
+    await _messagesCollection(trimmedChatId).doc(trimmedMessageId).set({
+      'isDeleted': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
     return _chatsCollection
         .doc(chatId)
@@ -959,6 +982,22 @@ class LocalChatRepository implements ChatRepository {
 
     _chats[index] = updated;
     return updated;
+  }
+
+  @override
+  Future<void> deleteMessage({
+    required String chatId,
+    required String messageId,
+  }) async {
+    final index = _messages.indexWhere(
+      (message) => message.chatId == chatId && message.id == messageId,
+    );
+
+    if (index < 0) {
+      throw StateError('Message not found: $messageId');
+    }
+
+    _messages[index] = _messages[index].copyWith(isDeleted: true);
   }
 
   void _updateChatLastMessage({
