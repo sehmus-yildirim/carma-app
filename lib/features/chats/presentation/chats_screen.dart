@@ -1689,6 +1689,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   Timer? _typingStopTimer;
   StreamSubscription<bool>? _typingSubscription;
   StreamSubscription<DateTime?>? _readReceiptSubscription;
+  StreamSubscription<List<ChatMessageRecord>>? _messagesSubscription;
 
   bool get _hasFirestoreChat {
     final chatId = widget.chatId?.trim();
@@ -1702,7 +1703,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     _messageController.addListener(_handleMessageChanged);
 
     if (_hasFirestoreChat) {
-      _loadFirestoreMessages();
+      _watchMessages();
       _watchTypingStatus();
       _watchReadReceipts();
     }
@@ -1876,7 +1877,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
   }
 
-  Future<void> _loadFirestoreMessages() async {
+  void _watchMessages() {
     final chatId = widget.chatId?.trim();
 
     if (chatId == null || chatId.isEmpty) {
@@ -1887,42 +1888,49 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       _isLoadingMessages = true;
     });
 
-    try {
-      final records = await _chatRepository.loadMessages(chatId: chatId);
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _messagesSubscription?.cancel();
 
-      if (!mounted) {
-        return;
-      }
+    _messagesSubscription = _chatRepository
+        .watchMessages(chatId: chatId)
+        .listen(
+          (records) {
+            final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-      setState(() {
-        _messages = records
-            .map(
-              (record) => _LocalChatMessage(
-                text: record.text,
-                isMine: record.senderUserId == currentUserId,
-                timeLabel: _timeLabel(record.createdAt),
-                messageId: record.id,
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _messages = records
+                  .map(
+                    (record) => _LocalChatMessage(
+                      text: record.text,
+                      isMine: record.senderUserId == currentUserId,
+                      timeLabel: _timeLabel(record.createdAt),
+                      messageId: record.id,
+                    ),
+                  )
+                  .toList();
+
+              _isLoadingMessages = false;
+            });
+          },
+          onError: (error) {
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _isLoadingMessages = false;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Nachrichten konnten nicht geladen werden: '),
               ),
-            )
-            .toList();
-        _isLoadingMessages = false;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isLoadingMessages = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Nachrichten konnten nicht geladen werden: $error'),
-        ),
-      );
-    }
+            );
+          },
+        );
   }
 
   String _timeLabel(DateTime value) {
@@ -2028,7 +2036,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     });
 
     try {
-      final sentMessage = await _chatRepository.sendTextMessage(
+      await _chatRepository.sendTextMessage(
         chatId: chatId,
         senderUserId: currentUserId,
         text: message,
@@ -2039,15 +2047,6 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       }
 
       setState(() {
-        _messages = [
-          ..._messages,
-          _LocalChatMessage(
-            text: sentMessage.text,
-            isMine: true,
-            timeLabel: _timeLabel(sentMessage.createdAt),
-            messageId: sentMessage.id,
-          ),
-        ];
         _isSendingMessage = false;
       });
 

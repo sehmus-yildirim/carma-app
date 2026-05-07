@@ -231,6 +231,7 @@ abstract class ChatRepository {
 
   Future<List<ChatMessageRecord>> loadMessages({required String chatId});
 
+  Stream<List<ChatMessageRecord>> watchMessages({required String chatId});
   Future<ChatMessageRecord> sendTextMessage({
     required String chatId,
     required String senderUserId,
@@ -340,6 +341,18 @@ class FirestoreChatRepository implements ChatRepository {
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
     return messages;
+  }
+
+  @override
+  Stream<List<ChatMessageRecord>> watchMessages({required String chatId}) {
+    return _messagesCollection(
+      chatId,
+    ).where('isDeleted', isEqualTo: false).snapshots().map((snapshot) {
+      final messages = snapshot.docs.map(_messageFromSnapshot).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      return messages;
+    });
   }
 
   Future<void> markChatRead({
@@ -881,6 +894,17 @@ class LocalChatRepository implements ChatRepository {
         .where((message) => message.chatId == chatId && !message.isDeleted)
         .toList()
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  @override
+  Stream<List<ChatMessageRecord>> watchMessages({required String chatId}) {
+    final messages =
+        _messages
+            .where((message) => message.chatId == chatId && !message.isDeleted)
+            .toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    return Stream.value(messages);
   }
 
   @override
