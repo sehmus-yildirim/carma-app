@@ -735,6 +735,24 @@ class FirestoreChatRepository implements ChatRepository {
       'isDeleted': true,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    final latestSnapshot = await _messagesCollection(
+      trimmedChatId,
+    ).where('isDeleted', isEqualTo: false).get();
+
+    final latestMessages =
+        latestSnapshot.docs.map(_messageFromSnapshot).toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final latestMessage = latestMessages.isEmpty ? null : latestMessages.first;
+
+    await _chatsCollection.doc(trimmedChatId).set({
+      'lastMessage': latestMessage?.text,
+      'lastMessageAt': latestMessage == null
+          ? null
+          : Timestamp.fromDate(latestMessage.createdAt),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
@@ -1022,6 +1040,20 @@ class LocalChatRepository implements ChatRepository {
     }
 
     _messages[index] = _messages[index].copyWith(isDeleted: true);
+
+    final latestMessages =
+        _messages
+            .where((message) => message.chatId == chatId && !message.isDeleted)
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (latestMessages.isNotEmpty) {
+      _updateChatLastMessage(
+        chatId: chatId,
+        lastMessage: latestMessages.first.text,
+        timestamp: latestMessages.first.createdAt,
+      );
+    }
   }
 
   void _updateChatLastMessage({
