@@ -202,6 +202,8 @@ class ChatMessageRecord {
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
+    this.replyToMessageId,
+    this.replyToText,
   });
 
   final String id;
@@ -212,6 +214,8 @@ class ChatMessageRecord {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
+  final String? replyToMessageId;
+  final String? replyToText;
 
   bool get isSystem {
     return type == ChatMessageType.system;
@@ -258,11 +262,15 @@ abstract class ChatRepository {
     required String chatId,
     required String senderUserId,
     required String text,
+    String? replyToMessageId,
+    String? replyToText,
   });
 
   Future<ChatMessageRecord> addSystemMessage({
     required String chatId,
     required String text,
+    String? replyToMessageId,
+    String? replyToText,
   });
 
   Future<ChatRecord> archiveChat({required String chatId});
@@ -585,6 +593,8 @@ class FirestoreChatRepository implements ChatRepository {
     required String chatId,
     required String senderUserId,
     required String text,
+    String? replyToMessageId,
+    String? replyToText,
   }) async {
     final trimmedText = text.trim();
 
@@ -610,6 +620,8 @@ class FirestoreChatRepository implements ChatRepository {
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
         'isDeleted': false,
+        'replyToMessageId': replyToMessageId,
+        'replyToText': replyToText,
       });
 
       transaction.set(chatDocument, {
@@ -628,6 +640,8 @@ class FirestoreChatRepository implements ChatRepository {
   Future<ChatMessageRecord> addSystemMessage({
     required String chatId,
     required String text,
+    String? replyToMessageId,
+    String? replyToText,
   }) async {
     final trimmedText = text.trim();
 
@@ -841,6 +855,8 @@ class FirestoreChatRepository implements ChatRepository {
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       updatedAt: _dateTimeFromValue(data['updatedAt']) ?? DateTime(1970),
       isDeleted: data['isDeleted'] as bool? ?? false,
+      replyToMessageId: data['replyToMessageId'] as String?,
+      replyToText: data['replyToText'] as String?,
     );
   }
 
@@ -1009,6 +1025,8 @@ class LocalChatRepository implements ChatRepository {
     required String chatId,
     required String senderUserId,
     required String text,
+    String? replyToMessageId,
+    String? replyToText,
   }) async {
     final trimmedText = text.trim();
 
@@ -1026,6 +1044,8 @@ class LocalChatRepository implements ChatRepository {
       text: trimmedText,
       createdAt: now,
       updatedAt: now,
+      replyToMessageId: replyToMessageId,
+      replyToText: replyToText,
     );
 
     _messages.add(message);
@@ -1042,6 +1062,8 @@ class LocalChatRepository implements ChatRepository {
   Future<ChatMessageRecord> addSystemMessage({
     required String chatId,
     required String text,
+    String? replyToMessageId,
+    String? replyToText,
   }) async {
     final trimmedText = text.trim();
 
@@ -1059,6 +1081,8 @@ class LocalChatRepository implements ChatRepository {
       text: trimmedText,
       createdAt: now,
       updatedAt: now,
+      replyToMessageId: replyToMessageId,
+      replyToText: replyToText,
     );
 
     _messages.add(message);

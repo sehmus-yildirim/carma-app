@@ -346,6 +346,7 @@ class _LocalChatMessage {
     required this.timeLabel,
     this.messageId,
     this.isReadByOther = false,
+    this.replyToText,
   });
 
   final String text;
@@ -353,6 +354,7 @@ class _LocalChatMessage {
   final String timeLabel;
   final String? messageId;
   final bool isReadByOther;
+  final String? replyToText;
 }
 
 class _MvpInfoCard extends StatelessWidget {
@@ -1845,6 +1847,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return _LocalChatMessage(
         text: message.text,
         isMine: message.isMine,
+        replyToText: message.replyToText,
         timeLabel: message.timeLabel,
         isReadByOther: true,
       );
@@ -1964,6 +1967,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                       isMine: record.senderUserId == currentUserId,
                       timeLabel: _timeLabel(record.createdAt),
                       messageId: record.id,
+                      replyToText: record.replyToText,
                     ),
                   )
                   .toList();
@@ -2051,6 +2055,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
+    final replyTarget = _replyingToMessage;
     final replyPrefix = _replyingToMessage == null
         ? ''
         : 'Antwort auf: "${_replyingToMessage!.text}"\n';
@@ -2069,6 +2074,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           _LocalChatMessage(
             text: message,
             isMine: true,
+            replyToText: replyTarget?.text,
             timeLabel: 'Jetzt',
             isReadByOther: false,
           ),
@@ -2099,6 +2105,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         chatId: chatId,
         senderUserId: currentUserId,
         text: message,
+        replyToMessageId: replyTarget?.messageId,
+        replyToText: replyTarget?.text,
       );
 
       if (!mounted) {
@@ -2495,6 +2503,30 @@ class _ChatMessageBubble extends StatelessWidget {
             spacing: 7,
             runSpacing: 3,
             children: [
+              if (message.replyToText != null &&
+                  message.replyToText!.trim().isNotEmpty) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                    ),
+                  ),
+                  child: Text(
+                    message.replyToText!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ],
               Text(
                 message.text,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -2767,6 +2799,30 @@ class _ReplyPreview extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
+                  if (message.replyToText != null &&
+                      message.replyToText!.trim().isNotEmpty) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.14),
+                        ),
+                      ),
+                      child: Text(
+                        message.replyToText!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontWeight: FontWeight.w800,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
                   Text(
                     message.text,
                     maxLines: 1,
