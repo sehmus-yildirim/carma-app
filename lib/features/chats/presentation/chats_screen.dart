@@ -1719,6 +1719,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     _messageController.addListener(_handleMessageChanged);
 
     if (_hasFirestoreChat) {
+      _markChatRead();
       _watchMessages();
       _watchTypingStatus();
       _watchReadReceipts();
@@ -1730,6 +1731,21 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     _messageController.removeListener(_handleMessageChanged);
     _messageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _markChatRead() async {
+    final chatId = widget.chatId?.trim();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    if (chatId == null || chatId.isEmpty || currentUserId.isEmpty) {
+      return;
+    }
+
+    try {
+      await _chatRepository.markChatRead(chatId: chatId, userId: currentUserId);
+    } catch (_) {
+      // Read receipts are non-critical UI state.
+    }
   }
 
   void _handleMessageChanged() {
