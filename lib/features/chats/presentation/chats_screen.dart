@@ -590,9 +590,20 @@ class _ChatsOverview extends StatelessWidget {
     }
 
     if (chats.isNotEmpty) {
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final unreadCount = chats
+          .where((chat) => chat.hasUnreadFor(currentUserId))
+          .length;
+
+      if (unreadCount > 0) {
+        return unreadCount == 1
+            ? 'Ein aktiver Chat ist ungelesen.'
+            : ' aktive Chats sind ungelesen.';
+      }
+
       return chats.length == 1
           ? 'Ein aktiver Chat wurde aus Firestore geladen.'
-          : '${chats.length} aktive Chats wurden aus Firestore geladen.';
+          : ' aktive Chats wurden aus Firestore geladen.';
     }
 
     if (hasLocalActiveChat) {
