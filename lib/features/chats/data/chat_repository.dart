@@ -202,6 +202,7 @@ class ChatMessageRecord {
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
+    this.isStarred = false,
     this.replyToMessageId,
     this.replyToText,
   });
@@ -214,6 +215,7 @@ class ChatMessageRecord {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
+  final bool isStarred;
   final String? replyToMessageId;
   final String? replyToText;
 
@@ -230,6 +232,7 @@ class ChatMessageRecord {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    bool? isStarred,
   }) {
     return ChatMessageRecord(
       id: id ?? this.id,
@@ -240,6 +243,7 @@ class ChatMessageRecord {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      isStarred: isStarred ?? this.isStarred,
     );
   }
 }
@@ -280,6 +284,12 @@ abstract class ChatRepository {
   Future<void> deleteMessage({
     required String chatId,
     required String messageId,
+  });
+
+  Future<void> setMessageStarred({
+    required String chatId,
+    required String messageId,
+    required bool isStarred,
   });
 }
 
@@ -815,6 +825,25 @@ class FirestoreChatRepository implements ChatRepository {
     }, SetOptions(merge: true));
   }
 
+  @override
+  Future<void> setMessageStarred({
+    required String chatId,
+    required String messageId,
+    required bool isStarred,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedMessageId = messageId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedMessageId.isEmpty) {
+      throw ArgumentError('Chat ID and message ID must not be empty.');
+    }
+
+    await _messagesCollection(trimmedChatId).doc(trimmedMessageId).set({
+      'isStarred': isStarred,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
     return _chatsCollection
         .doc(chatId)
@@ -1127,6 +1156,26 @@ class LocalChatRepository implements ChatRepository {
 
     _chats[index] = updated;
     return updated;
+  }
+
+  @override
+  Future<void> setMessageStarred({
+    required String chatId,
+    required String messageId,
+    required bool isStarred,
+  }) async {
+    final index = _messages.indexWhere(
+      (message) => message.chatId == chatId && message.id == messageId,
+    );
+
+    if (index < 0) {
+      return;
+    }
+
+    _messages[index] = _messages[index].copyWith(
+      isStarred: isStarred,
+      updatedAt: DateTime.now(),
+    );
   }
 
   @override
