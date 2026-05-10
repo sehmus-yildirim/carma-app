@@ -1712,6 +1712,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _isSendingMessage = false;
   bool _isOtherUserTyping = false;
   bool _isCurrentUserTyping = false;
+  _LocalChatMessage? _replyingToMessage;
   DateTime? _lastTypingWriteAt;
   Timer? _typingStopTimer;
   StreamSubscription<bool>? _typingSubscription;
@@ -1757,6 +1758,18 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     } catch (_) {
       // Read receipts are non-critical UI state.
     }
+  }
+
+  void _handleReplyMessage(_LocalChatMessage message) {
+    setState(() {
+      _replyingToMessage = message;
+    });
+  }
+
+  void _clearReplyMessage() {
+    setState(() {
+      _replyingToMessage = null;
+    });
   }
 
   void _handleMessageChanged() {
@@ -2038,7 +2051,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
-    final message = _messageController.text.trim();
+    final replyPrefix = _replyingToMessage == null
+        ? ''
+        : 'Antwort auf: "${_replyingToMessage!.text}"\n';
+    final message = '$replyPrefix${_messageController.text.trim()}';
 
     if (message.isEmpty) {
       return;
@@ -2091,6 +2107,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       setState(() {
         _isSendingMessage = false;
+        _replyingToMessage = null;
       });
 
       _messageController.clear();
@@ -2145,6 +2162,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                         _ChatMessageList(
                           messages: _messages,
                           onDeleteMessage: _handleDeleteMessage,
+                          onReplyMessage: _handleReplyMessage,
+                        ),
+                      if (_replyingToMessage != null)
+                        _ReplyPreview(
+                          message: _replyingToMessage!,
+                          onClear: _clearReplyMessage,
                         ),
                       if (_isOtherUserTyping)
                         const Padding(
@@ -2283,11 +2306,13 @@ class _ChatMessageList extends StatelessWidget {
   const _ChatMessageList({
     required this.messages,
     required this.onDeleteMessage,
+    required this.onReplyMessage,
   });
 
   final List<_LocalChatMessage> messages;
   final ValueChanged<_LocalChatMessage> onDeleteMessage;
 
+  final ValueChanged<_LocalChatMessage> onReplyMessage;
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -2297,6 +2322,7 @@ class _ChatMessageList extends StatelessWidget {
           child: _ChatMessageBubble(
             message: message,
             onDeleteMessage: onDeleteMessage,
+            onReplyMessage: onReplyMessage,
           ),
         );
       }).toList(),
@@ -2308,11 +2334,13 @@ class _ChatMessageBubble extends StatelessWidget {
   const _ChatMessageBubble({
     required this.message,
     required this.onDeleteMessage,
+    required this.onReplyMessage,
   });
 
   final _LocalChatMessage message;
   final ValueChanged<_LocalChatMessage> onDeleteMessage;
 
+  final ValueChanged<_LocalChatMessage> onReplyMessage;
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
       context,
@@ -2368,10 +2396,7 @@ class _ChatMessageBubble extends StatelessWidget {
                   label: 'Antworten',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _showSnackBar(
-                      context,
-                      'Antworten verbinden wir im nÃ¤chsten Schritt.',
-                    );
+                    onReplyMessage(message);
                   },
                 ),
                 _MessageActionTile(
@@ -2694,6 +2719,74 @@ class _ChatEmptySpace extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReplyPreview extends StatelessWidget {
+  const _ReplyPreview({required this.message, required this.onClear});
+
+  final _LocalChatMessage message;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = message.isMine ? 'Antwort auf dich' : 'Antwort auf Nachricht';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 3,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _carmaBlueLight,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: _carmaBlueLight,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    message.text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: onClear,
+              icon: const Icon(Icons.close_rounded),
+              color: Colors.white70,
+              tooltip: 'Antwort entfernen',
+            ),
+          ],
+        ),
       ),
     );
   }
