@@ -62,7 +62,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   _ChatsView _selectedView = _ChatsView.chats;
 
-  late Future<List<ChatRecord>> _chatFuture;
+  late Stream<List<ChatRecord>> _chatStream;
   Future<_RequestCounts> _requestCountsFuture = Future.value(
     const _RequestCounts(incoming: 0, outgoing: 0),
   );
@@ -92,18 +92,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ? _buildLocalChatMessages()
         : <_LocalChatMessage>[];
 
-    _chatFuture = _loadChats();
+    _chatStream = _watchChats();
     _requestCountsFuture = _loadRequestCounts();
   }
 
-  Future<List<ChatRecord>> _loadChats() {
+  Stream<List<ChatRecord>> _watchChats() {
     final userId = _effectiveUserId.trim();
 
     if (userId.isEmpty) {
-      return Future.value(const <ChatRecord>[]);
+      return Stream<List<ChatRecord>>.value(const <ChatRecord>[]);
     }
 
-    return _chatRepository.loadChats(userId: userId);
+    return _chatRepository.watchChats(userId: userId);
   }
 
   Future<_RequestCounts> _loadRequestCounts() async {
@@ -163,7 +163,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   void _refreshChatsAndRequests() {
     setState(() {
-      _chatFuture = _loadChats();
+      _chatStream = _watchChats();
       _requestCountsFuture = _loadRequestCounts();
     });
   }
@@ -282,9 +282,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         switchInCurve: Curves.easeOut,
                         switchOutCurve: Curves.easeIn,
                         child: _selectedView == _ChatsView.chats
-                            ? FutureBuilder<List<ChatRecord>>(
+                            ? StreamBuilder<List<ChatRecord>>(
                                 key: const ValueKey('chats_view'),
-                                future: _chatFuture,
+                                stream: _chatStream,
                                 builder: (context, snapshot) {
                                   final chats =
                                       snapshot.data ?? const <ChatRecord>[];

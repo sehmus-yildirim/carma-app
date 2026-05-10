@@ -223,6 +223,8 @@ class ChatMessageRecord {
 abstract class ChatRepository {
   Future<List<ChatRecord>> loadChats({required String userId});
 
+  Stream<List<ChatRecord>> watchChats({required String userId});
+
   Future<ChatRecord> createChat({
     required List<String> participants,
     String? requestId,
@@ -283,6 +285,29 @@ class FirestoreChatRepository implements ChatRepository {
       });
 
     return chats;
+  }
+
+  @override
+  Stream<List<ChatRecord>> watchChats({required String userId}) {
+    return _chatsCollection
+        .where('participants', arrayContains: userId)
+        .where('status', isEqualTo: FirestoreChatStatus.active)
+        .snapshots()
+        .map((snapshot) {
+          final chats = snapshot.docs.map(_chatFromSnapshot).toList()
+            ..sort((a, b) {
+              final aFavorite = a.isFavoriteFor(userId);
+              final bFavorite = b.isFavoriteFor(userId);
+
+              if (aFavorite != bFavorite) {
+                return aFavorite ? -1 : 1;
+              }
+
+              return b.updatedAt.compareTo(a.updatedAt);
+            });
+
+          return chats;
+        });
   }
 
   @override
@@ -865,6 +890,19 @@ class LocalChatRepository implements ChatRepository {
               chat.status == ChatStatus.active,
         )
         .toList();
+  }
+
+  @override
+  Stream<List<ChatRecord>> watchChats({required String userId}) {
+    return Stream<List<ChatRecord>>.value(
+      _chats
+          .where(
+            (chat) =>
+                chat.participants.contains(userId) &&
+                chat.status == ChatStatus.active,
+          )
+          .toList(),
+    );
   }
 
   @override
