@@ -2411,10 +2411,7 @@ class _ChatMessageBubble extends StatelessWidget {
                   isDestructive: true,
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _showSnackBar(
-                      context,
-                      'Nachricht lÃ¶schen verbinden wir im nÃ¤chsten Schritt.',
-                    );
+                    onDeleteMessage(message);
                   },
                 ),
               ],
