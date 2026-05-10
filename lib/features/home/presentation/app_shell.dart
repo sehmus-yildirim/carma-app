@@ -1,6 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/carma_models.dart';
+import '../../chats/data/chat_repository.dart';
 import '../../chats/presentation/chats_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../reports/presentation/report_screen.dart';
@@ -10,11 +12,7 @@ import 'dashboard_screen.dart';
 const Color _navAccentBlue = Color(0xFF139CFF);
 
 class AppShell extends StatefulWidget {
-  const AppShell({
-    super.key,
-    required this.userState,
-    required this.onLogout,
-  });
+  const AppShell({super.key, required this.userState, required this.onLogout});
 
   final AppUserState userState;
   final VoidCallback onLogout;
@@ -24,7 +22,23 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
+
   int _selectedIndex = 0;
+
+  Stream<int> _watchUnreadChatCount() {
+    final userId =
+        FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty) {
+      return Stream<int>.value(0);
+    }
+
+    return _chatRepository.watchChats(userId: trimmedUserId).map((chats) {
+      return chats.where((chat) => chat.hasUnreadFor(trimmedUserId)).length;
+    });
+  }
 
   void _onTabSelected(int index) {
     if (_selectedIndex == index) {
@@ -41,38 +55,31 @@ class _AppShellState extends State<AppShell> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     final screens = [
-      DashboardScreen(
-        userState: widget.userState,
-      ),
-      ChatsScreen(
-        userState: widget.userState,
-      ),
-      ReportScreen(
-        userState: widget.userState,
-      ),
-      ProfileScreen(
-        userState: widget.userState,
-      ),
-      SettingsScreen(
-        userState: widget.userState,
-        onLogout: widget.onLogout,
-      ),
+      DashboardScreen(userState: widget.userState),
+      ChatsScreen(userState: widget.userState),
+      ReportScreen(userState: widget.userState),
+      ProfileScreen(userState: widget.userState),
+      SettingsScreen(userState: widget.userState, onLogout: widget.onLogout),
     ];
 
     return Scaffold(
       extendBody: true,
       backgroundColor: Colors.transparent,
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: screens,
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: _GlassBottomNavigationBar(
-          selectedIndex: _selectedIndex,
-          onTabSelected: _onTabSelected,
-          bottomInset: bottomInset,
-        ),
+      body: IndexedStack(index: _selectedIndex, children: screens),
+      bottomNavigationBar: StreamBuilder<int>(
+        stream: _watchUnreadChatCount(),
+        initialData: 0,
+        builder: (context, snapshot) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: _GlassBottomNavigationBar(
+              selectedIndex: _selectedIndex,
+              onTabSelected: _onTabSelected,
+              bottomInset: bottomInset,
+              unreadChatCount: snapshot.data ?? 0,
+            ),
+          );
+        },
       ),
     );
   }
@@ -83,11 +90,13 @@ class _GlassBottomNavigationBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onTabSelected,
     required this.bottomInset,
+    required this.unreadChatCount,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
   final double bottomInset;
+  final int unreadChatCount;
 
   static const List<_NavigationItem> _items = [
     _NavigationItem(
@@ -184,6 +193,7 @@ class _GlassBottomNavigationBar extends StatelessWidget {
                         child: _GlassNavigationButton(
                           item: item,
                           isSelected: isSelected,
+                          badgeCount: index == 1 ? unreadChatCount : 0,
                           onTap: () => onTabSelected(index),
                         ),
                       );
@@ -205,11 +215,13 @@ class _GlassNavigationButton extends StatelessWidget {
     required this.item,
     required this.isSelected,
     required this.onTap,
+    required this.badgeCount,
   });
 
   final _NavigationItem item;
   final bool isSelected;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -232,13 +244,10 @@ class _GlassNavigationButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(22),
               gradient: isSelected
                   ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0C7FFF),
-                  Color(0xFF4FD2FF),
-                ],
-              )
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF0C7FFF), Color(0xFF4FD2FF)],
+                    )
                   : null,
               color: isSelected ? null : Colors.white.withValues(alpha: 0.02),
               border: Border.all(
@@ -248,21 +257,28 @@ class _GlassNavigationButton extends StatelessWidget {
               ),
               boxShadow: isSelected
                   ? [
-                BoxShadow(
-                  color: _navAccentBlue.withValues(alpha: 0.30),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ]
+                      BoxShadow(
+                        color: _navAccentBlue.withValues(alpha: 0.30),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
                   : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: isSelected ? 22 : 21,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(icon, color: Colors.white, size: isSelected ? 22 : 21),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: -10,
+                        top: -8,
+                        child: _NavigationBadge(count: badgeCount),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 FittedBox(
@@ -274,8 +290,9 @@ class _GlassNavigationButton extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: isSelected ? 11.2 : 11,
-                      fontWeight:
-                      isSelected ? FontWeight.w800 : FontWeight.w700,
+                      fontWeight: isSelected
+                          ? FontWeight.w800
+                          : FontWeight.w700,
                       letterSpacing: 0,
                       height: 1,
                     ),
@@ -284,6 +301,37 @@ class _GlassNavigationButton extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavigationBadge extends StatelessWidget {
+  const _NavigationBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 9 ? '9+' : count.toString();
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF4D6D),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white, width: 1.4),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          height: 1,
         ),
       ),
     );
