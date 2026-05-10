@@ -28,6 +28,7 @@ class ChatRecord {
     this.vehicleLabel,
     this.favoriteBy = const <String, bool>{},
     this.mutedBy = const <String, bool>{},
+    this.lastReadAtBy = const <String, DateTime>{},
   });
 
   final String id;
@@ -49,6 +50,7 @@ class ChatRecord {
   final String? vehicleLabel;
   final Map<String, bool> favoriteBy;
   final Map<String, bool> mutedBy;
+  final Map<String, DateTime> lastReadAtBy;
 
   bool isFavoriteFor(String userId) {
     return favoriteBy[userId] == true;
@@ -56,6 +58,22 @@ class ChatRecord {
 
   bool isMutedFor(String userId) {
     return mutedBy[userId] == true;
+  }
+
+  bool hasUnreadFor(String userId) {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty || lastMessageAt == null) {
+      return false;
+    }
+
+    final lastReadAt = lastReadAtBy[trimmedUserId];
+
+    if (lastReadAt == null) {
+      return true;
+    }
+
+    return lastMessageAt!.isAfter(lastReadAt);
   }
 
   bool get isActive {
@@ -147,6 +165,7 @@ class ChatRecord {
     String? vehicleLabel,
     Map<String, bool>? favoriteBy,
     Map<String, bool>? mutedBy,
+    Map<String, DateTime>? lastReadAtBy,
   }) {
     return ChatRecord(
       id: id ?? this.id,
@@ -168,6 +187,7 @@ class ChatRecord {
       vehicleLabel: vehicleLabel ?? this.vehicleLabel,
       favoriteBy: favoriteBy ?? this.favoriteBy,
       mutedBy: mutedBy ?? this.mutedBy,
+      lastReadAtBy: lastReadAtBy ?? this.lastReadAtBy,
     );
   }
 }
@@ -595,6 +615,7 @@ class FirestoreChatRepository implements ChatRepository {
       transaction.set(chatDocument, {
         'lastMessage': trimmedText,
         'lastMessageAt': Timestamp.fromDate(now),
+        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
     });
@@ -802,6 +823,7 @@ class FirestoreChatRepository implements ChatRepository {
       lastMessageAt: _dateTimeFromValue(data['lastMessageAt']),
       favoriteBy: _boolMapFromValue(data['favoriteBy']),
       mutedBy: _boolMapFromValue(data['mutedBy']),
+      lastReadAtBy: _dateTimeMapFromValue(data['lastReadAtBy']),
     );
   }
 
@@ -820,6 +842,25 @@ class FirestoreChatRepository implements ChatRepository {
       updatedAt: _dateTimeFromValue(data['updatedAt']) ?? DateTime(1970),
       isDeleted: data['isDeleted'] as bool? ?? false,
     );
+  }
+
+  static Map<String, DateTime> _dateTimeMapFromValue(Object? value) {
+    if (value is! Map) {
+      return const <String, DateTime>{};
+    }
+
+    final result = <String, DateTime>{};
+
+    for (final entry in value.entries) {
+      final key = entry.key?.toString() ?? '';
+      final dateTime = _dateTimeFromValue(entry.value);
+
+      if (key.isNotEmpty && dateTime != null) {
+        result[key] = dateTime;
+      }
+    }
+
+    return result;
   }
 
   static ChatStatus _chatStatusFromName(String? name) {

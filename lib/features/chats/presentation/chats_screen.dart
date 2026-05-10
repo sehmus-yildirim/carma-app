@@ -1304,6 +1304,7 @@ class _ActiveChatsScreen extends StatelessWidget {
                         : chat.vehicleTitle,
                     isFavorite: chat.isFavoriteFor(currentUserId),
                     isMuted: chat.isMutedFor(currentUserId),
+                    isUnread: chat.hasUnreadFor(currentUserId),
                     onTap: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute(
@@ -1417,17 +1418,19 @@ class _ActiveChatListTile extends StatelessWidget {
     required this.onTap,
     this.isFavorite = false,
     this.isMuted = false,
+    this.isUnread = false,
   });
 
   final String title;
   final String subtitle;
   final bool isFavorite;
   final bool isMuted;
+  final bool isUnread;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final hasStateIcons = isFavorite || isMuted;
+    final hasStateIcons = isFavorite || isMuted || isUnread;
 
     return GlassCard(
       padding: EdgeInsets.zero,
@@ -1463,6 +1466,13 @@ class _ActiveChatListTile extends StatelessWidget {
                           ),
                           if (hasStateIcons) ...[
                             const SizedBox(width: 8),
+                            if (isUnread)
+                              const _ChatStateIcon(
+                                icon: Icons.mark_chat_unread_rounded,
+                                tooltip: 'Ungelesen',
+                              ),
+                            if (isUnread && (isFavorite || isMuted))
+                              const SizedBox(width: 6),
                             if (isFavorite)
                               const _ChatStateIcon(
                                 icon: Icons.star_rounded,
