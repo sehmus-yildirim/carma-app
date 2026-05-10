@@ -221,7 +221,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _ActiveChatsScreen(
-          chats: chats,
+          chatStream: _chatStream,
+          initialChats: chats,
           hasLocalActiveChat: _hasActiveChat,
           messages: _chatMessages,
         ),
@@ -1267,86 +1268,91 @@ class _ChatOverflowMenu extends StatelessWidget {
 
 class _ActiveChatsScreen extends StatelessWidget {
   const _ActiveChatsScreen({
-    required this.chats,
+    required this.chatStream,
+    required this.initialChats,
     required this.hasLocalActiveChat,
     required this.messages,
   });
 
-  final List<ChatRecord> chats;
+  final Stream<List<ChatRecord>> chatStream;
+  final List<ChatRecord> initialChats;
   final bool hasLocalActiveChat;
   final List<_LocalChatMessage> messages;
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return StreamBuilder<List<ChatRecord>>(
+      stream: chatStream,
+      initialData: initialChats,
+      builder: (context, snapshot) {
+        final chats = snapshot.data ?? initialChats;
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    if (chats.isNotEmpty) {
-      return _SubPageScaffold(
-        icon: Icons.forum_rounded,
-        headerTitle: 'Aktive Chats',
-        subtitle:
-            'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
-        child: Column(
-          children: [
-            for (final chat in chats) ...[
-              _ActiveChatListTile(
-                title: chat.displayNameFor(currentUserId),
-                subtitle: chat.lastMessage?.trim().isNotEmpty == true
-                    ? 'Letzte Nachricht: ${chat.lastMessage!.trim()}'
-                    : chat.vehicleTitle,
-                isFavorite: chat.isFavoriteFor(currentUserId),
-                isMuted: chat.isMutedFor(currentUserId),
-                onTap: () async {
-                  final didChange = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => _ChatConversationScreen(
-                        chatId: chat.id,
-                        initialMessages: const <_LocalChatMessage>[],
-                        displayName: chat.displayNameFor(currentUserId),
-                        vehicleModel: chat.vehicleModelLabel,
-                        vehicleColor: chat.vehicleColorLabel,
-                      ),
-                    ),
-                  );
-
-                  if (didChange == true && context.mounted) {
-                    Navigator.of(context).pop(true);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-          ],
-        ),
-      );
-    }
-
-    return _SubPageScaffold(
-      icon: Icons.forum_rounded,
-      headerTitle: 'Aktive Chats',
-      subtitle:
-          'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
-      child: hasLocalActiveChat
-          ? _ActiveChatListTile(
-              title: 'Carma Nutzer',
-              subtitle: messages.isNotEmpty
-                  ? 'Letzte Nachricht: '
-                  : 'BMW 1er Â· Schwarz',
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        _ChatConversationScreen(initialMessages: messages),
+        if (chats.isNotEmpty) {
+          return _SubPageScaffold(
+            icon: Icons.forum_rounded,
+            headerTitle: 'Aktive Chats',
+            subtitle:
+                'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
+            child: Column(
+              children: [
+                for (final chat in chats) ...[
+                  _ActiveChatListTile(
+                    title: chat.displayNameFor(currentUserId),
+                    subtitle: chat.lastMessage?.trim().isNotEmpty == true
+                        ? 'Letzte Nachricht: ${chat.lastMessage!.trim()}'
+                        : chat.vehicleTitle,
+                    isFavorite: chat.isFavoriteFor(currentUserId),
+                    isMuted: chat.isMutedFor(currentUserId),
+                    onTap: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => _ChatConversationScreen(
+                            chatId: chat.id,
+                            initialMessages: const <_LocalChatMessage>[],
+                            displayName: chat.displayNameFor(currentUserId),
+                            vehicleModel: chat.vehicleModelLabel,
+                            vehicleColor: chat.vehicleColorLabel,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            )
-          : const _EmptyListCard(
-              icon: Icons.chat_bubble_outline_rounded,
-              title: 'Noch keine aktiven Chats',
-              description:
-                  'Sobald eine Anfrage angenommen wird, erscheint die Unterhaltung hier. Bis dahin bleibt dieser Bereich bewusst leer.',
+                  const SizedBox(height: 12),
+                ],
+              ],
             ),
+          );
+        }
+
+        return _SubPageScaffold(
+          icon: Icons.forum_rounded,
+          headerTitle: 'Aktive Chats',
+          subtitle:
+              'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
+          child: hasLocalActiveChat
+              ? _ActiveChatListTile(
+                  title: 'Carma Nutzer',
+                  subtitle: messages.isNotEmpty
+                      ? 'Letzte Nachricht: ${messages.last.text}'
+                      : 'BMW 1er · Schwarz',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            _ChatConversationScreen(initialMessages: messages),
+                      ),
+                    );
+                  },
+                )
+              : const _EmptyListCard(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: 'Noch keine aktiven Chats',
+                  description:
+                      'Sobald eine Anfrage angenommen wird, erscheint die Unterhaltung hier. Bis dahin bleibt dieser Bereich bewusst leer.',
+                ),
+        );
+      },
     );
   }
 }
