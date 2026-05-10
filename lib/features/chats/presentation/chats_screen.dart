@@ -2411,10 +2411,11 @@ class _ChatMessageBubble extends StatelessWidget {
                   icon: Icons.forward_rounded,
                   label: 'Weiterleiten',
                   onTap: () {
+                    Clipboard.setData(ClipboardData(text: message.text));
                     Navigator.of(sheetContext).pop();
                     _showSnackBar(
                       context,
-                      'Weiterleiten verbinden wir im nÃ¤chsten Schritt.',
+                      'Nachricht wurde zum Weiterleiten kopiert.',
                     );
                   },
                 ),
