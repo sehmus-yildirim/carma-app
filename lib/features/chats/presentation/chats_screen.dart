@@ -347,6 +347,7 @@ class _LocalChatMessage {
     this.messageId,
     this.isReadByOther = false,
     this.replyToText,
+    this.isStarred = false,
   });
 
   final String text;
@@ -355,6 +356,7 @@ class _LocalChatMessage {
   final String? messageId;
   final bool isReadByOther;
   final String? replyToText;
+  final bool isStarred;
 }
 
 class _MvpInfoCard extends StatelessWidget {
@@ -2010,6 +2012,54 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     );
   }
 
+  Future<void> _handleStarMessage(_LocalChatMessage message) async {
+    final chatId = widget.chatId?.trim();
+    final messageId = message.messageId?.trim();
+    final nextIsStarred = !message.isStarred;
+
+    if (chatId == null ||
+        chatId.isEmpty ||
+        messageId == null ||
+        messageId.isEmpty) {
+      setState(() {
+        _messages = _messages.map((item) {
+          if (!identical(item, message)) {
+            return item;
+          }
+
+          return _LocalChatMessage(
+            text: item.text,
+            isMine: item.isMine,
+            timeLabel: item.timeLabel,
+            messageId: item.messageId,
+            isReadByOther: item.isReadByOther,
+            replyToText: item.replyToText,
+            isStarred: nextIsStarred,
+          );
+        }).toList();
+      });
+      return;
+    }
+
+    try {
+      await _chatRepository.setMessageStarred(
+        chatId: chatId,
+        messageId: messageId,
+        isStarred: nextIsStarred,
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Stern-Markierung konnte nicht gespeichert werden: $error',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _handleDeleteMessage(_LocalChatMessage message) async {
     final chatId = widget.chatId?.trim();
     final messageId = message.messageId?.trim();
@@ -2171,6 +2221,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                           messages: _messages,
                           onDeleteMessage: _handleDeleteMessage,
                           onReplyMessage: _handleReplyMessage,
+                          onStarMessage: _handleStarMessage,
                         ),
                       if (_replyingToMessage != null)
                         _ReplyPreview(
@@ -2315,12 +2366,15 @@ class _ChatMessageList extends StatelessWidget {
     required this.messages,
     required this.onDeleteMessage,
     required this.onReplyMessage,
+    required this.onStarMessage,
   });
 
   final List<_LocalChatMessage> messages;
   final ValueChanged<_LocalChatMessage> onDeleteMessage;
 
   final ValueChanged<_LocalChatMessage> onReplyMessage;
+  final ValueChanged<_LocalChatMessage> onStarMessage;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -2331,6 +2385,7 @@ class _ChatMessageList extends StatelessWidget {
             message: message,
             onDeleteMessage: onDeleteMessage,
             onReplyMessage: onReplyMessage,
+            onStarMessage: onStarMessage,
           ),
         );
       }).toList(),
@@ -2343,12 +2398,15 @@ class _ChatMessageBubble extends StatelessWidget {
     required this.message,
     required this.onDeleteMessage,
     required this.onReplyMessage,
+    required this.onStarMessage,
   });
 
   final _LocalChatMessage message;
   final ValueChanged<_LocalChatMessage> onDeleteMessage;
 
   final ValueChanged<_LocalChatMessage> onReplyMessage;
+  final ValueChanged<_LocalChatMessage> onStarMessage;
+
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
       context,
@@ -2429,14 +2487,15 @@ class _ChatMessageBubble extends StatelessWidget {
                   },
                 ),
                 _MessageActionTile(
-                  icon: Icons.star_border_rounded,
-                  label: 'Mit Stern markieren',
+                  icon: message.isStarred
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  label: message.isStarred
+                      ? 'Stern entfernen'
+                      : 'Mit Stern markieren',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _showSnackBar(
-                      context,
-                      'Nachricht wurde als Stern vorgemerkt.',
-                    );
+                    onStarMessage(message);
                   },
                 ),
                 _MessageActionTile(
