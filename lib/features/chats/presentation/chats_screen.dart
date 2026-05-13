@@ -1320,6 +1320,10 @@ class _ActiveChatsScreen extends StatelessWidget {
                     isFavorite: chat.isFavoriteFor(currentUserId),
                     isMuted: chat.isMutedFor(currentUserId),
                     isUnread: chat.hasUnreadFor(currentUserId),
+                    trailing: const Icon(
+                      Icons.more_vert_rounded,
+                      color: Colors.white70,
+                    ),
                     onTap: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute(
@@ -1434,6 +1438,7 @@ class _ActiveChatListTile extends StatelessWidget {
     this.isFavorite = false,
     this.isMuted = false,
     this.isUnread = false,
+    this.trailing,
   });
 
   final String title;
@@ -1441,6 +1446,7 @@ class _ActiveChatListTile extends StatelessWidget {
   final bool isFavorite;
   final bool isMuted;
   final bool isUnread;
+  final Widget? trailing;
   final VoidCallback onTap;
 
   @override
@@ -1479,6 +1485,10 @@ class _ActiveChatListTile extends StatelessWidget {
                                   ),
                             ),
                           ),
+                          if (trailing != null) ...[
+                            const SizedBox(width: 8),
+                            trailing!,
+                          ],
                           if (hasStateIcons) ...[
                             const SizedBox(width: 8),
                             if (isUnread)
