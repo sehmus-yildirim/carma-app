@@ -884,6 +884,7 @@ class FirestoreChatRepository implements ChatRepository {
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       updatedAt: _dateTimeFromValue(data['updatedAt']) ?? DateTime(1970),
       isDeleted: data['isDeleted'] as bool? ?? false,
+      isStarred: data['isStarred'] as bool? ?? false,
       replyToMessageId: data['replyToMessageId'] as String?,
       replyToText: data['replyToText'] as String?,
     );
