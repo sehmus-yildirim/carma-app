@@ -276,6 +276,23 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function isValidMessageReactionUpdate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && request.auth.uid in chat.data.participants
+        && chat.data.status == 'active'
+        && changedOnly(['reactionBy', 'reactionUpdatedAtBy', 'updatedAt'])
+        && request.resource.data.reactionBy is map
+        && request.resource.data.reactionBy[request.auth.uid] is string
+        && request.resource.data.reactionBy[request.auth.uid].size() <= 16
+        && request.resource.data.reactionUpdatedAtBy is map
+        && request.resource.data.reactionUpdatedAtBy[request.auth.uid] is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && changedOnlyNestedMapKey('reactionBy', request.auth.uid)
+        && changedOnlyNestedMapKey('reactionUpdatedAtBy', request.auth.uid);
+    }
+
     match /users/{userId} {
       allow read, create, update: if isOwner(userId);
       allow delete: if false;
@@ -355,7 +372,8 @@ service cloud.firestore {
         allow create: if isValidTextMessageCreate(chatId);
 
         allow update: if isValidMessageStarUpdate(chatId)
-          || isValidMessageDeleteUpdate(chatId);
+          || isValidMessageDeleteUpdate(chatId)
+          || isValidMessageReactionUpdate(chatId);
 
         allow delete: if false;
       }

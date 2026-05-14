@@ -205,6 +205,7 @@ class ChatMessageRecord {
     this.isStarred = false,
     this.replyToMessageId,
     this.replyToText,
+    this.reactionBy = const <String, String>{},
   });
 
   final String id;
@@ -218,6 +219,7 @@ class ChatMessageRecord {
   final bool isStarred;
   final String? replyToMessageId;
   final String? replyToText;
+  final Map<String, String> reactionBy;
 
   bool get isSystem {
     return type == ChatMessageType.system;
@@ -233,6 +235,9 @@ class ChatMessageRecord {
     DateTime? updatedAt,
     bool? isDeleted,
     bool? isStarred,
+    String? replyToMessageId,
+    String? replyToText,
+    Map<String, String>? reactionBy,
   }) {
     return ChatMessageRecord(
       id: id ?? this.id,
@@ -244,6 +249,9 @@ class ChatMessageRecord {
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       isStarred: isStarred ?? this.isStarred,
+      replyToMessageId: replyToMessageId ?? this.replyToMessageId,
+      replyToText: replyToText ?? this.replyToText,
+      reactionBy: reactionBy ?? this.reactionBy,
     );
   }
 }
@@ -290,6 +298,13 @@ abstract class ChatRepository {
     required String chatId,
     required String messageId,
     required bool isStarred,
+  });
+
+  Future<void> setMessageReaction({
+    required String chatId,
+    required String messageId,
+    required String userId,
+    required String reaction,
   });
 }
 
@@ -846,6 +861,32 @@ class FirestoreChatRepository implements ChatRepository {
     }, SetOptions(merge: true));
   }
 
+  @override
+  Future<void> setMessageReaction({
+    required String chatId,
+    required String messageId,
+    required String userId,
+    required String reaction,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedMessageId = messageId.trim();
+    final trimmedUserId = userId.trim();
+    final trimmedReaction = reaction.trim();
+
+    if (trimmedChatId.isEmpty ||
+        trimmedMessageId.isEmpty ||
+        trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID, message ID and user ID must not be empty.');
+    }
+
+    await _messagesCollection(trimmedChatId).doc(trimmedMessageId).update({
+      FieldPath(['reactionBy', trimmedUserId]): trimmedReaction,
+      FieldPath(['reactionUpdatedAtBy', trimmedUserId]):
+          FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
     return _chatsCollection
         .doc(chatId)
@@ -889,6 +930,7 @@ class FirestoreChatRepository implements ChatRepository {
       isStarred: data['isStarred'] as bool? ?? false,
       replyToMessageId: data['replyToMessageId'] as String?,
       replyToText: data['replyToText'] as String?,
+      reactionBy: _stringMapFromValue(data['reactionBy']),
     );
   }
 
@@ -941,6 +983,25 @@ class FirestoreChatRepository implements ChatRepository {
     }
 
     return const <String, bool>{};
+  }
+
+  static Map<String, String> _stringMapFromValue(Object? value) {
+    if (value is! Map) {
+      return const <String, String>{};
+    }
+
+    final result = <String, String>{};
+
+    for (final entry in value.entries) {
+      final key = entry.key?.toString() ?? '';
+      final mapValue = entry.value?.toString() ?? '';
+
+      if (key.isNotEmpty && mapValue.isNotEmpty) {
+        result[key] = mapValue;
+      }
+    }
+
+    return result;
   }
 
   static DateTime? _dateTimeFromValue(Object? value) {
@@ -1177,6 +1238,35 @@ class LocalChatRepository implements ChatRepository {
 
     _messages[index] = _messages[index].copyWith(
       isStarred: isStarred,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> setMessageReaction({
+    required String chatId,
+    required String messageId,
+    required String userId,
+    required String reaction,
+  }) async {
+    final index = _messages.indexWhere(
+      (message) => message.chatId == chatId && message.id == messageId,
+    );
+
+    if (index < 0) {
+      return;
+    }
+
+    final nextReactionBy = Map<String, String>.of(_messages[index].reactionBy);
+
+    if (reaction.trim().isEmpty) {
+      nextReactionBy.remove(userId);
+    } else {
+      nextReactionBy[userId] = reaction.trim();
+    }
+
+    _messages[index] = _messages[index].copyWith(
+      reactionBy: nextReactionBy,
       updatedAt: DateTime.now(),
     );
   }

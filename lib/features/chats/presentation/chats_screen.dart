@@ -347,6 +347,7 @@ class _LocalChatMessage {
     this.isReadByOther = false,
     this.replyToText,
     this.isStarred = false,
+    this.reactionBy = const <String, String>{},
   });
 
   final String text;
@@ -356,6 +357,29 @@ class _LocalChatMessage {
   final bool isReadByOther;
   final String? replyToText;
   final bool isStarred;
+  final Map<String, String> reactionBy;
+
+  _LocalChatMessage copyWith({
+    String? text,
+    bool? isMine,
+    String? timeLabel,
+    String? messageId,
+    bool? isReadByOther,
+    String? replyToText,
+    bool? isStarred,
+    Map<String, String>? reactionBy,
+  }) {
+    return _LocalChatMessage(
+      text: text ?? this.text,
+      isMine: isMine ?? this.isMine,
+      timeLabel: timeLabel ?? this.timeLabel,
+      messageId: messageId ?? this.messageId,
+      isReadByOther: isReadByOther ?? this.isReadByOther,
+      replyToText: replyToText ?? this.replyToText,
+      isStarred: isStarred ?? this.isStarred,
+      reactionBy: reactionBy ?? this.reactionBy,
+    );
+  }
 }
 
 class _MvpInfoCard extends StatelessWidget {
@@ -1906,13 +1930,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       changed = true;
 
-      return _LocalChatMessage(
-        text: message.text,
-        isMine: message.isMine,
-        replyToText: message.replyToText,
-        timeLabel: message.timeLabel,
-        isReadByOther: true,
-      );
+      return message.copyWith(isReadByOther: true);
     }).toList();
 
     if (!changed) {
@@ -2030,6 +2048,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                       timeLabel: _timeLabel(record.createdAt),
                       messageId: record.id,
                       replyToText: record.replyToText,
+                      isStarred: record.isStarred,
+                      reactionBy: record.reactionBy,
                     ),
                   )
                   .toList();
@@ -2087,15 +2107,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             return item;
           }
 
-          return _LocalChatMessage(
-            text: item.text,
-            isMine: item.isMine,
-            timeLabel: item.timeLabel,
-            messageId: item.messageId,
-            isReadByOther: item.isReadByOther,
-            replyToText: item.replyToText,
-            isStarred: nextIsStarred,
-          );
+          return item.copyWith(isStarred: nextIsStarred);
         }).toList();
       });
       return;
@@ -2115,6 +2127,60 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           content: Text(
             'Stern-Markierung konnte nicht gespeichert werden: $error',
           ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleReactMessage(
+    _LocalChatMessage message,
+    String reaction,
+  ) async {
+    final chatId = widget.chatId?.trim();
+    final messageId = message.messageId?.trim();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final localUserId = currentUserId.isEmpty ? 'local-user' : currentUserId;
+    final currentReaction = message.reactionBy[localUserId];
+    final nextReaction = currentReaction == reaction ? '' : reaction;
+
+    if (chatId == null ||
+        chatId.isEmpty ||
+        messageId == null ||
+        messageId.isEmpty ||
+        currentUserId.isEmpty) {
+      setState(() {
+        _messages = _messages.map((item) {
+          if (!identical(item, message)) {
+            return item;
+          }
+
+          final nextReactionBy = Map<String, String>.of(item.reactionBy);
+
+          if (nextReaction.isEmpty) {
+            nextReactionBy.remove(localUserId);
+          } else {
+            nextReactionBy[localUserId] = nextReaction;
+          }
+
+          return item.copyWith(reactionBy: nextReactionBy);
+        }).toList();
+      });
+      return;
+    }
+
+    try {
+      await _chatRepository.setMessageReaction(
+        chatId: chatId,
+        messageId: messageId,
+        userId: currentUserId,
+        reaction: nextReaction,
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Reaktion konnte nicht gespeichert werden: $error'),
         ),
       );
     }
@@ -2282,6 +2348,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                           onDeleteMessage: _handleDeleteMessage,
                           onReplyMessage: _handleReplyMessage,
                           onStarMessage: _handleStarMessage,
+                          onReactMessage: _handleReactMessage,
                         ),
                       if (_replyingToMessage != null)
                         _ReplyPreview(
@@ -2427,6 +2494,7 @@ class _ChatMessageList extends StatelessWidget {
     required this.onDeleteMessage,
     required this.onReplyMessage,
     required this.onStarMessage,
+    required this.onReactMessage,
   });
 
   final List<_LocalChatMessage> messages;
@@ -2434,6 +2502,8 @@ class _ChatMessageList extends StatelessWidget {
 
   final ValueChanged<_LocalChatMessage> onReplyMessage;
   final ValueChanged<_LocalChatMessage> onStarMessage;
+  final void Function(_LocalChatMessage message, String reaction)
+  onReactMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -2446,6 +2516,7 @@ class _ChatMessageList extends StatelessWidget {
             onDeleteMessage: onDeleteMessage,
             onReplyMessage: onReplyMessage,
             onStarMessage: onStarMessage,
+            onReactMessage: onReactMessage,
           ),
         );
       }).toList(),
@@ -2459,6 +2530,7 @@ class _ChatMessageBubble extends StatelessWidget {
     required this.onDeleteMessage,
     required this.onReplyMessage,
     required this.onStarMessage,
+    required this.onReactMessage,
   });
 
   final _LocalChatMessage message;
@@ -2466,6 +2538,8 @@ class _ChatMessageBubble extends StatelessWidget {
 
   final ValueChanged<_LocalChatMessage> onReplyMessage;
   final ValueChanged<_LocalChatMessage> onStarMessage;
+  final void Function(_LocalChatMessage message, String reaction)
+  onReactMessage;
 
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
@@ -2513,7 +2587,7 @@ class _ChatMessageBubble extends StatelessWidget {
                           emoji: emoji,
                           onTap: () {
                             Navigator.of(sheetContext).pop();
-                            _showSnackBar(context, 'Reaktion vorgemerkt.');
+                            onReactMessage(message, emoji);
                           },
                         ),
                     ],
@@ -2585,6 +2659,9 @@ class _ChatMessageBubble extends StatelessWidget {
       fontWeight: FontWeight.w800,
       fontSize: 11,
     );
+    final reactions = message.reactionBy.values
+        .where((reaction) => reaction.trim().isNotEmpty)
+        .toList();
 
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -2665,9 +2742,46 @@ class _ChatMessageBubble extends StatelessWidget {
                   size: 17,
                   color: _myMessageCheckBlue,
                 ),
+              if (reactions.isNotEmpty)
+                _MessageReactionSummary(reactions: reactions),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MessageReactionSummary extends StatelessWidget {
+  const _MessageReactionSummary({required this.reactions});
+
+  final List<String> reactions;
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = <String, int>{};
+
+    for (final reaction in reactions) {
+      counts[reaction] = (counts[reaction] ?? 0) + 1;
+    }
+
+    final label = counts.entries
+        .map(
+          (entry) =>
+              entry.value > 1 ? '${entry.key} ${entry.value}' : entry.key,
+        )
+        .join(' ');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 13),
       ),
     );
   }
