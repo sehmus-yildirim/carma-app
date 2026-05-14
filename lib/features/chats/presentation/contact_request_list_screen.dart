@@ -149,7 +149,7 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: ')));
+      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $error')));
     } finally {
       if (mounted) {
         setState(() {

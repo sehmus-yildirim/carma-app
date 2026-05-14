@@ -2068,7 +2068,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Nachrichten konnten nicht geladen werden: '),
+                content: Text(
+                  'Nachrichten konnten nicht geladen werden: $error',
+                ),
               ),
             );
           },
