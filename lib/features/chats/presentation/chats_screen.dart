@@ -867,11 +867,21 @@ class _ChatOverflowMenu extends StatelessWidget {
   static final FirestoreChatRepository _chatRepository =
       FirestoreChatRepository();
 
-  const _ChatOverflowMenu({this.chatId, this.title, this.subtitle});
+  const _ChatOverflowMenu({
+    this.chatId,
+    this.title,
+    this.subtitle,
+    this.isFavorite = false,
+    this.isMuted = false,
+    this.popAfterStatusAction = true,
+  });
 
   final String? chatId;
   final String? title;
   final String? subtitle;
+  final bool isFavorite;
+  final bool isMuted;
+  final bool popAfterStatusAction;
 
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
@@ -1040,26 +1050,32 @@ class _ChatOverflowMenu extends StatelessWidget {
   ) async {
     switch (action) {
       case _ChatMenuAction.favorite:
+        final nextIsFavorite = !isFavorite;
         await _runChatPreferenceAction(
           context: context,
-          successMessage: 'Chat wurde zu Favoriten hinzugefÃ¼gt.',
+          successMessage: nextIsFavorite
+              ? 'Chat wurde zu Favoriten hinzugefuegt.'
+              : 'Chat wurde aus Favoriten entfernt.',
           action: ({required String chatId, required String userId}) async {
             await _chatRepository.setChatFavorite(
               chatId: chatId,
               userId: userId,
-              isFavorite: true,
+              isFavorite: nextIsFavorite,
             );
           },
         );
       case _ChatMenuAction.mute:
+        final nextIsMuted = !isMuted;
         await _runChatPreferenceAction(
           context: context,
-          successMessage: 'Chat wurde stummgeschaltet.',
+          successMessage: nextIsMuted
+              ? 'Chat wurde stummgeschaltet.'
+              : 'Benachrichtigungen wurden eingeschaltet.',
           action: ({required String chatId, required String userId}) async {
             await _chatRepository.setChatMuted(
               chatId: chatId,
               userId: userId,
-              isMuted: true,
+              isMuted: nextIsMuted,
             );
           },
         );
@@ -1228,7 +1244,9 @@ class _ChatOverflowMenu extends StatelessWidget {
       }
 
       _showSnackBar(context, successMessage);
-      Navigator.of(context).pop(true);
+      if (popAfterStatusAction) {
+        Navigator.of(context).pop(true);
+      }
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -1246,32 +1264,40 @@ class _ChatOverflowMenu extends StatelessWidget {
       color: const Color(0xFF101827),
       onSelected: (action) => _handleAction(context, action),
       itemBuilder: (context) {
-        return const [
+        return [
           PopupMenuItem(
             value: _ChatMenuAction.favorite,
-            child: Text('Zu Favoriten hinzufÃ¼gen'),
+            child: Text(
+              isFavorite
+                  ? 'Aus Favoriten entfernen'
+                  : 'Zu Favoriten hinzufuegen',
+            ),
           ),
           PopupMenuItem(
             value: _ChatMenuAction.mute,
-            child: Text('Benachrichtigungen stummschalten'),
+            child: Text(
+              isMuted
+                  ? 'Benachrichtigungen einschalten'
+                  : 'Benachrichtigungen stummschalten',
+            ),
           ),
-          PopupMenuItem(
+          const PopupMenuItem(
             value: _ChatMenuAction.vehicleDetails,
             child: Text('Fahrzeugdetails anzeigen'),
           ),
-          PopupMenuItem(
+          const PopupMenuItem(
             value: _ChatMenuAction.archive,
             child: Text('Chat archivieren'),
           ),
-          PopupMenuItem(
+          const PopupMenuItem(
             value: _ChatMenuAction.delete,
             child: Text('Chat lÃ¶schen'),
           ),
-          PopupMenuItem(
+          const PopupMenuItem(
             value: _ChatMenuAction.block,
             child: Text('Nutzer blockieren'),
           ),
-          PopupMenuItem(
+          const PopupMenuItem(
             value: _ChatMenuAction.report,
             child: Text('Nutzer melden'),
           ),
@@ -1320,9 +1346,13 @@ class _ActiveChatsScreen extends StatelessWidget {
                     isFavorite: chat.isFavoriteFor(currentUserId),
                     isMuted: chat.isMutedFor(currentUserId),
                     isUnread: chat.hasUnreadFor(currentUserId),
-                    trailing: const Icon(
-                      Icons.more_vert_rounded,
-                      color: Colors.white70,
+                    trailing: _ChatOverflowMenu(
+                      chatId: chat.id,
+                      title: chat.displayNameFor(currentUserId),
+                      subtitle: chat.vehicleTitle,
+                      isFavorite: chat.isFavoriteFor(currentUserId),
+                      isMuted: chat.isMutedFor(currentUserId),
+                      popAfterStatusAction: false,
                     ),
                     onTap: () async {
                       await Navigator.of(context).push(
@@ -1356,6 +1386,11 @@ class _ActiveChatsScreen extends StatelessWidget {
                   subtitle: messages.isNotEmpty
                       ? 'Letzte Nachricht: ${messages.last.text}'
                       : 'BMW 1er · Schwarz',
+                  trailing: const _ChatOverflowMenu(
+                    title: 'Carma Nutzer',
+                    subtitle: 'BMW 1er · Schwarz',
+                    popAfterStatusAction: false,
+                  ),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -1452,88 +1487,98 @@ class _ActiveChatListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasStateIcons = isFavorite || isMuted || isUnread;
+    final stateIcons = <Widget>[
+      if (isUnread)
+        const _ChatStateIcon(
+          icon: Icons.mark_chat_unread_rounded,
+          tooltip: 'Ungelesen',
+        ),
+      if (isUnread && (isFavorite || isMuted)) const SizedBox(width: 6),
+      if (isFavorite)
+        const _ChatStateIcon(icon: Icons.star_rounded, tooltip: 'Favorit'),
+      if (isFavorite && isMuted) const SizedBox(width: 6),
+      if (isMuted)
+        const _ChatStateIcon(
+          icon: Icons.notifications_off_rounded,
+          tooltip: 'Stummgeschaltet',
+        ),
+    ];
 
     return GlassCard(
       padding: EdgeInsets.zero,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(28),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                const _UserAvatarPlaceholder(size: 56),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 17,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(22),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        const _UserAvatarPlaceholder(size: 56),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 17,
+                                          ),
+                                    ),
                                   ),
-                            ),
+                                  if (hasStateIcons) ...[
+                                    const SizedBox(width: 8),
+                                    ...stateIcons,
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.66,
+                                      ),
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.28,
+                                    ),
+                              ),
+                            ],
                           ),
-                          if (trailing != null) ...[
-                            const SizedBox(width: 8),
-                            trailing!,
-                          ],
-                          if (hasStateIcons) ...[
-                            const SizedBox(width: 8),
-                            if (isUnread)
-                              const _ChatStateIcon(
-                                icon: Icons.mark_chat_unread_rounded,
-                                tooltip: 'Ungelesen',
-                              ),
-                            if (isUnread && (isFavorite || isMuted))
-                              const SizedBox(width: 6),
-                            if (isFavorite)
-                              const _ChatStateIcon(
-                                icon: Icons.star_rounded,
-                                tooltip: 'Favorit',
-                              ),
-                            if (isFavorite && isMuted) const SizedBox(width: 6),
-                            if (isMuted)
-                              const _ChatStateIcon(
-                                icon: Icons.notifications_off_rounded,
-                                tooltip: 'Stummgeschaltet',
-                              ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.66),
-                          fontWeight: FontWeight.w700,
-                          height: 1.28,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.white.withValues(alpha: 0.42),
+                          size: 26,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.42),
-                  size: 26,
-                ),
-              ],
-            ),
+              ),
+              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+            ],
           ),
         ),
       ),

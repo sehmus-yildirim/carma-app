@@ -688,11 +688,12 @@ class FirestoreChatRepository implements ChatRepository {
       throw ArgumentError('Chat ID and user ID must not be empty.');
     }
 
-    await _chatsCollection.doc(trimmedChatId).set({
-      'favoriteBy': {trimmedUserId: isFavorite},
-      'favoriteUpdatedAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+    await _chatsCollection.doc(trimmedChatId).update({
+      FieldPath(['favoriteBy', trimmedUserId]): isFavorite,
+      FieldPath(['favoriteUpdatedAtBy', trimmedUserId]):
+          FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
   Future<void> setChatMuted({
@@ -707,11 +708,12 @@ class FirestoreChatRepository implements ChatRepository {
       throw ArgumentError('Chat ID and user ID must not be empty.');
     }
 
-    await _chatsCollection.doc(trimmedChatId).set({
-      'mutedBy': {trimmedUserId: isMuted},
-      'mutedUpdatedAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+    await _chatsCollection.doc(trimmedChatId).update({
+      FieldPath(['mutedBy', trimmedUserId]): isMuted,
+      FieldPath(['mutedUpdatedAtBy', trimmedUserId]):
+          FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
   Future<ChatRecord> blockChat({

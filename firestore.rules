@@ -14,6 +14,14 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    function changedOnlyNestedMapKey(field, key) {
+      return request.resource.data
+        .get(field, {})
+        .diff(resource.data.get(field, {}))
+        .affectedKeys()
+        .hasOnly([key]);
+    }
+
     function isValidInitialSearchCredit(userId, creditId) {
       return isOwner(userId)
         && creditId == 'main'
@@ -116,6 +124,64 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function isValidChatFavoriteUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'active'
+        && changedOnly(['favoriteBy', 'favoriteUpdatedAtBy', 'updatedAt'])
+        && request.resource.data.favoriteBy is map
+        && request.resource.data.favoriteBy[request.auth.uid] is bool
+        && request.resource.data.favoriteUpdatedAtBy is map
+        && request.resource.data.favoriteUpdatedAtBy[request.auth.uid] is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && changedOnlyNestedMapKey('favoriteBy', request.auth.uid)
+        && changedOnlyNestedMapKey('favoriteUpdatedAtBy', request.auth.uid);
+    }
+
+    function isValidChatMutedUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'active'
+        && changedOnly(['mutedBy', 'mutedUpdatedAtBy', 'updatedAt'])
+        && request.resource.data.mutedBy is map
+        && request.resource.data.mutedBy[request.auth.uid] is bool
+        && request.resource.data.mutedUpdatedAtBy is map
+        && request.resource.data.mutedUpdatedAtBy[request.auth.uid] is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && changedOnlyNestedMapKey('mutedBy', request.auth.uid)
+        && changedOnlyNestedMapKey('mutedUpdatedAtBy', request.auth.uid);
+    }
+
+    function isValidChatArchiveUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'active'
+        && changedOnly(['status', 'updatedAt'])
+        && request.resource.data.status == 'archived'
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidChatDeleteUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'active'
+        && changedOnly(['status', 'isDeleted', 'updatedAt'])
+        && request.resource.data.status == 'deleted'
+        && request.resource.data.isDeleted == true
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidChatBlockUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'active'
+        && changedOnly(['status', 'blockedBy', 'blockedAt', 'updatedAt'])
+        && request.resource.data.status == 'blocked'
+        && request.resource.data.blockedBy == request.auth.uid
+        && request.resource.data.blockedAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     function isValidTextMessageCreate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
@@ -195,7 +261,12 @@ service cloud.firestore {
       allow create: if request.resource.data.requestId is string
         && isValidChatCreateForRequest(chatId, request.resource.data.requestId);
 
-      allow update: if isValidChatLastMessageUpdate();
+      allow update: if isValidChatLastMessageUpdate()
+        || isValidChatFavoriteUpdate()
+        || isValidChatMutedUpdate()
+        || isValidChatArchiveUpdate()
+        || isValidChatDeleteUpdate()
+        || isValidChatBlockUpdate();
 
       allow delete: if false;
 
