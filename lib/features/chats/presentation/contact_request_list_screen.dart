@@ -202,18 +202,6 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
                       : 'Gesendete Anfragen',
                   onBack: () => Navigator.of(context).pop(),
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  _isIncoming
-                      ? 'Hier siehst du echte Kontaktanfragen, die andere Nutzer an dich gesendet haben.'
-                      : 'Hier siehst du echte Kontaktanfragen, die du nach einer Kennzeichen-Suche gesendet hast.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.5,
-                    height: 1.35,
-                  ),
-                ),
                 const SizedBox(height: 20),
                 FutureBuilder<List<ContactRequestRecord>>(
                   future: _future,
@@ -580,18 +568,6 @@ class _RequestEmptyCard extends StatelessWidget {
               color: Colors.white,
               fontWeight: FontWeight.w900,
               fontSize: 22,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            isIncoming
-                ? 'Sobald dich jemand über dein Kennzeichen kontaktiert, erscheint die Anfrage hier.'
-                : 'Wenn du eine Kontaktanfrage sendest, erscheint sie hier, bis sie angenommen, abgelehnt oder zurückgezogen wird.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.70),
-              fontWeight: FontWeight.w700,
-              height: 1.4,
             ),
           ),
         ],

@@ -252,19 +252,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       icon: Icons.chat_bubble_rounded,
                       title: 'Chats',
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Hier findest du angenommene Unterhaltungen und Kontaktanfragen.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16.5,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const _MvpInfoCard(),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 22),
                     if (!chatGateDecision.isAllowed)
                       _ChatAccessBlockedCard(
                         message:
@@ -296,7 +284,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                     chats: chats,
                                     isLoading: isLoading,
                                     hasLocalActiveChat: _hasActiveChat,
-                                    localMessageCount: _chatMessages.length,
                                     onOpenActiveChats: () =>
                                         _openActiveChatsScreen(chats: chats),
                                   );
@@ -343,6 +330,7 @@ class _LocalChatMessage {
     required this.text,
     required this.isMine,
     required this.timeLabel,
+    this.createdAt,
     this.messageId,
     this.isReadByOther = false,
     this.replyToText,
@@ -353,6 +341,7 @@ class _LocalChatMessage {
   final String text;
   final bool isMine;
   final String timeLabel;
+  final DateTime? createdAt;
   final String? messageId;
   final bool isReadByOther;
   final String? replyToText;
@@ -363,6 +352,7 @@ class _LocalChatMessage {
     String? text,
     bool? isMine,
     String? timeLabel,
+    DateTime? createdAt,
     String? messageId,
     bool? isReadByOther,
     String? replyToText,
@@ -373,43 +363,12 @@ class _LocalChatMessage {
       text: text ?? this.text,
       isMine: isMine ?? this.isMine,
       timeLabel: timeLabel ?? this.timeLabel,
+      createdAt: createdAt ?? this.createdAt,
       messageId: messageId ?? this.messageId,
       isReadByOther: isReadByOther ?? this.isReadByOther,
       replyToText: replyToText ?? this.replyToText,
       isStarred: isStarred ?? this.isStarred,
       reactionBy: reactionBy ?? this.reactionBy,
-    );
-  }
-}
-
-class _MvpInfoCard extends StatelessWidget {
-  const _MvpInfoCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CarmaBlueIconBox(
-            icon: Icons.info_outline_rounded,
-            size: 44,
-            iconSize: 23,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Text(
-              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir sp\u00E4ter mit Firebase.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.80),
-                fontWeight: FontWeight.w700,
-                height: 1.36,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -585,14 +544,12 @@ class _ChatsOverview extends StatelessWidget {
     required this.chats,
     required this.isLoading,
     required this.hasLocalActiveChat,
-    required this.localMessageCount,
     required this.onOpenActiveChats,
   });
 
   final List<ChatRecord> chats;
   final bool isLoading;
   final bool hasLocalActiveChat;
-  final int localMessageCount;
   final VoidCallback onOpenActiveChats;
 
   bool get _hasActiveChat {
@@ -611,45 +568,12 @@ class _ChatsOverview extends StatelessWidget {
     return hasLocalActiveChat ? '1' : '0';
   }
 
-  String get _bodyText {
-    if (isLoading) {
-      return 'Aktive Chats werden geladen...';
-    }
-
-    if (chats.isNotEmpty) {
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-      final unreadCount = chats
-          .where((chat) => chat.hasUnreadFor(currentUserId))
-          .length;
-
-      if (unreadCount > 0) {
-        return unreadCount == 1
-            ? 'Ein aktiver Chat ist ungelesen.'
-            : ' aktive Chats sind ungelesen.';
-      }
-
-      return chats.length == 1
-          ? 'Ein aktiver Chat wurde aus Firestore geladen.'
-          : ' aktive Chats wurden aus Firestore geladen.';
-    }
-
-    if (hasLocalActiveChat) {
-      return localMessageCount > 0
-          ? '$localMessageCount lokale Beispielnachrichten verf\u00FCgbar.'
-          : 'Ein lokaler Beispielchat ist verf\u00FCgbar.';
-    }
-
-    return 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.';
-  }
-
   @override
   Widget build(BuildContext context) {
     return _OverviewCard(
       icon: Icons.forum_rounded,
       title: 'Aktive Chats',
       count: _count,
-      description: 'Angenommene Anfragen werden hier als Chat angezeigt.',
-      bodyText: _bodyText,
       onTap: _hasActiveChat ? onOpenActiveChats : () {},
     );
   }
@@ -678,34 +602,6 @@ class _RequestsOverview extends StatelessWidget {
     return isLoading ? '...' : outgoingCount.toString();
   }
 
-  bool get _hasIncomingRequests {
-    return incomingCount > 0;
-  }
-
-  bool get _hasOutgoingRequests {
-    return outgoingCount > 0;
-  }
-
-  String get _incomingBodyText {
-    if (!_hasIncomingRequests) {
-      return 'Aktuell gibt es keine offenen Anfragen. Neue Kontakte erscheinen hier zuerst zur Freigabe.';
-    }
-
-    return incomingCount == 1
-        ? 'Eine offene Anfrage wartet auf deine Entscheidung.'
-        : ' offene Anfragen warten auf deine Entscheidung.';
-  }
-
-  String get _outgoingBodyText {
-    if (!_hasOutgoingRequests) {
-      return 'Du hast aktuell keine Anfrage gesendet. Sp\u00E4ter erscheinen hier offene Anfragen aus der Suche.';
-    }
-
-    return outgoingCount == 1
-        ? 'Eine gesendete Anfrage wartet auf Antwort.'
-        : ' gesendete Anfragen warten auf Antwort.';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -714,9 +610,6 @@ class _RequestsOverview extends StatelessWidget {
           icon: Icons.move_to_inbox_rounded,
           title: 'Eingehende Anfragen',
           count: _incomingCountLabel,
-          description:
-              'Anfragen von Nutzern, die dich \u00FCber dein Kennzeichen gefunden haben.',
-          bodyText: _incomingBodyText,
           onTap: onOpenIncoming,
         ),
         const SizedBox(height: 14),
@@ -724,9 +617,6 @@ class _RequestsOverview extends StatelessWidget {
           icon: Icons.outbox_rounded,
           title: 'Gesendete Anfragen',
           count: _outgoingCountLabel,
-          description:
-              'Anfragen, die du nach einer Kennzeichen-Suche verschickt hast.',
-          bodyText: _outgoingBodyText,
           onTap: onOpenOutgoing,
         ),
       ],
@@ -739,16 +629,12 @@ class _OverviewCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.count,
-    required this.description,
-    required this.bodyText,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String count;
-  final String description;
-  final String bodyText;
   final VoidCallback onTap;
 
   @override
@@ -770,74 +656,26 @@ class _OverviewCard extends StatelessWidget {
                     CarmaBlueIconBox(icon: icon, size: 48, iconSize: 24),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 19,
-                                  letterSpacing: -0.2,
-                                ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            description,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.68),
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.35,
-                                ),
-                          ),
-                        ],
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 19,
+                              letterSpacing: -0.2,
+                            ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     _CountBadge(count: count),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    color: Colors.white.withValues(alpha: 0.06),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.10),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.white.withValues(alpha: 0.72),
+                      size: 26,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        color: Colors.white.withValues(alpha: 0.78),
-                        size: 22,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          bodyText,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.74),
-                                fontWeight: FontWeight.w700,
-                                height: 1.3,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.white.withValues(alpha: 0.72),
-                        size: 26,
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -1362,8 +1200,6 @@ class _ActiveChatsScreen extends StatelessWidget {
           return _SubPageScaffold(
             icon: Icons.forum_rounded,
             headerTitle: 'Aktive Chats',
-            subtitle:
-                'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
             child: Column(
               children: [
                 for (final chat in chats) ...[
@@ -1407,8 +1243,6 @@ class _ActiveChatsScreen extends StatelessWidget {
         return _SubPageScaffold(
           icon: Icons.forum_rounded,
           headerTitle: 'Aktive Chats',
-          subtitle:
-              'Hier erscheinen alle Unterhaltungen, die nach angenommener Anfrage entstanden sind.',
           child: hasLocalActiveChat
               ? _ActiveChatListTile(
                   title: 'Carma Nutzer',
@@ -1432,8 +1266,6 @@ class _ActiveChatsScreen extends StatelessWidget {
               : const _EmptyListCard(
                   icon: Icons.chat_bubble_outline_rounded,
                   title: 'Noch keine aktiven Chats',
-                  description:
-                      'Sobald eine Anfrage angenommen wird, erscheint die Unterhaltung hier. Bis dahin bleibt dieser Bereich bewusst leer.',
                 ),
         );
       },
@@ -1445,13 +1277,11 @@ class _SubPageScaffold extends StatelessWidget {
   const _SubPageScaffold({
     required this.icon,
     required this.headerTitle,
-    required this.subtitle,
     required this.child,
   });
 
   final IconData icon;
   final String headerTitle;
-  final String subtitle;
   final Widget child;
 
   @override
@@ -1472,16 +1302,6 @@ class _SubPageScaffold extends StatelessWidget {
                   icon: icon,
                   title: headerTitle,
                   onBack: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.5,
-                    height: 1.35,
-                  ),
                 ),
                 const SizedBox(height: 20),
                 child,
@@ -1644,15 +1464,10 @@ class _ChatStateIcon extends StatelessWidget {
 }
 
 class _EmptyListCard extends StatelessWidget {
-  const _EmptyListCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
+  const _EmptyListCard({required this.icon, required this.title});
 
   final IconData icon;
   final String title;
-  final String description;
 
   @override
   Widget build(BuildContext context) {
@@ -1669,46 +1484,6 @@ class _EmptyListCard extends StatelessWidget {
               color: Colors.white,
               fontWeight: FontWeight.w900,
               fontSize: 22,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.70),
-              fontWeight: FontWeight.w700,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: Colors.white.withValues(alpha: 0.055),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.cloud_off_outlined,
-                  color: Colors.white.withValues(alpha: 0.76),
-                  size: 22,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Live-Daten werden sp\u00E4ter mit Firebase geladen.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -1802,6 +1577,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _isCurrentUserTyping = false;
   _LocalChatMessage? _replyingToMessage;
   DateTime? _lastTypingWriteAt;
+  DateTime? _otherLastReadAt;
   Timer? _typingStopTimer;
   StreamSubscription<bool>? _typingSubscription;
   StreamSubscription<DateTime?>? _readReceiptSubscription;
@@ -1915,6 +1691,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
+    _otherLastReadAt = otherLastReadAt;
     var changed = false;
 
     final nextMessages = _messages.map((message) {
@@ -1922,9 +1699,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         return message;
       }
 
-      final parsedTime = _timeFromLabel(message.timeLabel);
-
-      if (parsedTime == null || parsedTime.isAfter(otherLastReadAt)) {
+      if (!_isReadByOther(message, otherLastReadAt)) {
         return message;
       }
 
@@ -1942,22 +1717,23 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     });
   }
 
-  DateTime? _timeFromLabel(String label) {
-    final parts = label.split(':');
+  bool _isReadByOther(_LocalChatMessage message, DateTime? otherLastReadAt) {
+    return _isMineMessageReadByOther(
+      isMine: message.isMine,
+      createdAt: message.createdAt,
+      otherLastReadAt: otherLastReadAt,
+    );
+  }
 
-    if (parts.length != 2) {
-      return null;
-    }
-
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-
-    if (hour == null || minute == null) {
-      return null;
-    }
-
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, hour, minute);
+  bool _isMineMessageReadByOther({
+    required bool isMine,
+    required DateTime? createdAt,
+    required DateTime? otherLastReadAt,
+  }) {
+    return isMine &&
+        createdAt != null &&
+        otherLastReadAt != null &&
+        !createdAt.isAfter(otherLastReadAt);
   }
 
   void _handleTypingChanged(bool hasText) {
@@ -2034,28 +1810,37 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         .listen(
           (records) {
             final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+            final otherLastReadAt = _otherLastReadAt;
 
             if (!mounted) {
               return;
             }
 
             setState(() {
-              _messages = records
-                  .map(
-                    (record) => _LocalChatMessage(
-                      text: record.text,
-                      isMine: record.senderUserId == currentUserId,
-                      timeLabel: _timeLabel(record.createdAt),
-                      messageId: record.id,
-                      replyToText: record.replyToText,
-                      isStarred: record.isStarred,
-                      reactionBy: record.reactionBy,
-                    ),
-                  )
-                  .toList();
+              _messages = records.map((record) {
+                final isMine = record.senderUserId == currentUserId;
+
+                return _LocalChatMessage(
+                  text: record.text,
+                  isMine: isMine,
+                  timeLabel: _timeLabel(record.createdAt),
+                  createdAt: record.createdAt,
+                  messageId: record.id,
+                  isReadByOther: _isMineMessageReadByOther(
+                    isMine: isMine,
+                    createdAt: record.createdAt,
+                    otherLastReadAt: otherLastReadAt,
+                  ),
+                  replyToText: record.replyToText,
+                  isStarred: record.isStarred,
+                  reactionBy: record.reactionBy,
+                );
+              }).toList();
 
               _isLoadingMessages = false;
             });
+
+            unawaited(_markChatRead());
           },
           onError: (error) {
             if (!mounted) {
@@ -2254,6 +2039,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             isMine: true,
             replyToText: replyTarget?.text,
             timeLabel: 'Jetzt',
+            createdAt: DateTime.now(),
             isReadByOther: false,
           ),
         ];
@@ -2738,18 +2524,33 @@ class _ChatMessageBubble extends StatelessWidget {
                 ),
               ),
               Text(message.timeLabel, style: timeStyle),
-              if (message.isMine)
-                const Icon(
-                  Icons.done_all_rounded,
-                  size: 17,
-                  color: _myMessageCheckBlue,
-                ),
+              if (message.isMine) _MessageDeliveryStatusIcon(message: message),
               if (reactions.isNotEmpty)
                 _MessageReactionSummary(reactions: reactions),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MessageDeliveryStatusIcon extends StatelessWidget {
+  const _MessageDeliveryStatusIcon({required this.message});
+
+  final _LocalChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDelivered = message.messageId?.trim().isNotEmpty == true;
+    final isRead = message.isReadByOther;
+
+    return Icon(
+      isDelivered || isRead ? Icons.done_all_rounded : Icons.done_rounded,
+      size: 17,
+      color: isRead
+          ? _myMessageCheckBlue
+          : Colors.white.withValues(alpha: 0.62),
     );
   }
 }
@@ -2977,16 +2778,6 @@ class _ChatEmptySpace extends StatelessWidget {
               color: Colors.white,
               fontWeight: FontWeight.w900,
               fontSize: 20,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Dieser Chat ist lokal vorbereitet. Nachrichten, Anh\u00E4nge und Zustellstatus werden sp\u00E4ter mit Firebase verbunden.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.62),
-              fontWeight: FontWeight.w700,
-              height: 1.38,
             ),
           ),
         ],

@@ -30,6 +30,15 @@ class AcceptContactRequestUseCase {
       requestId: request.id,
       systemMessage:
           'Kontaktanfrage angenommen. Ihr könnt jetzt geschützt schreiben.',
+      senderUserId: request.senderUserId,
+      receiverUserId: request.receiverUserId,
+      senderDisplayName: request.senderDisplayName,
+      receiverDisplayName: request.receiverDisplayName,
+      displayPlate: request.displayPlate,
+      vehicleBrand: request.vehicleBrand,
+      vehicleModel: request.vehicleModel,
+      vehicleColor: request.vehicleColor,
+      vehicleLabel: request.vehicleLabel,
     );
 
     final acceptedRequest = await _contactRequestRepository.acceptRequest(

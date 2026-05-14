@@ -7,6 +7,11 @@ enum ChatStatus { active, archived, blocked, deleted }
 
 enum ChatMessageType { text, image, system }
 
+String? _trimmedOrNull(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
 class ChatRecord {
   const ChatRecord({
     required this.id,
@@ -265,6 +270,15 @@ abstract class ChatRepository {
     required List<String> participants,
     String? requestId,
     String? systemMessage,
+    String? senderUserId,
+    String? receiverUserId,
+    String? senderDisplayName,
+    String? receiverDisplayName,
+    String? displayPlate,
+    String? vehicleBrand,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehicleLabel,
   });
 
   Future<List<ChatMessageRecord>> loadMessages({required String chatId});
@@ -368,6 +382,15 @@ class FirestoreChatRepository implements ChatRepository {
     required List<String> participants,
     String? requestId,
     String? systemMessage,
+    String? senderUserId,
+    String? receiverUserId,
+    String? senderDisplayName,
+    String? receiverDisplayName,
+    String? displayPlate,
+    String? vehicleBrand,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehicleLabel,
   }) async {
     final uniqueParticipants =
         participants
@@ -388,7 +411,7 @@ class FirestoreChatRepository implements ChatRepository {
     final now = DateTime.now();
     final trimmedSystemMessage = systemMessage?.trim();
 
-    await chatDocument.set({
+    final data = <String, dynamic>{
       'participants': uniqueParticipants,
       'status': FirestoreChatStatus.active,
       'requestId': requestId,
@@ -403,7 +426,18 @@ class FirestoreChatRepository implements ChatRepository {
           ? null
           : Timestamp.fromDate(now),
       'isDeleted': false,
-    });
+      'senderUserId': _trimmedOrNull(senderUserId),
+      'receiverUserId': _trimmedOrNull(receiverUserId),
+      'senderDisplayName': _trimmedOrNull(senderDisplayName),
+      'receiverDisplayName': _trimmedOrNull(receiverDisplayName),
+      'displayPlate': _trimmedOrNull(displayPlate),
+      'vehicleBrand': _trimmedOrNull(vehicleBrand),
+      'vehicleModel': _trimmedOrNull(vehicleModel),
+      'vehicleColor': _trimmedOrNull(vehicleColor),
+      'vehicleLabel': _trimmedOrNull(vehicleLabel),
+    };
+
+    await chatDocument.set(data);
 
     final snapshot = await chatDocument.get();
     return _chatFromSnapshot(snapshot);
@@ -907,6 +941,15 @@ class FirestoreChatRepository implements ChatRepository {
       requestId: data['requestId'] as String?,
       lastMessage: data['lastMessage'] as String?,
       lastMessageAt: _dateTimeFromValue(data['lastMessageAt']),
+      senderUserId: data['senderUserId'] as String?,
+      receiverUserId: data['receiverUserId'] as String?,
+      senderDisplayName: data['senderDisplayName'] as String?,
+      receiverDisplayName: data['receiverDisplayName'] as String?,
+      displayPlate: data['displayPlate'] as String?,
+      vehicleBrand: data['vehicleBrand'] as String?,
+      vehicleModel: data['vehicleModel'] as String?,
+      vehicleColor: data['vehicleColor'] as String?,
+      vehicleLabel: data['vehicleLabel'] as String?,
       favoriteBy: _boolMapFromValue(data['favoriteBy']),
       mutedBy: _boolMapFromValue(data['mutedBy']),
       lastReadAtBy: _dateTimeMapFromValue(data['lastReadAtBy']),
@@ -1060,6 +1103,15 @@ class LocalChatRepository implements ChatRepository {
     required List<String> participants,
     String? requestId,
     String? systemMessage,
+    String? senderUserId,
+    String? receiverUserId,
+    String? senderDisplayName,
+    String? receiverDisplayName,
+    String? displayPlate,
+    String? vehicleBrand,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehicleLabel,
   }) async {
     final now = DateTime.now();
     final uniqueParticipants = participants.toSet().toList()..sort();
@@ -1073,6 +1125,15 @@ class LocalChatRepository implements ChatRepository {
       requestId: requestId,
       lastMessage: systemMessage,
       lastMessageAt: systemMessage == null ? null : now,
+      senderUserId: _trimmedOrNull(senderUserId),
+      receiverUserId: _trimmedOrNull(receiverUserId),
+      senderDisplayName: _trimmedOrNull(senderDisplayName),
+      receiverDisplayName: _trimmedOrNull(receiverDisplayName),
+      displayPlate: _trimmedOrNull(displayPlate),
+      vehicleBrand: _trimmedOrNull(vehicleBrand),
+      vehicleModel: _trimmedOrNull(vehicleModel),
+      vehicleColor: _trimmedOrNull(vehicleColor),
+      vehicleLabel: _trimmedOrNull(vehicleLabel),
     );
 
     _chats.add(chat);
