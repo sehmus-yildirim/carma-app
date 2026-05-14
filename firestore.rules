@@ -114,14 +114,68 @@ service cloud.firestore {
         && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
     }
 
+    function hasValidLastMessageFields() {
+      return (
+          request.resource.data.lastMessage == null ||
+          (
+            request.resource.data.lastMessage is string &&
+            request.resource.data.lastMessage.size() <= 1000
+          )
+        )
+        && (
+          request.resource.data.lastMessageAt == null ||
+          request.resource.data.lastMessageAt is timestamp
+        )
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function hasValidCurrentUserReadAt() {
+      return request.resource.data.lastReadAtBy is map
+        && request.resource.data.lastReadAtBy[request.auth.uid] is timestamp
+        && changedOnlyNestedMapKey('lastReadAtBy', request.auth.uid);
+    }
+
     function isValidChatLastMessageUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && changedOnly(['lastMessage', 'lastMessageAt', 'updatedAt'])
-        && request.resource.data.lastMessage is string
-        && request.resource.data.lastMessage.size() <= 1000
-        && request.resource.data.lastMessageAt is timestamp
-        && request.resource.data.updatedAt is timestamp;
+        && resource.data.status == 'active'
+        && (
+          (
+            changedOnly(['lastMessage', 'lastMessageAt', 'updatedAt'])
+            && hasValidLastMessageFields()
+          ) ||
+          (
+            changedOnly([
+              'lastMessage',
+              'lastMessageAt',
+              'lastReadAtBy',
+              'updatedAt',
+            ])
+            && hasValidLastMessageFields()
+            && hasValidCurrentUserReadAt()
+          )
+        );
+    }
+
+    function isValidChatReadUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'active'
+        && changedOnly(['lastReadAtBy'])
+        && hasValidCurrentUserReadAt();
+    }
+
+    function isValidChatTypingUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'active'
+        && changedOnly(['typingBy', 'typingUpdatedAtBy'])
+        && request.resource.data.typingBy is map
+        && request.resource.data.typingBy[request.auth.uid] is bool
+        && request.resource.data.typingUpdatedAtBy is map
+        && request.resource.data.typingUpdatedAtBy[request.auth.uid] is timestamp
+        && changedOnlyNestedMapKey('typingBy', request.auth.uid)
+        && changedOnlyNestedMapKey('typingUpdatedAtBy', request.auth.uid);
     }
 
     function isValidChatFavoriteUpdate() {
@@ -199,6 +253,29 @@ service cloud.firestore {
         && request.resource.data.isDeleted == false;
     }
 
+    function isValidMessageStarUpdate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && request.auth.uid in chat.data.participants
+        && chat.data.status == 'active'
+        && changedOnly(['isStarred', 'updatedAt'])
+        && request.resource.data.isStarred is bool
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidMessageDeleteUpdate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && request.auth.uid in chat.data.participants
+        && chat.data.status == 'active'
+        && resource.data.isDeleted == false
+        && changedOnly(['isDeleted', 'updatedAt'])
+        && request.resource.data.isDeleted == true
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     match /users/{userId} {
       allow read, create, update: if isOwner(userId);
       allow delete: if false;
@@ -262,6 +339,8 @@ service cloud.firestore {
         && isValidChatCreateForRequest(chatId, request.resource.data.requestId);
 
       allow update: if isValidChatLastMessageUpdate()
+        || isValidChatReadUpdate()
+        || isValidChatTypingUpdate()
         || isValidChatFavoriteUpdate()
         || isValidChatMutedUpdate()
         || isValidChatArchiveUpdate()
@@ -275,7 +354,10 @@ service cloud.firestore {
 
         allow create: if isValidTextMessageCreate(chatId);
 
-        allow update, delete: if false;
+        allow update: if isValidMessageStarUpdate(chatId)
+          || isValidMessageDeleteUpdate(chatId);
+
+        allow delete: if false;
       }
     }
 

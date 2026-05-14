@@ -138,8 +138,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         timeLabel: '14:21',
       ),
       _LocalChatMessage(
-        text:
-            'Danke dir fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r den Hinweis. Ich schaue sofort nach.',
+        text: 'Danke dir f\u00FCr den Hinweis. Ich schaue sofort nach.',
         isMine: true,
         timeLabel: '14:23',
       ),
@@ -270,7 +269,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       _ChatAccessBlockedCard(
                         message:
                             chatGateDecision.reason ??
-                            'Chats sind aktuell nicht verfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gbar.',
+                            'Chats sind aktuell nicht verf\u00FCgbar.',
                       )
                     else ...[
                       _ChatsSegmentedControl(
@@ -377,7 +376,7 @@ class _MvpInfoCard extends StatelessWidget {
           const SizedBox(width: 13),
           Expanded(
             child: Text(
-              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ter mit Firebase.',
+              'Chats und Kontaktanfragen sind aktuell lokal vorbereitet. Echte Nachrichten, Anfrage-Status und Push-Benachrichtigungen verbinden wir sp\u00E4ter mit Firebase.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white.withValues(alpha: 0.80),
                 fontWeight: FontWeight.w700,
@@ -414,7 +413,7 @@ class _ChatAccessBlockedCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chats nicht verfÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼gbar',
+                  'Chats nicht verf\u00FCgbar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -612,8 +611,8 @@ class _ChatsOverview extends StatelessWidget {
 
     if (hasLocalActiveChat) {
       return localMessageCount > 0
-          ? '$localMessageCount lokale Beispielnachrichten verfÃ¼gbar.'
-          : 'Ein lokaler Beispielchat ist verfÃ¼gbar.';
+          ? '$localMessageCount lokale Beispielnachrichten verf\u00FCgbar.'
+          : 'Ein lokaler Beispielchat ist verf\u00FCgbar.';
     }
 
     return 'Noch keine aktiven Chats. Sobald eine Kontaktanfrage angenommen wird, erscheint hier die Unterhaltung.';
@@ -675,7 +674,7 @@ class _RequestsOverview extends StatelessWidget {
 
   String get _outgoingBodyText {
     if (!_hasOutgoingRequests) {
-      return 'Du hast aktuell keine Anfrage gesendet. SpÃ¤ter erscheinen hier offene Anfragen aus der Suche.';
+      return 'Du hast aktuell keine Anfrage gesendet. Sp\u00E4ter erscheinen hier offene Anfragen aus der Suche.';
     }
 
     return outgoingCount == 1
@@ -692,7 +691,7 @@ class _RequestsOverview extends StatelessWidget {
           title: 'Eingehende Anfragen',
           count: _incomingCountLabel,
           description:
-              'Anfragen von Nutzern, die dich Ã¼ber dein Kennzeichen gefunden haben.',
+              'Anfragen von Nutzern, die dich \u00FCber dein Kennzeichen gefunden haben.',
           bodyText: _incomingBodyText,
           onTap: onOpenIncoming,
         ),
@@ -896,7 +895,7 @@ class _ChatOverflowMenu extends StatelessWidget {
 
     final safeSubtitle = subtitle?.trim().isNotEmpty == true
         ? subtitle!.trim()
-        : 'Fahrzeugdetails sind aktuell nicht verfÃ¼gbar.';
+        : 'Fahrzeugdetails sind aktuell nicht verf\u00FCgbar.';
 
     await showDialog<void>(
       context: context,
@@ -918,7 +917,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('SchlieÃŸen'),
+              child: const Text('Schlie\u00DFen'),
             ),
           ],
         );
@@ -965,7 +964,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist fÃ¼r lokale Beispielchats noch nicht verfÃ¼gbar.',
+        'Diese Aktion ist f\u00FCr lokale Beispielchats noch nicht verf\u00FCgbar.',
       );
       return;
     }
@@ -1086,7 +1085,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           context: context,
           title: 'Chat archivieren?',
           message:
-              'Der Chat wird aus der aktiven Ãœbersicht entfernt, bleibt aber fÃ¼r Sicherheit und Meldungen nachvollziehbar.',
+              'Der Chat wird aus der aktiven \u00DCbersicht entfernt, bleibt aber f\u00FCr Sicherheit und Meldungen nachvollziehbar.',
           confirmLabel: 'Archivieren',
           successMessage: 'Chat wurde archiviert.',
           action: () async {
@@ -1102,11 +1101,11 @@ class _ChatOverflowMenu extends StatelessWidget {
       case _ChatMenuAction.delete:
         await _runChatStatusAction(
           context: context,
-          title: 'Chat lÃ¶schen?',
+          title: 'Chat l\u00F6schen?',
           message:
-              'Der Chat wird aus deiner aktiven Ãœbersicht entfernt. Sicherheitsrelevante Daten kÃ¶nnen geschÃ¼tzt erhalten bleiben.',
-          confirmLabel: 'LÃ¶schen',
-          successMessage: 'Chat wurde gelÃ¶scht.',
+              'Der Chat wird aus deiner aktiven \u00DCbersicht entfernt. Sicherheitsrelevante Daten k\u00F6nnen gesch\u00FCtzt erhalten bleiben.',
+          confirmLabel: 'L\u00F6schen',
+          successMessage: 'Chat wurde gel\u00F6scht.',
           action: () async {
             final id = chatId?.trim();
 
@@ -1122,7 +1121,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           context: context,
           title: 'Nutzer blockieren?',
           message:
-              'Blockierte Nutzer kÃ¶nnen dich nicht mehr Ã¼ber diesen Chat kontaktieren.',
+              'Blockierte Nutzer k\u00F6nnen dich nicht mehr \u00FCber diesen Chat kontaktieren.',
           confirmLabel: 'Blockieren',
           successMessage: 'Nutzer wurde blockiert.',
           action: () async {
@@ -1162,7 +1161,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist fÃ¼r lokale Beispielchats noch nicht verfÃ¼gbar.',
+        'Diese Aktion ist f\u00FCr lokale Beispielchats noch nicht verf\u00FCgbar.',
       );
       return;
     }
@@ -1186,7 +1185,10 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Aktion konnte nicht ausgefÃ¼hrt werden: $error');
+      _showSnackBar(
+        context,
+        'Aktion konnte nicht ausgef\u00FChrt werden: $error',
+      );
     }
   }
 
@@ -1203,7 +1205,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist fÃ¼r lokale Beispielchats noch nicht verfÃ¼gbar.',
+        'Diese Aktion ist f\u00FCr lokale Beispielchats noch nicht verf\u00FCgbar.',
       );
       return;
     }
@@ -1252,7 +1254,10 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Aktion konnte nicht ausgefÃ¼hrt werden: $error');
+      _showSnackBar(
+        context,
+        'Aktion konnte nicht ausgef\u00FChrt werden: $error',
+      );
     }
   }
 
@@ -1291,7 +1296,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           ),
           const PopupMenuItem(
             value: _ChatMenuAction.delete,
-            child: Text('Chat lÃ¶schen'),
+            child: Text('Chat l\u00F6schen'),
           ),
           const PopupMenuItem(
             value: _ChatMenuAction.block,
@@ -1671,7 +1676,7 @@ class _EmptyListCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Live-Daten werden spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ter mit Firebase geladen.',
+                    'Live-Daten werden sp\u00E4ter mit Firebase geladen.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.72),
                       fontWeight: FontWeight.w700,
@@ -2061,7 +2066,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Foto aufnehmen oder aus Galerie wÃ¤hlen verbinden wir spÃ¤ter.',
+          'Foto aufnehmen oder aus Galerie w\u00E4hlen verbinden wir sp\u00E4ter.',
         ),
       ),
     );
@@ -2143,13 +2148,13 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nachricht wurde gelÃƒÂ¶scht.')),
+        const SnackBar(content: Text('Nachricht wurde gel\u00F6scht.')),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Nachricht konnte nicht gelÃƒÂ¶scht werden: $error'),
+          content: Text('Nachricht konnte nicht gel\u00F6scht werden: $error'),
         ),
       );
     }
@@ -2350,7 +2355,7 @@ class _CompactChatInfoCard extends StatelessWidget {
               _ChatOverflowMenu(
                 chatId: chatId,
                 title: displayName,
-                subtitle: ' Â· ',
+                subtitle: ' \u00B7 ',
               ),
             ],
           ),
@@ -2472,97 +2477,100 @@ class _ChatMessageBubble extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF101827),
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: Colors.white.withValues(alpha: 0.24),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: Colors.white.withValues(alpha: 0.24),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    for (final emoji in const [
-                      'â¤ï¸',
-                      'ðŸ‘',
-                      'ðŸ˜‚',
-                      'ðŸ˜®',
-                      'ðŸ˜¢',
-                      'ðŸ™',
-                    ])
-                      _MessageReactionButton(
-                        emoji: emoji,
-                        onTap: () {
-                          Navigator.of(sheetContext).pop();
-                          _showSnackBar(context, 'Reaktion  vorgemerkt.');
-                        },
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                _MessageActionTile(
-                  icon: Icons.reply_rounded,
-                  label: 'Antworten',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    onReplyMessage(message);
-                  },
-                ),
-                _MessageActionTile(
-                  icon: Icons.forward_rounded,
-                  label: 'Weiterleiten',
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: message.text));
-                    Navigator.of(sheetContext).pop();
-                    _showSnackBar(
-                      context,
-                      'Nachricht wurde zum Weiterleiten kopiert.',
-                    );
-                  },
-                ),
-                _MessageActionTile(
-                  icon: Icons.copy_rounded,
-                  label: 'Kopieren',
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: message.text));
-                    Navigator.of(sheetContext).pop();
-                    _showSnackBar(context, 'Nachricht wurde kopiert.');
-                  },
-                ),
-                _MessageActionTile(
-                  icon: message.isStarred
-                      ? Icons.star_rounded
-                      : Icons.star_border_rounded,
-                  label: message.isStarred
-                      ? 'Stern entfernen'
-                      : 'Mit Stern markieren',
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    onStarMessage(message);
-                  },
-                ),
-                _MessageActionTile(
-                  icon: Icons.delete_outline_rounded,
-                  label: 'LÃ¶schen',
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    onDeleteMessage(message);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      for (final emoji in const [
+                        '\u2764\uFE0F',
+                        '\u{1F44D}',
+                        '\u{1F602}',
+                        '\u{1F62E}',
+                        '\u{1F622}',
+                        '\u{1F64F}',
+                      ])
+                        _MessageReactionButton(
+                          emoji: emoji,
+                          onTap: () {
+                            Navigator.of(sheetContext).pop();
+                            _showSnackBar(context, 'Reaktion vorgemerkt.');
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _MessageActionTile(
+                    icon: Icons.reply_rounded,
+                    label: 'Antworten',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      onReplyMessage(message);
+                    },
+                  ),
+                  _MessageActionTile(
+                    icon: Icons.forward_rounded,
+                    label: 'Weiterleiten',
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: message.text));
+                      Navigator.of(sheetContext).pop();
+                      _showSnackBar(
+                        context,
+                        'Nachricht wurde zum Weiterleiten kopiert.',
+                      );
+                    },
+                  ),
+                  _MessageActionTile(
+                    icon: Icons.copy_rounded,
+                    label: 'Kopieren',
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: message.text));
+                      Navigator.of(sheetContext).pop();
+                      _showSnackBar(context, 'Nachricht wurde kopiert.');
+                    },
+                  ),
+                  _MessageActionTile(
+                    icon: message.isStarred
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    label: message.isStarred
+                        ? 'Stern entfernen'
+                        : 'Mit Stern markieren',
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      onStarMessage(message);
+                    },
+                  ),
+                  _MessageActionTile(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'L\u00F6schen',
+                    isDestructive: true,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      onDeleteMessage(message);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -2857,7 +2865,7 @@ class _ChatEmptySpace extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Dieser Chat ist lokal vorbereitet. Nachrichten, AnhÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤nge und Zustellstatus werden spÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ter mit Firebase verbunden.',
+            'Dieser Chat ist lokal vorbereitet. Nachrichten, Anh\u00E4nge und Zustellstatus werden sp\u00E4ter mit Firebase verbunden.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.62),
@@ -3036,7 +3044,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Kamera verbinden wir im nÃ¤chsten Schritt.',
+                          'Kamera verbinden wir im n\u00E4chsten Schritt.',
                         );
                       },
                     ),
@@ -3047,7 +3055,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Standort senden verbinden wir im nÃ¤chsten Schritt.',
+                          'Standort senden verbinden wir im n\u00E4chsten Schritt.',
                         );
                       },
                     ),
@@ -3058,7 +3066,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Kontakt senden verbinden wir im nÃ¤chsten Schritt.',
+                          'Kontakt senden verbinden wir im n\u00E4chsten Schritt.',
                         );
                       },
                     ),
@@ -3069,7 +3077,7 @@ class _MessageComposer extends StatelessWidget {
                         Navigator.of(context).pop();
                         _showComposerMessage(
                           context,
-                          'Dokument senden verbinden wir im nÃ¤chsten Schritt.',
+                          'Dokument senden verbinden wir im n\u00E4chsten Schritt.',
                         );
                       },
                     ),
@@ -3086,7 +3094,7 @@ class _MessageComposer extends StatelessWidget {
   void _handleVoiceMemo(BuildContext context) {
     _showComposerMessage(
       context,
-      'Sprachmemo verbinden wir im nÃ¤chsten Schritt.',
+      'Sprachmemo verbinden wir im n\u00E4chsten Schritt.',
     );
   }
 

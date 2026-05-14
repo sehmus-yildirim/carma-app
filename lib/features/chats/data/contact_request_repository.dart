@@ -112,8 +112,7 @@ class ContactRequestRecord {
       ContactRequestStatus.pending => 'Ausstehend',
       ContactRequestStatus.accepted => 'Angenommen',
       ContactRequestStatus.declined => 'Abgelehnt',
-      ContactRequestStatus.withdrawn =>
-        'ZurÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼ckgezogen',
+      ContactRequestStatus.withdrawn => 'Zur\u00FCckgezogen',
       ContactRequestStatus.expired => 'Abgelaufen',
       ContactRequestStatus.blocked => 'Blockiert',
     };
