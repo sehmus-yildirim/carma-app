@@ -24,6 +24,8 @@ class ContactRequestRecord {
     required this.createdAt,
     this.senderDisplayName,
     this.receiverDisplayName,
+    this.senderPhotoUrl,
+    this.receiverPhotoUrl,
     this.displayPlate,
     this.vehicleBrand,
     this.vehicleModel,
@@ -44,6 +46,8 @@ class ContactRequestRecord {
   final DateTime createdAt;
   final String? senderDisplayName;
   final String? receiverDisplayName;
+  final String? senderPhotoUrl;
+  final String? receiverPhotoUrl;
   final String? displayPlate;
   final String? vehicleBrand;
   final String? vehicleModel;
@@ -91,6 +95,13 @@ class ContactRequestRecord {
     return 'Hey, ich bin der Fahrer im $title. Ich bin eben an dir vorbeigefahren.';
   }
 
+  String? profilePhotoUrl({required bool isIncoming}) {
+    final candidate = isIncoming ? senderPhotoUrl : receiverPhotoUrl;
+    final trimmed = candidate?.trim();
+
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
   static String _vehicleColorAdjective(String color) {
     return switch (color.trim().toLowerCase()) {
       'schwarz' => 'schwarzer',
@@ -129,6 +140,8 @@ class ContactRequestRecord {
     DateTime? createdAt,
     String? senderDisplayName,
     String? receiverDisplayName,
+    String? senderPhotoUrl,
+    String? receiverPhotoUrl,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -149,6 +162,8 @@ class ContactRequestRecord {
       createdAt: createdAt ?? this.createdAt,
       senderDisplayName: senderDisplayName ?? this.senderDisplayName,
       receiverDisplayName: receiverDisplayName ?? this.receiverDisplayName,
+      senderPhotoUrl: senderPhotoUrl ?? this.senderPhotoUrl,
+      receiverPhotoUrl: receiverPhotoUrl ?? this.receiverPhotoUrl,
       displayPlate: displayPlate ?? this.displayPlate,
       vehicleBrand: vehicleBrand ?? this.vehicleBrand,
       vehicleModel: vehicleModel ?? this.vehicleModel,
@@ -176,6 +191,8 @@ class ContactRequestRecord {
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       senderDisplayName: data['senderDisplayName'] as String?,
       receiverDisplayName: data['receiverDisplayName'] as String?,
+      senderPhotoUrl: data['senderPhotoUrl'] as String?,
+      receiverPhotoUrl: data['receiverPhotoUrl'] as String?,
       displayPlate: data['displayPlate'] as String?,
       vehicleBrand: data['vehicleBrand'] as String?,
       vehicleModel: data['vehicleModel'] as String?,

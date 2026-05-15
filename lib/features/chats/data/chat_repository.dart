@@ -26,6 +26,8 @@ class ChatRecord {
     this.receiverUserId,
     this.senderDisplayName,
     this.receiverDisplayName,
+    this.senderPhotoUrl,
+    this.receiverPhotoUrl,
     this.displayPlate,
     this.vehicleBrand,
     this.vehicleModel,
@@ -52,6 +54,8 @@ class ChatRecord {
   final String? receiverUserId;
   final String? senderDisplayName;
   final String? receiverDisplayName;
+  final String? senderPhotoUrl;
+  final String? receiverPhotoUrl;
   final String? displayPlate;
   final String? vehicleBrand;
   final String? vehicleModel;
@@ -153,6 +157,14 @@ class ChatRecord {
     return 'Carma Nutzer';
   }
 
+  String? profilePhotoUrlFor(String currentUserId) {
+    final isSender = senderUserId == currentUserId;
+    final candidate = isSender ? receiverPhotoUrl : senderPhotoUrl;
+    final trimmed = candidate?.trim();
+
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
   String get vehicleTitle {
     final label = vehicleLabel?.trim();
 
@@ -219,6 +231,8 @@ class ChatRecord {
     String? receiverUserId,
     String? senderDisplayName,
     String? receiverDisplayName,
+    String? senderPhotoUrl,
+    String? receiverPhotoUrl,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -245,6 +259,8 @@ class ChatRecord {
       receiverUserId: receiverUserId ?? this.receiverUserId,
       senderDisplayName: senderDisplayName ?? this.senderDisplayName,
       receiverDisplayName: receiverDisplayName ?? this.receiverDisplayName,
+      senderPhotoUrl: senderPhotoUrl ?? this.senderPhotoUrl,
+      receiverPhotoUrl: receiverPhotoUrl ?? this.receiverPhotoUrl,
       displayPlate: displayPlate ?? this.displayPlate,
       vehicleBrand: vehicleBrand ?? this.vehicleBrand,
       vehicleModel: vehicleModel ?? this.vehicleModel,
@@ -340,6 +356,8 @@ abstract class ChatRepository {
     String? receiverUserId,
     String? senderDisplayName,
     String? receiverDisplayName,
+    String? senderPhotoUrl,
+    String? receiverPhotoUrl,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -506,6 +524,8 @@ class FirestoreChatRepository implements ChatRepository {
     String? receiverUserId,
     String? senderDisplayName,
     String? receiverDisplayName,
+    String? senderPhotoUrl,
+    String? receiverPhotoUrl,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -550,6 +570,8 @@ class FirestoreChatRepository implements ChatRepository {
       'receiverUserId': _trimmedOrNull(receiverUserId),
       'senderDisplayName': _trimmedOrNull(senderDisplayName),
       'receiverDisplayName': _trimmedOrNull(receiverDisplayName),
+      'senderPhotoUrl': _trimmedOrNull(senderPhotoUrl),
+      'receiverPhotoUrl': _trimmedOrNull(receiverPhotoUrl),
       'displayPlate': _trimmedOrNull(displayPlate),
       'vehicleBrand': _trimmedOrNull(vehicleBrand),
       'vehicleModel': _trimmedOrNull(vehicleModel),
@@ -1158,6 +1180,8 @@ class FirestoreChatRepository implements ChatRepository {
       receiverUserId: data['receiverUserId'] as String?,
       senderDisplayName: data['senderDisplayName'] as String?,
       receiverDisplayName: data['receiverDisplayName'] as String?,
+      senderPhotoUrl: data['senderPhotoUrl'] as String?,
+      receiverPhotoUrl: data['receiverPhotoUrl'] as String?,
       displayPlate: data['displayPlate'] as String?,
       vehicleBrand: data['vehicleBrand'] as String?,
       vehicleModel: data['vehicleModel'] as String?,
@@ -1354,6 +1378,8 @@ class LocalChatRepository implements ChatRepository {
     String? receiverUserId,
     String? senderDisplayName,
     String? receiverDisplayName,
+    String? senderPhotoUrl,
+    String? receiverPhotoUrl,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -1376,6 +1402,8 @@ class LocalChatRepository implements ChatRepository {
       receiverUserId: _trimmedOrNull(receiverUserId),
       senderDisplayName: _trimmedOrNull(senderDisplayName),
       receiverDisplayName: _trimmedOrNull(receiverDisplayName),
+      senderPhotoUrl: _trimmedOrNull(senderPhotoUrl),
+      receiverPhotoUrl: _trimmedOrNull(receiverPhotoUrl),
       displayPlate: _trimmedOrNull(displayPlate),
       vehicleBrand: _trimmedOrNull(vehicleBrand),
       vehicleModel: _trimmedOrNull(vehicleModel),

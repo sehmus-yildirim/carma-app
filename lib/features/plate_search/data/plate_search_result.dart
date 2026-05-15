@@ -3,6 +3,7 @@ class PlateSearchResult {
     required this.found,
     this.targetUid,
     this.displayName,
+    this.profilePhotoUrl,
     this.distanceKm,
     this.plateKey,
     this.displayPlate,
@@ -15,6 +16,7 @@ class PlateSearchResult {
   final bool found;
   final String? targetUid;
   final String? displayName;
+  final String? profilePhotoUrl;
   final double? distanceKm;
   final String? plateKey;
   final String? displayPlate;
@@ -66,6 +68,7 @@ class PlateSearchResult {
       found: map['found'] == true,
       targetUid: map['targetUid'] as String?,
       displayName: map['displayName'] as String?,
+      profilePhotoUrl: map['profilePhotoUrl'] as String?,
       distanceKm: distanceValue is num ? distanceValue.toDouble() : null,
       plateKey: map['plateKey'] as String?,
       displayPlate: map['displayPlate'] as String?,

@@ -34,6 +34,8 @@ class AcceptContactRequestUseCase {
       receiverUserId: request.receiverUserId,
       senderDisplayName: request.senderDisplayName,
       receiverDisplayName: request.receiverDisplayName,
+      senderPhotoUrl: request.senderPhotoUrl,
+      receiverPhotoUrl: request.receiverPhotoUrl,
       displayPlate: request.displayPlate,
       vehicleBrand: request.vehicleBrand,
       vehicleModel: request.vehicleModel,

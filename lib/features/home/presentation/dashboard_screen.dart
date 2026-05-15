@@ -469,6 +469,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await _plateSearchService.requestPlateContact(
         targetUid: result.targetUid!,
         plateKey: result.plateKey!,
+        receiverDisplayName: result.displayName,
+        receiverPhotoUrl: result.profilePhotoUrl,
+        displayPlate: result.displayPlate,
+        vehicleBrand: result.vehicleBrand,
+        vehicleModel: result.vehicleModel,
+        vehicleColor: result.vehicleColor,
+        vehicleLabel: result.vehicleLabel,
       );
 
       if (!mounted) {

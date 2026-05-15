@@ -52,6 +52,7 @@ class PlateRepository {
         numbers: numbers,
       ),
       'displayName': displayName,
+      'profilePhotoUrl': profile.photoUrl?.trim(),
       'vehicleBrand': profile.vehicleBrand?.trim(),
       'vehicleModel': profile.vehicleModel?.trim(),
       'vehicleColor': profile.vehicleColor?.trim(),

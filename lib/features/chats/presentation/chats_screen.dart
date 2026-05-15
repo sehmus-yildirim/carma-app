@@ -325,6 +325,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           chatId: chat.id,
           initialMessages: const <_LocalChatMessage>[],
           displayName: chat.displayNameFor(currentUserId),
+          profilePhotoUrl: chat.profilePhotoUrlFor(currentUserId),
           vehicleModel: chat.vehicleModelLabel,
           vehicleColor: chat.vehicleColorLabel,
         ),
@@ -947,6 +948,7 @@ class _ChatsOverview extends StatelessWidget {
                 for (final chat in selectedChats) ...[
                   _ActiveChatListTile(
                     title: chat.displayNameFor(currentUserId),
+                    imageUrl: chat.profilePhotoUrlFor(currentUserId),
                     subtitle: chat.lastMessage?.trim().isNotEmpty == true
                         ? chat.lastMessage!.trim()
                         : chat.vehicleTitle,
@@ -1257,7 +1259,7 @@ class _ChatStoriesStrip extends StatelessWidget {
           final chat = storyChats[index - 1];
           return _StoryBubble(
             label: chat.displayNameFor(currentUserId),
-            imageUrl: null,
+            imageUrl: chat.profilePhotoUrlFor(currentUserId),
           );
         },
       ),
@@ -1540,6 +1542,8 @@ class _InlineRequestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profilePhotoUrl = request.profilePhotoUrl(isIncoming: isIncoming);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
       decoration: BoxDecoration(
@@ -1549,24 +1553,7 @@ class _InlineRequestTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _carmaBlue.withValues(alpha: 0.16),
-              border: Border.all(
-                color: _carmaBlueLight.withValues(alpha: 0.35),
-              ),
-            ),
-            child: Icon(
-              isIncoming
-                  ? Icons.mark_email_unread_rounded
-                  : Icons.schedule_send_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
+          _UserAvatarPlaceholder(size: 46, imageUrl: profilePhotoUrl),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -2310,6 +2297,7 @@ class _ActiveChatsScreen extends StatelessWidget {
                 for (final chat in chats) ...[
                   _ActiveChatListTile(
                     title: chat.displayNameFor(currentUserId),
+                    imageUrl: chat.profilePhotoUrlFor(currentUserId),
                     subtitle: chat.lastMessage?.trim().isNotEmpty == true
                         ? 'Letzte Nachricht: ${chat.lastMessage!.trim()}'
                         : chat.vehicleTitle,
@@ -2334,6 +2322,9 @@ class _ActiveChatsScreen extends StatelessWidget {
                             chatId: chat.id,
                             initialMessages: const <_LocalChatMessage>[],
                             displayName: chat.displayNameFor(currentUserId),
+                            profilePhotoUrl: chat.profilePhotoUrlFor(
+                              currentUserId,
+                            ),
                             vehicleModel: chat.vehicleModelLabel,
                             vehicleColor: chat.vehicleColorLabel,
                           ),
@@ -2427,6 +2418,7 @@ class _ActiveChatListTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.imageUrl,
     this.isFavorite = false,
     this.isPinned = false,
     this.isMuted = false,
@@ -2436,6 +2428,7 @@ class _ActiveChatListTile extends StatelessWidget {
 
   final String title;
   final String subtitle;
+  final String? imageUrl;
   final bool isFavorite;
   final bool isPinned;
   final bool isMuted;
@@ -2479,7 +2472,7 @@ class _ActiveChatListTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
           child: Row(
             children: [
-              const _UserAvatarPlaceholder(size: 48, imageUrl: null),
+              _UserAvatarPlaceholder(size: 48, imageUrl: imageUrl),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
@@ -2712,6 +2705,7 @@ class _ChatConversationScreen extends StatefulWidget {
     required this.initialMessages,
     this.chatId,
     this.displayName = 'Carma Nutzer',
+    this.profilePhotoUrl,
     this.vehicleModel = 'BMW 1er',
     this.vehicleColor = 'Schwarz',
   });
@@ -2719,6 +2713,7 @@ class _ChatConversationScreen extends StatefulWidget {
   final List<_LocalChatMessage> initialMessages;
   final String? chatId;
   final String displayName;
+  final String? profilePhotoUrl;
   final String vehicleModel;
   final String vehicleColor;
 
@@ -3282,6 +3277,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                     children: [
                       _CompactChatInfoCard(
                         displayName: widget.displayName,
+                        profilePhotoUrl: widget.profilePhotoUrl,
                         vehicleModel: widget.vehicleModel,
                         vehicleColor: widget.vehicleColor,
                         onBack: () => Navigator.of(context).pop(),
@@ -3331,6 +3327,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 class _CompactChatInfoCard extends StatelessWidget {
   const _CompactChatInfoCard({
     required this.displayName,
+    this.profilePhotoUrl,
     required this.vehicleModel,
     required this.vehicleColor,
     required this.onBack,
@@ -3338,6 +3335,7 @@ class _CompactChatInfoCard extends StatelessWidget {
   });
 
   final String displayName;
+  final String? profilePhotoUrl;
   final String vehicleModel;
   final String vehicleColor;
   final VoidCallback onBack;
@@ -3352,7 +3350,7 @@ class _CompactChatInfoCard extends StatelessWidget {
             children: [
               _RoundIconButton(icon: Icons.arrow_back_rounded, onTap: onBack),
               const SizedBox(width: 12),
-              const _UserAvatarPlaceholder(size: 46, imageUrl: null),
+              _UserAvatarPlaceholder(size: 46, imageUrl: profilePhotoUrl),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

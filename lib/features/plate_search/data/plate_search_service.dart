@@ -61,6 +61,7 @@ class PlateSearchService {
     required String targetUid,
     required String plateKey,
     String? receiverDisplayName,
+    String? receiverPhotoUrl,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -72,6 +73,7 @@ class PlateSearchService {
         targetUid: targetUid,
         plateKey: plateKey,
         receiverDisplayName: receiverDisplayName,
+        receiverPhotoUrl: receiverPhotoUrl,
         displayPlate: displayPlate,
         vehicleBrand: vehicleBrand,
         vehicleModel: vehicleModel,
@@ -86,6 +88,7 @@ class PlateSearchService {
       'targetUid': targetUid,
       'plateKey': plateKey,
       'receiverDisplayName': receiverDisplayName,
+      'receiverPhotoUrl': receiverPhotoUrl,
       'displayPlate': displayPlate,
       'vehicleBrand': vehicleBrand,
       'vehicleModel': vehicleModel,
@@ -151,6 +154,8 @@ class PlateSearchService {
       found: true,
       targetUid: ownerUserId,
       displayName: displayName?.trim().isEmpty == true ? null : displayName,
+      profilePhotoUrl:
+          (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?),
       distanceKm: null,
       plateKey: storedPlateKey,
       displayPlate: data['displayPlate'] as String?,
@@ -165,6 +170,7 @@ class PlateSearchService {
     required String targetUid,
     required String plateKey,
     String? receiverDisplayName,
+    String? receiverPhotoUrl,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -200,7 +206,7 @@ class PlateSearchService {
       );
     }
 
-    final senderDisplayName = await _loadCurrentUserDisplayName(senderUserId);
+    final senderSummary = await _loadCurrentUserContactSummary(senderUserId);
     final normalizedDisplayPlate = displayPlate?.trim().isNotEmpty == true
         ? displayPlate!.trim()
         : plateKey.trim().toUpperCase();
@@ -233,8 +239,10 @@ class PlateSearchService {
           'receiverUserId': receiverUserId,
           'targetUserId': receiverUserId,
           'plateKey': plateKey.trim().toUpperCase(),
-          'senderDisplayName': senderDisplayName,
+          'senderDisplayName': senderSummary.displayName,
+          'senderPhotoUrl': senderSummary.photoUrl,
           'receiverDisplayName': normalizedReceiverDisplayName,
+          'receiverPhotoUrl': receiverPhotoUrl?.trim(),
           'displayPlate': normalizedDisplayPlate,
           'vehicleBrand': normalizedVehicleBrand,
           'vehicleModel': normalizedVehicleModel,
@@ -281,7 +289,9 @@ class PlateSearchService {
     };
   }
 
-  Future<String> _loadCurrentUserDisplayName(String userId) async {
+  Future<_ContactUserSummary> _loadCurrentUserContactSummary(
+    String userId,
+  ) async {
     try {
       final profile = await _firestore
           .doc(CarmaFirestorePaths.userProfile(userId))
@@ -290,26 +300,40 @@ class PlateSearchService {
       final data = profile.data();
 
       if (data == null) {
-        return _fallbackDisplayName();
+        return _ContactUserSummary(
+          displayName: _fallbackDisplayName(),
+          photoUrl: _auth.currentUser?.photoURL,
+        );
       }
 
       final firstName = data['firstName'] as String? ?? '';
       final lastName = data['lastName'] as String? ?? '';
       final displayName = data['displayName'] as String? ?? '';
+      final photoUrl =
+          (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?);
 
       final fullName = '$firstName $lastName'.trim();
 
       if (fullName.isNotEmpty) {
-        return fullName;
+        return _ContactUserSummary(displayName: fullName, photoUrl: photoUrl);
       }
 
       if (displayName.trim().isNotEmpty) {
-        return displayName.trim();
+        return _ContactUserSummary(
+          displayName: displayName.trim(),
+          photoUrl: photoUrl,
+        );
       }
 
-      return _fallbackDisplayName();
+      return _ContactUserSummary(
+        displayName: _fallbackDisplayName(),
+        photoUrl: photoUrl,
+      );
     } catch (_) {
-      return _fallbackDisplayName();
+      return _ContactUserSummary(
+        displayName: _fallbackDisplayName(),
+        photoUrl: _auth.currentUser?.photoURL,
+      );
     }
   }
 
@@ -322,4 +346,11 @@ class PlateSearchService {
 
     return 'Carma Nutzer';
   }
+}
+
+class _ContactUserSummary {
+  const _ContactUserSummary({required this.displayName, this.photoUrl});
+
+  final String displayName;
+  final String? photoUrl;
 }
