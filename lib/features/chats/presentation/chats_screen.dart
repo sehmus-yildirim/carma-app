@@ -2015,12 +2015,17 @@ class _ChatOverflowMenu extends StatelessWidget {
           successMessage: 'Chat wurde gel\u00F6scht.',
           action: () async {
             final id = chatId?.trim();
+            final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
             if (id == null || id.isEmpty) {
               throw StateError('Chat-ID fehlt.');
             }
 
-            await _chatRepository.deleteChat(chatId: id);
+            if (currentUserId == null || currentUserId.isEmpty) {
+              throw StateError('Du musst angemeldet sein.');
+            }
+
+            await _chatRepository.deleteChat(chatId: id, userId: currentUserId);
           },
         );
       case _ChatMenuAction.block:

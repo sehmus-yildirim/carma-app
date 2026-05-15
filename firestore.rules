@@ -234,10 +234,22 @@ service cloud.firestore {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
         && isOpenChatStatus(resource.data.status)
-        && changedOnly(['status', 'isDeleted', 'updatedAt'])
-        && request.resource.data.status == 'deleted'
-        && request.resource.data.isDeleted == true
-        && request.resource.data.updatedAt is timestamp;
+        && changedOnly([
+          'status',
+          'isDeleted',
+          'deletedBy',
+          'deletedUpdatedAtBy',
+          'updatedAt',
+        ])
+        && request.resource.data.status == 'active'
+        && request.resource.data.isDeleted == false
+        && request.resource.data.deletedBy is map
+        && request.resource.data.deletedBy[request.auth.uid] == true
+        && request.resource.data.deletedUpdatedAtBy is map
+        && request.resource.data.deletedUpdatedAtBy[request.auth.uid] is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && changedOnlyNestedMapKey('deletedBy', request.auth.uid)
+        && changedOnlyNestedMapKey('deletedUpdatedAtBy', request.auth.uid);
     }
 
     function isValidChatBlockUpdate() {

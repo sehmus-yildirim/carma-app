@@ -34,6 +34,7 @@ class ChatRecord {
     this.favoriteBy = const <String, bool>{},
     this.mutedBy = const <String, bool>{},
     this.archivedBy = const <String, bool>{},
+    this.deletedBy = const <String, bool>{},
     this.lastReadAtBy = const <String, DateTime>{},
   });
 
@@ -57,6 +58,7 @@ class ChatRecord {
   final Map<String, bool> favoriteBy;
   final Map<String, bool> mutedBy;
   final Map<String, bool> archivedBy;
+  final Map<String, bool> deletedBy;
   final Map<String, DateTime> lastReadAtBy;
 
   bool isFavoriteFor(String userId) {
@@ -71,10 +73,16 @@ class ChatRecord {
     return archivedBy[userId] == true;
   }
 
+  bool isDeletedFor(String userId) {
+    return deletedBy[userId] == true;
+  }
+
   bool isVisibleInActiveListFor(String userId) {
     final trimmedUserId = userId.trim();
 
-    if (trimmedUserId.isEmpty || isArchivedFor(trimmedUserId)) {
+    if (trimmedUserId.isEmpty ||
+        isArchivedFor(trimmedUserId) ||
+        isDeletedFor(trimmedUserId)) {
       return false;
     }
 
@@ -84,7 +92,9 @@ class ChatRecord {
   bool isVisibleInArchivedListFor(String userId) {
     final trimmedUserId = userId.trim();
 
-    if (trimmedUserId.isEmpty || !isArchivedFor(trimmedUserId)) {
+    if (trimmedUserId.isEmpty ||
+        !isArchivedFor(trimmedUserId) ||
+        isDeletedFor(trimmedUserId)) {
       return false;
     }
 
@@ -197,6 +207,7 @@ class ChatRecord {
     Map<String, bool>? favoriteBy,
     Map<String, bool>? mutedBy,
     Map<String, bool>? archivedBy,
+    Map<String, bool>? deletedBy,
     Map<String, DateTime>? lastReadAtBy,
   }) {
     return ChatRecord(
@@ -220,6 +231,7 @@ class ChatRecord {
       favoriteBy: favoriteBy ?? this.favoriteBy,
       mutedBy: mutedBy ?? this.mutedBy,
       archivedBy: archivedBy ?? this.archivedBy,
+      deletedBy: deletedBy ?? this.deletedBy,
       lastReadAtBy: lastReadAtBy ?? this.lastReadAtBy,
     );
   }
@@ -339,7 +351,10 @@ abstract class ChatRepository {
     required String userId,
   });
 
-  Future<ChatRecord> deleteChat({required String chatId});
+  Future<ChatRecord> deleteChat({
+    required String chatId,
+    required String userId,
+  });
 
   Future<void> deleteMessage({
     required String chatId,
@@ -927,14 +942,27 @@ class FirestoreChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatRecord> deleteChat({required String chatId}) async {
-    final chatDocument = _chatsCollection.doc(chatId);
+  Future<ChatRecord> deleteChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
 
-    await chatDocument.set({
-      'status': ChatStatus.deleted.name,
-      'isDeleted': true,
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    final chatDocument = _chatsCollection.doc(trimmedChatId);
+
+    await chatDocument.update({
+      'status': FirestoreChatStatus.active,
+      'isDeleted': false,
+      FieldPath(['deletedBy', trimmedUserId]): true,
+      FieldPath(['deletedUpdatedAtBy', trimmedUserId]):
+          FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
 
     final snapshot = await chatDocument.get();
     return _chatFromSnapshot(snapshot);
@@ -1053,6 +1081,7 @@ class FirestoreChatRepository implements ChatRepository {
       favoriteBy: _boolMapFromValue(data['favoriteBy']),
       mutedBy: _boolMapFromValue(data['mutedBy']),
       archivedBy: _boolMapFromValue(data['archivedBy']),
+      deletedBy: _boolMapFromValue(data['deletedBy']),
       lastReadAtBy: _dateTimeMapFromValue(data['lastReadAtBy']),
     );
   }
@@ -1417,15 +1446,29 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatRecord> deleteChat({required String chatId}) async {
-    final index = _chats.indexWhere((chat) => chat.id == chatId);
+  Future<ChatRecord> deleteChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
 
-    if (index < 0) {
-      throw StateError('Chat not found: $chatId');
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
     }
 
+    final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
+
+    if (index < 0) {
+      throw StateError('Chat not found: $trimmedChatId');
+    }
+
+    final deletedBy = Map<String, bool>.from(_chats[index].deletedBy)
+      ..[trimmedUserId] = true;
+
     final updated = _chats[index].copyWith(
-      status: ChatStatus.deleted,
+      status: ChatStatus.active,
+      deletedBy: deletedBy,
       updatedAt: DateTime.now(),
     );
 
