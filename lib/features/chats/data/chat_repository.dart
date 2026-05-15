@@ -81,6 +81,16 @@ class ChatRecord {
     return status == ChatStatus.active || status == ChatStatus.archived;
   }
 
+  bool isVisibleInArchivedListFor(String userId) {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty || !isArchivedFor(trimmedUserId)) {
+      return false;
+    }
+
+    return status == ChatStatus.active || status == ChatStatus.archived;
+  }
+
   bool hasUnreadFor(String userId) {
     final trimmedUserId = userId.trim();
 
@@ -284,6 +294,8 @@ abstract class ChatRepository {
 
   Stream<List<ChatRecord>> watchChats({required String userId});
 
+  Stream<List<ChatRecord>> watchArchivedChats({required String userId});
+
   Future<ChatRecord> createChat({
     required List<String> participants,
     String? requestId,
@@ -318,6 +330,11 @@ abstract class ChatRepository {
   });
 
   Future<ChatRecord> archiveChat({
+    required String chatId,
+    required String userId,
+  });
+
+  Future<ChatRecord> unarchiveChat({
     required String chatId,
     required String userId,
   });
@@ -399,6 +416,23 @@ class FirestoreChatRepository implements ChatRepository {
 
                   return b.updatedAt.compareTo(a.updatedAt);
                 });
+
+          return chats;
+        });
+  }
+
+  @override
+  Stream<List<ChatRecord>> watchArchivedChats({required String userId}) {
+    return _chatsCollection
+        .where('participants', arrayContains: userId)
+        .snapshots()
+        .map((snapshot) {
+          final chats =
+              snapshot.docs
+                  .map(_chatFromSnapshot)
+                  .where((chat) => chat.isVisibleInArchivedListFor(userId))
+                  .toList()
+                ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
           return chats;
         });
@@ -867,6 +901,32 @@ class FirestoreChatRepository implements ChatRepository {
   }
 
   @override
+  Future<ChatRecord> unarchiveChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    final chatDocument = _chatsCollection.doc(trimmedChatId);
+
+    await chatDocument.update({
+      'status': FirestoreChatStatus.active,
+      FieldPath(['archivedBy', trimmedUserId]): false,
+      FieldPath(['archivedUpdatedAtBy', trimmedUserId]):
+          FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final snapshot = await chatDocument.get();
+    return _chatFromSnapshot(snapshot);
+  }
+
+  @override
   Future<ChatRecord> deleteChat({required String chatId}) async {
     final chatDocument = _chatsCollection.doc(chatId);
 
@@ -1134,6 +1194,16 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
+  Stream<List<ChatRecord>> watchArchivedChats({required String userId}) {
+    return Stream<List<ChatRecord>>.value(
+      _chats
+          .where((chat) => chat.participants.contains(userId))
+          .where((chat) => chat.isVisibleInArchivedListFor(userId))
+          .toList(),
+    );
+  }
+
+  @override
   Future<ChatRecord> createChat({
     required List<String> participants,
     String? requestId,
@@ -1304,6 +1374,37 @@ class LocalChatRepository implements ChatRepository {
 
     final archivedBy = Map<String, bool>.from(_chats[index].archivedBy)
       ..[trimmedUserId] = true;
+
+    final updated = _chats[index].copyWith(
+      status: ChatStatus.active,
+      archivedBy: archivedBy,
+      updatedAt: DateTime.now(),
+    );
+
+    _chats[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<ChatRecord> unarchiveChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
+
+    if (index < 0) {
+      throw StateError('Chat not found: $trimmedChatId');
+    }
+
+    final archivedBy = Map<String, bool>.from(_chats[index].archivedBy)
+      ..[trimmedUserId] = false;
 
     final updated = _chats[index].copyWith(
       status: ChatStatus.active,
