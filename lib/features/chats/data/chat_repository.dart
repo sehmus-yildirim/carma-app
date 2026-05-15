@@ -33,6 +33,7 @@ class ChatRecord {
     this.vehicleLabel,
     this.favoriteBy = const <String, bool>{},
     this.mutedBy = const <String, bool>{},
+    this.archivedBy = const <String, bool>{},
     this.lastReadAtBy = const <String, DateTime>{},
   });
 
@@ -55,6 +56,7 @@ class ChatRecord {
   final String? vehicleLabel;
   final Map<String, bool> favoriteBy;
   final Map<String, bool> mutedBy;
+  final Map<String, bool> archivedBy;
   final Map<String, DateTime> lastReadAtBy;
 
   bool isFavoriteFor(String userId) {
@@ -63,6 +65,20 @@ class ChatRecord {
 
   bool isMutedFor(String userId) {
     return mutedBy[userId] == true;
+  }
+
+  bool isArchivedFor(String userId) {
+    return archivedBy[userId] == true;
+  }
+
+  bool isVisibleInActiveListFor(String userId) {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty || isArchivedFor(trimmedUserId)) {
+      return false;
+    }
+
+    return status == ChatStatus.active || status == ChatStatus.archived;
   }
 
   bool hasUnreadFor(String userId) {
@@ -170,6 +186,7 @@ class ChatRecord {
     String? vehicleLabel,
     Map<String, bool>? favoriteBy,
     Map<String, bool>? mutedBy,
+    Map<String, bool>? archivedBy,
     Map<String, DateTime>? lastReadAtBy,
   }) {
     return ChatRecord(
@@ -192,6 +209,7 @@ class ChatRecord {
       vehicleLabel: vehicleLabel ?? this.vehicleLabel,
       favoriteBy: favoriteBy ?? this.favoriteBy,
       mutedBy: mutedBy ?? this.mutedBy,
+      archivedBy: archivedBy ?? this.archivedBy,
       lastReadAtBy: lastReadAtBy ?? this.lastReadAtBy,
     );
   }
@@ -299,7 +317,10 @@ abstract class ChatRepository {
     String? replyToText,
   });
 
-  Future<ChatRecord> archiveChat({required String chatId});
+  Future<ChatRecord> archiveChat({
+    required String chatId,
+    required String userId,
+  });
 
   Future<ChatRecord> deleteChat({required String chatId});
 
@@ -336,20 +357,23 @@ class FirestoreChatRepository implements ChatRepository {
   Future<List<ChatRecord>> loadChats({required String userId}) async {
     final snapshot = await _chatsCollection
         .where('participants', arrayContains: userId)
-        .where('status', isEqualTo: FirestoreChatStatus.active)
         .get();
 
-    final chats = snapshot.docs.map(_chatFromSnapshot).toList()
-      ..sort((a, b) {
-        final aFavorite = a.isFavoriteFor(userId);
-        final bFavorite = b.isFavoriteFor(userId);
+    final chats =
+        snapshot.docs
+            .map(_chatFromSnapshot)
+            .where((chat) => chat.isVisibleInActiveListFor(userId))
+            .toList()
+          ..sort((a, b) {
+            final aFavorite = a.isFavoriteFor(userId);
+            final bFavorite = b.isFavoriteFor(userId);
 
-        if (aFavorite != bFavorite) {
-          return aFavorite ? -1 : 1;
-        }
+            if (aFavorite != bFavorite) {
+              return aFavorite ? -1 : 1;
+            }
 
-        return b.updatedAt.compareTo(a.updatedAt);
-      });
+            return b.updatedAt.compareTo(a.updatedAt);
+          });
 
     return chats;
   }
@@ -358,20 +382,23 @@ class FirestoreChatRepository implements ChatRepository {
   Stream<List<ChatRecord>> watchChats({required String userId}) {
     return _chatsCollection
         .where('participants', arrayContains: userId)
-        .where('status', isEqualTo: FirestoreChatStatus.active)
         .snapshots()
         .map((snapshot) {
-          final chats = snapshot.docs.map(_chatFromSnapshot).toList()
-            ..sort((a, b) {
-              final aFavorite = a.isFavoriteFor(userId);
-              final bFavorite = b.isFavoriteFor(userId);
+          final chats =
+              snapshot.docs
+                  .map(_chatFromSnapshot)
+                  .where((chat) => chat.isVisibleInActiveListFor(userId))
+                  .toList()
+                ..sort((a, b) {
+                  final aFavorite = a.isFavoriteFor(userId);
+                  final bFavorite = b.isFavoriteFor(userId);
 
-              if (aFavorite != bFavorite) {
-                return aFavorite ? -1 : 1;
-              }
+                  if (aFavorite != bFavorite) {
+                    return aFavorite ? -1 : 1;
+                  }
 
-              return b.updatedAt.compareTo(a.updatedAt);
-            });
+                  return b.updatedAt.compareTo(a.updatedAt);
+                });
 
           return chats;
         });
@@ -814,13 +841,26 @@ class FirestoreChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatRecord> archiveChat({required String chatId}) async {
-    final chatDocument = _chatsCollection.doc(chatId);
+  Future<ChatRecord> archiveChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
 
-    await chatDocument.set({
-      'status': FirestoreChatStatus.archived,
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    final chatDocument = _chatsCollection.doc(trimmedChatId);
+
+    await chatDocument.update({
+      'status': FirestoreChatStatus.active,
+      FieldPath(['archivedBy', trimmedUserId]): true,
+      FieldPath(['archivedUpdatedAtBy', trimmedUserId]):
+          FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
 
     final snapshot = await chatDocument.get();
     return _chatFromSnapshot(snapshot);
@@ -952,6 +992,7 @@ class FirestoreChatRepository implements ChatRepository {
       vehicleLabel: data['vehicleLabel'] as String?,
       favoriteBy: _boolMapFromValue(data['favoriteBy']),
       mutedBy: _boolMapFromValue(data['mutedBy']),
+      archivedBy: _boolMapFromValue(data['archivedBy']),
       lastReadAtBy: _dateTimeMapFromValue(data['lastReadAtBy']),
     );
   }
@@ -1077,11 +1118,8 @@ class LocalChatRepository implements ChatRepository {
   @override
   Future<List<ChatRecord>> loadChats({required String userId}) async {
     return _chats
-        .where(
-          (chat) =>
-              chat.participants.contains(userId) &&
-              chat.status == ChatStatus.active,
-        )
+        .where((chat) => chat.participants.contains(userId))
+        .where((chat) => chat.isVisibleInActiveListFor(userId))
         .toList();
   }
 
@@ -1089,11 +1127,8 @@ class LocalChatRepository implements ChatRepository {
   Stream<List<ChatRecord>> watchChats({required String userId}) {
     return Stream<List<ChatRecord>>.value(
       _chats
-          .where(
-            (chat) =>
-                chat.participants.contains(userId) &&
-                chat.status == ChatStatus.active,
-          )
+          .where((chat) => chat.participants.contains(userId))
+          .where((chat) => chat.isVisibleInActiveListFor(userId))
           .toList(),
     );
   }
@@ -1250,15 +1285,29 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatRecord> archiveChat({required String chatId}) async {
-    final index = _chats.indexWhere((chat) => chat.id == chatId);
+  Future<ChatRecord> archiveChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
 
-    if (index < 0) {
-      throw StateError('Chat not found: $chatId');
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
     }
 
+    final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
+
+    if (index < 0) {
+      throw StateError('Chat not found: $trimmedChatId');
+    }
+
+    final archivedBy = Map<String, bool>.from(_chats[index].archivedBy)
+      ..[trimmedUserId] = true;
+
     final updated = _chats[index].copyWith(
-      status: ChatStatus.archived,
+      status: ChatStatus.active,
+      archivedBy: archivedBy,
       updatedAt: DateTime.now(),
     );
 

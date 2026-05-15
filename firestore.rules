@@ -22,6 +22,10 @@ service cloud.firestore {
         .hasOnly([key]);
     }
 
+    function isOpenChatStatus(status) {
+      return status == 'active' || status == 'archived';
+    }
+
     function isValidInitialSearchCredit(userId, creditId) {
       return isOwner(userId)
         && creditId == 'main'
@@ -138,7 +142,7 @@ service cloud.firestore {
     function isValidChatLastMessageUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
+        && isOpenChatStatus(resource.data.status)
         && (
           (
             changedOnly(['lastMessage', 'lastMessageAt', 'updatedAt'])
@@ -160,7 +164,7 @@ service cloud.firestore {
     function isValidChatReadUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
+        && isOpenChatStatus(resource.data.status)
         && changedOnly(['lastReadAtBy'])
         && hasValidCurrentUserReadAt();
     }
@@ -168,7 +172,7 @@ service cloud.firestore {
     function isValidChatTypingUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
+        && isOpenChatStatus(resource.data.status)
         && changedOnly(['typingBy', 'typingUpdatedAtBy'])
         && request.resource.data.typingBy is map
         && request.resource.data.typingBy[request.auth.uid] is bool
@@ -181,7 +185,7 @@ service cloud.firestore {
     function isValidChatFavoriteUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
+        && isOpenChatStatus(resource.data.status)
         && changedOnly(['favoriteBy', 'favoriteUpdatedAtBy', 'updatedAt'])
         && request.resource.data.favoriteBy is map
         && request.resource.data.favoriteBy[request.auth.uid] is bool
@@ -195,7 +199,7 @@ service cloud.firestore {
     function isValidChatMutedUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
+        && isOpenChatStatus(resource.data.status)
         && changedOnly(['mutedBy', 'mutedUpdatedAtBy', 'updatedAt'])
         && request.resource.data.mutedBy is map
         && request.resource.data.mutedBy[request.auth.uid] is bool
@@ -209,16 +213,27 @@ service cloud.firestore {
     function isValidChatArchiveUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
-        && changedOnly(['status', 'updatedAt'])
-        && request.resource.data.status == 'archived'
-        && request.resource.data.updatedAt is timestamp;
+        && isOpenChatStatus(resource.data.status)
+        && changedOnly([
+          'status',
+          'archivedBy',
+          'archivedUpdatedAtBy',
+          'updatedAt',
+        ])
+        && request.resource.data.status == 'active'
+        && request.resource.data.archivedBy is map
+        && request.resource.data.archivedBy[request.auth.uid] == true
+        && request.resource.data.archivedUpdatedAtBy is map
+        && request.resource.data.archivedUpdatedAtBy[request.auth.uid] is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && changedOnlyNestedMapKey('archivedBy', request.auth.uid)
+        && changedOnlyNestedMapKey('archivedUpdatedAtBy', request.auth.uid);
     }
 
     function isValidChatDeleteUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
+        && isOpenChatStatus(resource.data.status)
         && changedOnly(['status', 'isDeleted', 'updatedAt'])
         && request.resource.data.status == 'deleted'
         && request.resource.data.isDeleted == true
@@ -228,7 +243,7 @@ service cloud.firestore {
     function isValidChatBlockUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
-        && resource.data.status == 'active'
+        && isOpenChatStatus(resource.data.status)
         && changedOnly(['status', 'blockedBy', 'blockedAt', 'updatedAt'])
         && request.resource.data.status == 'blocked'
         && request.resource.data.blockedBy == request.auth.uid
@@ -241,7 +256,7 @@ service cloud.firestore {
 
       return isSignedIn()
         && request.auth.uid in chat.data.participants
-        && chat.data.status == 'active'
+        && isOpenChatStatus(chat.data.status)
         && request.resource.data.chatId == chatId
         && request.resource.data.senderUserId == request.auth.uid
         && request.resource.data.type == 'text'
@@ -258,7 +273,7 @@ service cloud.firestore {
 
       return isSignedIn()
         && request.auth.uid in chat.data.participants
-        && chat.data.status == 'active'
+        && isOpenChatStatus(chat.data.status)
         && changedOnly(['isStarred', 'updatedAt'])
         && request.resource.data.isStarred is bool
         && request.resource.data.updatedAt is timestamp;
@@ -269,7 +284,7 @@ service cloud.firestore {
 
       return isSignedIn()
         && request.auth.uid in chat.data.participants
-        && chat.data.status == 'active'
+        && isOpenChatStatus(chat.data.status)
         && resource.data.isDeleted == false
         && changedOnly(['isDeleted', 'updatedAt'])
         && request.resource.data.isDeleted == true
@@ -281,7 +296,7 @@ service cloud.firestore {
 
       return isSignedIn()
         && request.auth.uid in chat.data.participants
-        && chat.data.status == 'active'
+        && isOpenChatStatus(chat.data.status)
         && changedOnly(['reactionBy', 'reactionUpdatedAtBy', 'updatedAt'])
         && request.resource.data.reactionBy is map
         && request.resource.data.reactionBy[request.auth.uid] is string
