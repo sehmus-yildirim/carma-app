@@ -35,6 +35,7 @@ class ChatRecord {
     this.mutedBy = const <String, bool>{},
     this.archivedBy = const <String, bool>{},
     this.deletedBy = const <String, bool>{},
+    this.manualUnreadBy = const <String, bool>{},
     this.lastReadAtBy = const <String, DateTime>{},
   });
 
@@ -59,6 +60,7 @@ class ChatRecord {
   final Map<String, bool> mutedBy;
   final Map<String, bool> archivedBy;
   final Map<String, bool> deletedBy;
+  final Map<String, bool> manualUnreadBy;
   final Map<String, DateTime> lastReadAtBy;
 
   bool isFavoriteFor(String userId) {
@@ -75,6 +77,10 @@ class ChatRecord {
 
   bool isDeletedFor(String userId) {
     return deletedBy[userId] == true;
+  }
+
+  bool isManuallyUnreadFor(String userId) {
+    return manualUnreadBy[userId] == true;
   }
 
   bool isVisibleInActiveListFor(String userId) {
@@ -104,7 +110,15 @@ class ChatRecord {
   bool hasUnreadFor(String userId) {
     final trimmedUserId = userId.trim();
 
-    if (trimmedUserId.isEmpty || lastMessageAt == null) {
+    if (trimmedUserId.isEmpty) {
+      return false;
+    }
+
+    if (isManuallyUnreadFor(trimmedUserId)) {
+      return true;
+    }
+
+    if (lastMessageAt == null) {
       return false;
     }
 
@@ -208,6 +222,7 @@ class ChatRecord {
     Map<String, bool>? mutedBy,
     Map<String, bool>? archivedBy,
     Map<String, bool>? deletedBy,
+    Map<String, bool>? manualUnreadBy,
     Map<String, DateTime>? lastReadAtBy,
   }) {
     return ChatRecord(
@@ -232,6 +247,7 @@ class ChatRecord {
       mutedBy: mutedBy ?? this.mutedBy,
       archivedBy: archivedBy ?? this.archivedBy,
       deletedBy: deletedBy ?? this.deletedBy,
+      manualUnreadBy: manualUnreadBy ?? this.manualUnreadBy,
       lastReadAtBy: lastReadAtBy ?? this.lastReadAtBy,
     );
   }
@@ -556,6 +572,25 @@ class FirestoreChatRepository implements ChatRepository {
 
     await _chatsCollection.doc(trimmedChatId).set({
       'lastReadAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+      'manualUnreadBy': {trimmedUserId: false},
+      'manualUnreadUpdatedAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> markChatUnread({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      return;
+    }
+
+    await _chatsCollection.doc(trimmedChatId).set({
+      'manualUnreadBy': {trimmedUserId: true},
+      'manualUnreadUpdatedAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
     }, SetOptions(merge: true));
   }
 
@@ -763,6 +798,8 @@ class FirestoreChatRepository implements ChatRepository {
         'lastMessage': trimmedText,
         'lastMessageAt': Timestamp.fromDate(now),
         'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'manualUnreadBy': {senderUserId: false},
+        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
     });
@@ -1082,6 +1119,7 @@ class FirestoreChatRepository implements ChatRepository {
       mutedBy: _boolMapFromValue(data['mutedBy']),
       archivedBy: _boolMapFromValue(data['archivedBy']),
       deletedBy: _boolMapFromValue(data['deletedBy']),
+      manualUnreadBy: _boolMapFromValue(data['manualUnreadBy']),
       lastReadAtBy: _dateTimeMapFromValue(data['lastReadAtBy']),
     );
   }

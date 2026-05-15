@@ -33,6 +33,7 @@ enum _RequestListView { incoming, outgoing }
 enum _ChatMenuAction {
   favorite,
   mute,
+  readState,
   vehicleDetails,
   archive,
   delete,
@@ -957,6 +958,7 @@ class _ChatsOverview extends StatelessWidget {
                       subtitle: chat.vehicleTitle,
                       isFavorite: chat.isFavoriteFor(currentUserId),
                       isMuted: chat.isMutedFor(currentUserId),
+                      isUnread: chat.hasUnreadFor(currentUserId),
                       isArchived: isArchivedView,
                       popAfterStatusAction: false,
                     ),
@@ -1759,6 +1761,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     this.subtitle,
     this.isFavorite = false,
     this.isMuted = false,
+    this.isUnread = false,
     this.isArchived = false,
     this.popAfterStatusAction = true,
   });
@@ -1768,6 +1771,7 @@ class _ChatOverflowMenu extends StatelessWidget {
   final String? subtitle;
   final bool isFavorite;
   final bool isMuted;
+  final bool isUnread;
   final bool isArchived;
   final bool popAfterStatusAction;
 
@@ -1965,6 +1969,26 @@ class _ChatOverflowMenu extends StatelessWidget {
               userId: userId,
               isMuted: nextIsMuted,
             );
+          },
+        );
+      case _ChatMenuAction.readState:
+        await _runChatPreferenceAction(
+          context: context,
+          successMessage: isUnread
+              ? 'Chat wurde als gelesen markiert.'
+              : 'Chat wurde als ungelesen markiert.',
+          action: ({required String chatId, required String userId}) async {
+            if (isUnread) {
+              await _chatRepository.markChatRead(
+                chatId: chatId,
+                userId: userId,
+              );
+            } else {
+              await _chatRepository.markChatUnread(
+                chatId: chatId,
+                userId: userId,
+              );
+            }
           },
         );
       case _ChatMenuAction.vehicleDetails:
@@ -2198,6 +2222,12 @@ class _ChatOverflowMenu extends StatelessWidget {
                   : 'Benachrichtigungen stummschalten',
             ),
           ),
+          PopupMenuItem(
+            value: _ChatMenuAction.readState,
+            child: Text(
+              isUnread ? 'Als gelesen markieren' : 'Als ungelesen markieren',
+            ),
+          ),
           const PopupMenuItem(
             value: _ChatMenuAction.vehicleDetails,
             child: Text('Fahrzeugdetails anzeigen'),
@@ -2268,6 +2298,7 @@ class _ActiveChatsScreen extends StatelessWidget {
                       subtitle: chat.vehicleTitle,
                       isFavorite: chat.isFavoriteFor(currentUserId),
                       isMuted: chat.isMutedFor(currentUserId),
+                      isUnread: chat.hasUnreadFor(currentUserId),
                       popAfterStatusAction: false,
                     ),
                     onTap: () async {

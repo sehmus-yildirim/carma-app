@@ -139,6 +139,15 @@ service cloud.firestore {
         && changedOnlyNestedMapKey('lastReadAtBy', request.auth.uid);
     }
 
+    function hasValidCurrentUserManualUnread(isUnread) {
+      return request.resource.data.manualUnreadBy is map
+        && request.resource.data.manualUnreadBy[request.auth.uid] == isUnread
+        && request.resource.data.manualUnreadUpdatedAtBy is map
+        && request.resource.data.manualUnreadUpdatedAtBy[request.auth.uid] is timestamp
+        && changedOnlyNestedMapKey('manualUnreadBy', request.auth.uid)
+        && changedOnlyNestedMapKey('manualUnreadUpdatedAtBy', request.auth.uid);
+    }
+
     function isValidChatLastMessageUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
@@ -153,10 +162,13 @@ service cloud.firestore {
               'lastMessage',
               'lastMessageAt',
               'lastReadAtBy',
+              'manualUnreadBy',
+              'manualUnreadUpdatedAtBy',
               'updatedAt',
             ])
             && hasValidLastMessageFields()
             && hasValidCurrentUserReadAt()
+            && hasValidCurrentUserManualUnread(false)
           )
         );
     }
@@ -165,8 +177,25 @@ service cloud.firestore {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
         && isOpenChatStatus(resource.data.status)
-        && changedOnly(['lastReadAtBy'])
-        && hasValidCurrentUserReadAt();
+        && (
+          (
+            changedOnly(['lastReadAtBy'])
+            && hasValidCurrentUserReadAt()
+          ) ||
+          (
+            changedOnly([
+              'lastReadAtBy',
+              'manualUnreadBy',
+              'manualUnreadUpdatedAtBy',
+            ])
+            && hasValidCurrentUserReadAt()
+            && hasValidCurrentUserManualUnread(false)
+          ) ||
+          (
+            changedOnly(['manualUnreadBy', 'manualUnreadUpdatedAtBy'])
+            && hasValidCurrentUserManualUnread(true)
+          )
+        );
     }
 
     function isValidChatTypingUpdate() {
