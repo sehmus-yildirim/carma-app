@@ -225,6 +225,19 @@ service cloud.firestore {
         && changedOnlyNestedMapKey('favoriteUpdatedAtBy', request.auth.uid);
     }
 
+    function isValidChatPinnedUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && isOpenChatStatus(resource.data.status)
+        && changedOnly(['pinnedBy', 'pinnedUpdatedAtBy'])
+        && request.resource.data.pinnedBy is map
+        && request.resource.data.pinnedBy[request.auth.uid] is bool
+        && request.resource.data.pinnedUpdatedAtBy is map
+        && request.resource.data.pinnedUpdatedAtBy[request.auth.uid] is timestamp
+        && changedOnlyNestedMapKey('pinnedBy', request.auth.uid)
+        && changedOnlyNestedMapKey('pinnedUpdatedAtBy', request.auth.uid);
+    }
+
     function isValidChatMutedUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
@@ -431,6 +444,7 @@ service cloud.firestore {
         || isValidChatReadUpdate()
         || isValidChatTypingUpdate()
         || isValidChatFavoriteUpdate()
+        || isValidChatPinnedUpdate()
         || isValidChatMutedUpdate()
         || isValidChatArchiveUpdate()
         || isValidChatDeleteUpdate()

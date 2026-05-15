@@ -32,6 +32,7 @@ class ChatRecord {
     this.vehicleColor,
     this.vehicleLabel,
     this.favoriteBy = const <String, bool>{},
+    this.pinnedBy = const <String, bool>{},
     this.mutedBy = const <String, bool>{},
     this.archivedBy = const <String, bool>{},
     this.deletedBy = const <String, bool>{},
@@ -57,6 +58,7 @@ class ChatRecord {
   final String? vehicleColor;
   final String? vehicleLabel;
   final Map<String, bool> favoriteBy;
+  final Map<String, bool> pinnedBy;
   final Map<String, bool> mutedBy;
   final Map<String, bool> archivedBy;
   final Map<String, bool> deletedBy;
@@ -65,6 +67,10 @@ class ChatRecord {
 
   bool isFavoriteFor(String userId) {
     return favoriteBy[userId] == true;
+  }
+
+  bool isPinnedFor(String userId) {
+    return pinnedBy[userId] == true;
   }
 
   bool isMutedFor(String userId) {
@@ -219,6 +225,7 @@ class ChatRecord {
     String? vehicleColor,
     String? vehicleLabel,
     Map<String, bool>? favoriteBy,
+    Map<String, bool>? pinnedBy,
     Map<String, bool>? mutedBy,
     Map<String, bool>? archivedBy,
     Map<String, bool>? deletedBy,
@@ -244,6 +251,7 @@ class ChatRecord {
       vehicleColor: vehicleColor ?? this.vehicleColor,
       vehicleLabel: vehicleLabel ?? this.vehicleLabel,
       favoriteBy: favoriteBy ?? this.favoriteBy,
+      pinnedBy: pinnedBy ?? this.pinnedBy,
       mutedBy: mutedBy ?? this.mutedBy,
       archivedBy: archivedBy ?? this.archivedBy,
       deletedBy: deletedBy ?? this.deletedBy,
@@ -383,6 +391,12 @@ abstract class ChatRepository {
     required bool isStarred,
   });
 
+  Future<void> setChatPinned({
+    required String chatId,
+    required String userId,
+    required bool isPinned,
+  });
+
   Future<void> setMessageReaction({
     required String chatId,
     required String messageId,
@@ -413,6 +427,13 @@ class FirestoreChatRepository implements ChatRepository {
             .where((chat) => chat.isVisibleInActiveListFor(userId))
             .toList()
           ..sort((a, b) {
+            final aPinned = a.isPinnedFor(userId);
+            final bPinned = b.isPinnedFor(userId);
+
+            if (aPinned != bPinned) {
+              return aPinned ? -1 : 1;
+            }
+
             final aFavorite = a.isFavoriteFor(userId);
             final bFavorite = b.isFavoriteFor(userId);
 
@@ -438,6 +459,13 @@ class FirestoreChatRepository implements ChatRepository {
                   .where((chat) => chat.isVisibleInActiveListFor(userId))
                   .toList()
                 ..sort((a, b) {
+                  final aPinned = a.isPinnedFor(userId);
+                  final bPinned = b.isPinnedFor(userId);
+
+                  if (aPinned != bPinned) {
+                    return aPinned ? -1 : 1;
+                  }
+
                   final aFavorite = a.isFavoriteFor(userId);
                   final bFavorite = b.isFavoriteFor(userId);
 
@@ -878,6 +906,26 @@ class FirestoreChatRepository implements ChatRepository {
     });
   }
 
+  @override
+  Future<void> setChatPinned({
+    required String chatId,
+    required String userId,
+    required bool isPinned,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    await _chatsCollection.doc(trimmedChatId).update({
+      FieldPath(['pinnedBy', trimmedUserId]): isPinned,
+      FieldPath(['pinnedUpdatedAtBy', trimmedUserId]):
+          FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<ChatRecord> blockChat({
     required String chatId,
     required String blockedByUserId,
@@ -1116,6 +1164,7 @@ class FirestoreChatRepository implements ChatRepository {
       vehicleColor: data['vehicleColor'] as String?,
       vehicleLabel: data['vehicleLabel'] as String?,
       favoriteBy: _boolMapFromValue(data['favoriteBy']),
+      pinnedBy: _boolMapFromValue(data['pinnedBy']),
       mutedBy: _boolMapFromValue(data['mutedBy']),
       archivedBy: _boolMapFromValue(data['archivedBy']),
       deletedBy: _boolMapFromValue(data['deletedBy']),
@@ -1242,21 +1291,47 @@ class LocalChatRepository implements ChatRepository {
   final List<ChatRecord> _chats;
   final List<ChatMessageRecord> _messages;
 
+  List<ChatRecord> _sortChatsForUser(List<ChatRecord> chats, String userId) {
+    return chats..sort((a, b) {
+      final aPinned = a.isPinnedFor(userId);
+      final bPinned = b.isPinnedFor(userId);
+
+      if (aPinned != bPinned) {
+        return aPinned ? -1 : 1;
+      }
+
+      final aFavorite = a.isFavoriteFor(userId);
+      final bFavorite = b.isFavoriteFor(userId);
+
+      if (aFavorite != bFavorite) {
+        return aFavorite ? -1 : 1;
+      }
+
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
+  }
+
   @override
   Future<List<ChatRecord>> loadChats({required String userId}) async {
-    return _chats
-        .where((chat) => chat.participants.contains(userId))
-        .where((chat) => chat.isVisibleInActiveListFor(userId))
-        .toList();
+    return _sortChatsForUser(
+      _chats
+          .where((chat) => chat.participants.contains(userId))
+          .where((chat) => chat.isVisibleInActiveListFor(userId))
+          .toList(),
+      userId,
+    );
   }
 
   @override
   Stream<List<ChatRecord>> watchChats({required String userId}) {
     return Stream<List<ChatRecord>>.value(
-      _chats
-          .where((chat) => chat.participants.contains(userId))
-          .where((chat) => chat.isVisibleInActiveListFor(userId))
-          .toList(),
+      _sortChatsForUser(
+        _chats
+            .where((chat) => chat.participants.contains(userId))
+            .where((chat) => chat.isVisibleInActiveListFor(userId))
+            .toList(),
+        userId,
+      ),
     );
   }
 
@@ -1532,6 +1607,31 @@ class LocalChatRepository implements ChatRepository {
       isStarred: isStarred,
       updatedAt: DateTime.now(),
     );
+  }
+
+  @override
+  Future<void> setChatPinned({
+    required String chatId,
+    required String userId,
+    required bool isPinned,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
+
+    if (index < 0) {
+      throw StateError('Chat not found: $trimmedChatId');
+    }
+
+    final pinnedBy = Map<String, bool>.from(_chats[index].pinnedBy)
+      ..[trimmedUserId] = isPinned;
+
+    _chats[index] = _chats[index].copyWith(pinnedBy: pinnedBy);
   }
 
   @override

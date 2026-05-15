@@ -31,6 +31,7 @@ enum _ChatListView { messages, archived }
 enum _RequestListView { incoming, outgoing }
 
 enum _ChatMenuAction {
+  pin,
   favorite,
   mute,
   readState,
@@ -950,6 +951,7 @@ class _ChatsOverview extends StatelessWidget {
                         ? chat.lastMessage!.trim()
                         : chat.vehicleTitle,
                     isFavorite: chat.isFavoriteFor(currentUserId),
+                    isPinned: chat.isPinnedFor(currentUserId),
                     isMuted: chat.isMutedFor(currentUserId),
                     isUnread: chat.hasUnreadFor(currentUserId),
                     trailing: _ChatOverflowMenu(
@@ -957,6 +959,7 @@ class _ChatsOverview extends StatelessWidget {
                       title: chat.displayNameFor(currentUserId),
                       subtitle: chat.vehicleTitle,
                       isFavorite: chat.isFavoriteFor(currentUserId),
+                      isPinned: chat.isPinnedFor(currentUserId),
                       isMuted: chat.isMutedFor(currentUserId),
                       isUnread: chat.hasUnreadFor(currentUserId),
                       isArchived: isArchivedView,
@@ -1760,6 +1763,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     this.title,
     this.subtitle,
     this.isFavorite = false,
+    this.isPinned = false,
     this.isMuted = false,
     this.isUnread = false,
     this.isArchived = false,
@@ -1770,6 +1774,7 @@ class _ChatOverflowMenu extends StatelessWidget {
   final String? title;
   final String? subtitle;
   final bool isFavorite;
+  final bool isPinned;
   final bool isMuted;
   final bool isUnread;
   final bool isArchived;
@@ -1941,6 +1946,21 @@ class _ChatOverflowMenu extends StatelessWidget {
     _ChatMenuAction action,
   ) async {
     switch (action) {
+      case _ChatMenuAction.pin:
+        final nextIsPinned = !isPinned;
+        await _runChatPreferenceAction(
+          context: context,
+          successMessage: nextIsPinned
+              ? 'Chat wurde angepinnt.'
+              : 'Chat wurde gel\u00F6st.',
+          action: ({required String chatId, required String userId}) async {
+            await _chatRepository.setChatPinned(
+              chatId: chatId,
+              userId: userId,
+              isPinned: nextIsPinned,
+            );
+          },
+        );
       case _ChatMenuAction.favorite:
         final nextIsFavorite = !isFavorite;
         await _runChatPreferenceAction(
@@ -2207,6 +2227,10 @@ class _ChatOverflowMenu extends StatelessWidget {
       itemBuilder: (context) {
         return [
           PopupMenuItem(
+            value: _ChatMenuAction.pin,
+            child: Text(isPinned ? 'Nicht mehr anpinnen' : 'Chat anpinnen'),
+          ),
+          PopupMenuItem(
             value: _ChatMenuAction.favorite,
             child: Text(
               isFavorite
@@ -2290,6 +2314,7 @@ class _ActiveChatsScreen extends StatelessWidget {
                         ? 'Letzte Nachricht: ${chat.lastMessage!.trim()}'
                         : chat.vehicleTitle,
                     isFavorite: chat.isFavoriteFor(currentUserId),
+                    isPinned: chat.isPinnedFor(currentUserId),
                     isMuted: chat.isMutedFor(currentUserId),
                     isUnread: chat.hasUnreadFor(currentUserId),
                     trailing: _ChatOverflowMenu(
@@ -2297,6 +2322,7 @@ class _ActiveChatsScreen extends StatelessWidget {
                       title: chat.displayNameFor(currentUserId),
                       subtitle: chat.vehicleTitle,
                       isFavorite: chat.isFavoriteFor(currentUserId),
+                      isPinned: chat.isPinnedFor(currentUserId),
                       isMuted: chat.isMutedFor(currentUserId),
                       isUnread: chat.hasUnreadFor(currentUserId),
                       popAfterStatusAction: false,
@@ -2402,6 +2428,7 @@ class _ActiveChatListTile extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.isFavorite = false,
+    this.isPinned = false,
     this.isMuted = false,
     this.isUnread = false,
     this.trailing,
@@ -2410,6 +2437,7 @@ class _ActiveChatListTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool isFavorite;
+  final bool isPinned;
   final bool isMuted;
   final bool isUnread;
   final Widget? trailing;
@@ -2417,8 +2445,15 @@ class _ActiveChatListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasStateIcons = isFavorite || isMuted || isUnread;
+    final hasStateIcons = isPinned || isFavorite || isMuted || isUnread;
     final stateIcons = <Widget>[
+      if (isPinned)
+        const _ChatStateIcon(
+          icon: Icons.push_pin_rounded,
+          tooltip: 'Angepinnt',
+        ),
+      if (isPinned && (isUnread || isFavorite || isMuted))
+        const SizedBox(width: 6),
       if (isUnread)
         const _ChatStateIcon(
           icon: Icons.mark_chat_unread_rounded,
