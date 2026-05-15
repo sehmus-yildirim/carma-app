@@ -878,7 +878,7 @@ class FirestoreChatRepository implements ChatRepository {
       throw ArgumentError('Chat ID and reporter user ID must not be empty.');
     }
 
-    await _firestore.collection('reports').add({
+    await _firestore.collection(CarmaFirestoreCollections.reports).add({
       'type': 'chat',
       'chatId': trimmedChatId,
       'reporterUserId': trimmedReporterId,
