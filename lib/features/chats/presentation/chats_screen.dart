@@ -12,8 +12,7 @@ import '../../../shared/widgets/carma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/chat_repository.dart';
 import '../data/contact_request_repository.dart';
-
-import 'contact_request_list_screen.dart';
+import '../domain/accept_contact_request_use_case.dart';
 
 const Color _carmaBlue = Color(0xFF139CFF);
 const Color _carmaBlueLight = Color(0xFF63D5FF);
@@ -41,13 +40,6 @@ enum _LocalChatTestMode { empty, activeChat, activeChatWithMessages }
 
 const _LocalChatTestMode _localChatTestMode = _LocalChatTestMode.empty;
 
-class _RequestCounts {
-  const _RequestCounts({required this.incoming, required this.outgoing});
-
-  final int incoming;
-  final int outgoing;
-}
-
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({super.key, required this.userState});
 
@@ -59,13 +51,17 @@ class ChatsScreen extends StatefulWidget {
 
 class _ChatsScreenState extends State<ChatsScreen> {
   final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
+  final FirestoreContactRequestRepository _requestRepository =
+      FirestoreContactRequestRepository();
+  final TextEditingController _searchController = TextEditingController();
 
   _ChatsView _selectedView = _ChatsView.chats;
+  String _searchQuery = '';
+  final Set<String> _busyRequestIds = <String>{};
 
   late Stream<List<ChatRecord>> _chatStream;
-  Future<_RequestCounts> _requestCountsFuture = Future.value(
-    const _RequestCounts(incoming: 0, outgoing: 0),
-  );
+  late Stream<List<ContactRequestRecord>> _incomingRequestStream;
+  late Stream<List<ContactRequestRecord>> _outgoingRequestStream;
   late bool _hasActiveChat;
   late List<_LocalChatMessage> _chatMessages;
 
@@ -93,7 +89,16 @@ class _ChatsScreenState extends State<ChatsScreen> {
         : <_LocalChatMessage>[];
 
     _chatStream = _watchChats();
-    _requestCountsFuture = _loadRequestCounts();
+    _incomingRequestStream = _watchIncomingRequests();
+    _outgoingRequestStream = _watchOutgoingRequests();
+    _searchController.addListener(_handleSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_handleSearchChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Stream<List<ChatRecord>> _watchChats() {
@@ -106,26 +111,77 @@ class _ChatsScreenState extends State<ChatsScreen> {
     return _chatRepository.watchChats(userId: userId);
   }
 
-  Future<_RequestCounts> _loadRequestCounts() async {
+  Stream<List<ContactRequestRecord>> _watchIncomingRequests() {
     final userId = _effectiveUserId.trim();
 
     if (userId.isEmpty) {
-      return const _RequestCounts(incoming: 0, outgoing: 0);
+      return Stream<List<ContactRequestRecord>>.value(
+        const <ContactRequestRecord>[],
+      );
     }
 
-    final repository = FirestoreContactRequestRepository();
+    return _requestRepository.watchIncomingRequests(userId: userId);
+  }
 
-    final incomingRequests = await repository.loadIncomingRequests(
-      userId: userId,
+  Stream<List<ContactRequestRecord>> _watchOutgoingRequests() {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      return Stream<List<ContactRequestRecord>>.value(
+        const <ContactRequestRecord>[],
+      );
+    }
+
+    return _requestRepository.watchOutgoingRequests(userId: userId);
+  }
+
+  void _handleSearchChanged() {
+    final nextQuery = _searchController.text.trim();
+
+    if (_searchQuery == nextQuery) {
+      return;
+    }
+
+    setState(() {
+      _searchQuery = nextQuery;
+    });
+  }
+
+  bool _matchesSearch(String value) {
+    final query = _searchQuery.trim().toLowerCase();
+
+    if (query.isEmpty) {
+      return true;
+    }
+
+    return value.toLowerCase().contains(query);
+  }
+
+  bool _matchesChatSearch(ChatRecord chat) {
+    final currentUserId = _effectiveUserId;
+
+    return _matchesSearch(
+      [
+        chat.displayNameFor(currentUserId),
+        chat.vehicleTitle,
+        chat.vehicleModelLabel,
+        chat.vehicleColorLabel,
+        chat.displayPlate,
+        chat.lastMessage,
+      ].whereType<String>().join(' '),
     );
+  }
 
-    final outgoingRequests = await repository.loadOutgoingRequests(
-      userId: userId,
-    );
-
-    return _RequestCounts(
-      incoming: incomingRequests.length,
-      outgoing: outgoingRequests.length,
+  bool _matchesRequestSearch(ContactRequestRecord request) {
+    return _matchesSearch(
+      [
+        request.senderDisplayName,
+        request.receiverDisplayName,
+        request.displayPlate,
+        request.plateKey,
+        request.vehicleTitle,
+        request.message,
+      ].whereType<String>().join(' '),
     );
   }
 
@@ -160,19 +216,42 @@ class _ChatsScreenState extends State<ChatsScreen> {
     });
   }
 
+  void _handleViewSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+
+    if (velocity.abs() < 260) {
+      return;
+    }
+
+    if (velocity < 0 && _selectedView == _ChatsView.chats) {
+      _selectView(_ChatsView.requests);
+      return;
+    }
+
+    if (velocity > 0 && _selectedView == _ChatsView.requests) {
+      _selectView(_ChatsView.chats);
+    }
+  }
+
   void _refreshChatsAndRequests() {
     setState(() {
       _chatStream = _watchChats();
-      _requestCountsFuture = _loadRequestCounts();
+      _incomingRequestStream = _watchIncomingRequests();
+      _outgoingRequestStream = _watchOutgoingRequests();
     });
   }
 
-  Future<void> _openIncomingRequestsScreen() async {
-    final acceptedChatId = await Navigator.of(context).push<String>(
+  Future<void> _openChat(ChatRecord chat) async {
+    final currentUserId = _effectiveUserId;
+
+    await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ContactRequestListScreen(
-          userState: widget.userState,
-          mode: ContactRequestListMode.incoming,
+        builder: (_) => _ChatConversationScreen(
+          chatId: chat.id,
+          initialMessages: const <_LocalChatMessage>[],
+          displayName: chat.displayNameFor(currentUserId),
+          vehicleModel: chat.vehicleModelLabel,
+          vehicleColor: chat.vehicleColorLabel,
         ),
       ),
     );
@@ -183,16 +262,34 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
     _refreshChatsAndRequests();
 
-    final chatId = acceptedChatId?.trim();
+    _refreshChatsAndRequests();
+  }
 
-    if (chatId == null || chatId.isEmpty) {
+  Future<void> _openLocalChat() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _ChatConversationScreen(initialMessages: _chatMessages),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    _refreshChatsAndRequests();
+  }
+
+  Future<void> _openAcceptedChat(String chatId) async {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
       return;
     }
 
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _ChatConversationScreen(
-          chatId: chatId,
+          chatId: trimmedChatId,
           initialMessages: const <_LocalChatMessage>[],
         ),
       ),
@@ -205,27 +302,107 @@ class _ChatsScreenState extends State<ChatsScreen> {
     _refreshChatsAndRequests();
   }
 
-  void _openOutgoingRequestsScreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ContactRequestListScreen(
-          userState: widget.userState,
-          mode: ContactRequestListMode.outgoing,
-        ),
-      ),
+  Future<void> _runRequestAction({
+    required ContactRequestRecord request,
+    required String successMessage,
+    required Future<void> Function() action,
+  }) async {
+    if (_busyRequestIds.contains(request.id)) {
+      return;
+    }
+
+    setState(() {
+      _busyRequestIds.add(request.id);
+    });
+
+    try {
+      await action();
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+      _refreshChatsAndRequests();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyRequestIds.remove(request.id);
+        });
+      }
+    }
+  }
+
+  Future<void> _acceptRequest(ContactRequestRecord request) async {
+    if (_busyRequestIds.contains(request.id)) {
+      return;
+    }
+
+    setState(() {
+      _busyRequestIds.add(request.id);
+    });
+
+    try {
+      final useCase = AcceptContactRequestUseCase(
+        contactRequestRepository: _requestRepository,
+        chatRepository: _chatRepository,
+      );
+
+      final result = await useCase(request: request);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kontaktanfrage wurde angenommen.')),
+      );
+      _refreshChatsAndRequests();
+      await _openAcceptedChat(result.chat.id);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyRequestIds.remove(request.id);
+        });
+      }
+    }
+  }
+
+  Future<void> _declineRequest(ContactRequestRecord request) {
+    return _runRequestAction(
+      request: request,
+      successMessage: 'Kontaktanfrage wurde abgelehnt.',
+      action: () async {
+        await _requestRepository.declineRequest(requestId: request.id);
+      },
     );
   }
 
-  void _openActiveChatsScreen({required List<ChatRecord> chats}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _ActiveChatsScreen(
-          chatStream: _chatStream,
-          initialChats: chats,
-          hasLocalActiveChat: _hasActiveChat,
-          messages: _chatMessages,
-        ),
-      ),
+  Future<void> _withdrawRequest(ContactRequestRecord request) {
+    return _runRequestAction(
+      request: request,
+      successMessage: 'Kontaktanfrage wurde zurückgezogen.',
+      action: () async {
+        await _requestRepository.withdrawRequest(requestId: request.id);
+      },
     );
   }
 
@@ -264,54 +441,51 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         selectedView: _selectedView,
                         onChanged: _selectView,
                       ),
+                      const SizedBox(height: 14),
+                      _ChatSearchField(controller: _searchController),
                       const SizedBox(height: 16),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        child: _selectedView == _ChatsView.chats
-                            ? StreamBuilder<List<ChatRecord>>(
-                                key: const ValueKey('chats_view'),
-                                stream: _chatStream,
-                                builder: (context, snapshot) {
-                                  final chats =
-                                      snapshot.data ?? const <ChatRecord>[];
-                                  final isLoading =
-                                      snapshot.connectionState ==
-                                      ConnectionState.waiting;
+                      GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onHorizontalDragEnd: _handleViewSwipe,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          child: _selectedView == _ChatsView.chats
+                              ? StreamBuilder<List<ChatRecord>>(
+                                  key: const ValueKey('chats_view'),
+                                  stream: _chatStream,
+                                  builder: (context, snapshot) {
+                                    final chats =
+                                        snapshot.data ?? const <ChatRecord>[];
+                                    final isLoading =
+                                        snapshot.connectionState ==
+                                        ConnectionState.waiting;
 
-                                  return _ChatsOverview(
-                                    chats: chats,
-                                    isLoading: isLoading,
-                                    hasLocalActiveChat: _hasActiveChat,
-                                    onOpenActiveChats: () =>
-                                        _openActiveChatsScreen(chats: chats),
-                                  );
-                                },
-                              )
-                            : FutureBuilder<_RequestCounts>(
-                                key: const ValueKey('requests_view'),
-                                future: _requestCountsFuture,
-                                builder: (context, snapshot) {
-                                  final counts =
-                                      snapshot.data ??
-                                      const _RequestCounts(
-                                        incoming: 0,
-                                        outgoing: 0,
-                                      );
-                                  final isLoading =
-                                      snapshot.connectionState ==
-                                      ConnectionState.waiting;
-
-                                  return _RequestsOverview(
-                                    incomingCount: counts.incoming,
-                                    outgoingCount: counts.outgoing,
-                                    isLoading: isLoading,
-                                    onOpenIncoming: _openIncomingRequestsScreen,
-                                    onOpenOutgoing: _openOutgoingRequestsScreen,
-                                  );
-                                },
-                              ),
+                                    return _ChatsOverview(
+                                      chats: chats,
+                                      isLoading: isLoading,
+                                      hasLocalActiveChat: _hasActiveChat,
+                                      localMessages: _chatMessages,
+                                      searchQuery: _searchQuery,
+                                      matchesChat: _matchesChatSearch,
+                                      onOpenChat: _openChat,
+                                      onOpenLocalChat: _openLocalChat,
+                                    );
+                                  },
+                                )
+                              : _RequestsOverview(
+                                  key: const ValueKey('requests_view'),
+                                  incomingStream: _incomingRequestStream,
+                                  outgoingStream: _outgoingRequestStream,
+                                  busyRequestIds: _busyRequestIds,
+                                  searchQuery: _searchQuery,
+                                  matchesRequest: _matchesRequestSearch,
+                                  onAccept: _acceptRequest,
+                                  onDecline: _declineRequest,
+                                  onWithdraw: _withdrawRequest,
+                                ),
+                        ),
                       ),
                     ],
                   ],
@@ -539,187 +713,639 @@ class _SegmentButton extends StatelessWidget {
   }
 }
 
+class _ChatSearchField extends StatelessWidget {
+  const _ChatSearchField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      textInputAction: TextInputAction.search,
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+      ),
+      decoration: InputDecoration(
+        hintText: 'Suchen',
+        hintStyle: TextStyle(
+          color: Colors.white.withValues(alpha: 0.48),
+          fontWeight: FontWeight.w800,
+        ),
+        prefixIcon: Icon(
+          Icons.search_rounded,
+          color: Colors.white.withValues(alpha: 0.58),
+        ),
+        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) {
+            if (value.text.isEmpty) {
+              return const SizedBox.shrink();
+            }
+
+            return IconButton(
+              onPressed: controller.clear,
+              icon: const Icon(Icons.close_rounded),
+              color: Colors.white70,
+              tooltip: 'Suche löschen',
+            );
+          },
+        ),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.08),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatsOverview extends StatelessWidget {
   const _ChatsOverview({
     required this.chats,
     required this.isLoading,
     required this.hasLocalActiveChat,
-    required this.onOpenActiveChats,
+    required this.localMessages,
+    required this.searchQuery,
+    required this.matchesChat,
+    required this.onOpenChat,
+    required this.onOpenLocalChat,
   });
 
   final List<ChatRecord> chats;
   final bool isLoading;
   final bool hasLocalActiveChat;
-  final VoidCallback onOpenActiveChats;
-
-  bool get _hasActiveChat {
-    return chats.isNotEmpty || hasLocalActiveChat;
-  }
-
-  String get _count {
-    if (isLoading) {
-      return '...';
-    }
-
-    if (chats.isNotEmpty) {
-      return chats.length.toString();
-    }
-
-    return hasLocalActiveChat ? '1' : '0';
-  }
+  final List<_LocalChatMessage> localMessages;
+  final String searchQuery;
+  final bool Function(ChatRecord chat) matchesChat;
+  final ValueChanged<ChatRecord> onOpenChat;
+  final VoidCallback onOpenLocalChat;
 
   @override
   Widget build(BuildContext context) {
-    return _OverviewCard(
-      icon: Icons.forum_rounded,
-      title: 'Aktive Chats',
-      count: _count,
-      onTap: _hasActiveChat ? onOpenActiveChats : () {},
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final visibleChats = chats.where(matchesChat).toList();
+    final showLocalChat =
+        hasLocalActiveChat &&
+        (searchQuery.trim().isEmpty ||
+            'carma nutzer bmw 1er schwarz ${localMessages.map((message) => message.text).join(' ')}'
+                .toLowerCase()
+                .contains(searchQuery.trim().toLowerCase()));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ChatStoriesStrip(chats: visibleChats),
+        const SizedBox(height: 20),
+        _SectionHeader(
+          title: 'Nachrichten',
+          trailing: isLoading ? '...' : '${visibleChats.length}',
+        ),
+        const SizedBox(height: 12),
+        if (isLoading)
+          const _InlineLoadingRow(label: 'Chats werden geladen...')
+        else if (visibleChats.isEmpty && !showLocalChat)
+          const _EmptyListCard(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Keine Chats',
+          )
+        else
+          Column(
+            children: [
+              for (final chat in visibleChats) ...[
+                _ActiveChatListTile(
+                  title: chat.displayNameFor(currentUserId),
+                  subtitle: chat.lastMessage?.trim().isNotEmpty == true
+                      ? chat.lastMessage!.trim()
+                      : chat.vehicleTitle,
+                  isFavorite: chat.isFavoriteFor(currentUserId),
+                  isMuted: chat.isMutedFor(currentUserId),
+                  isUnread: chat.hasUnreadFor(currentUserId),
+                  trailing: _ChatOverflowMenu(
+                    chatId: chat.id,
+                    title: chat.displayNameFor(currentUserId),
+                    subtitle: chat.vehicleTitle,
+                    isFavorite: chat.isFavoriteFor(currentUserId),
+                    isMuted: chat.isMutedFor(currentUserId),
+                    popAfterStatusAction: false,
+                  ),
+                  onTap: () => onOpenChat(chat),
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (showLocalChat)
+                _ActiveChatListTile(
+                  title: 'Carma Nutzer',
+                  subtitle: localMessages.isNotEmpty
+                      ? localMessages.last.text
+                      : 'BMW 1er · Schwarz',
+                  trailing: const _ChatOverflowMenu(
+                    title: 'Carma Nutzer',
+                    subtitle: 'BMW 1er · Schwarz',
+                    popAfterStatusAction: false,
+                  ),
+                  onTap: onOpenLocalChat,
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
 
 class _RequestsOverview extends StatelessWidget {
   const _RequestsOverview({
-    required this.incomingCount,
-    required this.outgoingCount,
-    required this.isLoading,
-    required this.onOpenIncoming,
-    required this.onOpenOutgoing,
+    required this.incomingStream,
+    required this.outgoingStream,
+    required this.busyRequestIds,
+    required this.searchQuery,
+    required this.matchesRequest,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onWithdraw,
+    super.key,
   });
 
-  final int incomingCount;
-  final int outgoingCount;
-  final bool isLoading;
-  final VoidCallback onOpenIncoming;
-  final VoidCallback onOpenOutgoing;
-
-  String get _incomingCountLabel {
-    return isLoading ? '...' : incomingCount.toString();
-  }
-
-  String get _outgoingCountLabel {
-    return isLoading ? '...' : outgoingCount.toString();
-  }
+  final Stream<List<ContactRequestRecord>> incomingStream;
+  final Stream<List<ContactRequestRecord>> outgoingStream;
+  final Set<String> busyRequestIds;
+  final String searchQuery;
+  final bool Function(ContactRequestRecord request) matchesRequest;
+  final ValueChanged<ContactRequestRecord> onAccept;
+  final ValueChanged<ContactRequestRecord> onDecline;
+  final ValueChanged<ContactRequestRecord> onWithdraw;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return StreamBuilder<List<ContactRequestRecord>>(
+      stream: incomingStream,
+      builder: (context, incomingSnapshot) {
+        return StreamBuilder<List<ContactRequestRecord>>(
+          stream: outgoingStream,
+          builder: (context, outgoingSnapshot) {
+            final incoming =
+                (incomingSnapshot.data ?? const <ContactRequestRecord>[])
+                    .where(matchesRequest)
+                    .toList();
+            final outgoing =
+                (outgoingSnapshot.data ?? const <ContactRequestRecord>[])
+                    .where(matchesRequest)
+                    .toList();
+            final isLoading =
+                incomingSnapshot.connectionState == ConnectionState.waiting ||
+                outgoingSnapshot.connectionState == ConnectionState.waiting;
+            final error = incomingSnapshot.error ?? outgoingSnapshot.error;
+
+            if (error != null) {
+              return _InlineErrorCard(message: error.toString());
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionHeader(
+                  title: 'Eingehende Anfragen',
+                  trailing: isLoading ? '...' : '${incoming.length}',
+                ),
+                const SizedBox(height: 12),
+                if (isLoading)
+                  const _InlineLoadingRow(label: 'Anfragen werden geladen...')
+                else if (incoming.isEmpty)
+                  const _EmptyListCard(
+                    icon: Icons.mark_email_unread_outlined,
+                    title: 'Keine eingehenden Anfragen',
+                  )
+                else
+                  _InlineRequestList(
+                    requests: incoming,
+                    isIncoming: true,
+                    busyRequestIds: busyRequestIds,
+                    onAccept: onAccept,
+                    onDecline: onDecline,
+                    onWithdraw: onWithdraw,
+                  ),
+                const SizedBox(height: 20),
+                _SectionHeader(
+                  title: 'Gesendete Anfragen',
+                  trailing: isLoading ? '...' : '${outgoing.length}',
+                ),
+                const SizedBox(height: 12),
+                if (isLoading)
+                  const _InlineLoadingRow(label: 'Anfragen werden geladen...')
+                else if (outgoing.isEmpty)
+                  const _EmptyListCard(
+                    icon: Icons.schedule_send_outlined,
+                    title: 'Keine gesendeten Anfragen',
+                  )
+                else
+                  _InlineRequestList(
+                    requests: outgoing,
+                    isIncoming: false,
+                    busyRequestIds: busyRequestIds,
+                    onAccept: onAccept,
+                    onDecline: onDecline,
+                    onWithdraw: onWithdraw,
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.trailing});
+
+  final String title;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        _OverviewCard(
-          icon: Icons.move_to_inbox_rounded,
-          title: 'Eingehende Anfragen',
-          count: _incomingCountLabel,
-          onTap: onOpenIncoming,
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
+            ),
+          ),
         ),
-        const SizedBox(height: 14),
-        _OverviewCard(
-          icon: Icons.outbox_rounded,
-          title: 'Gesendete Anfragen',
-          count: _outgoingCountLabel,
-          onTap: onOpenOutgoing,
-        ),
+        if (trailing != null)
+          Text(
+            trailing!,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
       ],
     );
   }
 }
 
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({
-    required this.icon,
-    required this.title,
-    required this.count,
-    required this.onTap,
+class _ChatStoriesStrip extends StatelessWidget {
+  const _ChatStoriesStrip({required this.chats});
+
+  final List<ChatRecord> chats;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final storyChats = chats.take(12).toList();
+
+    return SizedBox(
+      height: 106,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: storyChats.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return const _StoryBubble(
+              label: 'Deine Story',
+              imageUrl: null,
+              isOwnStory: true,
+            );
+          }
+
+          final chat = storyChats[index - 1];
+          return _StoryBubble(
+            label: chat.displayNameFor(currentUserId),
+            imageUrl: null,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StoryBubble extends StatelessWidget {
+  const _StoryBubble({
+    required this.label,
+    this.imageUrl,
+    this.isOwnStory = false,
   });
 
-  final IconData icon;
-  final String title;
-  final String count;
-  final VoidCallback onTap;
+  final String label;
+  final String? imageUrl;
+  final bool isOwnStory;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 78,
+      child: Column(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 66,
+                height: 66,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_carmaBlueDark, _carmaBlueLight],
+                  ),
+                ),
+                child: _AvatarCircle(
+                  size: 62,
+                  imageUrl: imageUrl,
+                  iconSize: 34,
+                ),
+              ),
+              if (isOwnStory)
+                Positioned(
+                  right: -2,
+                  bottom: -1,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _carmaBlue,
+                      border: Border.all(
+                        color: const Color(0xFF101827),
+                        width: 3,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineLoadingRow extends StatelessWidget {
+  const _InlineLoadingRow({required this.label});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: EdgeInsets.zero,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(28),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CarmaBlueIconBox(icon: icon, size: 48, iconSize: 24),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 19,
-                              letterSpacing: -0.2,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    _CountBadge(count: count),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.white.withValues(alpha: 0.72),
-                      size: 26,
-                    ),
-                  ],
-                ),
-              ],
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.76),
+              fontWeight: FontWeight.w800,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineErrorCard extends StatelessWidget {
+  const _InlineErrorCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Colors.white.withValues(alpha: 0.76),
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
   }
 }
 
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
+class _InlineRequestList extends StatelessWidget {
+  const _InlineRequestList({
+    required this.requests,
+    required this.isIncoming,
+    required this.busyRequestIds,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onWithdraw,
+  });
 
-  final String count;
+  final List<ContactRequestRecord> requests;
+  final bool isIncoming;
+  final Set<String> busyRequestIds;
+  final ValueChanged<ContactRequestRecord> onAccept;
+  final ValueChanged<ContactRequestRecord> onDecline;
+  final ValueChanged<ContactRequestRecord> onWithdraw;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 42,
-      height: 42,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_carmaBlueDark, _carmaBlueLight],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _carmaBlue.withValues(alpha: 0.24),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+    return Column(
+      children: [
+        for (final request in requests) ...[
+          _InlineRequestTile(
+            request: request,
+            isIncoming: isIncoming,
+            isBusy: busyRequestIds.contains(request.id),
+            onAccept: () => onAccept(request),
+            onDecline: () => onDecline(request),
+            onWithdraw: () => onWithdraw(request),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _InlineRequestTile extends StatelessWidget {
+  const _InlineRequestTile({
+    required this.request,
+    required this.isIncoming,
+    required this.isBusy,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onWithdraw,
+  });
+
+  final ContactRequestRecord request;
+  final bool isIncoming;
+  final bool isBusy;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  final VoidCallback onWithdraw;
+
+  String get _title {
+    return request.vehicleTitle;
+  }
+
+  String get _subtitle {
+    final plate = request.displayPlate?.trim();
+    return plate == null || plate.isEmpty ? request.plateKey : plate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CarmaBlueIconBox(
+            icon: isIncoming
+                ? Icons.mark_email_unread_rounded
+                : Icons.schedule_send_rounded,
+            size: 48,
+            iconSize: 24,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.66),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: isIncoming
+                      ? [
+                          _InlineRequestButton(
+                            label: 'Annehmen',
+                            icon: Icons.check_rounded,
+                            isBusy: isBusy,
+                            isPrimary: true,
+                            onPressed: onAccept,
+                          ),
+                          _InlineRequestButton(
+                            label: 'Ablehnen',
+                            icon: Icons.close_rounded,
+                            isBusy: isBusy,
+                            isPrimary: false,
+                            onPressed: onDecline,
+                          ),
+                        ]
+                      : [
+                          _InlineRequestButton(
+                            label: 'Zurückziehen',
+                            icon: Icons.undo_rounded,
+                            isBusy: isBusy,
+                            isPrimary: false,
+                            onPressed: onWithdraw,
+                          ),
+                        ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      child: Text(
-        count,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: 19,
-        ),
+    );
+  }
+}
+
+class _InlineRequestButton extends StatelessWidget {
+  const _InlineRequestButton({
+    required this.label,
+    required this.icon,
+    required this.isBusy,
+    required this.isPrimary,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isBusy;
+  final bool isPrimary;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isBusy)
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          Icon(icon, size: 18),
+        const SizedBox(width: 8),
+        Text(label),
+      ],
+    );
+
+    if (isPrimary) {
+      return FilledButton(onPressed: isBusy ? null : onPressed, child: child);
+    }
+
+    return OutlinedButton(
+      onPressed: isBusy ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
       ),
+      child: child,
     );
   }
 }
@@ -1182,6 +1808,7 @@ class _ChatOverflowMenu extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ActiveChatsScreen extends StatelessWidget {
   const _ActiveChatsScreen({
     required this.chatStream,
@@ -1377,7 +2004,7 @@ class _ActiveChatListTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
-                        const _UserAvatarPlaceholder(size: 56),
+                        const _UserAvatarPlaceholder(size: 56, imageUrl: null),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
@@ -1501,9 +2128,10 @@ class _EmptyListCard extends StatelessWidget {
 }
 
 class _UserAvatarPlaceholder extends StatelessWidget {
-  const _UserAvatarPlaceholder({required this.size});
+  const _UserAvatarPlaceholder({required this.size, this.imageUrl});
 
   final double size;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -1519,7 +2147,57 @@ class _UserAvatarPlaceholder extends StatelessWidget {
         ),
         border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
       ),
-      child: Icon(Icons.person_rounded, color: Colors.white, size: size * 0.56),
+      child: _AvatarCircle(
+        size: size,
+        imageUrl: imageUrl,
+        iconSize: size * 0.56,
+      ),
+    );
+  }
+}
+
+class _AvatarCircle extends StatelessWidget {
+  const _AvatarCircle({
+    required this.size,
+    required this.iconSize,
+    this.imageUrl,
+  });
+
+  final double size;
+  final double iconSize;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl?.trim();
+    final hasImage = url != null && url.isNotEmpty;
+
+    return ClipOval(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: hasImage
+            ? Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _AvatarFallbackIcon(size: iconSize),
+              )
+            : _AvatarFallbackIcon(size: iconSize),
+      ),
+    );
+  }
+}
+
+class _AvatarFallbackIcon extends StatelessWidget {
+  const _AvatarFallbackIcon({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.transparent,
+      child: Icon(Icons.person_rounded, color: Colors.white, size: size),
     );
   }
 }
@@ -2198,7 +2876,7 @@ class _CompactChatInfoCard extends StatelessWidget {
             children: [
               _RoundIconButton(icon: Icons.arrow_back_rounded, onTap: onBack),
               const SizedBox(width: 12),
-              const _UserAvatarPlaceholder(size: 46),
+              const _UserAvatarPlaceholder(size: 46, imageUrl: null),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
