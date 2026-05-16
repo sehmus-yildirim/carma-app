@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
 import '../../../shared/models/carma_models.dart';
@@ -3133,6 +3134,108 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     );
   }
 
+  Future<Position> _resolveCurrentPosition() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+    if (!serviceEnabled) {
+      throw StateError('Standortdienste sind deaktiviert.');
+    }
+
+    var permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      throw StateError('Standortberechtigung wurde verweigert.');
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw StateError(
+        'Standortberechtigung wurde dauerhaft verweigert. Bitte in den App-Einstellungen erlauben.',
+      );
+    }
+
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    );
+  }
+
+  Future<void> _handleShareLocation() async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    setState(() {
+      _isSendingMessage = true;
+    });
+
+    try {
+      final position = await _resolveCurrentPosition();
+      final latitude = position.latitude.toStringAsFixed(6);
+      final longitude = position.longitude.toStringAsFixed(6);
+      final message =
+          'Mein Standort: https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+      final chatId = widget.chatId?.trim();
+
+      if (chatId == null || chatId.isEmpty) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _messages = [
+            ..._messages,
+            _LocalChatMessage(
+              text: message,
+              isMine: true,
+              timeLabel: 'Jetzt',
+              createdAt: DateTime.now(),
+              isReadByOther: false,
+            ),
+          ];
+          _isSendingMessage = false;
+        });
+        return;
+      }
+
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+      if (currentUserId == null || currentUserId.isEmpty) {
+        throw StateError('Du musst angemeldet sein, um Standort zu senden.');
+      }
+
+      await _chatRepository.sendTextMessage(
+        chatId: chatId,
+        senderUserId: currentUserId,
+        text: message,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Standort konnte nicht gesendet werden: $error'),
+        ),
+      );
+    }
+  }
+
   Future<void> _handleStarMessage(_LocalChatMessage message) async {
     final chatId = widget.chatId?.trim();
     final messageId = message.messageId?.trim();
@@ -3411,6 +3514,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 controller: _messageController,
                 hasText: _hasText,
                 onAttach: _handleAttach,
+                onShareLocation: _handleShareLocation,
                 onSend: _handleSend,
               ),
             ],
@@ -4140,12 +4244,14 @@ class _MessageComposer extends StatelessWidget {
     required this.controller,
     required this.hasText,
     required this.onAttach,
+    required this.onShareLocation,
     required this.onSend,
   });
 
   final TextEditingController controller;
   final bool hasText;
   final VoidCallback onAttach;
+  final VoidCallback onShareLocation;
   final VoidCallback onSend;
 
   void _showComposerMessage(BuildContext context, String message) {
@@ -4217,10 +4323,7 @@ class _MessageComposer extends StatelessWidget {
                       label: 'Standort',
                       onTap: () {
                         Navigator.of(context).pop();
-                        _showComposerMessage(
-                          context,
-                          'Standort senden verbinden wir im n\u00E4chsten Schritt.',
-                        );
+                        onShareLocation();
                       },
                     ),
                     _AttachmentSheetAction(
