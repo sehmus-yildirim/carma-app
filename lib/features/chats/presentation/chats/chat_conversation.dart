@@ -39,12 +39,16 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _isOtherUserTyping = false;
   bool _isCurrentUserTyping = false;
   bool _forceScrollToBottomOnNextMessages = false;
+  int _voiceMemoRecordingSeconds = 0;
   _LocalChatMessage? _replyingToMessage;
+  String? _playingAudioMessageKey;
   DateTime? _lastTypingWriteAt;
   DateTime? _otherLastReadAt;
   DateTime? _keepLatestMessageVisibleUntil;
   double _lastKeyboardInset = 0;
   Timer? _typingStopTimer;
+  Timer? _voiceMemoRecordingTimer;
+  Timer? _audioPlaybackStopTimer;
   StreamSubscription<bool>? _typingSubscription;
   StreamSubscription<DateTime?>? _readReceiptSubscription;
   StreamSubscription<List<ChatMessageRecord>>? _messagesSubscription;
@@ -74,7 +78,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     if (_isRecordingVoiceMemo) {
       unawaited(_nativeBridge.cancelVoiceMemo());
     }
+    unawaited(_nativeBridge.stopVoiceMemoPlayback());
     _typingStopTimer?.cancel();
+    _voiceMemoRecordingTimer?.cancel();
+    _audioPlaybackStopTimer?.cancel();
     _typingSubscription?.cancel();
     _readReceiptSubscription?.cancel();
     _messagesSubscription?.cancel();
@@ -90,7 +97,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
 
     final position = _messageScrollController.position;
-    return position.maxScrollExtent - position.pixels <= 180;
+    return position.pixels - position.minScrollExtent <= 180;
   }
 
   bool get _shouldKeepLatestMessageVisible {
@@ -118,7 +125,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
-    final target = _messageScrollController.position.maxScrollExtent;
+    final target = _messageScrollController.position.minScrollExtent;
 
     if (animated) {
       _messageScrollController.animateTo(
@@ -402,6 +409,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                   fileName: record.fileName,
                   fileContentType: record.fileContentType,
                   fileSizeBytes: record.fileSizeBytes,
+                  fileDurationMs: record.fileDurationMs,
                   isReadByOther: _isMineMessageReadByOther(
                     isMine: isMine,
                     createdAt: record.createdAt,
@@ -700,11 +708,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
         setState(() {
           _isRecordingVoiceMemo = true;
+          _voiceMemoRecordingSeconds = 0;
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sprachmemo l\u00E4uft...')),
-        );
+        _startVoiceMemoRecordingTimer();
       } catch (error) {
         if (!mounted) {
           return;
@@ -727,7 +733,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       setState(() {
         _isRecordingVoiceMemo = false;
+        _voiceMemoRecordingSeconds = 0;
       });
+      _voiceMemoRecordingTimer?.cancel();
 
       await _sendVoiceMemoAttachment(voiceMemo);
     } catch (error) {
@@ -737,7 +745,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       setState(() {
         _isRecordingVoiceMemo = false;
+        _voiceMemoRecordingSeconds = 0;
       });
+      _voiceMemoRecordingTimer?.cancel();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -745,6 +755,19 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         ),
       );
     }
+  }
+
+  void _startVoiceMemoRecordingTimer() {
+    _voiceMemoRecordingTimer?.cancel();
+    _voiceMemoRecordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_isRecordingVoiceMemo) {
+        return;
+      }
+
+      setState(() {
+        _voiceMemoRecordingSeconds += 1;
+      });
+    });
   }
 
   Future<void> _sendVoiceMemoAttachment(PickedVoiceMemoFile voiceMemo) async {
@@ -780,6 +803,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
               fileName: voiceMemo.name,
               fileContentType: voiceMemo.contentType,
               fileSizeBytes: voiceMemo.sizeBytes,
+              fileDurationMs: voiceMemo.durationMs,
               isReadByOther: false,
             ),
           ];
@@ -814,6 +838,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         fileName: upload.fileName,
         fileContentType: upload.contentType,
         fileSizeBytes: upload.fileSizeBytes,
+        fileDurationMs: voiceMemo.durationMs,
       );
 
       if (!mounted) {
@@ -1032,6 +1057,81 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Dokument konnte nicht ge\u00F6ffnet werden: $error'),
+        ),
+      );
+    }
+  }
+
+  String _audioMessageKey(_LocalChatMessage message) {
+    final messageId = message.messageId?.trim();
+
+    if (messageId != null && messageId.isNotEmpty) {
+      return messageId;
+    }
+
+    return message.fileUrl?.trim() ?? '';
+  }
+
+  Future<void> _handleToggleAudioMessage(_LocalChatMessage message) async {
+    final fileUrl = message.fileUrl?.trim() ?? '';
+
+    if (fileUrl.isEmpty) {
+      return;
+    }
+
+    final messageKey = _audioMessageKey(message);
+
+    try {
+      if (_playingAudioMessageKey == messageKey) {
+        await _nativeBridge.stopVoiceMemoPlayback();
+        _audioPlaybackStopTimer?.cancel();
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _playingAudioMessageKey = null;
+        });
+        return;
+      }
+
+      await _nativeBridge.playVoiceMemo(url: fileUrl);
+      _audioPlaybackStopTimer?.cancel();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _playingAudioMessageKey = messageKey;
+      });
+
+      final durationMs = message.fileDurationMs ?? 0;
+      if (durationMs > 0) {
+        _audioPlaybackStopTimer = Timer(
+          Duration(milliseconds: durationMs + 500),
+          () {
+            if (!mounted || _playingAudioMessageKey != messageKey) {
+              return;
+            }
+
+            setState(() {
+              _playingAudioMessageKey = null;
+            });
+          },
+        );
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sprachnachricht konnte nicht abgespielt werden: $error',
+          ),
         ),
       );
     }
@@ -1293,43 +1393,44 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: SingleChildScrollView(
-                  controller: _messageScrollController,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.manual,
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-                  child: NotificationListener<SizeChangedLayoutNotification>(
-                    onNotification: _handleMessageListSizeChanged,
-                    child: SizeChangedLayoutNotifier(
-                      child: Column(
-                        children: [
-                          if (_isLoadingMessages)
-                            const _ChatLoadingSpace()
-                          else if (_messages.isEmpty)
-                            const _ChatEmptySpace()
-                          else
-                            _ChatMessageList(
-                              messages: _messages,
-                              onDeleteMessage: _handleDeleteMessage,
-                              onReplyMessage: _handleReplyMessage,
-                              onStarMessage: _handleStarMessage,
-                              onReactMessage: _handleReactMessage,
-                              onOpenLocation: _handleOpenLocation,
-                              onOpenDocument: _handleOpenDocument,
-                            ),
-                          if (_replyingToMessage != null)
-                            _ReplyPreview(
-                              message: _replyingToMessage!,
-                              onClear: _clearReplyMessage,
-                            ),
-                          if (_isOtherUserTyping)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 4),
-                              child: _TypingIndicatorBubble(),
-                            ),
-                          SizedBox(key: _messageListEndKey, height: 1),
-                        ],
-                      ),
+                child: NotificationListener<SizeChangedLayoutNotification>(
+                  onNotification: _handleMessageListSizeChanged,
+                  child: SizeChangedLayoutNotifier(
+                    child: ListView(
+                      controller: _messageScrollController,
+                      reverse: true,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.manual,
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                      children: [
+                        SizedBox(key: _messageListEndKey, height: 1),
+                        if (_isOtherUserTyping)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: _TypingIndicatorBubble(),
+                          ),
+                        if (_replyingToMessage != null)
+                          _ReplyPreview(
+                            message: _replyingToMessage!,
+                            onClear: _clearReplyMessage,
+                          ),
+                        if (_isLoadingMessages)
+                          const _ChatLoadingSpace()
+                        else if (_messages.isEmpty)
+                          const _ChatEmptySpace()
+                        else
+                          _ChatMessageList(
+                            messages: _messages,
+                            playingAudioMessageKey: _playingAudioMessageKey,
+                            onDeleteMessage: _handleDeleteMessage,
+                            onReplyMessage: _handleReplyMessage,
+                            onStarMessage: _handleStarMessage,
+                            onReactMessage: _handleReactMessage,
+                            onOpenLocation: _handleOpenLocation,
+                            onOpenDocument: _handleOpenDocument,
+                            onToggleAudioMessage: _handleToggleAudioMessage,
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -1345,6 +1446,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 onSend: _handleSend,
                 onVoiceMemo: _handleVoiceMemo,
                 isRecordingVoiceMemo: _isRecordingVoiceMemo,
+                voiceMemoRecordingSeconds: _voiceMemoRecordingSeconds,
                 onTextInputFocus: _scheduleScrollToBottomAfterKeyboard,
               ),
             ],

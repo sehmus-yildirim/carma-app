@@ -3,15 +3,18 @@ part of '../chats_screen.dart';
 class _ChatMessageList extends StatelessWidget {
   const _ChatMessageList({
     required this.messages,
+    required this.playingAudioMessageKey,
     required this.onDeleteMessage,
     required this.onReplyMessage,
     required this.onStarMessage,
     required this.onReactMessage,
     required this.onOpenLocation,
     required this.onOpenDocument,
+    required this.onToggleAudioMessage,
   });
 
   final List<_LocalChatMessage> messages;
+  final String? playingAudioMessageKey;
   final ValueChanged<_LocalChatMessage> onDeleteMessage;
 
   final ValueChanged<_LocalChatMessage> onReplyMessage;
@@ -20,6 +23,17 @@ class _ChatMessageList extends StatelessWidget {
   onReactMessage;
   final ValueChanged<_LocationPayload> onOpenLocation;
   final ValueChanged<_LocalChatMessage> onOpenDocument;
+  final ValueChanged<_LocalChatMessage> onToggleAudioMessage;
+
+  String _audioMessageKey(_LocalChatMessage message) {
+    final messageId = message.messageId?.trim();
+
+    if (messageId != null && messageId.isNotEmpty) {
+      return messageId;
+    }
+
+    return message.fileUrl?.trim() ?? '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +49,10 @@ class _ChatMessageList extends StatelessWidget {
             onReactMessage: onReactMessage,
             onOpenLocation: onOpenLocation,
             onOpenDocument: onOpenDocument,
+            onToggleAudioMessage: onToggleAudioMessage,
+            isAudioPlaying:
+                playingAudioMessageKey != null &&
+                playingAudioMessageKey == _audioMessageKey(message),
           ),
         );
       }).toList(),
@@ -51,6 +69,8 @@ class _ChatMessageBubble extends StatelessWidget {
     required this.onReactMessage,
     required this.onOpenLocation,
     required this.onOpenDocument,
+    required this.onToggleAudioMessage,
+    required this.isAudioPlaying,
   });
 
   final _LocalChatMessage message;
@@ -62,6 +82,8 @@ class _ChatMessageBubble extends StatelessWidget {
   onReactMessage;
   final ValueChanged<_LocationPayload> onOpenLocation;
   final ValueChanged<_LocalChatMessage> onOpenDocument;
+  final ValueChanged<_LocalChatMessage> onToggleAudioMessage;
+  final bool isAudioPlaying;
 
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
@@ -281,6 +303,13 @@ class _ChatMessageBubble extends StatelessWidget {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+  String _formatDuration(int? durationMs) {
+    final duration = Duration(milliseconds: durationMs ?? 0);
+    final minutes = duration.inMinutes.toString();
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
   Widget _buildDocumentCard(BuildContext context) {
     final fileName = message.fileName?.trim() ?? 'Dokument';
     final fileSize = _formatFileSize(message.fileSizeBytes);
@@ -350,11 +379,11 @@ class _ChatMessageBubble extends StatelessWidget {
   }
 
   Widget _buildAudioCard(BuildContext context) {
-    final fileSize = _formatFileSize(message.fileSizeBytes);
+    final durationLabel = _formatDuration(message.fileDurationMs);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => onOpenDocument(message),
+      onTap: () => onToggleAudioMessage(message),
       child: Container(
         width: 238,
         padding: const EdgeInsets.all(13),
@@ -376,8 +405,8 @@ class _ChatMessageBubble extends StatelessWidget {
                   colors: [_myMessageBlue, _myMessageBlueLight],
                 ),
               ),
-              child: const Icon(
-                Icons.play_arrow_rounded,
+              child: Icon(
+                isAudioPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 color: Colors.white,
                 size: 29,
               ),
@@ -398,7 +427,7 @@ class _ChatMessageBubble extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    fileSize,
+                    durationLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(

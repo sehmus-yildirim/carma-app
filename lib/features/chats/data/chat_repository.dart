@@ -319,6 +319,7 @@ class ChatMessageRecord {
     this.fileName,
     this.fileContentType,
     this.fileSizeBytes,
+    this.fileDurationMs,
     this.reactionBy = const <String, String>{},
   });
 
@@ -340,6 +341,7 @@ class ChatMessageRecord {
   final String? fileName;
   final String? fileContentType;
   final int? fileSizeBytes;
+  final int? fileDurationMs;
   final Map<String, String> reactionBy;
 
   bool get isSystem {
@@ -365,6 +367,7 @@ class ChatMessageRecord {
     String? fileName,
     String? fileContentType,
     int? fileSizeBytes,
+    int? fileDurationMs,
     Map<String, String>? reactionBy,
   }) {
     return ChatMessageRecord(
@@ -386,6 +389,7 @@ class ChatMessageRecord {
       fileName: fileName ?? this.fileName,
       fileContentType: fileContentType ?? this.fileContentType,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      fileDurationMs: fileDurationMs ?? this.fileDurationMs,
       reactionBy: reactionBy ?? this.reactionBy,
     );
   }
@@ -458,6 +462,7 @@ abstract class ChatRepository {
     required String filePath,
     required String fileName,
     required int fileSizeBytes,
+    required int fileDurationMs,
     String? fileContentType,
   });
 
@@ -1109,6 +1114,7 @@ class FirestoreChatRepository implements ChatRepository {
     required String filePath,
     required String fileName,
     required int fileSizeBytes,
+    required int fileDurationMs,
     String? fileContentType,
   }) async {
     final trimmedFileUrl = fileUrl.trim();
@@ -1124,6 +1130,10 @@ class FirestoreChatRepository implements ChatRepository {
 
     if (fileSizeBytes <= 0) {
       throw ArgumentError('Audio size must be greater than zero.');
+    }
+
+    if (fileDurationMs < 0) {
+      throw ArgumentError('Audio duration must not be negative.');
     }
 
     final now = DateTime.now();
@@ -1146,6 +1156,7 @@ class FirestoreChatRepository implements ChatRepository {
             ? 'audio/mp4'
             : trimmedContentType,
         'fileSizeBytes': fileSizeBytes,
+        'fileDurationMs': fileDurationMs,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
         'isDeleted': false,
@@ -1557,6 +1568,7 @@ class FirestoreChatRepository implements ChatRepository {
       fileName: data['fileName'] as String?,
       fileContentType: data['fileContentType'] as String?,
       fileSizeBytes: _intFromValue(data['fileSizeBytes']),
+      fileDurationMs: _intFromValue(data['fileDurationMs']),
       reactionBy: _stringMapFromValue(data['reactionBy']),
     );
   }
@@ -1953,6 +1965,7 @@ class LocalChatRepository implements ChatRepository {
     required String filePath,
     required String fileName,
     required int fileSizeBytes,
+    required int fileDurationMs,
     String? fileContentType,
   }) async {
     final now = DateTime.now();
@@ -1970,6 +1983,7 @@ class LocalChatRepository implements ChatRepository {
       fileName: fileName.trim(),
       fileContentType: fileContentType?.trim(),
       fileSizeBytes: fileSizeBytes,
+      fileDurationMs: fileDurationMs,
       createdAt: now,
       updatedAt: now,
     );

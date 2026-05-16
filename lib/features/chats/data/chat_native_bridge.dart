@@ -152,4 +152,14 @@ class ChatNativeBridge {
   Future<void> cancelVoiceMemo() async {
     await _channel.invokeMethod<void>('cancelVoiceMemo');
   }
+
+  Future<void> playVoiceMemo({required String url}) async {
+    await _channel.invokeMethod<void>('playVoiceMemo', <String, Object>{
+      'url': url,
+    });
+  }
+
+  Future<void> stopVoiceMemoPlayback() async {
+    await _channel.invokeMethod<void>('stopVoiceMemoPlayback');
+  }
 }

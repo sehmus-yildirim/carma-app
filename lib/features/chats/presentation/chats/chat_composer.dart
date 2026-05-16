@@ -12,6 +12,7 @@ class _MessageComposer extends StatelessWidget {
     required this.onSend,
     required this.onVoiceMemo,
     required this.isRecordingVoiceMemo,
+    required this.voiceMemoRecordingSeconds,
     required this.onTextInputFocus,
   });
 
@@ -25,7 +26,14 @@ class _MessageComposer extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onVoiceMemo;
   final bool isRecordingVoiceMemo;
+  final int voiceMemoRecordingSeconds;
   final VoidCallback onTextInputFocus;
+
+  String _formatRecordingDuration() {
+    final minutes = (voiceMemoRecordingSeconds ~/ 60).toString();
+    final seconds = (voiceMemoRecordingSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
 
   Future<void> _openAttachmentSheet(BuildContext context) async {
     await showModalBottomSheet<void>(
@@ -148,9 +156,13 @@ class _MessageComposer extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Nachricht schreiben',
+                  hintText: isRecordingVoiceMemo
+                      ? 'Aufnahme ${_formatRecordingDuration()}'
+                      : 'Nachricht schreiben',
                   hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.48),
+                    color: isRecordingVoiceMemo
+                        ? const Color(0xFFFF8A9A)
+                        : Colors.white.withValues(alpha: 0.48),
                     fontWeight: FontWeight.w700,
                   ),
                   filled: true,

@@ -18,6 +18,7 @@ class _LocalChatMessage {
     this.fileName,
     this.fileContentType,
     this.fileSizeBytes,
+    this.fileDurationMs,
     this.reactionBy = const <String, String>{},
   });
 
@@ -37,6 +38,7 @@ class _LocalChatMessage {
   final String? fileName;
   final String? fileContentType;
   final int? fileSizeBytes;
+  final int? fileDurationMs;
   final Map<String, String> reactionBy;
 
   bool get isImage {
@@ -78,6 +80,7 @@ class _LocalChatMessage {
     String? fileName,
     String? fileContentType,
     int? fileSizeBytes,
+    int? fileDurationMs,
     Map<String, String>? reactionBy,
   }) {
     return _LocalChatMessage(
@@ -97,6 +100,7 @@ class _LocalChatMessage {
       fileName: fileName ?? this.fileName,
       fileContentType: fileContentType ?? this.fileContentType,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
+      fileDurationMs: fileDurationMs ?? this.fileDurationMs,
       reactionBy: reactionBy ?? this.reactionBy,
     );
   }

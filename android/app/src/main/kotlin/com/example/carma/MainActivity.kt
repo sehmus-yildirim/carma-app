@@ -5,7 +5,9 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.media.AudioAttributes
 import android.media.MediaRecorder
+import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.OpenableColumns
@@ -28,6 +30,7 @@ class MainActivity : FlutterActivity() {
     private var voiceMemoRecorder: MediaRecorder? = null
     private var voiceMemoFile: File? = null
     private var voiceMemoStartedAt: Long = 0L
+    private var voiceMemoPlayer: MediaPlayer? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -42,6 +45,8 @@ class MainActivity : FlutterActivity() {
                     "startVoiceMemo" -> startVoiceMemo(result)
                     "stopVoiceMemo" -> stopVoiceMemo(result)
                     "cancelVoiceMemo" -> cancelVoiceMemo(result)
+                    "playVoiceMemo" -> playVoiceMemo(call.argument<String>("url"), result)
+                    "stopVoiceMemoPlayback" -> stopVoiceMemoPlayback(result)
                     else -> result.notImplemented()
                 }
             }
@@ -247,6 +252,63 @@ class MainActivity : FlutterActivity() {
             voiceMemoFile = null
             voiceMemoStartedAt = 0L
         }
+    }
+
+    private fun playVoiceMemo(url: String?, result: MethodChannel.Result) {
+        if (url.isNullOrBlank()) {
+            result.error("invalid_voice_memo_url", "Voice memo URL is required.", null)
+            return
+        }
+
+        stopVoiceMemoPlayer()
+
+        try {
+            val player = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
+                setDataSource(url)
+                setOnCompletionListener {
+                    stopVoiceMemoPlayer()
+                }
+                setOnErrorListener { _, _, _ ->
+                    stopVoiceMemoPlayer()
+                    true
+                }
+                setOnPreparedListener {
+                    it.start()
+                }
+                prepareAsync()
+            }
+
+            voiceMemoPlayer = player
+            result.success(null)
+        } catch (error: Exception) {
+            stopVoiceMemoPlayer()
+            result.error("voice_memo_play_failed", "Voice memo could not be played.", error.message)
+        }
+    }
+
+    private fun stopVoiceMemoPlayback(result: MethodChannel.Result) {
+        stopVoiceMemoPlayer()
+        result.success(null)
+    }
+
+    private fun stopVoiceMemoPlayer() {
+        try {
+            voiceMemoPlayer?.stop()
+        } catch (_: Exception) {
+        }
+
+        try {
+            voiceMemoPlayer?.release()
+        } catch (_: Exception) {
+        }
+
+        voiceMemoPlayer = null
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

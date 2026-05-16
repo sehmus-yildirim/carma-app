@@ -415,6 +415,9 @@ service cloud.firestore {
         && request.resource.data.fileSizeBytes is int
         && request.resource.data.fileSizeBytes > 0
         && request.resource.data.fileSizeBytes <= 15 * 1024 * 1024
+        && request.resource.data.fileDurationMs is int
+        && request.resource.data.fileDurationMs >= 0
+        && request.resource.data.fileDurationMs <= 10 * 60 * 1000
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.isDeleted == false;

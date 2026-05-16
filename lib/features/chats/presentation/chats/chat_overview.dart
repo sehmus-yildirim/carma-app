@@ -257,6 +257,7 @@ class _ChatsOverview extends StatelessWidget {
     final visibleChats = chats.where(matchesChat).toList();
     final visibleArchivedChats = archivedChats.where(matchesChat).toList();
     final visibleBlockedChats = blockedChats.where(matchesChat).toList();
+    final hasSearchQuery = searchQuery.trim().isNotEmpty;
     final isArchivedView = selectedListView == _ChatListView.archived;
     final isBlockedView = selectedListView == _ChatListView.blocked;
     final selectedChats = switch (selectedListView) {
@@ -314,7 +315,9 @@ class _ChatsOverview extends StatelessWidget {
                           : isArchivedView
                           ? Icons.archive_outlined
                           : Icons.chat_bubble_outline_rounded,
-                      title: isBlockedView
+                      title: hasSearchQuery
+                          ? 'Keine Treffer'
+                          : isBlockedView
                           ? 'Keine blockierten Chats'
                           : isArchivedView
                           ? 'Keine archivierten Chats'
@@ -438,6 +441,7 @@ class _RequestsOverview extends StatelessWidget {
             final isIncomingView =
                 selectedListView == _RequestListView.incoming;
             final selectedRequests = isIncomingView ? incoming : outgoing;
+            final hasSearchQuery = searchQuery.trim().isNotEmpty;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +488,9 @@ class _RequestsOverview extends StatelessWidget {
                                 icon: isIncomingView
                                     ? Icons.mark_email_unread_outlined
                                     : Icons.schedule_send_outlined,
-                                title: isIncomingView
+                                title: hasSearchQuery
+                                    ? 'Keine Treffer'
+                                    : isIncomingView
                                     ? 'Keine eingehenden Anfragen'
                                     : 'Keine gesendeten Anfragen',
                               )
