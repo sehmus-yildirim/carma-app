@@ -312,6 +312,8 @@ class ChatMessageRecord {
     this.isStarred = false,
     this.replyToMessageId,
     this.replyToText,
+    this.imageUrl,
+    this.imagePath,
     this.reactionBy = const <String, String>{},
   });
 
@@ -326,6 +328,8 @@ class ChatMessageRecord {
   final bool isStarred;
   final String? replyToMessageId;
   final String? replyToText;
+  final String? imageUrl;
+  final String? imagePath;
   final Map<String, String> reactionBy;
 
   bool get isSystem {
@@ -344,6 +348,8 @@ class ChatMessageRecord {
     bool? isStarred,
     String? replyToMessageId,
     String? replyToText,
+    String? imageUrl,
+    String? imagePath,
     Map<String, String>? reactionBy,
   }) {
     return ChatMessageRecord(
@@ -358,6 +364,8 @@ class ChatMessageRecord {
       isStarred: isStarred ?? this.isStarred,
       replyToMessageId: replyToMessageId ?? this.replyToMessageId,
       replyToText: replyToText ?? this.replyToText,
+      imageUrl: imageUrl ?? this.imageUrl,
+      imagePath: imagePath ?? this.imagePath,
       reactionBy: reactionBy ?? this.reactionBy,
     );
   }
@@ -398,6 +406,17 @@ abstract class ChatRepository {
     required String text,
     String? replyToMessageId,
     String? replyToText,
+  });
+
+  String createMessageId({required String chatId});
+
+  Future<ChatMessageRecord> sendImageMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String imageUrl,
+    required String imagePath,
+    String? caption,
   });
 
   Future<ChatMessageRecord> addSystemMessage({
@@ -859,6 +878,17 @@ class FirestoreChatRepository implements ChatRepository {
   }
 
   @override
+  String createMessageId({required String chatId}) {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
+      throw ArgumentError('Chat ID must not be empty.');
+    }
+
+    return _messagesCollection(trimmedChatId).doc().id;
+  }
+
+  @override
   Future<ChatMessageRecord> sendTextMessage({
     required String chatId,
     required String senderUserId,
@@ -896,6 +926,61 @@ class FirestoreChatRepository implements ChatRepository {
 
       transaction.set(chatDocument, {
         'lastMessage': trimmedText,
+        'lastMessageAt': Timestamp.fromDate(now),
+        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'manualUnreadBy': {senderUserId: false},
+        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'updatedAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
+    });
+
+    final snapshot = await messageDocument.get();
+    return _messageFromSnapshot(snapshot);
+  }
+
+  @override
+  Future<ChatMessageRecord> sendImageMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String imageUrl,
+    required String imagePath,
+    String? caption,
+  }) async {
+    final trimmedImageUrl = imageUrl.trim();
+    final trimmedImagePath = imagePath.trim();
+    final trimmedCaption = caption?.trim() ?? '';
+
+    if (trimmedImageUrl.isEmpty || trimmedImagePath.isEmpty) {
+      throw ArgumentError('Image URL and path must not be empty.');
+    }
+
+    if (trimmedCaption.length >
+        FirestoreDocumentDefaults.maxChatMessageLength) {
+      throw ArgumentError('Image caption is too long.');
+    }
+
+    final now = DateTime.now();
+    final messageDocument = _messagesCollection(chatId).doc(messageId);
+    final messageText = trimmedCaption.isEmpty ? 'Foto' : trimmedCaption;
+
+    await _firestore.runTransaction((transaction) async {
+      final chatDocument = _chatsCollection.doc(chatId);
+
+      transaction.set(messageDocument, {
+        'chatId': chatId,
+        'senderUserId': senderUserId,
+        'type': FirestoreMessageTypes.image,
+        'text': messageText,
+        'imageUrl': trimmedImageUrl,
+        'imagePath': trimmedImagePath,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+        'isDeleted': false,
+      });
+
+      transaction.set(chatDocument, {
+        'lastMessage': messageText,
         'lastMessageAt': Timestamp.fromDate(now),
         'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
         'manualUnreadBy': {senderUserId: false},
@@ -1293,6 +1378,8 @@ class FirestoreChatRepository implements ChatRepository {
       isStarred: data['isStarred'] as bool? ?? false,
       replyToMessageId: data['replyToMessageId'] as String?,
       replyToText: data['replyToText'] as String?,
+      imageUrl: data['imageUrl'] as String?,
+      imagePath: data['imagePath'] as String?,
       reactionBy: _stringMapFromValue(data['reactionBy']),
     );
   }
@@ -1464,6 +1551,17 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
+  String createMessageId({required String chatId}) {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
+      throw ArgumentError('Chat ID must not be empty.');
+    }
+
+    return 'local-message-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  @override
   Future<ChatRecord> createChat({
     required List<String> participants,
     String? requestId,
@@ -1578,6 +1676,37 @@ class LocalChatRepository implements ChatRepository {
       timestamp: now,
     );
 
+    return message;
+  }
+
+  @override
+  Future<ChatMessageRecord> sendImageMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String imageUrl,
+    required String imagePath,
+    String? caption,
+  }) async {
+    final now = DateTime.now();
+    final messageText = caption?.trim().isNotEmpty == true
+        ? caption!.trim()
+        : 'Foto';
+    final message = ChatMessageRecord(
+      id: messageId.trim().isEmpty
+          ? createMessageId(chatId: chatId)
+          : messageId,
+      chatId: chatId,
+      senderUserId: senderUserId,
+      type: ChatMessageType.image,
+      text: messageText,
+      imageUrl: imageUrl.trim(),
+      imagePath: imagePath.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _messages.add(message);
     return message;
   }
 
