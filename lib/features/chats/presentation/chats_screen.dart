@@ -3162,7 +3162,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     );
   }
 
-  Future<void> _handleShareLocation() async {
+  Future<void> _sendAttachmentTextMessage(String message) async {
     if (_isSendingMessage) {
       return;
     }
@@ -3172,11 +3172,6 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     });
 
     try {
-      final position = await _resolveCurrentPosition();
-      final latitude = position.latitude.toStringAsFixed(6);
-      final longitude = position.longitude.toStringAsFixed(6);
-      final message =
-          'Mein Standort: https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
       final chatId = widget.chatId?.trim();
 
       if (chatId == null || chatId.isEmpty) {
@@ -3229,11 +3224,47 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Anhang konnte nicht gesendet werden: $error')),
+      );
+    }
+  }
+
+  Future<void> _handleShareLocation() async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    try {
+      final position = await _resolveCurrentPosition();
+      final latitude = position.latitude.toStringAsFixed(6);
+      final longitude = position.longitude.toStringAsFixed(6);
+      final message =
+          'Mein Standort: https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+
+      await _sendAttachmentTextMessage(message);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Standort konnte nicht gesendet werden: $error'),
         ),
       );
     }
+  }
+
+  Future<void> _handleShareContact() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final displayName = currentUser?.displayName?.trim();
+    final fallbackName = displayName == null || displayName.isEmpty
+        ? 'Carma Nutzer'
+        : displayName;
+
+    await _sendAttachmentTextMessage(
+      'Carma Kontakt\nName: $fallbackName\nKontakt: Direkt hier im Chat',
+    );
   }
 
   Future<void> _handleStarMessage(_LocalChatMessage message) async {
@@ -3515,6 +3546,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 hasText: _hasText,
                 onAttach: _handleAttach,
                 onShareLocation: _handleShareLocation,
+                onShareContact: _handleShareContact,
                 onSend: _handleSend,
               ),
             ],
@@ -4245,6 +4277,7 @@ class _MessageComposer extends StatelessWidget {
     required this.hasText,
     required this.onAttach,
     required this.onShareLocation,
+    required this.onShareContact,
     required this.onSend,
   });
 
@@ -4252,6 +4285,7 @@ class _MessageComposer extends StatelessWidget {
   final bool hasText;
   final VoidCallback onAttach;
   final VoidCallback onShareLocation;
+  final VoidCallback onShareContact;
   final VoidCallback onSend;
 
   void _showComposerMessage(BuildContext context, String message) {
@@ -4331,10 +4365,7 @@ class _MessageComposer extends StatelessWidget {
                       label: 'Kontakt',
                       onTap: () {
                         Navigator.of(context).pop();
-                        _showComposerMessage(
-                          context,
-                          'Kontakt senden verbinden wir im n\u00E4chsten Schritt.',
-                        );
+                        onShareContact();
                       },
                     ),
                     _AttachmentSheetAction(
