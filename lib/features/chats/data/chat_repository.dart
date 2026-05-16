@@ -28,6 +28,8 @@ class ChatRecord {
     this.receiverDisplayName,
     this.senderPhotoUrl,
     this.receiverPhotoUrl,
+    this.blockedBy,
+    this.blockedAt,
     this.displayPlate,
     this.vehicleBrand,
     this.vehicleModel,
@@ -56,6 +58,8 @@ class ChatRecord {
   final String? receiverDisplayName;
   final String? senderPhotoUrl;
   final String? receiverPhotoUrl;
+  final String? blockedBy;
+  final DateTime? blockedAt;
   final String? displayPlate;
   final String? vehicleBrand;
   final String? vehicleModel;
@@ -89,6 +93,10 @@ class ChatRecord {
     return deletedBy[userId] == true;
   }
 
+  bool isBlockedBy(String userId) {
+    return blockedBy == userId;
+  }
+
   bool isManuallyUnreadFor(String userId) {
     return manualUnreadBy[userId] == true;
   }
@@ -115,6 +123,16 @@ class ChatRecord {
     }
 
     return status == ChatStatus.active || status == ChatStatus.archived;
+  }
+
+  bool isVisibleInBlockedListFor(String userId) {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty || isDeletedFor(trimmedUserId)) {
+      return false;
+    }
+
+    return status == ChatStatus.blocked && isBlockedBy(trimmedUserId);
   }
 
   bool hasUnreadFor(String userId) {
@@ -233,6 +251,8 @@ class ChatRecord {
     String? receiverDisplayName,
     String? senderPhotoUrl,
     String? receiverPhotoUrl,
+    String? blockedBy,
+    DateTime? blockedAt,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -261,6 +281,8 @@ class ChatRecord {
       receiverDisplayName: receiverDisplayName ?? this.receiverDisplayName,
       senderPhotoUrl: senderPhotoUrl ?? this.senderPhotoUrl,
       receiverPhotoUrl: receiverPhotoUrl ?? this.receiverPhotoUrl,
+      blockedBy: blockedBy ?? this.blockedBy,
+      blockedAt: blockedAt ?? this.blockedAt,
       displayPlate: displayPlate ?? this.displayPlate,
       vehicleBrand: vehicleBrand ?? this.vehicleBrand,
       vehicleModel: vehicleModel ?? this.vehicleModel,
@@ -348,6 +370,8 @@ abstract class ChatRepository {
 
   Stream<List<ChatRecord>> watchArchivedChats({required String userId});
 
+  Stream<List<ChatRecord>> watchBlockedChats({required String userId});
+
   Future<ChatRecord> createChat({
     required List<String> participants,
     String? requestId,
@@ -394,6 +418,11 @@ abstract class ChatRepository {
   });
 
   Future<ChatRecord> deleteChat({
+    required String chatId,
+    required String userId,
+  });
+
+  Future<ChatRecord> unblockChat({
     required String chatId,
     required String userId,
   });
@@ -510,6 +539,27 @@ class FirestoreChatRepository implements ChatRepository {
                   .where((chat) => chat.isVisibleInArchivedListFor(userId))
                   .toList()
                 ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+          return chats;
+        });
+  }
+
+  @override
+  Stream<List<ChatRecord>> watchBlockedChats({required String userId}) {
+    return _chatsCollection
+        .where('participants', arrayContains: userId)
+        .snapshots()
+        .map((snapshot) {
+          final chats =
+              snapshot.docs
+                  .map(_chatFromSnapshot)
+                  .where((chat) => chat.isVisibleInBlockedListFor(userId))
+                  .toList()
+                ..sort((a, b) {
+                  final aBlockedAt = a.blockedAt ?? a.updatedAt;
+                  final bBlockedAt = b.blockedAt ?? b.updatedAt;
+                  return bBlockedAt.compareTo(aBlockedAt);
+                });
 
           return chats;
         });
@@ -972,6 +1022,33 @@ class FirestoreChatRepository implements ChatRepository {
     return _chatFromSnapshot(snapshot);
   }
 
+  @override
+  Future<ChatRecord> unblockChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    final chatDocument = _chatsCollection.doc(trimmedChatId);
+
+    await chatDocument.update({
+      'status': FirestoreChatStatus.active,
+      'blockedBy': FieldValue.delete(),
+      'blockedAt': FieldValue.delete(),
+      'unblockedBy': trimmedUserId,
+      'unblockedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final snapshot = await chatDocument.get();
+    return _chatFromSnapshot(snapshot);
+  }
+
   Future<void> reportChat({
     required String chatId,
     required String reporterUserId,
@@ -1182,6 +1259,8 @@ class FirestoreChatRepository implements ChatRepository {
       receiverDisplayName: data['receiverDisplayName'] as String?,
       senderPhotoUrl: data['senderPhotoUrl'] as String?,
       receiverPhotoUrl: data['receiverPhotoUrl'] as String?,
+      blockedBy: data['blockedBy'] as String?,
+      blockedAt: _dateTimeFromValue(data['blockedAt']),
       displayPlate: data['displayPlate'] as String?,
       vehicleBrand: data['vehicleBrand'] as String?,
       vehicleModel: data['vehicleModel'] as String?,
@@ -1366,6 +1445,21 @@ class LocalChatRepository implements ChatRepository {
           .where((chat) => chat.participants.contains(userId))
           .where((chat) => chat.isVisibleInArchivedListFor(userId))
           .toList(),
+    );
+  }
+
+  @override
+  Stream<List<ChatRecord>> watchBlockedChats({required String userId}) {
+    return Stream<List<ChatRecord>>.value(
+      _chats
+          .where((chat) => chat.participants.contains(userId))
+          .where((chat) => chat.isVisibleInBlockedListFor(userId))
+          .toList()
+        ..sort((a, b) {
+          final aBlockedAt = a.blockedAt ?? a.updatedAt;
+          final bBlockedAt = b.blockedAt ?? b.updatedAt;
+          return bBlockedAt.compareTo(aBlockedAt);
+        }),
     );
   }
 
@@ -1610,6 +1704,39 @@ class LocalChatRepository implements ChatRepository {
     final updated = _chats[index].copyWith(
       status: ChatStatus.active,
       deletedBy: deletedBy,
+      updatedAt: DateTime.now(),
+    );
+
+    _chats[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<ChatRecord> unblockChat({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat ID and user ID must not be empty.');
+    }
+
+    final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
+
+    if (index < 0) {
+      throw StateError('Chat not found: $trimmedChatId');
+    }
+
+    if (!_chats[index].isBlockedBy(trimmedUserId)) {
+      throw StateError('Only the blocker can unblock this chat.');
+    }
+
+    final updated = _chats[index].copyWith(
+      status: ChatStatus.active,
+      blockedBy: '',
+      blockedAt: DateTime.fromMillisecondsSinceEpoch(0),
       updatedAt: DateTime.now(),
     );
 

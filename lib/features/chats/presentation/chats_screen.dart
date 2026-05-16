@@ -26,7 +26,7 @@ const Color _myMessageCheckBlue = Color(0xFF7FD6FF);
 
 enum _ChatsView { chats, requests }
 
-enum _ChatListView { messages, archived }
+enum _ChatListView { messages, archived, blocked }
 
 enum _RequestListView { incoming, outgoing }
 
@@ -39,6 +39,7 @@ enum _ChatMenuAction {
   archive,
   delete,
   block,
+  unblock,
   report,
 }
 
@@ -69,6 +70,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   late Stream<List<ChatRecord>> _chatStream;
   late Stream<List<ChatRecord>> _archivedChatStream;
+  late Stream<List<ChatRecord>> _blockedChatStream;
   late Stream<List<ContactRequestRecord>> _incomingRequestStream;
   late Stream<List<ContactRequestRecord>> _outgoingRequestStream;
   late bool _hasActiveChat;
@@ -99,6 +101,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
     _chatStream = _watchChats();
     _archivedChatStream = _watchArchivedChats();
+    _blockedChatStream = _watchBlockedChats();
     _incomingRequestStream = _watchIncomingRequests();
     _outgoingRequestStream = _watchOutgoingRequests();
     _searchController.addListener(_handleSearchChanged);
@@ -129,6 +132,16 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
 
     return _chatRepository.watchArchivedChats(userId: userId);
+  }
+
+  Stream<List<ChatRecord>> _watchBlockedChats() {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      return Stream<List<ChatRecord>>.value(const <ChatRecord>[]);
+    }
+
+    return _chatRepository.watchBlockedChats(userId: userId);
   }
 
   Stream<List<ContactRequestRecord>> _watchIncomingRequests() {
@@ -275,8 +288,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
       return;
     }
 
+    if (velocity < 0 && _selectedChatListView == _ChatListView.archived) {
+      _selectChatListView(_ChatListView.blocked);
+      return;
+    }
+
     if (velocity > 0 && _selectedChatListView == _ChatListView.archived) {
       _selectChatListView(_ChatListView.messages);
+      return;
+    }
+
+    if (velocity > 0 && _selectedChatListView == _ChatListView.blocked) {
+      _selectChatListView(_ChatListView.archived);
     }
   }
 
@@ -311,6 +334,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     setState(() {
       _chatStream = _watchChats();
       _archivedChatStream = _watchArchivedChats();
+      _blockedChatStream = _watchBlockedChats();
       _incomingRequestStream = _watchIncomingRequests();
       _outgoingRequestStream = _watchOutgoingRequests();
     });
@@ -548,23 +572,40 @@ class _ChatsScreenState extends State<ChatsScreen> {
                                             archivedSnapshot.connectionState ==
                                             ConnectionState.waiting;
 
-                                        return _ChatsOverview(
-                                          chats: chats,
-                                          archivedChats: archivedChats,
-                                          isLoading:
-                                              isLoading || isArchivedLoading,
-                                          hasLocalActiveChat: _hasActiveChat,
-                                          localMessages: _chatMessages,
-                                          searchQuery: _searchQuery,
-                                          selectedListView:
-                                              _selectedChatListView,
-                                          matchesChat: _matchesChatSearch,
-                                          onListViewChanged:
-                                              _selectChatListView,
-                                          onHorizontalSwipe:
-                                              _handleChatListSwipe,
-                                          onOpenChat: _openChat,
-                                          onOpenLocalChat: _openLocalChat,
+                                        return StreamBuilder<List<ChatRecord>>(
+                                          stream: _blockedChatStream,
+                                          builder: (context, blockedSnapshot) {
+                                            final blockedChats =
+                                                blockedSnapshot.data ??
+                                                const <ChatRecord>[];
+                                            final isBlockedLoading =
+                                                blockedSnapshot
+                                                    .connectionState ==
+                                                ConnectionState.waiting;
+
+                                            return _ChatsOverview(
+                                              chats: chats,
+                                              archivedChats: archivedChats,
+                                              blockedChats: blockedChats,
+                                              isLoading:
+                                                  isLoading ||
+                                                  isArchivedLoading ||
+                                                  isBlockedLoading,
+                                              hasLocalActiveChat:
+                                                  _hasActiveChat,
+                                              localMessages: _chatMessages,
+                                              searchQuery: _searchQuery,
+                                              selectedListView:
+                                                  _selectedChatListView,
+                                              matchesChat: _matchesChatSearch,
+                                              onListViewChanged:
+                                                  _selectChatListView,
+                                              onHorizontalSwipe:
+                                                  _handleChatListSwipe,
+                                              onOpenChat: _openChat,
+                                              onOpenLocalChat: _openLocalChat,
+                                            );
+                                          },
                                         );
                                       },
                                     );
@@ -870,6 +911,7 @@ class _ChatsOverview extends StatelessWidget {
   const _ChatsOverview({
     required this.chats,
     required this.archivedChats,
+    required this.blockedChats,
     required this.isLoading,
     required this.hasLocalActiveChat,
     required this.localMessages,
@@ -884,6 +926,7 @@ class _ChatsOverview extends StatelessWidget {
 
   final List<ChatRecord> chats;
   final List<ChatRecord> archivedChats;
+  final List<ChatRecord> blockedChats;
   final bool isLoading;
   final bool hasLocalActiveChat;
   final List<_LocalChatMessage> localMessages;
@@ -900,10 +943,16 @@ class _ChatsOverview extends StatelessWidget {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final visibleChats = chats.where(matchesChat).toList();
     final visibleArchivedChats = archivedChats.where(matchesChat).toList();
+    final visibleBlockedChats = blockedChats.where(matchesChat).toList();
     final isArchivedView = selectedListView == _ChatListView.archived;
-    final selectedChats = isArchivedView ? visibleArchivedChats : visibleChats;
+    final isBlockedView = selectedListView == _ChatListView.blocked;
+    final selectedChats = switch (selectedListView) {
+      _ChatListView.messages => visibleChats,
+      _ChatListView.archived => visibleArchivedChats,
+      _ChatListView.blocked => visibleBlockedChats,
+    };
     final showLocalChat =
-        !isArchivedView &&
+        selectedListView == _ChatListView.messages &&
         hasLocalActiveChat &&
         (searchQuery.trim().isEmpty ||
             'carma nutzer bmw 1er schwarz ${localMessages.map((message) => message.text).join(' ')}'
@@ -926,6 +975,10 @@ class _ChatsOverview extends StatelessWidget {
               value: _ChatListView.archived,
               label: 'Archiviert',
             ),
+            _InlineTextTabItem(
+              value: _ChatListView.blocked,
+              label: 'Blockiert',
+            ),
           ],
           onChanged: onListViewChanged,
         ),
@@ -934,10 +987,16 @@ class _ChatsOverview extends StatelessWidget {
           const _InlineLoadingRow(label: 'Chats werden geladen...')
         else if (selectedChats.isEmpty && !showLocalChat)
           _EmptyListCard(
-            icon: isArchivedView
+            icon: isBlockedView
+                ? Icons.block_rounded
+                : isArchivedView
                 ? Icons.archive_outlined
                 : Icons.chat_bubble_outline_rounded,
-            title: isArchivedView ? 'Keine archivierten Chats' : 'Keine Chats',
+            title: isBlockedView
+                ? 'Keine blockierten Chats'
+                : isArchivedView
+                ? 'Keine archivierten Chats'
+                : 'Keine Chats',
           )
         else
           GestureDetector(
@@ -964,10 +1023,11 @@ class _ChatsOverview extends StatelessWidget {
                       isPinned: chat.isPinnedFor(currentUserId),
                       isMuted: chat.isMutedFor(currentUserId),
                       isUnread: chat.hasUnreadFor(currentUserId),
+                      isBlocked: isBlockedView,
                       isArchived: isArchivedView,
                       popAfterStatusAction: false,
                     ),
-                    onTap: () => onOpenChat(chat),
+                    onTap: isBlockedView ? () {} : () => onOpenChat(chat),
                   ),
                   const SizedBox(height: 6),
                 ],
@@ -1754,6 +1814,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     this.isMuted = false,
     this.isUnread = false,
     this.isArchived = false,
+    this.isBlocked = false,
     this.popAfterStatusAction = true,
   });
 
@@ -1765,6 +1826,7 @@ class _ChatOverflowMenu extends StatelessWidget {
   final bool isMuted;
   final bool isUnread;
   final bool isArchived;
+  final bool isBlocked;
   final bool popAfterStatusAction;
 
   void _showSnackBar(BuildContext context, String message) {
@@ -2085,6 +2147,32 @@ class _ChatOverflowMenu extends StatelessWidget {
             );
           },
         );
+      case _ChatMenuAction.unblock:
+        await _runChatStatusAction(
+          context: context,
+          title: 'Blockierung aufheben?',
+          message:
+              'Der Chat wird wieder freigegeben und kann erneut Nachrichten empfangen.',
+          confirmLabel: 'Aufheben',
+          successMessage: 'Blockierung wurde aufgehoben.',
+          action: () async {
+            final id = chatId?.trim();
+            final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+            if (id == null || id.isEmpty) {
+              throw StateError('Chat-ID fehlt.');
+            }
+
+            if (currentUserId == null || currentUserId.isEmpty) {
+              throw StateError('Du musst angemeldet sein.');
+            }
+
+            await _chatRepository.unblockChat(
+              chatId: id,
+              userId: currentUserId,
+            );
+          },
+        );
       case _ChatMenuAction.report:
         await _runReportAction(context);
     }
@@ -2213,48 +2301,57 @@ class _ChatOverflowMenu extends StatelessWidget {
       onSelected: (action) => _handleAction(context, action),
       itemBuilder: (context) {
         return [
-          PopupMenuItem(
-            value: _ChatMenuAction.pin,
-            child: Text(isPinned ? 'Nicht mehr anpinnen' : 'Chat anpinnen'),
-          ),
-          PopupMenuItem(
-            value: _ChatMenuAction.favorite,
-            child: Text(
-              isFavorite
-                  ? 'Aus Favoriten entfernen'
-                  : 'Zu Favoriten hinzufuegen',
+          if (isBlocked)
+            const PopupMenuItem(
+              value: _ChatMenuAction.unblock,
+              child: Text('Blockierung aufheben'),
+            )
+          else ...[
+            PopupMenuItem(
+              value: _ChatMenuAction.pin,
+              child: Text(isPinned ? 'Nicht mehr anpinnen' : 'Chat anpinnen'),
             ),
-          ),
-          PopupMenuItem(
-            value: _ChatMenuAction.mute,
-            child: Text(
-              isMuted
-                  ? 'Benachrichtigungen einschalten'
-                  : 'Benachrichtigungen stummschalten',
+            PopupMenuItem(
+              value: _ChatMenuAction.favorite,
+              child: Text(
+                isFavorite
+                    ? 'Aus Favoriten entfernen'
+                    : 'Zu Favoriten hinzufuegen',
+              ),
             ),
-          ),
-          PopupMenuItem(
-            value: _ChatMenuAction.readState,
-            child: Text(
-              isUnread ? 'Als gelesen markieren' : 'Als ungelesen markieren',
+            PopupMenuItem(
+              value: _ChatMenuAction.mute,
+              child: Text(
+                isMuted
+                    ? 'Benachrichtigungen einschalten'
+                    : 'Benachrichtigungen stummschalten',
+              ),
             ),
-          ),
+            PopupMenuItem(
+              value: _ChatMenuAction.readState,
+              child: Text(
+                isUnread ? 'Als gelesen markieren' : 'Als ungelesen markieren',
+              ),
+            ),
+          ],
           const PopupMenuItem(
             value: _ChatMenuAction.vehicleDetails,
             child: Text('Fahrzeugdetails anzeigen'),
           ),
-          PopupMenuItem(
-            value: _ChatMenuAction.archive,
-            child: Text(isArchived ? 'Aus Archiv holen' : 'Chat archivieren'),
-          ),
-          const PopupMenuItem(
-            value: _ChatMenuAction.delete,
-            child: Text('Chat l\u00F6schen'),
-          ),
-          const PopupMenuItem(
-            value: _ChatMenuAction.block,
-            child: Text('Nutzer blockieren'),
-          ),
+          if (!isBlocked) ...[
+            PopupMenuItem(
+              value: _ChatMenuAction.archive,
+              child: Text(isArchived ? 'Aus Archiv holen' : 'Chat archivieren'),
+            ),
+            const PopupMenuItem(
+              value: _ChatMenuAction.delete,
+              child: Text('Chat l\u00F6schen'),
+            ),
+            const PopupMenuItem(
+              value: _ChatMenuAction.block,
+              child: Text('Nutzer blockieren'),
+            ),
+          ],
           const PopupMenuItem(
             value: _ChatMenuAction.report,
             child: Text('Nutzer melden'),

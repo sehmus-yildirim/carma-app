@@ -305,6 +305,27 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function isValidChatUnblockUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && resource.data.status == 'blocked'
+        && resource.data.blockedBy == request.auth.uid
+        && changedOnly([
+          'status',
+          'blockedBy',
+          'blockedAt',
+          'unblockedBy',
+          'unblockedAt',
+          'updatedAt',
+        ])
+        && request.resource.data.status == 'active'
+        && !('blockedBy' in request.resource.data)
+        && !('blockedAt' in request.resource.data)
+        && request.resource.data.unblockedBy == request.auth.uid
+        && request.resource.data.unblockedAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     function isValidTextMessageCreate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
@@ -448,7 +469,8 @@ service cloud.firestore {
         || isValidChatMutedUpdate()
         || isValidChatArchiveUpdate()
         || isValidChatDeleteUpdate()
-        || isValidChatBlockUpdate();
+        || isValidChatBlockUpdate()
+        || isValidChatUnblockUpdate();
 
       allow delete: if false;
 
