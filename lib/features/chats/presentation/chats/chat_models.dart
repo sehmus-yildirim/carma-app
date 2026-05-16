@@ -13,6 +13,11 @@ class _LocalChatMessage {
     this.type = ChatMessageType.text,
     this.imageUrl,
     this.imagePath,
+    this.fileUrl,
+    this.filePath,
+    this.fileName,
+    this.fileContentType,
+    this.fileSizeBytes,
     this.reactionBy = const <String, String>{},
   });
 
@@ -27,10 +32,25 @@ class _LocalChatMessage {
   final ChatMessageType type;
   final String? imageUrl;
   final String? imagePath;
+  final String? fileUrl;
+  final String? filePath;
+  final String? fileName;
+  final String? fileContentType;
+  final int? fileSizeBytes;
   final Map<String, String> reactionBy;
 
   bool get isImage {
     return type == ChatMessageType.image && imageUrl?.trim().isNotEmpty == true;
+  }
+
+  bool get isDocument {
+    return type == ChatMessageType.document &&
+        fileUrl?.trim().isNotEmpty == true &&
+        fileName?.trim().isNotEmpty == true;
+  }
+
+  bool get isAudio {
+    return type == ChatMessageType.audio && fileUrl?.trim().isNotEmpty == true;
   }
 
   _LocationPayload? get locationPayload {
@@ -53,6 +73,11 @@ class _LocalChatMessage {
     ChatMessageType? type,
     String? imageUrl,
     String? imagePath,
+    String? fileUrl,
+    String? filePath,
+    String? fileName,
+    String? fileContentType,
+    int? fileSizeBytes,
     Map<String, String>? reactionBy,
   }) {
     return _LocalChatMessage(
@@ -67,6 +92,11 @@ class _LocalChatMessage {
       type: type ?? this.type,
       imageUrl: imageUrl ?? this.imageUrl,
       imagePath: imagePath ?? this.imagePath,
+      fileUrl: fileUrl ?? this.fileUrl,
+      filePath: filePath ?? this.filePath,
+      fileName: fileName ?? this.fileName,
+      fileContentType: fileContentType ?? this.fileContentType,
+      fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
       reactionBy: reactionBy ?? this.reactionBy,
     );
   }

@@ -10,6 +10,21 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    match /chat_documents/{chatId}/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 25 * 1024 * 1024;
+    }
+
+    match /chat_voice_memos/{chatId}/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('audio/.*');
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -8,6 +8,7 @@ class _ChatMessageList extends StatelessWidget {
     required this.onStarMessage,
     required this.onReactMessage,
     required this.onOpenLocation,
+    required this.onOpenDocument,
   });
 
   final List<_LocalChatMessage> messages;
@@ -18,6 +19,7 @@ class _ChatMessageList extends StatelessWidget {
   final void Function(_LocalChatMessage message, String reaction)
   onReactMessage;
   final ValueChanged<_LocationPayload> onOpenLocation;
+  final ValueChanged<_LocalChatMessage> onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +34,7 @@ class _ChatMessageList extends StatelessWidget {
             onStarMessage: onStarMessage,
             onReactMessage: onReactMessage,
             onOpenLocation: onOpenLocation,
+            onOpenDocument: onOpenDocument,
           ),
         );
       }).toList(),
@@ -47,6 +50,7 @@ class _ChatMessageBubble extends StatelessWidget {
     required this.onStarMessage,
     required this.onReactMessage,
     required this.onOpenLocation,
+    required this.onOpenDocument,
   });
 
   final _LocalChatMessage message;
@@ -57,6 +61,7 @@ class _ChatMessageBubble extends StatelessWidget {
   final void Function(_LocalChatMessage message, String reaction)
   onReactMessage;
   final ValueChanged<_LocationPayload> onOpenLocation;
+  final ValueChanged<_LocalChatMessage> onOpenDocument;
 
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
@@ -264,6 +269,152 @@ class _ChatMessageBubble extends StatelessWidget {
     );
   }
 
+  String _formatFileSize(int? bytes) {
+    if (bytes == null || bytes <= 0) {
+      return 'Datei';
+    }
+
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).clamp(1, double.infinity).round()} KB';
+    }
+
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Widget _buildDocumentCard(BuildContext context) {
+    final fileName = message.fileName?.trim() ?? 'Dokument';
+    final fileSize = _formatFileSize(message.fileSizeBytes);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onOpenDocument(message),
+      child: Container(
+        width: 250,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: Colors.white.withValues(alpha: 0.08),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_myMessageBlue, _myMessageBlueLight],
+                ),
+              ),
+              child: const Icon(
+                Icons.insert_drive_file_rounded,
+                color: Colors.white,
+                size: 25,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fileName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    fileSize,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAudioCard(BuildContext context) {
+    final fileSize = _formatFileSize(message.fileSizeBytes);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onOpenDocument(message),
+      child: Container(
+        width: 238,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: Colors.white.withValues(alpha: 0.08),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_myMessageBlue, _myMessageBlueLight],
+                ),
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 29,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sprachnachricht',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    fileSize,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showMessageActions(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -383,6 +534,8 @@ class _ChatMessageBubble extends StatelessWidget {
     final contactPayload = message.contactPayload;
     final imageUrl = message.imageUrl?.trim() ?? '';
     final isImageMessage = message.isImage && imageUrl.isNotEmpty;
+    final isDocumentMessage = message.isDocument;
+    final isAudioMessage = message.isAudio;
     final caption = message.text.trim();
     final bubblePadding = isImageMessage
         ? const EdgeInsets.all(4)
@@ -474,6 +627,10 @@ class _ChatMessageBubble extends StatelessWidget {
                 _buildLocationCard(context, locationPayload)
               else if (contactPayload != null)
                 _buildContactCard(context, contactPayload)
+              else if (isDocumentMessage)
+                _buildDocumentCard(context)
+              else if (isAudioMessage)
+                _buildAudioCard(context)
               else
                 Text(
                   message.text,

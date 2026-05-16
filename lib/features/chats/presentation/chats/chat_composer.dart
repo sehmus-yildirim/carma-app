@@ -8,7 +8,10 @@ class _MessageComposer extends StatelessWidget {
     required this.onTakePhoto,
     required this.onShareLocation,
     required this.onShareContact,
+    required this.onPickDocument,
     required this.onSend,
+    required this.onVoiceMemo,
+    required this.isRecordingVoiceMemo,
     required this.onTextInputFocus,
   });
 
@@ -18,14 +21,11 @@ class _MessageComposer extends StatelessWidget {
   final VoidCallback onTakePhoto;
   final VoidCallback onShareLocation;
   final VoidCallback onShareContact;
+  final VoidCallback onPickDocument;
   final VoidCallback onSend;
+  final VoidCallback onVoiceMemo;
+  final bool isRecordingVoiceMemo;
   final VoidCallback onTextInputFocus;
-
-  void _showComposerMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
 
   Future<void> _openAttachmentSheet(BuildContext context) async {
     await showModalBottomSheet<void>(
@@ -103,10 +103,7 @@ class _MessageComposer extends StatelessWidget {
                       label: 'Dokument',
                       onTap: () {
                         Navigator.of(context).pop();
-                        _showComposerMessage(
-                          context,
-                          'Dokument senden verbinden wir im n\u00E4chsten Schritt.',
-                        );
+                        onPickDocument();
                       },
                     ),
                   ],
@@ -119,15 +116,14 @@ class _MessageComposer extends StatelessWidget {
     );
   }
 
-  void _handleVoiceMemo(BuildContext context) {
-    _showComposerMessage(
-      context,
-      'Sprachmemo verbinden wir im n\u00E4chsten Schritt.',
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final sendIcon = hasText
+        ? Icons.send_rounded
+        : isRecordingVoiceMemo
+        ? Icons.stop_rounded
+        : Icons.mic_rounded;
+
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -173,8 +169,9 @@ class _MessageComposer extends StatelessWidget {
             const SizedBox(width: 10),
             _SendButton(
               isEnabled: true,
-              icon: hasText ? Icons.send_rounded : Icons.mic_rounded,
-              onTap: hasText ? onSend : () => _handleVoiceMemo(context),
+              icon: sendIcon,
+              isRecording: isRecordingVoiceMemo && !hasText,
+              onTap: hasText ? onSend : onVoiceMemo,
             ),
           ],
         ),
@@ -262,11 +259,13 @@ class _SendButton extends StatelessWidget {
   const _SendButton({
     required this.isEnabled,
     required this.icon,
+    this.isRecording = false,
     required this.onTap,
   });
 
   final bool isEnabled;
   final IconData icon;
+  final bool isRecording;
   final VoidCallback onTap;
 
   @override
@@ -284,14 +283,20 @@ class _SendButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: isEnabled
-                ? const LinearGradient(
+                ? LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      _myMessageBlueDark,
-                      _myMessageBlue,
-                      _myMessageBlueLight,
-                    ],
+                    colors: isRecording
+                        ? const [
+                            Color(0xFFE84B5F),
+                            Color(0xFFD71F3C),
+                            Color(0xFF9F1430),
+                          ]
+                        : const [
+                            _myMessageBlueDark,
+                            _myMessageBlue,
+                            _myMessageBlueLight,
+                          ],
                   )
                 : null,
             color: isEnabled ? null : Colors.white.withValues(alpha: 0.10),

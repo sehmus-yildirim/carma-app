@@ -39,6 +39,8 @@ class FirestoreMessageTypes {
 
   static const String text = 'text';
   static const String image = 'image';
+  static const String document = 'document';
+  static const String audio = 'audio';
   static const String system = 'system';
 }
 

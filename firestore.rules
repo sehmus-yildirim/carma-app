@@ -364,6 +364,62 @@ service cloud.firestore {
         && request.resource.data.isDeleted == false;
     }
 
+    function isValidDocumentMessageCreate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && request.auth.uid in chat.data.participants
+        && isOpenChatStatus(chat.data.status)
+        && request.resource.data.chatId == chatId
+        && request.resource.data.senderUserId == request.auth.uid
+        && request.resource.data.type == 'document'
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000
+        && request.resource.data.fileUrl is string
+        && request.resource.data.fileUrl.size() > 0
+        && request.resource.data.filePath is string
+        && request.resource.data.filePath.size() > 0
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() > 0
+        && request.resource.data.fileName.size() <= 160
+        && request.resource.data.fileContentType is string
+        && request.resource.data.fileContentType.size() > 0
+        && request.resource.data.fileSizeBytes is int
+        && request.resource.data.fileSizeBytes > 0
+        && request.resource.data.fileSizeBytes <= 25 * 1024 * 1024
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.isDeleted == false;
+    }
+
+    function isValidAudioMessageCreate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && request.auth.uid in chat.data.participants
+        && isOpenChatStatus(chat.data.status)
+        && request.resource.data.chatId == chatId
+        && request.resource.data.senderUserId == request.auth.uid
+        && request.resource.data.type == 'audio'
+        && request.resource.data.text == 'Sprachnachricht'
+        && request.resource.data.fileUrl is string
+        && request.resource.data.fileUrl.size() > 0
+        && request.resource.data.filePath is string
+        && request.resource.data.filePath.size() > 0
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() > 0
+        && request.resource.data.fileName.size() <= 160
+        && request.resource.data.fileContentType is string
+        && request.resource.data.fileContentType.matches('audio/.*')
+        && request.resource.data.fileSizeBytes is int
+        && request.resource.data.fileSizeBytes > 0
+        && request.resource.data.fileSizeBytes <= 15 * 1024 * 1024
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.isDeleted == false;
+    }
+
     function isValidMessageStarUpdate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
@@ -499,7 +555,9 @@ service cloud.firestore {
         allow read: if isChatParticipant(chatId);
 
         allow create: if isValidTextMessageCreate(chatId)
-          || isValidImageMessageCreate(chatId);
+          || isValidImageMessageCreate(chatId)
+          || isValidDocumentMessageCreate(chatId)
+          || isValidAudioMessageCreate(chatId);
 
         allow update: if isValidMessageStarUpdate(chatId)
           || isValidMessageDeleteUpdate(chatId)

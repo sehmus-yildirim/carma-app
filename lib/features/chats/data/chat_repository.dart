@@ -5,7 +5,7 @@ import '../../../shared/firebase/carma_firestore_schema.dart';
 
 enum ChatStatus { active, archived, blocked, deleted }
 
-enum ChatMessageType { text, image, system }
+enum ChatMessageType { text, image, document, audio, system }
 
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim();
@@ -314,6 +314,11 @@ class ChatMessageRecord {
     this.replyToText,
     this.imageUrl,
     this.imagePath,
+    this.fileUrl,
+    this.filePath,
+    this.fileName,
+    this.fileContentType,
+    this.fileSizeBytes,
     this.reactionBy = const <String, String>{},
   });
 
@@ -330,6 +335,11 @@ class ChatMessageRecord {
   final String? replyToText;
   final String? imageUrl;
   final String? imagePath;
+  final String? fileUrl;
+  final String? filePath;
+  final String? fileName;
+  final String? fileContentType;
+  final int? fileSizeBytes;
   final Map<String, String> reactionBy;
 
   bool get isSystem {
@@ -350,6 +360,11 @@ class ChatMessageRecord {
     String? replyToText,
     String? imageUrl,
     String? imagePath,
+    String? fileUrl,
+    String? filePath,
+    String? fileName,
+    String? fileContentType,
+    int? fileSizeBytes,
     Map<String, String>? reactionBy,
   }) {
     return ChatMessageRecord(
@@ -366,6 +381,11 @@ class ChatMessageRecord {
       replyToText: replyToText ?? this.replyToText,
       imageUrl: imageUrl ?? this.imageUrl,
       imagePath: imagePath ?? this.imagePath,
+      fileUrl: fileUrl ?? this.fileUrl,
+      filePath: filePath ?? this.filePath,
+      fileName: fileName ?? this.fileName,
+      fileContentType: fileContentType ?? this.fileContentType,
+      fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
       reactionBy: reactionBy ?? this.reactionBy,
     );
   }
@@ -417,6 +437,28 @@ abstract class ChatRepository {
     required String imageUrl,
     required String imagePath,
     String? caption,
+  });
+
+  Future<ChatMessageRecord> sendDocumentMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    String? fileContentType,
+  });
+
+  Future<ChatMessageRecord> sendAudioMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    String? fileContentType,
   });
 
   Future<ChatMessageRecord> addSystemMessage({
@@ -994,6 +1036,136 @@ class FirestoreChatRepository implements ChatRepository {
   }
 
   @override
+  Future<ChatMessageRecord> sendDocumentMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    String? fileContentType,
+  }) async {
+    final trimmedFileUrl = fileUrl.trim();
+    final trimmedFilePath = filePath.trim();
+    final trimmedFileName = fileName.trim();
+    final trimmedContentType = fileContentType?.trim();
+
+    if (trimmedFileUrl.isEmpty ||
+        trimmedFilePath.isEmpty ||
+        trimmedFileName.isEmpty) {
+      throw ArgumentError('Document URL, path and name must not be empty.');
+    }
+
+    if (fileSizeBytes <= 0) {
+      throw ArgumentError('Document size must be greater than zero.');
+    }
+
+    final now = DateTime.now();
+    final messageDocument = _messagesCollection(chatId).doc(messageId);
+    final messageText = 'Dokument: $trimmedFileName';
+
+    await _firestore.runTransaction((transaction) async {
+      final chatDocument = _chatsCollection.doc(chatId);
+
+      transaction.set(messageDocument, {
+        'chatId': chatId,
+        'senderUserId': senderUserId,
+        'type': FirestoreMessageTypes.document,
+        'text': messageText,
+        'fileUrl': trimmedFileUrl,
+        'filePath': trimmedFilePath,
+        'fileName': trimmedFileName,
+        'fileContentType':
+            trimmedContentType == null || trimmedContentType.isEmpty
+            ? 'application/octet-stream'
+            : trimmedContentType,
+        'fileSizeBytes': fileSizeBytes,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+        'isDeleted': false,
+      });
+
+      transaction.set(chatDocument, {
+        'lastMessage': messageText,
+        'lastMessageAt': Timestamp.fromDate(now),
+        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'manualUnreadBy': {senderUserId: false},
+        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'updatedAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
+    });
+
+    final snapshot = await messageDocument.get();
+    return _messageFromSnapshot(snapshot);
+  }
+
+  @override
+  Future<ChatMessageRecord> sendAudioMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    String? fileContentType,
+  }) async {
+    final trimmedFileUrl = fileUrl.trim();
+    final trimmedFilePath = filePath.trim();
+    final trimmedFileName = fileName.trim();
+    final trimmedContentType = fileContentType?.trim();
+
+    if (trimmedFileUrl.isEmpty ||
+        trimmedFilePath.isEmpty ||
+        trimmedFileName.isEmpty) {
+      throw ArgumentError('Audio URL, path and name must not be empty.');
+    }
+
+    if (fileSizeBytes <= 0) {
+      throw ArgumentError('Audio size must be greater than zero.');
+    }
+
+    final now = DateTime.now();
+    final messageDocument = _messagesCollection(chatId).doc(messageId);
+    const messageText = 'Sprachnachricht';
+
+    await _firestore.runTransaction((transaction) async {
+      final chatDocument = _chatsCollection.doc(chatId);
+
+      transaction.set(messageDocument, {
+        'chatId': chatId,
+        'senderUserId': senderUserId,
+        'type': FirestoreMessageTypes.audio,
+        'text': messageText,
+        'fileUrl': trimmedFileUrl,
+        'filePath': trimmedFilePath,
+        'fileName': trimmedFileName,
+        'fileContentType':
+            trimmedContentType == null || trimmedContentType.isEmpty
+            ? 'audio/mp4'
+            : trimmedContentType,
+        'fileSizeBytes': fileSizeBytes,
+        'createdAt': Timestamp.fromDate(now),
+        'updatedAt': Timestamp.fromDate(now),
+        'isDeleted': false,
+      });
+
+      transaction.set(chatDocument, {
+        'lastMessage': messageText,
+        'lastMessageAt': Timestamp.fromDate(now),
+        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'manualUnreadBy': {senderUserId: false},
+        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'updatedAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
+    });
+
+    final snapshot = await messageDocument.get();
+    return _messageFromSnapshot(snapshot);
+  }
+
+  @override
   Future<ChatMessageRecord> addSystemMessage({
     required String chatId,
     required String text,
@@ -1380,6 +1552,11 @@ class FirestoreChatRepository implements ChatRepository {
       replyToText: data['replyToText'] as String?,
       imageUrl: data['imageUrl'] as String?,
       imagePath: data['imagePath'] as String?,
+      fileUrl: data['fileUrl'] as String?,
+      filePath: data['filePath'] as String?,
+      fileName: data['fileName'] as String?,
+      fileContentType: data['fileContentType'] as String?,
+      fileSizeBytes: _intFromValue(data['fileSizeBytes']),
       reactionBy: _stringMapFromValue(data['reactionBy']),
     );
   }
@@ -1465,6 +1642,22 @@ class FirestoreChatRepository implements ChatRepository {
 
     if (value is String && value.isNotEmpty) {
       return DateTime.tryParse(value);
+    }
+
+    return null;
+  }
+
+  static int? _intFromValue(Object? value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    if (value is String) {
+      return int.tryParse(value);
     }
 
     return null;
@@ -1707,6 +1900,87 @@ class LocalChatRepository implements ChatRepository {
     );
 
     _messages.add(message);
+    return message;
+  }
+
+  @override
+  Future<ChatMessageRecord> sendDocumentMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    String? fileContentType,
+  }) async {
+    final now = DateTime.now();
+    final trimmedFileName = fileName.trim();
+    final messageText = 'Dokument: $trimmedFileName';
+    final message = ChatMessageRecord(
+      id: messageId.trim().isEmpty
+          ? createMessageId(chatId: chatId)
+          : messageId,
+      chatId: chatId,
+      senderUserId: senderUserId,
+      type: ChatMessageType.document,
+      text: messageText,
+      fileUrl: fileUrl.trim(),
+      filePath: filePath.trim(),
+      fileName: trimmedFileName,
+      fileContentType: fileContentType?.trim(),
+      fileSizeBytes: fileSizeBytes,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _messages.add(message);
+    _updateChatLastMessage(
+      chatId: chatId,
+      lastMessage: messageText,
+      timestamp: now,
+    );
+
+    return message;
+  }
+
+  @override
+  Future<ChatMessageRecord> sendAudioMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    String? fileContentType,
+  }) async {
+    final now = DateTime.now();
+    const messageText = 'Sprachnachricht';
+    final message = ChatMessageRecord(
+      id: messageId.trim().isEmpty
+          ? createMessageId(chatId: chatId)
+          : messageId,
+      chatId: chatId,
+      senderUserId: senderUserId,
+      type: ChatMessageType.audio,
+      text: messageText,
+      fileUrl: fileUrl.trim(),
+      filePath: filePath.trim(),
+      fileName: fileName.trim(),
+      fileContentType: fileContentType?.trim(),
+      fileSizeBytes: fileSizeBytes,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _messages.add(message);
+    _updateChatLastMessage(
+      chatId: chatId,
+      lastMessage: messageText,
+      timestamp: now,
+    );
+
     return message;
   }
 

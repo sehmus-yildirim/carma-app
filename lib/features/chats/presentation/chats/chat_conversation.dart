@@ -29,17 +29,20 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _messageScrollController = ScrollController();
+  final GlobalKey _messageListEndKey = GlobalKey();
 
   late List<_LocalChatMessage> _messages;
   bool _hasText = false;
   bool _isLoadingMessages = false;
   bool _isSendingMessage = false;
+  bool _isRecordingVoiceMemo = false;
   bool _isOtherUserTyping = false;
   bool _isCurrentUserTyping = false;
   bool _forceScrollToBottomOnNextMessages = false;
   _LocalChatMessage? _replyingToMessage;
   DateTime? _lastTypingWriteAt;
   DateTime? _otherLastReadAt;
+  DateTime? _keepLatestMessageVisibleUntil;
   double _lastKeyboardInset = 0;
   Timer? _typingStopTimer;
   StreamSubscription<bool>? _typingSubscription;
@@ -68,6 +71,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
   @override
   void dispose() {
+    if (_isRecordingVoiceMemo) {
+      unawaited(_nativeBridge.cancelVoiceMemo());
+    }
     _typingStopTimer?.cancel();
     _typingSubscription?.cancel();
     _readReceiptSubscription?.cancel();
@@ -87,35 +93,79 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     return position.maxScrollExtent - position.pixels <= 180;
   }
 
-  void _scheduleScrollToBottom({bool animated = true}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_messageScrollController.hasClients) {
-        return;
-      }
+  bool get _shouldKeepLatestMessageVisible {
+    final keepVisibleUntil = _keepLatestMessageVisibleUntil;
+    return keepVisibleUntil != null && keepVisibleUntil.isAfter(DateTime.now());
+  }
 
-      final target = _messageScrollController.position.maxScrollExtent;
+  void _scrollToBottomNow({bool animated = true}) {
+    if (!mounted) {
+      return;
+    }
 
-      if (animated) {
-        _messageScrollController.animateTo(
-          target,
-          duration: const Duration(milliseconds: 260),
+    if (!_messageScrollController.hasClients) {
+      final endContext = _messageListEndKey.currentContext;
+      if (endContext != null) {
+        Scrollable.ensureVisible(
+          endContext,
+          duration: animated
+              ? const Duration(milliseconds: 260)
+              : Duration.zero,
           curve: Curves.easeOutCubic,
+          alignment: 1,
         );
-      } else {
-        _messageScrollController.jumpTo(target);
       }
-    });
+      return;
+    }
+
+    final target = _messageScrollController.position.maxScrollExtent;
+
+    if (animated) {
+      _messageScrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _messageScrollController.jumpTo(target);
+    }
+  }
+
+  void _scheduleScrollToBottom({bool animated = true}) {
+    _keepLatestMessageVisibleUntil = DateTime.now().add(
+      const Duration(seconds: 3),
+    );
+
+    void schedule(Duration delay) {
+      Future<void>.delayed(delay, () {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottomNow(animated: animated);
+        });
+      });
+    }
+
+    schedule(Duration.zero);
+    schedule(const Duration(milliseconds: 80));
+    schedule(const Duration(milliseconds: 220));
+    schedule(const Duration(milliseconds: 520));
+    schedule(const Duration(milliseconds: 900));
+    schedule(const Duration(milliseconds: 1400));
+    schedule(const Duration(milliseconds: 2200));
   }
 
   void _scheduleScrollToBottomAfterKeyboard() {
     _scheduleScrollToBottom();
-    Future<void>.delayed(const Duration(milliseconds: 320), () {
-      if (!mounted) {
-        return;
-      }
-
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
       _scheduleScrollToBottom();
     });
+  }
+
+  bool _handleMessageListSizeChanged(SizeChangedLayoutNotification _) {
+    if (_shouldKeepLatestMessageVisible || _isNearMessageBottom) {
+      _scheduleScrollToBottom();
+    }
+
+    return false;
   }
 
   Future<void> _markChatRead() async {
@@ -347,6 +397,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                   type: record.type,
                   imageUrl: record.imageUrl,
                   imagePath: record.imagePath,
+                  fileUrl: record.fileUrl,
+                  filePath: record.filePath,
+                  fileName: record.fileName,
+                  fileContentType: record.fileContentType,
+                  fileSizeBytes: record.fileSizeBytes,
                   isReadByOther: _isMineMessageReadByOther(
                     isMine: isMine,
                     createdAt: record.createdAt,
@@ -505,6 +560,284 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Foto konnte nicht gesendet werden: $error')),
+      );
+    }
+  }
+
+  Future<void> _handlePickDocument() async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    try {
+      final document = await _nativeBridge.pickDocumentFile();
+
+      if (document == null) {
+        return;
+      }
+
+      await _sendDocumentAttachment(document);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Dokument konnte nicht ausgew\u00E4hlt werden: $error'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendDocumentAttachment(PickedDocumentFile document) async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    setState(() {
+      _isSendingMessage = true;
+    });
+
+    try {
+      final chatId = widget.chatId?.trim();
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      final documentFile = File(document.path);
+
+      if (chatId == null || chatId.isEmpty) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _messages = [
+            ..._messages,
+            _LocalChatMessage(
+              text: 'Dokument: ${document.name}',
+              isMine: true,
+              timeLabel: 'Jetzt',
+              createdAt: DateTime.now(),
+              type: ChatMessageType.document,
+              fileUrl: document.path,
+              filePath: document.path,
+              fileName: document.name,
+              fileContentType: document.contentType,
+              fileSizeBytes: document.sizeBytes,
+              isReadByOther: false,
+            ),
+          ];
+          _isSendingMessage = false;
+        });
+        _scheduleScrollToBottom();
+        return;
+      }
+
+      if (currentUserId == null || currentUserId.isEmpty) {
+        throw StateError('Du musst angemeldet sein, um Dokumente zu senden.');
+      }
+
+      final messageId = _chatRepository.createMessageId(chatId: chatId);
+      final upload = await _attachmentStorage.uploadChatDocument(
+        chatId: chatId,
+        userId: currentUserId,
+        messageId: messageId,
+        file: documentFile,
+        fileName: document.name,
+        contentType: document.contentType,
+      );
+
+      _forceScrollToBottomOnNextMessages = true;
+
+      await _chatRepository.sendDocumentMessage(
+        chatId: chatId,
+        messageId: messageId,
+        senderUserId: currentUserId,
+        fileUrl: upload.url,
+        filePath: upload.path,
+        fileName: upload.fileName,
+        fileContentType: upload.contentType,
+        fileSizeBytes: upload.fileSizeBytes,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+      });
+      _scheduleScrollToBottom();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+      });
+      _forceScrollToBottomOnNextMessages = false;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Dokument konnte nicht gesendet werden: $error'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleVoiceMemo() async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    if (!_isRecordingVoiceMemo) {
+      try {
+        await _nativeBridge.startVoiceMemo();
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _isRecordingVoiceMemo = true;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sprachmemo l\u00E4uft...')),
+        );
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sprachmemo konnte nicht starten: $error')),
+        );
+      }
+
+      return;
+    }
+
+    try {
+      final voiceMemo = await _nativeBridge.stopVoiceMemo();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isRecordingVoiceMemo = false;
+      });
+
+      await _sendVoiceMemoAttachment(voiceMemo);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isRecordingVoiceMemo = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sprachmemo konnte nicht gesendet werden: $error'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _sendVoiceMemoAttachment(PickedVoiceMemoFile voiceMemo) async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    setState(() {
+      _isSendingMessage = true;
+    });
+
+    try {
+      final chatId = widget.chatId?.trim();
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      final voiceMemoFile = File(voiceMemo.path);
+
+      if (chatId == null || chatId.isEmpty) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _messages = [
+            ..._messages,
+            _LocalChatMessage(
+              text: 'Sprachnachricht',
+              isMine: true,
+              timeLabel: 'Jetzt',
+              createdAt: DateTime.now(),
+              type: ChatMessageType.audio,
+              fileUrl: voiceMemo.path,
+              filePath: voiceMemo.path,
+              fileName: voiceMemo.name,
+              fileContentType: voiceMemo.contentType,
+              fileSizeBytes: voiceMemo.sizeBytes,
+              isReadByOther: false,
+            ),
+          ];
+          _isSendingMessage = false;
+        });
+        _scheduleScrollToBottom();
+        return;
+      }
+
+      if (currentUserId == null || currentUserId.isEmpty) {
+        throw StateError('Du musst angemeldet sein, um Sprachmemos zu senden.');
+      }
+
+      final messageId = _chatRepository.createMessageId(chatId: chatId);
+      final upload = await _attachmentStorage.uploadChatVoiceMemo(
+        chatId: chatId,
+        userId: currentUserId,
+        messageId: messageId,
+        file: voiceMemoFile,
+        fileName: voiceMemo.name,
+        contentType: voiceMemo.contentType,
+      );
+
+      _forceScrollToBottomOnNextMessages = true;
+
+      await _chatRepository.sendAudioMessage(
+        chatId: chatId,
+        messageId: messageId,
+        senderUserId: currentUserId,
+        fileUrl: upload.url,
+        filePath: upload.path,
+        fileName: upload.fileName,
+        fileContentType: upload.contentType,
+        fileSizeBytes: upload.fileSizeBytes,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+      });
+      _scheduleScrollToBottom();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+      });
+      _forceScrollToBottomOnNextMessages = false;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sprachmemo konnte nicht gesendet werden: $error'),
+        ),
       );
     }
   }
@@ -675,6 +1008,31 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Karte konnte nicht geöffnet werden: $error')),
+      );
+    }
+  }
+
+  Future<void> _handleOpenDocument(_LocalChatMessage message) async {
+    final fileUrl = message.fileUrl?.trim() ?? '';
+
+    if (fileUrl.isEmpty) {
+      return;
+    }
+
+    try {
+      await _nativeBridge.openDocumentUrl(
+        url: fileUrl,
+        contentType: message.fileContentType ?? 'application/octet-stream',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Dokument konnte nicht ge\u00F6ffnet werden: $error'),
+        ),
       );
     }
   }
@@ -939,33 +1297,40 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                   controller: _messageScrollController,
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.manual,
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, 18 + keyboardInset),
-                  child: Column(
-                    children: [
-                      if (_isLoadingMessages)
-                        const _ChatLoadingSpace()
-                      else if (_messages.isEmpty)
-                        const _ChatEmptySpace()
-                      else
-                        _ChatMessageList(
-                          messages: _messages,
-                          onDeleteMessage: _handleDeleteMessage,
-                          onReplyMessage: _handleReplyMessage,
-                          onStarMessage: _handleStarMessage,
-                          onReactMessage: _handleReactMessage,
-                          onOpenLocation: _handleOpenLocation,
-                        ),
-                      if (_replyingToMessage != null)
-                        _ReplyPreview(
-                          message: _replyingToMessage!,
-                          onClear: _clearReplyMessage,
-                        ),
-                      if (_isOtherUserTyping)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 4),
-                          child: _TypingIndicatorBubble(),
-                        ),
-                    ],
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  child: NotificationListener<SizeChangedLayoutNotification>(
+                    onNotification: _handleMessageListSizeChanged,
+                    child: SizeChangedLayoutNotifier(
+                      child: Column(
+                        children: [
+                          if (_isLoadingMessages)
+                            const _ChatLoadingSpace()
+                          else if (_messages.isEmpty)
+                            const _ChatEmptySpace()
+                          else
+                            _ChatMessageList(
+                              messages: _messages,
+                              onDeleteMessage: _handleDeleteMessage,
+                              onReplyMessage: _handleReplyMessage,
+                              onStarMessage: _handleStarMessage,
+                              onReactMessage: _handleReactMessage,
+                              onOpenLocation: _handleOpenLocation,
+                              onOpenDocument: _handleOpenDocument,
+                            ),
+                          if (_replyingToMessage != null)
+                            _ReplyPreview(
+                              message: _replyingToMessage!,
+                              onClear: _clearReplyMessage,
+                            ),
+                          if (_isOtherUserTyping)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: _TypingIndicatorBubble(),
+                            ),
+                          SizedBox(key: _messageListEndKey, height: 1),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -976,7 +1341,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 onTakePhoto: () => _handlePickImage(ImageSource.camera),
                 onShareLocation: _handleShareLocation,
                 onShareContact: _handleShareContact,
+                onPickDocument: _handlePickDocument,
                 onSend: _handleSend,
+                onVoiceMemo: _handleVoiceMemo,
+                isRecordingVoiceMemo: _isRecordingVoiceMemo,
                 onTextInputFocus: _scheduleScrollToBottomAfterKeyboard,
               ),
             ],
