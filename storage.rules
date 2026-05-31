@@ -2,27 +2,105 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /chat_images/{chatId}/{userId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
+    function isChatParticipant(chatId) {
+      return request.auth != null
+        && request.auth.uid in firestore.get(
+          /databases/(default)/documents/chats/$(chatId)
+        ).data.participants;
+    }
+
+    function storyDocument(userId) {
+      return firestore.get(
+        /databases/(default)/documents/chat_stories/$(userId)
+      ).data;
+    }
+
+    function canReadStoryMedia(userId) {
+      let story = storyDocument(userId);
+
+      return request.auth != null
+        && request.auth.uid in story.viewerUserIds
+        && (
+          request.auth.uid == story.ownerUserId ||
+          story.expiresAt > request.time
+        );
+    }
+
+    function isValidChatImageUpload(fileName) {
+      return fileName.matches('^[^/]+\\.jpg$')
         && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType == 'image/jpeg';
+    }
+
+    function isValidChatVoiceMemoUpload(fileName) {
+      return fileName.matches('^[^/]+\\.m4a$')
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType == 'audio/mp4';
+    }
+
+    function isValidChatDocumentUpload(fileName) {
+      return fileName.matches('^[^/]{1,180}$')
+        && request.resource.size > 0
+        && request.resource.size < 25 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('text/.*')
+          || request.resource.contentType == 'application/pdf'
+          || request.resource.contentType == 'application/msword'
+          || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          || request.resource.contentType == 'application/vnd.ms-excel'
+          || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          || request.resource.contentType == 'application/vnd.ms-powerpoint'
+          || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+          || request.resource.contentType == 'application/rtf'
+        );
+    }
+
+    function isValidStoryImageUpload(fileName) {
+      return fileName.matches('^[^/]+\\.jpg$')
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+    }
+
+    function isValidStoryVideoUpload(fileName) {
+      return fileName.matches('^[^/]+\\.mp4$')
+        && request.resource.size < 80 * 1024 * 1024
+        && request.resource.contentType == 'video/mp4';
+    }
+
+    match /chat_images/{chatId}/{userId}/{fileName} {
+      allow read: if isChatParticipant(chatId);
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && isChatParticipant(chatId)
+        && isValidChatImageUpload(fileName);
     }
 
     match /chat_documents/{chatId}/{userId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
+      allow read: if isChatParticipant(chatId);
+      allow create: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.size < 25 * 1024 * 1024;
+        && isChatParticipant(chatId)
+        && isValidChatDocumentUpload(fileName);
     }
 
     match /chat_voice_memos/{chatId}/{userId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
+      allow read: if isChatParticipant(chatId);
+      allow create: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.size < 15 * 1024 * 1024
-        && request.resource.contentType.matches('audio/.*');
+        && isChatParticipant(chatId)
+        && isValidChatVoiceMemoUpload(fileName);
+    }
+
+    match /chat_stories/{userId}/{fileName} {
+      allow read: if canReadStoryMedia(userId);
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && (
+          isValidStoryImageUpload(fileName)
+          || isValidStoryVideoUpload(fileName)
+        );
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
     }
 
     match /{allPaths=**} {

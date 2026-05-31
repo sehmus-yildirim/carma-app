@@ -45,6 +45,8 @@ class ChatAttachmentStorage {
   ChatAttachmentStorage({FirebaseStorage? storage})
     : _storage = storage ?? FirebaseStorage.instance;
 
+  static const int _maxStorageFileNameLength = 140;
+
   final FirebaseStorage _storage;
 
   Future<ChatImageUploadResult> uploadChatImage({
@@ -76,6 +78,54 @@ class ChatAttachmentStorage {
     );
   }
 
+  Future<ChatImageUploadResult> uploadChatStoryImage({
+    required String userId,
+    required String storyId,
+    required File file,
+  }) async {
+    final trimmedUserId = userId.trim();
+    final trimmedStoryId = storyId.trim();
+
+    if (trimmedUserId.isEmpty || trimmedStoryId.isEmpty) {
+      throw ArgumentError('User and story IDs must not be empty.');
+    }
+
+    final path = 'chat_stories/$trimmedUserId/$trimmedStoryId.jpg';
+    final reference = _storage.ref(path);
+    final metadata = SettableMetadata(contentType: 'image/jpeg');
+
+    await reference.putFile(file, metadata);
+
+    return ChatImageUploadResult(
+      path: path,
+      url: await reference.getDownloadURL(),
+    );
+  }
+
+  Future<ChatImageUploadResult> uploadChatStoryVideo({
+    required String userId,
+    required String storyId,
+    required File file,
+  }) async {
+    final trimmedUserId = userId.trim();
+    final trimmedStoryId = storyId.trim();
+
+    if (trimmedUserId.isEmpty || trimmedStoryId.isEmpty) {
+      throw ArgumentError('User and story IDs must not be empty.');
+    }
+
+    final path = 'chat_stories/$trimmedUserId/$trimmedStoryId.mp4';
+    final reference = _storage.ref(path);
+    final metadata = SettableMetadata(contentType: 'video/mp4');
+
+    await reference.putFile(file, metadata);
+
+    return ChatImageUploadResult(
+      path: path,
+      url: await reference.getDownloadURL(),
+    );
+  }
+
   Future<ChatDocumentUploadResult> uploadChatDocument({
     required String chatId,
     required String userId,
@@ -88,9 +138,10 @@ class ChatAttachmentStorage {
     final trimmedUserId = userId.trim();
     final trimmedMessageId = messageId.trim();
     final trimmedFileName = fileName.trim();
-    final effectiveContentType = contentType?.trim().isNotEmpty == true
-        ? contentType!.trim()
-        : 'application/octet-stream';
+    final effectiveContentType = _normalizedContentType(
+      contentType,
+      fallback: 'application/octet-stream',
+    );
 
     if (trimmedChatId.isEmpty ||
         trimmedUserId.isEmpty ||
@@ -105,10 +156,7 @@ class ChatAttachmentStorage {
       throw ArgumentError('Document file must not be empty.');
     }
 
-    final safeFileName = trimmedFileName.replaceAll(
-      RegExp(r'[^a-zA-Z0-9._-]+'),
-      '_',
-    );
+    final safeFileName = _safeStorageFileName(trimmedFileName);
     final path =
         'chat_documents/$trimmedChatId/$trimmedUserId/${trimmedMessageId}_$safeFileName';
     final reference = _storage.ref(path);
@@ -139,9 +187,7 @@ class ChatAttachmentStorage {
     final trimmedFileName = fileName.trim().isEmpty
         ? 'Sprachmemo.m4a'
         : fileName.trim();
-    final effectiveContentType = contentType?.trim().isNotEmpty == true
-        ? contentType!.trim()
-        : 'audio/mp4';
+    final effectiveContentType = 'audio/mp4';
 
     if (trimmedChatId.isEmpty ||
         trimmedUserId.isEmpty ||
@@ -155,10 +201,7 @@ class ChatAttachmentStorage {
       throw ArgumentError('Voice memo file must not be empty.');
     }
 
-    final safeFileName = trimmedFileName.replaceAll(
-      RegExp(r'[^a-zA-Z0-9._-]+'),
-      '_',
-    );
+    final safeFileName = _safeStorageFileName(trimmedFileName);
     final path =
         'chat_voice_memos/$trimmedChatId/$trimmedUserId/${trimmedMessageId}_$safeFileName';
     final reference = _storage.ref(path);
@@ -173,5 +216,32 @@ class ChatAttachmentStorage {
       fileSizeBytes: fileSizeBytes,
       contentType: effectiveContentType,
     );
+  }
+
+  String _safeStorageFileName(String fileName) {
+    final safeFileName = fileName.trim().replaceAll(
+      RegExp(r'[^a-zA-Z0-9._-]+'),
+      '_',
+    );
+
+    if (safeFileName.isEmpty) {
+      return 'file';
+    }
+
+    if (safeFileName.length <= _maxStorageFileNameLength) {
+      return safeFileName;
+    }
+
+    return safeFileName.substring(0, _maxStorageFileNameLength);
+  }
+
+  String _normalizedContentType(String? contentType, {required String fallback}) {
+    final trimmedContentType = contentType?.trim().toLowerCase();
+
+    if (trimmedContentType == null || trimmedContentType.isEmpty) {
+      return fallback;
+    }
+
+    return trimmedContentType;
   }
 }

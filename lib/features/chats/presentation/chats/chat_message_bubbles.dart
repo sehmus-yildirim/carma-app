@@ -91,6 +91,21 @@ class _ChatMessageBubble extends StatelessWidget {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _copyContactPhoneNumber(
+    BuildContext context,
+    _ContactPayload contact,
+  ) {
+    final phoneNumber = contact.phoneNumber.trim();
+
+    if (phoneNumber.isEmpty) {
+      _showSnackBar(context, 'Dieser Kontakt hat keine Rufnummer.');
+      return;
+    }
+
+    Clipboard.setData(ClipboardData(text: phoneNumber));
+    _showSnackBar(context, 'Rufnummer wurde kopiert.');
+  }
+
   bool _isNetworkImage(String value) {
     return value.startsWith('http://') || value.startsWith('https://');
   }
@@ -576,7 +591,14 @@ class _ChatMessageBubble extends StatelessWidget {
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onLongPress: () => _showMessageActions(context),
+        onLongPress: () {
+          if (contactPayload != null) {
+            _copyContactPhoneNumber(context, contactPayload);
+            return;
+          }
+
+          _showMessageActions(context);
+        },
         child: Container(
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.76,

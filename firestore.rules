@@ -211,6 +211,16 @@ service cloud.firestore {
         && changedOnlyNestedMapKey('typingUpdatedAtBy', request.auth.uid);
     }
 
+    function isValidChatPresenceUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participants
+        && isOpenChatStatus(resource.data.status)
+        && changedOnly(['onlineAtBy'])
+        && request.resource.data.onlineAtBy is map
+        && request.resource.data.onlineAtBy[request.auth.uid] is timestamp
+        && changedOnlyNestedMapKey('onlineAtBy', request.auth.uid);
+    }
+
     function isValidChatFavoriteUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.participants
@@ -326,10 +336,42 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function hasOnlyMessageCreateFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasValidOptionalReplyFields() {
+      return (
+          request.resource.data.replyToMessageId == null ||
+          (
+            request.resource.data.replyToMessageId is string
+            && request.resource.data.replyToMessageId.size() <= 120
+          )
+        )
+        && (
+          request.resource.data.replyToText == null ||
+          (
+            request.resource.data.replyToText is string
+            && request.resource.data.replyToText.size() <= 280
+          )
+        );
+    }
+
     function isValidTextMessageCreate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
+        && hasOnlyMessageCreateFields([
+          'chatId',
+          'senderUserId',
+          'type',
+          'text',
+          'createdAt',
+          'updatedAt',
+          'isDeleted',
+          'replyToMessageId',
+          'replyToText',
+        ])
         && request.auth.uid in chat.data.participants
         && isOpenChatStatus(chat.data.status)
         && request.resource.data.chatId == chatId
@@ -338,6 +380,71 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000
+        && hasValidOptionalReplyFields()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.isDeleted == false;
+    }
+
+    function isValidLocationMessageCreate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && hasOnlyMessageCreateFields([
+          'chatId',
+          'senderUserId',
+          'type',
+          'text',
+          'createdAt',
+          'updatedAt',
+          'isDeleted',
+          'replyToMessageId',
+          'replyToText',
+        ])
+        && request.auth.uid in chat.data.participants
+        && isOpenChatStatus(chat.data.status)
+        && request.resource.data.chatId == chatId
+        && request.resource.data.senderUserId == request.auth.uid
+        && request.resource.data.type == 'location'
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 80
+        && request.resource.data.text.matches(
+          '^Standort\\n-?[0-9]+\\.[0-9]{1,6},-?[0-9]+\\.[0-9]{1,6}$'
+        )
+        && hasValidOptionalReplyFields()
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.isDeleted == false;
+    }
+
+    function isValidContactMessageCreate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && hasOnlyMessageCreateFields([
+          'chatId',
+          'senderUserId',
+          'type',
+          'text',
+          'createdAt',
+          'updatedAt',
+          'isDeleted',
+          'replyToMessageId',
+          'replyToText',
+        ])
+        && request.auth.uid in chat.data.participants
+        && isOpenChatStatus(chat.data.status)
+        && request.resource.data.chatId == chatId
+        && request.resource.data.senderUserId == request.auth.uid
+        && request.resource.data.type == 'contact'
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 180
+        && request.resource.data.text.matches(
+          '^Kontakt\\nName: .{1,80}\\nTelefon: .{1,40}$'
+        )
+        && hasValidOptionalReplyFields()
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.isDeleted == false;
@@ -347,6 +454,17 @@ service cloud.firestore {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
+        && hasOnlyMessageCreateFields([
+          'chatId',
+          'senderUserId',
+          'type',
+          'text',
+          'imageUrl',
+          'imagePath',
+          'createdAt',
+          'updatedAt',
+          'isDeleted',
+        ])
         && request.auth.uid in chat.data.participants
         && isOpenChatStatus(chat.data.status)
         && request.resource.data.chatId == chatId
@@ -359,6 +477,7 @@ service cloud.firestore {
         && request.resource.data.imageUrl.size() > 0
         && request.resource.data.imagePath is string
         && request.resource.data.imagePath.size() > 0
+        && isOwnChatImagePath(chatId, request.resource.data.imagePath)
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.isDeleted == false;
@@ -368,6 +487,20 @@ service cloud.firestore {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
+        && hasOnlyMessageCreateFields([
+          'chatId',
+          'senderUserId',
+          'type',
+          'text',
+          'fileUrl',
+          'filePath',
+          'fileName',
+          'fileContentType',
+          'fileSizeBytes',
+          'createdAt',
+          'updatedAt',
+          'isDeleted',
+        ])
         && request.auth.uid in chat.data.participants
         && isOpenChatStatus(chat.data.status)
         && request.resource.data.chatId == chatId
@@ -380,11 +513,16 @@ service cloud.firestore {
         && request.resource.data.fileUrl.size() > 0
         && request.resource.data.filePath is string
         && request.resource.data.filePath.size() > 0
+        && isOwnChatDocumentPath(chatId, request.resource.data.filePath)
         && request.resource.data.fileName is string
         && request.resource.data.fileName.size() > 0
         && request.resource.data.fileName.size() <= 160
         && request.resource.data.fileContentType is string
         && request.resource.data.fileContentType.size() > 0
+        && request.resource.data.fileContentType.size() <= 120
+        && isAllowedChatDocumentContentType(
+          request.resource.data.fileContentType
+        )
         && request.resource.data.fileSizeBytes is int
         && request.resource.data.fileSizeBytes > 0
         && request.resource.data.fileSizeBytes <= 25 * 1024 * 1024
@@ -393,10 +531,37 @@ service cloud.firestore {
         && request.resource.data.isDeleted == false;
     }
 
+    function isAllowedChatDocumentContentType(contentType) {
+      return contentType.matches('text/.*')
+        || contentType == 'application/pdf'
+        || contentType == 'application/msword'
+        || contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        || contentType == 'application/vnd.ms-excel'
+        || contentType == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        || contentType == 'application/vnd.ms-powerpoint'
+        || contentType == 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        || contentType == 'application/rtf';
+    }
+
     function isValidAudioMessageCreate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
+        && hasOnlyMessageCreateFields([
+          'chatId',
+          'senderUserId',
+          'type',
+          'text',
+          'fileUrl',
+          'filePath',
+          'fileName',
+          'fileContentType',
+          'fileSizeBytes',
+          'fileDurationMs',
+          'createdAt',
+          'updatedAt',
+          'isDeleted',
+        ])
         && request.auth.uid in chat.data.participants
         && isOpenChatStatus(chat.data.status)
         && request.resource.data.chatId == chatId
@@ -407,11 +572,12 @@ service cloud.firestore {
         && request.resource.data.fileUrl.size() > 0
         && request.resource.data.filePath is string
         && request.resource.data.filePath.size() > 0
+        && isOwnChatVoiceMemoPath(chatId, request.resource.data.filePath)
         && request.resource.data.fileName is string
         && request.resource.data.fileName.size() > 0
         && request.resource.data.fileName.size() <= 160
         && request.resource.data.fileContentType is string
-        && request.resource.data.fileContentType.matches('audio/.*')
+        && request.resource.data.fileContentType == 'audio/mp4'
         && request.resource.data.fileSizeBytes is int
         && request.resource.data.fileSizeBytes > 0
         && request.resource.data.fileSizeBytes <= 15 * 1024 * 1024
@@ -479,6 +645,245 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function isOwnChatImagePath(chatId, path) {
+      return path.matches(
+        '^chat_images/' + chatId + '/' + request.auth.uid + '/[^/]+$'
+      );
+    }
+
+    function isOwnChatDocumentPath(chatId, path) {
+      return path.matches(
+        '^chat_documents/' + chatId + '/' + request.auth.uid + '/[^/]+$'
+      );
+    }
+
+    function isOwnChatVoiceMemoPath(chatId, path) {
+      return path.matches(
+        '^chat_voice_memos/' + chatId + '/' + request.auth.uid + '/[^/]+$'
+      );
+    }
+
+    function isOwnStoryImagePath(path) {
+      return path.matches(
+        '^chat_stories/' + request.auth.uid + '/[^/]+\\.jpg$'
+      );
+    }
+
+    function isOwnStoryVideoPath(path) {
+      return path.matches(
+        '^chat_stories/' + request.auth.uid + '/[^/]+\\.mp4$'
+      );
+    }
+
+    function isValidStoryTextFontFamily(value) {
+      return value in [
+        'standard',
+        'rounded',
+        'serif',
+        'mono',
+        'condensed',
+        'light',
+        'medium',
+        'black',
+        'casual',
+        'cursive',
+      ];
+    }
+
+    function isValidStoryFilterType(value) {
+      return value in ['normal', 'warm', 'cool', 'mono', 'soft'];
+    }
+
+    function isValidStoryTextColorValue(value) {
+      return value in [
+        4294967295,
+        4284732927,
+        4294956367,
+        4294925450,
+        4284805787,
+        4294933053,
+        4290807036,
+        4281193663,
+        4294916912,
+        4278221567,
+        4290182971,
+        4294937304,
+        4278190080,
+      ];
+    }
+
+    function isValidStoryStickerType(value) {
+      return value in ['', 'location', 'link', 'hashtag'];
+    }
+
+    function isValidStoryStickerData(type, label, payload) {
+      return (
+          type == ''
+          && label.size() == 0
+          && payload.size() == 0
+        )
+        || (
+          type == 'location'
+          && label.size() > 0
+          && label.size() <= 80
+          && payload.matches(
+            '^-?[0-9]+\\.[0-9]{1,6},-?[0-9]+\\.[0-9]{1,6}$'
+          )
+        )
+        || (
+          type == 'link'
+          && label.size() > 0
+          && label.size() <= 80
+          && payload.size() > 0
+          && payload.size() <= 300
+          && payload.matches('^https?://.+$')
+        )
+        || (
+          type == 'hashtag'
+          && label.size() > 1
+          && label.size() <= 80
+          && label.matches('^#.+$')
+          && payload.size() > 0
+          && payload.size() <= 79
+        );
+    }
+
+    function hasOnlyStoryOwnerWriteFields() {
+      return request.resource.data.keys().hasOnly([
+        'ownerUserId',
+        'ownerDisplayName',
+        'ownerPhotoUrl',
+        'viewerUserIds',
+        'viewerNameBy',
+        'viewedAtBy',
+        'imageUrl',
+        'imagePath',
+        'mediaType',
+        'videoUrl',
+        'videoPath',
+        'videoIsMuted',
+        'text',
+        'textColorValue',
+        'textFontFamily',
+        'textIsBold',
+        'textIsItalic',
+        'textIsUnderline',
+        'textAlignmentX',
+        'textAlignmentY',
+        'filterType',
+        'stickerType',
+        'stickerLabel',
+        'stickerPayload',
+        'stickerAlignmentX',
+        'stickerAlignmentY',
+        'createdAt',
+        'updatedAt',
+        'expiresAt',
+      ]);
+    }
+
+    function isValidStoryOwnerWrite(storyId) {
+      return isSignedIn()
+        && hasOnlyStoryOwnerWriteFields()
+        && storyId == request.auth.uid
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.ownerDisplayName is string
+        && request.resource.data.ownerDisplayName.size() > 0
+        && request.resource.data.ownerDisplayName.size() <= 80
+        && (
+          request.resource.data.ownerPhotoUrl == null ||
+          (
+            request.resource.data.ownerPhotoUrl is string
+            && request.resource.data.ownerPhotoUrl.size() <= 500
+          )
+        )
+        && request.resource.data.viewerUserIds is list
+        && request.resource.data.viewerUserIds.size() > 0
+        && request.resource.data.viewerUserIds.size() <= 200
+        && request.auth.uid in request.resource.data.viewerUserIds
+        && request.resource.data.viewedAtBy is map
+        && request.resource.data.viewerNameBy is map
+        && request.resource.data.viewedAtBy[request.auth.uid] is timestamp
+        && request.resource.data.viewerNameBy[request.auth.uid] is string
+        && request.resource.data.viewerNameBy[request.auth.uid].size() > 0
+        && request.resource.data.viewerNameBy[request.auth.uid].size() <= 80
+        && request.resource.data.mediaType is string
+        && request.resource.data.mediaType in ['image', 'video']
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imagePath is string
+        && request.resource.data.videoUrl is string
+        && request.resource.data.videoPath is string
+        && request.resource.data.videoIsMuted is bool
+        && (
+          (request.resource.data.mediaType == 'image'
+            && request.resource.data.imageUrl.size() > 0
+            && request.resource.data.imagePath.size() > 0
+            && isOwnStoryImagePath(request.resource.data.imagePath)
+            && request.resource.data.videoUrl.size() == 0
+            && request.resource.data.videoPath.size() == 0)
+          || (request.resource.data.mediaType == 'video'
+            && request.resource.data.videoUrl.size() > 0
+            && request.resource.data.videoPath.size() > 0
+            && isOwnStoryVideoPath(request.resource.data.videoPath)
+            && request.resource.data.imageUrl.size() == 0
+            && request.resource.data.imagePath.size() == 0)
+        )
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 280
+        && request.resource.data.textColorValue is int
+        && isValidStoryTextColorValue(request.resource.data.textColorValue)
+        && request.resource.data.textFontFamily is string
+        && isValidStoryTextFontFamily(request.resource.data.textFontFamily)
+        && request.resource.data.textIsBold is bool
+        && request.resource.data.textIsItalic is bool
+        && request.resource.data.textIsUnderline is bool
+        && request.resource.data.textAlignmentX is number
+        && request.resource.data.textAlignmentX >= 0
+        && request.resource.data.textAlignmentX <= 1
+        && request.resource.data.textAlignmentY is number
+        && request.resource.data.textAlignmentY >= 0
+        && request.resource.data.textAlignmentY <= 1
+        && request.resource.data.filterType is string
+        && isValidStoryFilterType(request.resource.data.filterType)
+        && request.resource.data.stickerType is string
+        && isValidStoryStickerType(request.resource.data.stickerType)
+        && request.resource.data.stickerLabel is string
+        && request.resource.data.stickerPayload is string
+        && isValidStoryStickerData(
+          request.resource.data.stickerType,
+          request.resource.data.stickerLabel,
+          request.resource.data.stickerPayload
+        )
+        && request.resource.data.stickerAlignmentX is number
+        && request.resource.data.stickerAlignmentX >= 0
+        && request.resource.data.stickerAlignmentX <= 1
+        && request.resource.data.stickerAlignmentY is number
+        && request.resource.data.stickerAlignmentY >= 0
+        && request.resource.data.stickerAlignmentY <= 1
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.resource.data.createdAt
+        && request.resource.data.expiresAt <=
+          request.resource.data.createdAt + duration.value(24, 'h');
+    }
+
+    function isValidStoryViewUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.viewerUserIds
+        && resource.data.expiresAt > request.time
+        && changedOnly(['viewedAtBy', 'viewerNameBy', 'updatedAt'])
+        && request.resource.data.viewedAtBy is map
+        && request.resource.data.viewerNameBy is map
+        && request.resource.data.viewedAtBy[request.auth.uid] is timestamp
+        && request.resource.data.viewerNameBy[request.auth.uid] is string
+        && request.resource.data.viewerNameBy[request.auth.uid].size() > 0
+        && request.resource.data.viewerNameBy[request.auth.uid].size() <= 80
+        && request.resource.data.updatedAt is timestamp
+        && changedOnlyNestedMapKey('viewedAtBy', request.auth.uid)
+        && changedOnlyNestedMapKey('viewerNameBy', request.auth.uid);
+    }
+
     match /users/{userId} {
       allow read, create, update: if isOwner(userId);
       allow delete: if false;
@@ -544,6 +949,7 @@ service cloud.firestore {
       allow update: if isValidChatLastMessageUpdate()
         || isValidChatReadUpdate()
         || isValidChatTypingUpdate()
+        || isValidChatPresenceUpdate()
         || isValidChatFavoriteUpdate()
         || isValidChatPinnedUpdate()
         || isValidChatMutedUpdate()
@@ -558,6 +964,8 @@ service cloud.firestore {
         allow read: if isChatParticipant(chatId);
 
         allow create: if isValidTextMessageCreate(chatId)
+          || isValidLocationMessageCreate(chatId)
+          || isValidContactMessageCreate(chatId)
           || isValidImageMessageCreate(chatId)
           || isValidDocumentMessageCreate(chatId)
           || isValidAudioMessageCreate(chatId);
@@ -568,6 +976,22 @@ service cloud.firestore {
 
         allow delete: if false;
       }
+    }
+
+    match /chat_stories/{storyId} {
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.viewerUserIds
+        && (
+          request.auth.uid == resource.data.ownerUserId ||
+          resource.data.expiresAt > request.time
+        );
+
+      allow create: if isValidStoryOwnerWrite(storyId);
+      allow update: if isValidStoryOwnerWrite(storyId)
+        || isValidStoryViewUpdate();
+
+      allow delete: if isSignedIn()
+        && resource.data.ownerUserId == request.auth.uid;
     }
 
     match /reports/{reportId} {

@@ -225,6 +225,8 @@ class _ChatsOverview extends StatelessWidget {
     required this.chats,
     required this.archivedChats,
     required this.blockedChats,
+    required this.stories,
+    required this.isAddingOwnStory,
     required this.isLoading,
     required this.hasLocalActiveChat,
     required this.localMessages,
@@ -235,11 +237,15 @@ class _ChatsOverview extends StatelessWidget {
     required this.onHorizontalSwipe,
     required this.onOpenChat,
     required this.onOpenLocalChat,
+    required this.onAddOwnStory,
+    required this.onOpenStory,
   });
 
   final List<ChatRecord> chats;
   final List<ChatRecord> archivedChats;
   final List<ChatRecord> blockedChats;
+  final List<ChatStoryRecord> stories;
+  final bool isAddingOwnStory;
   final bool isLoading;
   final bool hasLocalActiveChat;
   final List<_LocalChatMessage> localMessages;
@@ -250,9 +256,13 @@ class _ChatsOverview extends StatelessWidget {
   final GestureDragEndCallback onHorizontalSwipe;
   final ValueChanged<ChatRecord> onOpenChat;
   final VoidCallback onOpenLocalChat;
+  final ValueChanged<List<ChatRecord>> onAddOwnStory;
+  final void Function(ChatStoryRecord story, List<ChatStoryRecord> stories)
+  onOpenStory;
 
   @override
   Widget build(BuildContext context) {
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final visibleChats = chats.where(matchesChat).toList();
     final visibleArchivedChats = archivedChats.where(matchesChat).toList();
@@ -276,10 +286,22 @@ class _ChatsOverview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ChatStoriesStrip(chats: visibleChats),
-        const SizedBox(height: 16),
+        if (!isKeyboardOpen) ...[
+          _ChatStoriesStrip(
+            chats: visibleChats,
+            stories: stories,
+            isAddingOwnStory: isAddingOwnStory,
+            onAddOwnStory: () => onAddOwnStory([
+              ...chats,
+              ...archivedChats,
+            ]),
+            onOpenStory: onOpenStory,
+          ),
+          const SizedBox(height: 16),
+        ],
         _InlineTextTabs<_ChatListView>(
           selectedValue: selectedListView,
+          isCompact: isKeyboardOpen,
           items: const [
             _InlineTextTabItem(
               value: _ChatListView.messages,
@@ -296,7 +318,7 @@ class _ChatsOverview extends StatelessWidget {
           ],
           onChanged: onListViewChanged,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: isKeyboardOpen ? 6 : 12),
         Expanded(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -344,7 +366,8 @@ class _ChatsOverview extends StatelessWidget {
                               trailing: _ChatOverflowMenu(
                                 chatId: chat.id,
                                 title: chat.displayNameFor(currentUserId),
-                                subtitle: chat.vehicleTitle,
+                                subtitle:
+                                    '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
                                 isFavorite: chat.isFavoriteFor(currentUserId),
                                 isPinned: chat.isPinnedFor(currentUserId),
                                 isMuted: chat.isMutedFor(currentUserId),
@@ -364,10 +387,10 @@ class _ChatsOverview extends StatelessWidget {
                               title: 'Carma Nutzer',
                               subtitle: localMessages.isNotEmpty
                                   ? localMessages.last.text
-                                  : 'BMW 1er · Schwarz',
+                                  : 'BMW 1er',
                               trailing: const _ChatOverflowMenu(
                                 title: 'Carma Nutzer',
-                                subtitle: 'BMW 1er · Schwarz',
+                                subtitle: 'BMW 1er - HH-HY 4747',
                                 popAfterStatusAction: false,
                               ),
                               onTap: onOpenLocalChat,
@@ -448,6 +471,7 @@ class _RequestsOverview extends StatelessWidget {
               children: [
                 _InlineTextTabs<_RequestListView>(
                   selectedValue: selectedListView,
+                  isCompact: MediaQuery.of(context).viewInsets.bottom > 0,
                   items: [
                     _InlineTextTabItem(
                       value: _RequestListView.incoming,
@@ -462,7 +486,9 @@ class _RequestsOverview extends StatelessWidget {
                   ],
                   onChanged: onListViewChanged,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(
+                  height: MediaQuery.of(context).viewInsets.bottom > 0 ? 6 : 12,
+                ),
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
@@ -532,11 +558,13 @@ class _InlineTextTabs<T> extends StatelessWidget {
     required this.selectedValue,
     required this.items,
     required this.onChanged,
+    this.isCompact = false,
   });
 
   final T selectedValue;
   final List<_InlineTextTabItem<T>> items;
   final ValueChanged<T> onChanged;
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -546,9 +574,10 @@ class _InlineTextTabs<T> extends StatelessWidget {
           _InlineTextTab<T>(
             item: item,
             isSelected: item.value == selectedValue,
+            isCompact: isCompact,
             onTap: () => onChanged(item.value),
           ),
-          if (item != items.last) const SizedBox(width: 22),
+          if (item != items.last) SizedBox(width: isCompact ? 18 : 22),
         ],
       ],
     );
@@ -559,11 +588,13 @@ class _InlineTextTab<T> extends StatelessWidget {
   const _InlineTextTab({
     required this.item,
     required this.isSelected,
+    required this.isCompact,
     required this.onTap,
   });
 
   final _InlineTextTabItem<T> item;
   final bool isSelected;
+  final bool isCompact;
   final VoidCallback onTap;
 
   @override
@@ -576,7 +607,7 @@ class _InlineTextTab<T> extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: EdgeInsets.symmetric(vertical: isCompact ? 2 : 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -589,14 +620,16 @@ class _InlineTextTab<T> extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: color,
                     fontWeight: FontWeight.w900,
-                    fontSize: 18,
+                    fontSize: isCompact ? 16 : 18,
                   ),
                 ),
                 if (item.count != null) ...[
                   const SizedBox(width: 8),
                   Container(
-                    height: 24,
-                    constraints: const BoxConstraints(minWidth: 24),
+                    height: isCompact ? 21 : 24,
+                    constraints: BoxConstraints(
+                      minWidth: isCompact ? 21 : 24,
+                    ),
                     alignment: Alignment.center,
                     padding: const EdgeInsets.symmetric(horizontal: 7),
                     decoration: BoxDecoration(
@@ -621,11 +654,11 @@ class _InlineTextTab<T> extends StatelessWidget {
                 ],
               ],
             ),
-            const SizedBox(height: 5),
+            SizedBox(height: isCompact ? 3 : 5),
             AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              width: isSelected ? 28 : 0,
-              height: 3,
+              width: isSelected ? (isCompact ? 24 : 28) : 0,
+              height: isCompact ? 2.5 : 3,
               decoration: BoxDecoration(
                 color: _carmaBlueLight,
                 borderRadius: BorderRadius.circular(999),
@@ -639,34 +672,99 @@ class _InlineTextTab<T> extends StatelessWidget {
 }
 
 class _ChatStoriesStrip extends StatelessWidget {
-  const _ChatStoriesStrip({required this.chats});
+  const _ChatStoriesStrip({
+    required this.chats,
+    required this.stories,
+    required this.isAddingOwnStory,
+    required this.onAddOwnStory,
+    required this.onOpenStory,
+  });
 
   final List<ChatRecord> chats;
+  final List<ChatStoryRecord> stories;
+  final bool isAddingOwnStory;
+  final VoidCallback onAddOwnStory;
+  final void Function(ChatStoryRecord story, List<ChatStoryRecord> stories)
+  onOpenStory;
 
   @override
   Widget build(BuildContext context) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final storyChats = chats.take(12).toList();
+    final visibleOwnerIds = <String>{
+      for (final chat in chats)
+        for (final participant in chat.participants)
+          if (participant.trim().isNotEmpty) participant.trim(),
+    };
+    ChatStoryRecord? ownStory;
+
+    for (final story in stories) {
+      if (story.ownerUserId == currentUserId) {
+        ownStory = story;
+        break;
+      }
+    }
+
+    final otherStories =
+        stories
+            .where(
+              (story) =>
+                  story.ownerUserId != currentUserId &&
+                  visibleOwnerIds.contains(story.ownerUserId),
+            )
+            .toList()
+          ..sort((a, b) {
+            final aViewed = a.viewedAtBy.containsKey(currentUserId);
+            final bViewed = b.viewedAtBy.containsKey(currentUserId);
+
+            if (aViewed != bViewed) {
+              return aViewed ? 1 : -1;
+            }
+
+            return b.createdAt.compareTo(a.createdAt);
+          });
+    final visibleStories = otherStories.take(12).toList();
 
     return SizedBox(
       height: 106,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: storyChats.length + 1,
+        itemCount: visibleStories.length + 1,
         separatorBuilder: (_, _) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return const _StoryBubble(
+            final currentOwnStory = ownStory;
+
+            return _StoryBubble(
               label: 'Deine Story',
-              imageUrl: null,
+              imageUrl: currentOwnStory?.imageUrl,
+              isVideo: currentOwnStory?.isVideo ?? false,
               isOwnStory: true,
+              hasStory: currentOwnStory != null,
+              isViewed: true,
+              isBusy: isAddingOwnStory,
+              onTap: isAddingOwnStory
+                  ? () {}
+                  : currentOwnStory == null
+                  ? onAddOwnStory
+                  : () => onOpenStory(
+                      currentOwnStory,
+                      <ChatStoryRecord>[currentOwnStory],
+                    ),
+              onAddTap: isAddingOwnStory ? null : onAddOwnStory,
             );
           }
 
-          final chat = storyChats[index - 1];
+          final story = visibleStories[index - 1];
+          final storyImageUrl = story.ownerPhotoUrl?.trim().isNotEmpty == true
+              ? story.ownerPhotoUrl
+              : story.imageUrl;
           return _StoryBubble(
-            label: chat.displayNameFor(currentUserId),
-            imageUrl: chat.profilePhotoUrlFor(currentUserId),
+            label: story.ownerDisplayName,
+            imageUrl: storyImageUrl,
+            isVideo: story.isVideo,
+            hasStory: true,
+            isViewed: story.viewedAtBy.containsKey(currentUserId),
+            onTap: () => onOpenStory(story, visibleStories),
           );
         },
       ),
@@ -678,76 +776,209 @@ class _StoryBubble extends StatelessWidget {
   const _StoryBubble({
     required this.label,
     this.imageUrl,
+    this.isVideo = false,
     this.isOwnStory = false,
+    this.hasStory = false,
+    this.isViewed = false,
+    this.isBusy = false,
+    required this.onTap,
+    this.onAddTap,
   });
 
   final String label;
   final String? imageUrl;
+  final bool isVideo;
   final bool isOwnStory;
+  final bool hasStory;
+  final bool isViewed;
+  final bool isBusy;
+  final VoidCallback onTap;
+  final VoidCallback? onAddTap;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 78,
-      child: Column(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 66,
-                height: 66,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [_carmaBlueDark, _carmaBlueLight],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 66,
+                  height: 66,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: hasStory && (!isViewed || isOwnStory)
+                        ? const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [_carmaBlueDark, _carmaBlueLight],
+                          )
+                        : null,
+                    color: hasStory && isViewed
+                        ? Colors.white.withValues(alpha: 0.20)
+                        : hasStory
+                        ? null
+                        : Colors.white.withValues(alpha: 0.10),
+                  ),
+                  child: ClipOval(
+                    child: isBusy
+                        ? Container(
+                            color: Colors.white.withValues(alpha: 0.08),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          )
+                        : hasStory && imageUrl?.trim().isNotEmpty == true
+                        ? Image.network(
+                            imageUrl!.trim(),
+                            width: 62,
+                            height: 62,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _AvatarCircle(
+                              size: 62,
+                              imageUrl: null,
+                              iconSize: 34,
+                            ),
+                          )
+                        : hasStory && isVideo
+                        ? const _StoryVideoBubblePlaceholder()
+                        : _AvatarCircle(
+                            size: 62,
+                            imageUrl: imageUrl,
+                            iconSize: 34,
+                          ),
                   ),
                 ),
-                child: _AvatarCircle(
-                  size: 62,
-                  imageUrl: imageUrl,
-                  iconSize: 34,
-                ),
-              ),
-              if (isOwnStory)
-                Positioned(
-                  right: -2,
-                  bottom: -1,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _carmaBlue,
-                      border: Border.all(
-                        color: const Color(0xFF101827),
-                        width: 3,
+                if (isOwnStory)
+                  Positioned(
+                    right: -2,
+                    bottom: -1,
+                    child: GestureDetector(
+                      onTap: onAddTap,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _carmaBlue,
+                          border: Border.all(
+                            color: const Color(0xFF101827),
+                            width: 3,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                       ),
                     ),
-                    child: const Icon(
-                      Icons.add_rounded,
-                      color: Colors.white,
-                      size: 16,
+                  ),
+                if (hasStory && !isViewed && !isOwnStory)
+                  Positioned(
+                    right: -3,
+                    top: 2,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _carmaBlueLight,
+                        border: Border.all(
+                          color: const Color(0xFF101827),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _carmaBlueLight.withValues(alpha: 0.45),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.78),
-              fontWeight: FontWeight.w800,
+                if (hasStory && isVideo)
+                  Positioned(
+                    right: 1,
+                    bottom: 1,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.58),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 17,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: hasStory && (!isViewed || isOwnStory)
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.78),
+                fontWeight: hasStory && (!isViewed || isOwnStory)
+                    ? FontWeight.w900
+                    : FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryVideoBubblePlaceholder extends StatelessWidget {
+  const _StoryVideoBubblePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _myMessageBlueLight,
+            _carmaBlueDark.withValues(alpha: 0.86),
+          ],
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.videocam_rounded,
+          color: Colors.white,
+          size: 32,
+        ),
       ),
     );
   }

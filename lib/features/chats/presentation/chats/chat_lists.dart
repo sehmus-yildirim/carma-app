@@ -43,7 +43,8 @@ class _ActiveChatsScreen extends StatelessWidget {
                     trailing: _ChatOverflowMenu(
                       chatId: chat.id,
                       title: chat.displayNameFor(currentUserId),
-                      subtitle: chat.vehicleTitle,
+                      subtitle:
+                          '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
                       isFavorite: chat.isFavoriteFor(currentUserId),
                       isPinned: chat.isPinnedFor(currentUserId),
                       isMuted: chat.isMutedFor(currentUserId),
@@ -62,6 +63,7 @@ class _ActiveChatsScreen extends StatelessWidget {
                             ),
                             vehicleModel: chat.vehicleModelLabel,
                             vehicleColor: chat.vehicleColorLabel,
+                            displayPlate: chat.displayPlate,
                           ),
                         ),
                       );
@@ -82,10 +84,10 @@ class _ActiveChatsScreen extends StatelessWidget {
                   title: 'Carma Nutzer',
                   subtitle: messages.isNotEmpty
                       ? 'Letzte Nachricht: ${messages.last.text}'
-                      : 'BMW 1er · Schwarz',
+                      : 'BMW 1er',
                   trailing: const _ChatOverflowMenu(
                     title: 'Carma Nutzer',
-                    subtitle: 'BMW 1er · Schwarz',
+                    subtitle: 'BMW 1er - HH-HY 4747',
                     popAfterStatusAction: false,
                   ),
                   onTap: () {

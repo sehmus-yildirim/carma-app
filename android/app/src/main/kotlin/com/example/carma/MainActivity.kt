@@ -2,14 +2,19 @@ package com.example.carma
 
 import android.Manifest
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.location.Geocoder
 import android.media.AudioAttributes
 import android.media.MediaRecorder
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.provider.ContactsContract
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -18,6 +23,9 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
+import java.net.URL
+import java.util.Locale
 
 class MainActivity : FlutterActivity() {
     private val channelName = "carma/chat_tools"
@@ -31,6 +39,17 @@ class MainActivity : FlutterActivity() {
     private var voiceMemoFile: File? = null
     private var voiceMemoStartedAt: Long = 0L
     private var voiceMemoPlayer: MediaPlayer? = null
+    private val allowedDocumentMimeTypes = arrayOf(
+        "text/*",
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/rtf",
+    )
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -40,8 +59,12 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "pickPhoneContact" -> pickPhoneContact(result)
                     "openMap" -> openMap(call.argument<Double>("latitude"), call.argument<Double>("longitude"), result)
+                    "reverseGeocodeLocation" -> reverseGeocodeLocation(call.argument<Double>("latitude"), call.argument<Double>("longitude"), result)
                     "pickDocumentFile" -> pickDocumentFile(result)
                     "openDocumentUrl" -> openDocumentUrl(call.argument<String>("url"), call.argument<String>("contentType"), result)
+                    "shareText" -> shareText(call.argument<String>("text"), result)
+                    "saveImageToGallery" -> saveImageToGallery(call.argument<String>("url"), call.argument<String>("fileName"), call.argument<String>("contentType"), result)
+                    "saveDocumentToDownloads" -> saveDocumentToDownloads(call.argument<String>("url"), call.argument<String>("fileName"), call.argument<String>("contentType"), result)
                     "startVoiceMemo" -> startVoiceMemo(result)
                     "stopVoiceMemo" -> stopVoiceMemo(result)
                     "cancelVoiceMemo" -> cancelVoiceMemo(result)
@@ -81,6 +104,7 @@ class MainActivity : FlutterActivity() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, allowedDocumentMimeTypes)
         }
 
         try {
@@ -108,6 +132,55 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun reverseGeocodeLocation(latitude: Double?, longitude: Double?, result: MethodChannel.Result) {
+        if (latitude == null || longitude == null) {
+            result.error("invalid_location", "Latitude and longitude are required.", null)
+            return
+        }
+
+        Thread {
+            try {
+                val geocoder = Geocoder(this, Locale.getDefault())
+                val places = geocoder.getFromLocation(latitude, longitude, 5).orEmpty()
+                    .mapNotNull { address ->
+                        val city = address.locality?.trim().orEmpty()
+                            .ifBlank { address.subLocality?.trim().orEmpty() }
+                            .ifBlank { address.subAdminArea?.trim().orEmpty() }
+                        val region = address.adminArea?.trim().orEmpty()
+                        val country = address.countryName?.trim().orEmpty()
+                        val street = address.thoroughfare?.trim().orEmpty()
+                        val feature = address.featureName?.trim().orEmpty()
+                        val labelParts = listOf(feature, street, city, region)
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .distinct()
+                        val label = labelParts.joinToString(", ").ifBlank {
+                            "%.5f, %.5f".format(Locale.US, latitude, longitude)
+                        }
+
+                        if (label.isBlank()) {
+                            null
+                        } else {
+                            mapOf(
+                                "label" to label,
+                                "city" to city,
+                                "region" to region,
+                                "country" to country,
+                            )
+                        }
+                    }
+
+                runOnUiThread {
+                    result.success(mapOf("places" to places))
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    result.error("reverse_geocode_failed", "Location could not be resolved.", error.message)
+                }
+            }
+        }.start()
+    }
+
     private fun openDocumentUrl(url: String?, contentType: String?, result: MethodChannel.Result) {
         if (url.isNullOrBlank()) {
             result.error("invalid_document_url", "Document URL is required.", null)
@@ -132,6 +205,185 @@ class MainActivity : FlutterActivity() {
                 result.error("document_open_unavailable", "No app is available to open this document.", fallbackError.message)
             }
         }
+    }
+
+    private fun shareText(text: String?, result: MethodChannel.Result) {
+        if (text.isNullOrBlank()) {
+            result.error("invalid_share_text", "Text is required.", null)
+            return
+        }
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+
+        try {
+            startActivity(Intent.createChooser(intent, "Teilen"))
+            result.success(null)
+        } catch (error: Exception) {
+            result.error("share_unavailable", "No app is available for sharing.", error.message)
+        }
+    }
+
+    private fun saveImageToGallery(
+        url: String?,
+        fileName: String?,
+        contentType: String?,
+        result: MethodChannel.Result,
+    ) {
+        saveFileToMediaStore(
+            url = url,
+            fileName = fileName?.ifBlank { null } ?: "carma_image_${System.currentTimeMillis()}.jpg",
+            contentType = contentType?.ifBlank { null } ?: "image/jpeg",
+            isImage = true,
+            result = result,
+        )
+    }
+
+    private fun saveDocumentToDownloads(
+        url: String?,
+        fileName: String?,
+        contentType: String?,
+        result: MethodChannel.Result,
+    ) {
+        saveFileToMediaStore(
+            url = url,
+            fileName = fileName?.ifBlank { null } ?: "carma_document_${System.currentTimeMillis()}",
+            contentType = contentType?.ifBlank { null } ?: "application/octet-stream",
+            isImage = false,
+            result = result,
+        )
+    }
+
+    private fun saveFileToMediaStore(
+        url: String?,
+        fileName: String,
+        contentType: String,
+        isImage: Boolean,
+        result: MethodChannel.Result,
+    ) {
+        if (url.isNullOrBlank()) {
+            result.error("invalid_save_url", "File URL is required.", null)
+            return
+        }
+
+        Thread {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    saveFileWithScopedStorage(url, fileName, contentType, isImage)
+                } else {
+                    saveFileLegacy(url, fileName, contentType, isImage)
+                }
+
+                runOnUiThread {
+                    result.success(null)
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    result.error("file_save_failed", "File could not be saved.", error.message)
+                }
+            }
+        }.start()
+    }
+
+    private fun saveFileWithScopedStorage(
+        url: String,
+        fileName: String,
+        contentType: String,
+        isImage: Boolean,
+    ) {
+        val isVideoMedia = isImage && contentType.startsWith("video/")
+        val targetCollection = if (isImage) {
+            if (isVideoMedia) {
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            } else {
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            }
+        } else {
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        }
+        val relativePath = if (isImage) {
+            if (isVideoMedia) {
+                Environment.DIRECTORY_MOVIES + "/Carma"
+            } else {
+                Environment.DIRECTORY_PICTURES + "/Carma"
+            }
+        } else {
+            Environment.DIRECTORY_DOWNLOADS + "/Carma"
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, sanitizeFileName(fileName))
+            put(MediaStore.MediaColumns.MIME_TYPE, contentType)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val targetUri = contentResolver.insert(targetCollection, values)
+            ?: throw IllegalStateException("Could not create target media entry.")
+
+        try {
+            contentResolver.openOutputStream(targetUri).use { output ->
+                if (output == null) {
+                    throw IllegalStateException("Could not open target file.")
+                }
+
+                openSourceStream(url).use { input ->
+                    input.copyTo(output)
+                }
+            }
+
+            val completedValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.IS_PENDING, 0)
+            }
+            contentResolver.update(targetUri, completedValues, null, null)
+        } catch (error: Exception) {
+            contentResolver.delete(targetUri, null, null)
+            throw error
+        }
+    }
+
+    private fun saveFileLegacy(url: String, fileName: String, contentType: String, isImage: Boolean) {
+        val isVideoMedia = isImage && contentType.startsWith("video/")
+        val baseDirectory = if (isImage) {
+            if (isVideoMedia) {
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+            } else {
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            }
+        } else {
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        }
+        val targetDirectory = File(baseDirectory, "Carma").apply { mkdirs() }
+        val targetFile = File(targetDirectory, sanitizeFileName(fileName))
+
+        FileOutputStream(targetFile).use { output ->
+            openSourceStream(url).use { input ->
+                input.copyTo(output)
+            }
+        }
+
+        if (isImage) {
+            sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(targetFile)))
+        }
+    }
+
+    private fun openSourceStream(value: String): InputStream {
+        val trimmedValue = value.trim()
+
+        if (trimmedValue.startsWith("http://") || trimmedValue.startsWith("https://")) {
+            return URL(trimmedValue).openStream()
+        }
+
+        if (trimmedValue.startsWith("content://")) {
+            return contentResolver.openInputStream(Uri.parse(trimmedValue))
+                ?: throw IllegalStateException("Could not open content URI.")
+        }
+
+        if (trimmedValue.startsWith("file://")) {
+            return File(Uri.parse(trimmedValue).path ?: "").inputStream()
+        }
+
+        return File(trimmedValue).inputStream()
     }
 
     private fun startVoiceMemo(result: MethodChannel.Result) {

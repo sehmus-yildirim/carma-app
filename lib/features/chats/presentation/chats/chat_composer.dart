@@ -70,9 +70,8 @@ class _MessageComposer extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 14,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _AttachmentSheetAction(
                       icon: Icons.photo_library_rounded,
@@ -83,11 +82,11 @@ class _MessageComposer extends StatelessWidget {
                       },
                     ),
                     _AttachmentSheetAction(
-                      icon: Icons.photo_camera_rounded,
-                      label: 'Kamera',
+                      icon: Icons.person_rounded,
+                      label: 'Kontakt',
                       onTap: () {
                         Navigator.of(context).pop();
-                        onTakePhoto();
+                        onShareContact();
                       },
                     ),
                     _AttachmentSheetAction(
@@ -96,14 +95,6 @@ class _MessageComposer extends StatelessWidget {
                       onTap: () {
                         Navigator.of(context).pop();
                         onShareLocation();
-                      },
-                    ),
-                    _AttachmentSheetAction(
-                      icon: Icons.person_rounded,
-                      label: 'Kontakt',
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        onShareContact();
                       },
                     ),
                     _AttachmentSheetAction(
@@ -134,51 +125,61 @@ class _MessageComposer extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      minimum: const EdgeInsets.fromLTRB(14, 0, 14, 10),
       child: GlassCard(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             _ComposerIconButton(
               icon: Icons.add_rounded,
               onTap: () => _openAttachmentSheet(context),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: controller,
                 onTap: onTextInputFocus,
                 minLines: 1,
-                maxLines: 4,
+                maxLines: 1,
                 textInputAction: TextInputAction.newline,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
+                  height: 1.1,
                 ),
                 decoration: InputDecoration(
+                  isDense: true,
                   hintText: isRecordingVoiceMemo
                       ? 'Aufnahme ${_formatRecordingDuration()}'
                       : 'Nachricht schreiben',
+                  hintMaxLines: 1,
                   hintStyle: TextStyle(
                     color: isRecordingVoiceMemo
                         ? const Color(0xFFFF8A9A)
                         : Colors.white.withValues(alpha: 0.48),
                     fontWeight: FontWeight.w700,
+                    height: 1.1,
                   ),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.08),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 13,
+                    horizontal: 14,
+                    vertical: 10,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide.none,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
+            _ComposerIconButton(
+              icon: Icons.photo_camera_rounded,
+              onTap: onTakePhoto,
+            ),
+            const SizedBox(width: 8),
             _SendButton(
               isEnabled: true,
               icon: sendIcon,
@@ -206,7 +207,7 @@ class _AttachmentSheetAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 92,
+      width: 76,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -217,9 +218,9 @@ class _AttachmentSheetAction extends StatelessWidget {
               onTap: onTap,
               customBorder: const CircleBorder(),
               child: SizedBox(
-                width: 58,
-                height: 58,
-                child: Icon(icon, color: Colors.white, size: 27),
+                width: 54,
+                height: 54,
+                child: Icon(icon, color: Colors.white, size: 25),
               ),
             ),
           ),
@@ -253,14 +254,14 @@ class _ComposerIconButton extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Ink(
-          width: 43,
-          height: 43,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white.withValues(alpha: 0.08),
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
-          child: Icon(icon, color: Colors.white, size: 23),
+          child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
     );
@@ -290,8 +291,8 @@ class _SendButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          width: 46,
-          height: 46,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: isEnabled

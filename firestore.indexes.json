@@ -1,0 +1,19 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "chat_stories",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "viewerUserIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "expiresAt",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

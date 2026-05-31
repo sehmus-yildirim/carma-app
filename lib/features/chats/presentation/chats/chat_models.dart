@@ -56,10 +56,18 @@ class _LocalChatMessage {
   }
 
   _LocationPayload? get locationPayload {
+    if (type != ChatMessageType.location && type != ChatMessageType.text) {
+      return null;
+    }
+
     return _LocationPayload.tryParse(text);
   }
 
   _ContactPayload? get contactPayload {
+    if (type != ChatMessageType.contact && type != ChatMessageType.text) {
+      return null;
+    }
+
     return _ContactPayload.tryParse(text);
   }
 

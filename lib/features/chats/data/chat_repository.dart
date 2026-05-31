@@ -5,7 +5,7 @@ import '../../../shared/firebase/carma_firestore_schema.dart';
 
 enum ChatStatus { active, archived, blocked, deleted }
 
-enum ChatMessageType { text, image, document, audio, system }
+enum ChatMessageType { text, image, document, audio, location, contact, system }
 
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim();
@@ -428,6 +428,7 @@ abstract class ChatRepository {
     required String chatId,
     required String senderUserId,
     required String text,
+    ChatMessageType messageType = ChatMessageType.text,
     String? replyToMessageId,
     String? replyToText,
   });
@@ -924,6 +925,71 @@ class FirestoreChatRepository implements ChatRepository {
     });
   }
 
+  Future<void> updateChatPresence({
+    required String chatId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
+      return;
+    }
+
+    await _chatsCollection.doc(trimmedChatId).set({
+      'onlineAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
+    }, SetOptions(merge: true));
+  }
+
+  Stream<DateTime?> watchOtherLastActiveAt({
+    required String chatId,
+    required String currentUserId,
+  }) {
+    final trimmedChatId = chatId.trim();
+    final trimmedCurrentUserId = currentUserId.trim();
+
+    if (trimmedChatId.isEmpty || trimmedCurrentUserId.isEmpty) {
+      return Stream<DateTime?>.value(null);
+    }
+
+    return _chatsCollection.doc(trimmedChatId).snapshots().map((snapshot) {
+      final data = snapshot.data();
+
+      if (data == null) {
+        return null;
+      }
+
+      final onlineAtBy = data['onlineAtBy'];
+
+      if (onlineAtBy is! Map) {
+        return null;
+      }
+
+      DateTime? latestOtherActiveAt;
+
+      for (final entry in onlineAtBy.entries) {
+        final userId = entry.key?.toString() ?? '';
+
+        if (userId.isEmpty || userId == trimmedCurrentUserId) {
+          continue;
+        }
+
+        final activeAt = _dateTimeFromValue(entry.value);
+
+        if (activeAt == null) {
+          continue;
+        }
+
+        if (latestOtherActiveAt == null ||
+            activeAt.isAfter(latestOtherActiveAt)) {
+          latestOtherActiveAt = activeAt;
+        }
+      }
+
+      return latestOtherActiveAt;
+    });
+  }
+
   @override
   String createMessageId({required String chatId}) {
     final trimmedChatId = chatId.trim();
@@ -940,6 +1006,7 @@ class FirestoreChatRepository implements ChatRepository {
     required String chatId,
     required String senderUserId,
     required String text,
+    ChatMessageType messageType = ChatMessageType.text,
     String? replyToMessageId,
     String? replyToText,
   }) async {
@@ -953,6 +1020,17 @@ class FirestoreChatRepository implements ChatRepository {
       throw ArgumentError('Message text is too long.');
     }
 
+    final firestoreMessageType = switch (messageType) {
+      ChatMessageType.location => FirestoreMessageTypes.location,
+      ChatMessageType.contact => FirestoreMessageTypes.contact,
+      _ => FirestoreMessageTypes.text,
+    };
+    final lastMessageText = switch (messageType) {
+      ChatMessageType.location => 'Standort',
+      ChatMessageType.contact => 'Kontakt',
+      _ => trimmedText,
+    };
+
     final now = DateTime.now();
     final messageDocument = _messagesCollection(chatId).doc();
 
@@ -962,7 +1040,7 @@ class FirestoreChatRepository implements ChatRepository {
       transaction.set(messageDocument, {
         'chatId': chatId,
         'senderUserId': senderUserId,
-        'type': FirestoreMessageTypes.text,
+        'type': firestoreMessageType,
         'text': trimmedText,
         'createdAt': Timestamp.fromDate(now),
         'updatedAt': Timestamp.fromDate(now),
@@ -972,7 +1050,7 @@ class FirestoreChatRepository implements ChatRepository {
       });
 
       transaction.set(chatDocument, {
-        'lastMessage': trimmedText,
+        'lastMessage': lastMessageText,
         'lastMessageAt': Timestamp.fromDate(now),
         'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
         'manualUnreadBy': {senderUserId: false},
@@ -1851,6 +1929,7 @@ class LocalChatRepository implements ChatRepository {
     required String chatId,
     required String senderUserId,
     required String text,
+    ChatMessageType messageType = ChatMessageType.text,
     String? replyToMessageId,
     String? replyToText,
   }) async {
@@ -1861,12 +1940,22 @@ class LocalChatRepository implements ChatRepository {
     }
 
     final now = DateTime.now();
+    final effectiveMessageType =
+        messageType == ChatMessageType.location ||
+            messageType == ChatMessageType.contact
+        ? messageType
+        : ChatMessageType.text;
+    final lastMessageText = switch (effectiveMessageType) {
+      ChatMessageType.location => 'Standort',
+      ChatMessageType.contact => 'Kontakt',
+      _ => trimmedText,
+    };
 
     final message = ChatMessageRecord(
       id: 'local-message-${now.microsecondsSinceEpoch}',
       chatId: chatId,
       senderUserId: senderUserId,
-      type: ChatMessageType.text,
+      type: effectiveMessageType,
       text: trimmedText,
       createdAt: now,
       updatedAt: now,
@@ -1877,7 +1966,7 @@ class LocalChatRepository implements ChatRepository {
     _messages.add(message);
     _updateChatLastMessage(
       chatId: chatId,
-      lastMessage: trimmedText,
+      lastMessage: lastMessageText,
       timestamp: now,
     );
 

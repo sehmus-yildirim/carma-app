@@ -1,5 +1,45 @@
 part of '../chats_screen.dart';
 
+class _ChatVehicleDetailPill extends StatelessWidget {
+  const _ChatVehicleDetailPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 46),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withValues(alpha: 0.10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white.withValues(alpha: 0.74), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChatOverflowMenu extends StatelessWidget {
   static final FirestoreChatRepository _chatRepository =
       FirestoreChatRepository();
@@ -42,6 +82,13 @@ class _ChatOverflowMenu extends StatelessWidget {
     final safeSubtitle = subtitle?.trim().isNotEmpty == true
         ? subtitle!.trim()
         : 'Fahrzeugdetails sind aktuell nicht verf\u00FCgbar.';
+    final detailParts = safeSubtitle.split(RegExp(r'\s+-\s+'));
+    final vehicleLabel = detailParts.first.trim().isEmpty
+        ? 'Fahrzeug'
+        : detailParts.first.trim();
+    final plateLabel = detailParts.length > 1
+        ? _formatChatPlateLabel(detailParts.sublist(1).join(' - '))
+        : '';
 
     await showDialog<void>(
       context: context,
@@ -107,25 +154,35 @@ class _ChatOverflowMenu extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.white.withValues(alpha: 0.08),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.13),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ChatVehicleDetailPill(
+                        icon: Icons.directions_car_filled_rounded,
+                        label: vehicleLabel,
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    safeSubtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
-                    ),
-                  ),
+                    if (plateLabel.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ChatVehicleDetailPill(
+                          icon: Icons.confirmation_number_rounded,
+                          label: plateLabel,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
+                if (plateLabel.isEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    safeSubtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.62),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -578,15 +635,15 @@ class _ChatOverflowMenu extends StatelessWidget {
               child: Text(
                 isFavorite
                     ? 'Aus Favoriten entfernen'
-                    : 'Zu Favoriten hinzufuegen',
+                    : 'Zu Favoriten hinzuf\u00FCgen',
               ),
             ),
             PopupMenuItem(
               value: _ChatMenuAction.mute,
               child: Text(
                 isMuted
-                    ? 'Benachrichtigungen einschalten'
-                    : 'Benachrichtigungen stummschalten',
+                    ? 'Stummschaltung aufheben'
+                    : 'Stummschalten',
               ),
             ),
             PopupMenuItem(
@@ -603,7 +660,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           if (!isBlocked) ...[
             PopupMenuItem(
               value: _ChatMenuAction.archive,
-              child: Text(isArchived ? 'Aus Archiv holen' : 'Chat archivieren'),
+              child: Text(isArchived ? 'Aus Archiv holen' : 'Archivieren'),
             ),
             const PopupMenuItem(
               value: _ChatMenuAction.delete,
