@@ -30,6 +30,7 @@ class ChatStoryRecord {
     this.viewedAtBy = const <String, DateTime>{},
     this.viewerNameBy = const <String, String>{},
     this.viewerPhotoUrlBy = const <String, String>{},
+    this.pollVoteBy = const <String, int>{},
     required this.createdAt,
     required this.expiresAt,
   });
@@ -61,6 +62,7 @@ class ChatStoryRecord {
   final Map<String, DateTime> viewedAtBy;
   final Map<String, String> viewerNameBy;
   final Map<String, String> viewerPhotoUrlBy;
+  final Map<String, int> pollVoteBy;
   final DateTime createdAt;
   final DateTime expiresAt;
 
@@ -226,6 +228,7 @@ class ChatStoryRepository {
       'stickerPayload': safeStickerPayload,
       'stickerAlignmentX': stickerAlignmentX.clamp(0.08, 0.92),
       'stickerAlignmentY': stickerAlignmentY.clamp(0.18, 0.86),
+      'pollVoteBy': <String, int>{},
       'createdAt': Timestamp.fromDate(now),
       'updatedAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(now.add(const Duration(hours: 24))),
@@ -283,6 +286,27 @@ class ChatStoryRepository {
 
     await _storiesCollection.doc(trimmedStoryId).set({
       'viewerPhotoUrlBy.$trimmedUserId': trimmedPhotoUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> voteStoryPoll({
+    required String storyId,
+    required String userId,
+    required int optionIndex,
+  }) async {
+    final trimmedStoryId = storyId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedStoryId.isEmpty ||
+        trimmedUserId.isEmpty ||
+        optionIndex < 0 ||
+        optionIndex > 1) {
+      return;
+    }
+
+    await _storiesCollection.doc(trimmedStoryId).set({
+      'pollVoteBy.$trimmedUserId': optionIndex,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -380,6 +404,7 @@ class ChatStoryRepository {
       viewedAtBy: _dateTimeMapFromValue(data['viewedAtBy']),
       viewerNameBy: _stringMapFromValue(data['viewerNameBy']),
       viewerPhotoUrlBy: _stringMapFromValue(data['viewerPhotoUrlBy']),
+      pollVoteBy: _intMapFromValue(data['pollVoteBy']),
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       expiresAt: _dateTimeFromValue(data['expiresAt']) ?? DateTime(1970),
     );
@@ -437,6 +462,27 @@ class ChatStoryRepository {
 
       if (key.isNotEmpty && label.isNotEmpty) {
         entries[key] = label;
+      }
+    }
+
+    return entries;
+  }
+
+  Map<String, int> _intMapFromValue(Object? value) {
+    if (value is! Map) {
+      return const <String, int>{};
+    }
+
+    final entries = <String, int>{};
+
+    for (final entry in value.entries) {
+      final key = entry.key.toString().trim();
+      final parsedValue = entry.value is int
+          ? entry.value as int
+          : int.tryParse('${entry.value}') ?? -1;
+
+      if (key.isNotEmpty && parsedValue >= 0) {
+        entries[key] = parsedValue;
       }
     }
 

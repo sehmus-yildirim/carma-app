@@ -783,8 +783,75 @@ class _ChatsScreenState extends State<ChatsScreen> {
             _showStoryViewers(context, visibleStory),
         onDeleteStory: (_) => _confirmDeleteOwnStory(context),
         onOpenSticker: _openStorySticker,
+        onReplyStory: _sendStoryReply,
+        onVoteStoryPoll: _voteStoryPoll,
       ),
     );
+  }
+
+  Future<void> _voteStoryPoll(ChatStoryRecord story, int optionIndex) async {
+    final currentUserId = _effectiveUserId.trim();
+
+    if (currentUserId.isEmpty || story.ownerUserId == currentUserId) {
+      return;
+    }
+
+    await _storyRepository.voteStoryPoll(
+      storyId: story.id,
+      userId: currentUserId,
+      optionIndex: optionIndex,
+    );
+  }
+
+  Future<void> _sendStoryReply(ChatStoryRecord story, String text) async {
+    final currentUserId = _effectiveUserId.trim();
+    final storyOwnerId = story.ownerUserId.trim();
+    final trimmedText = text.trim();
+
+    if (currentUserId.isEmpty ||
+        storyOwnerId.isEmpty ||
+        currentUserId == storyOwnerId ||
+        trimmedText.isEmpty) {
+      return;
+    }
+
+    final chats = await _chatRepository.loadChats(userId: currentUserId);
+    ChatRecord? storyChat;
+
+    for (final chat in chats) {
+      if (chat.participants.contains(storyOwnerId) &&
+          chat.isVisibleInActiveListFor(currentUserId)) {
+        storyChat = chat;
+        break;
+      }
+    }
+
+    if (storyChat == null) {
+      throw StateError('No active chat for story reply.');
+    }
+
+    await _chatRepository.sendTextMessage(
+      chatId: storyChat.id,
+      senderUserId: currentUserId,
+      text: trimmedText,
+      replyToText: _storyReplyPreview(story),
+    );
+  }
+
+  String _storyReplyPreview(ChatStoryRecord story) {
+    final label = story.text.trim().isNotEmpty
+        ? story.text.trim()
+        : story.stickerLabel.trim().isNotEmpty
+        ? story.stickerLabel.trim()
+        : story.isVideo
+        ? 'Video-Story'
+        : 'Foto-Story';
+
+    final ownerName = story.ownerDisplayName.trim().isEmpty
+        ? 'Carma Nutzer'
+        : story.ownerDisplayName.trim();
+
+    return 'Story von $ownerName: $label';
   }
 
   Future<void> _showStoryViewers(
@@ -1154,9 +1221,130 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ).showSnackBar(const SnackBar(content: Text('Hashtag wurde kopiert.')));
         return;
       }
+
+      if (type == 'vehicle') {
+        await _showStoryVehicleStickerSheet(story);
+        return;
+      }
+
+      if (type == 'status') {
+        await _showStoryStatusStickerSheet(story);
+        return;
+      }
     } catch (_) {
       showStickerError();
     }
+  }
+
+  Future<void> _showStoryVehicleStickerSheet(ChatStoryRecord story) async {
+    final stickerLabel = story.stickerLabel.trim();
+    final stickerPayload = story.stickerPayload.trim();
+    final vehicleStyle = _vehicleStickerStyleFromPayload(stickerPayload);
+    final payloadPlateLabel = _vehicleStickerDetailFromPayload(stickerPayload);
+    final vehicleLabel = stickerLabel.isEmpty || vehicleStyle == 'plate'
+        ? 'Fahrzeug'
+        : stickerLabel;
+    final plateLabel = payloadPlateLabel.isNotEmpty
+        ? payloadPlateLabel
+        : vehicleStyle == 'plate'
+        ? stickerLabel
+        : '';
+
+    if (!mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return _StoryStickerInfoSheet(
+          icon: Icons.directions_car_filled_rounded,
+          title: vehicleLabel,
+          subtitle: 'Fahrzeug-Sticker von ${story.ownerDisplayName}',
+          rows: [
+            _StoryStickerInfoRow(
+              label: 'Fahrzeug',
+              value: vehicleLabel,
+              icon: Icons.directions_car_rounded,
+            ),
+            if (plateLabel.isNotEmpty)
+              _StoryStickerInfoRow(
+                label: 'Kennzeichen',
+                value: plateLabel,
+                icon: Icons.pin_rounded,
+              ),
+          ],
+          actionIcon: Icons.copy_rounded,
+          actionLabel: plateLabel.isEmpty ? null : 'Kennzeichen kopieren',
+          onAction: plateLabel.isEmpty
+              ? null
+              : () async {
+                  final navigator = Navigator.of(sheetContext);
+                  final messenger = ScaffoldMessenger.of(context);
+
+                  await Clipboard.setData(ClipboardData(text: plateLabel));
+
+                  if (!mounted) {
+                    return;
+                  }
+
+                  navigator.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Kennzeichen wurde kopiert.')),
+                  );
+                },
+        );
+      },
+    );
+  }
+
+  Future<void> _showStoryStatusStickerSheet(ChatStoryRecord story) async {
+    final statusLabel = story.stickerLabel.trim().isEmpty
+        ? story.stickerPayload.trim()
+        : story.stickerLabel.trim();
+
+    if (!mounted || statusLabel.isEmpty) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return _StoryStickerInfoSheet(
+          icon: _storyStatusStickerIcon(statusLabel),
+          title: statusLabel,
+          subtitle: 'Status von ${story.ownerDisplayName}',
+          rows: [
+            _StoryStickerInfoRow(
+              label: 'Status',
+              value: statusLabel,
+              icon: _storyStatusStickerIcon(statusLabel),
+            ),
+          ],
+          actionIcon: Icons.copy_rounded,
+          actionLabel: 'Status kopieren',
+          onAction: () async {
+            final navigator = Navigator.of(sheetContext);
+            final messenger = ScaffoldMessenger.of(context);
+
+            await Clipboard.setData(ClipboardData(text: statusLabel));
+
+            if (!mounted) {
+              return;
+            }
+
+            navigator.pop();
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Status wurde kopiert.')),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _runRequestAction({
@@ -1547,6 +1735,241 @@ class _StoryDeleteDialog extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StoryStickerInfoRow {
+  const _StoryStickerInfoRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+}
+
+class _StoryStickerInfoSheet extends StatelessWidget {
+  const _StoryStickerInfoSheet({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.rows,
+    this.actionIcon,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<_StoryStickerInfoRow> rows;
+  final IconData? actionIcon;
+  final String? actionLabel;
+  final Future<void> Function()? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeRows = rows
+        .where((row) => row.value.trim().isNotEmpty)
+        .toList(growable: false);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF0B223B).withValues(alpha: 0.96),
+                    const Color(0xFF122C48).withValues(alpha: 0.94),
+                    Colors.black.withValues(alpha: 0.9),
+                  ],
+                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                boxShadow: [
+                  BoxShadow(
+                    color: _carmaBlue.withValues(alpha: 0.2),
+                    blurRadius: 34,
+                    offset: const Offset(0, 18),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.24),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [_carmaBlue, _carmaBlueLight],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _carmaBlue.withValues(alpha: 0.34),
+                              blurRadius: 22,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.05,
+                                  ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.68),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (safeRows.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    for (final row in safeRows)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _StoryStickerInfoTile(row: row),
+                      ),
+                  ],
+                  if (actionLabel != null && onAction != null) ...[
+                    const SizedBox(height: 4),
+                    FilledButton.icon(
+                      onPressed: onAction,
+                      icon: Icon(actionIcon ?? Icons.copy_rounded, size: 19),
+                      label: Text(actionLabel!),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _carmaBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryStickerInfoTile extends StatelessWidget {
+  const _StoryStickerInfoTile({required this.row});
+
+  final _StoryStickerInfoRow row;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withValues(alpha: 0.08),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _carmaBlue.withValues(alpha: 0.2),
+            ),
+            child: Icon(row.icon, color: _carmaBlueLight, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  row.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.62),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  row.value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

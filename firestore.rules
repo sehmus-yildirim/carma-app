@@ -806,6 +806,7 @@ service cloud.firestore {
         'stickerPayload',
         'stickerAlignmentX',
         'stickerAlignmentY',
+        'pollVoteBy',
         'createdAt',
         'updatedAt',
         'expiresAt',
@@ -904,6 +905,8 @@ service cloud.firestore {
         && request.resource.data.stickerAlignmentY is number
         && request.resource.data.stickerAlignmentY >= 0
         && request.resource.data.stickerAlignmentY <= 1
+        && request.resource.data.pollVoteBy is map
+        && request.resource.data.pollVoteBy.keys().hasOnly([])
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.expiresAt is timestamp
@@ -940,6 +943,21 @@ service cloud.firestore {
         && changedOnlyNestedMapKey('viewedAtBy', request.auth.uid)
         && changedOnlyNestedMapKey('viewerNameBy', request.auth.uid)
         && changedOnlyNestedMapKey('viewerPhotoUrlBy', request.auth.uid);
+    }
+
+    function isValidStoryPollVoteUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.viewerUserIds
+        && request.auth.uid != resource.data.ownerUserId
+        && resource.data.expiresAt > request.time
+        && resource.data.stickerType == 'poll'
+        && changedOnly(['pollVoteBy', 'updatedAt'])
+        && request.resource.data.pollVoteBy is map
+        && request.resource.data.pollVoteBy[request.auth.uid] is int
+        && request.resource.data.pollVoteBy[request.auth.uid] >= 0
+        && request.resource.data.pollVoteBy[request.auth.uid] <= 1
+        && request.resource.data.updatedAt is timestamp
+        && changedOnlyNestedMapKey('pollVoteBy', request.auth.uid);
     }
 
     match /users/{userId} {
@@ -1046,7 +1064,8 @@ service cloud.firestore {
 
       allow create: if isValidStoryOwnerWrite(storyId);
       allow update: if isValidStoryOwnerWrite(storyId)
-        || isValidStoryViewUpdate();
+        || isValidStoryViewUpdate()
+        || isValidStoryPollVoteUpdate();
 
       allow delete: if isSignedIn()
         && resource.data.ownerUserId == request.auth.uid;

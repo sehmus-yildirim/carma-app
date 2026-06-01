@@ -88,6 +88,66 @@ class _StoryVehicleStickerData {
   }
 }
 
+class _StoryVehicleStickerOption {
+  const _StoryVehicleStickerOption({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.sticker,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final _StoryStickerDraft sticker;
+}
+
+String _vehicleStickerPayload({
+  required String style,
+  required String plateLabel,
+}) {
+  final safeStyle = style.trim().isEmpty ? 'card' : style.trim();
+  final safePlate = plateLabel.trim();
+
+  return '$safeStyle|$safePlate';
+}
+
+String _vehicleStickerStyleFromPayload(String payload) {
+  final trimmedPayload = payload.trim();
+  final separatorIndex = trimmedPayload.indexOf('|');
+
+  if (separatorIndex < 0) {
+    return 'card';
+  }
+
+  final style = trimmedPayload.substring(0, separatorIndex).trim();
+
+  return style.isEmpty ? 'card' : style;
+}
+
+String _vehicleStickerDetailFromPayload(String payload) {
+  final trimmedPayload = payload.trim();
+  final separatorIndex = trimmedPayload.indexOf('|');
+
+  if (separatorIndex < 0) {
+    return trimmedPayload;
+  }
+
+  return trimmedPayload.substring(separatorIndex + 1).trim();
+}
+
+IconData _storyStatusStickerIcon(String label) {
+  return switch (label.trim()) {
+    'Unterwegs' => Icons.route_rounded,
+    'Parke hier' => Icons.local_parking_rounded,
+    'Kurze Frage' => Icons.help_rounded,
+    'Treffen offen' => Icons.event_available_rounded,
+    'Nicht stören' => Icons.do_disturb_on_rounded,
+    'Auto gesehen' => Icons.visibility_rounded,
+    _ => Icons.bolt_rounded,
+  };
+}
+
 class _StoryFilterOption {
   const _StoryFilterOption({required this.value, required this.label});
 
@@ -1448,7 +1508,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     });
   }
 
-  void _addVehicleSticker() {
+  Future<void> _addVehicleSticker() async {
     final vehicleStickerData = widget.vehicleStickerData;
 
     if (vehicleStickerData == null || !vehicleStickerData.isComplete) {
@@ -1462,17 +1522,17 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       return;
     }
 
-    final vehicleLabel = vehicleStickerData.vehicleLabel.trim().isEmpty
-        ? 'Fahrzeug'
-        : vehicleStickerData.vehicleLabel.trim();
+    final sticker = await _showVehicleStickerPicker(
+      context: context,
+      vehicleStickerData: vehicleStickerData,
+    );
+
+    if (sticker == null || !mounted) {
+      return;
+    }
 
     setState(() {
-      _sticker = _StoryStickerDraft(
-        type: 'vehicle',
-        label: vehicleLabel,
-        payload: vehicleStickerData.plateLabel.trim(),
-        alignment: const Alignment(0, 0.52),
-      );
+      _sticker = sticker;
     });
   }
 
@@ -1885,6 +1945,152 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     } finally {
       controller.dispose();
     }
+  }
+
+  Future<_StoryStickerDraft?> _showVehicleStickerPicker({
+    required BuildContext context,
+    required _StoryVehicleStickerData vehicleStickerData,
+  }) async {
+    final vehicleLabel = vehicleStickerData.vehicleLabel.trim().isEmpty
+        ? 'Fahrzeug'
+        : vehicleStickerData.vehicleLabel.trim();
+    final plateLabel = vehicleStickerData.plateLabel.trim();
+    final visiblePlateLabel = plateLabel.isEmpty ? 'Kennzeichen' : plateLabel;
+    final options = <_StoryVehicleStickerOption>[
+      _StoryVehicleStickerOption(
+        title: 'Fahrzeugkarte',
+        subtitle: '$vehicleLabel - $visiblePlateLabel',
+        icon: Icons.directions_car_filled_rounded,
+        sticker: _StoryStickerDraft(
+          type: 'vehicle',
+          label: vehicleLabel,
+          payload: _vehicleStickerPayload(
+            style: 'card',
+            plateLabel: plateLabel,
+          ),
+          alignment: const Alignment(0, 0.52),
+        ),
+      ),
+      _StoryVehicleStickerOption(
+        title: 'Kennzeichen',
+        subtitle: visiblePlateLabel,
+        icon: Icons.pin_rounded,
+        sticker: _StoryStickerDraft(
+          type: 'vehicle',
+          label: visiblePlateLabel,
+          payload: _vehicleStickerPayload(
+            style: 'plate',
+            plateLabel: plateLabel,
+          ),
+          alignment: const Alignment(0, 0.52),
+        ),
+      ),
+      _StoryVehicleStickerOption(
+        title: 'Kompakt',
+        subtitle: '$vehicleLabel - $visiblePlateLabel',
+        icon: Icons.local_offer_rounded,
+        sticker: _StoryStickerDraft(
+          type: 'vehicle',
+          label: vehicleLabel,
+          payload: _vehicleStickerPayload(
+            style: 'compact',
+            plateLabel: plateLabel,
+          ),
+          alignment: const Alignment(0, 0.52),
+        ),
+      ),
+      _StoryVehicleStickerOption(
+        title: 'Carma Badge',
+        subtitle: '$vehicleLabel - $visiblePlateLabel',
+        icon: Icons.verified_rounded,
+        sticker: _StoryStickerDraft(
+          type: 'vehicle',
+          label: vehicleLabel,
+          payload: _vehicleStickerPayload(
+            style: 'badge',
+            plateLabel: plateLabel,
+          ),
+          alignment: const Alignment(0, 0.52),
+        ),
+      ),
+    ];
+
+    return showModalBottomSheet<_StoryStickerDraft>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF101827).withValues(alpha: 0.95),
+                        const Color(0xFF071120).withValues(alpha: 0.9),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Fahrzeug-Sticker',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Wähle eine Darstellung für deine Story.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.62),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      for (var index = 0; index < options.length; index++) ...[
+                        if (index > 0) const SizedBox(height: 10),
+                        _StoryVehicleStickerChoice(
+                          option: options[index],
+                          onTap: () =>
+                              Navigator.of(context).pop(options[index].sticker),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<String?> _showStatusStickerPicker(BuildContext context) async {
@@ -3310,18 +3516,125 @@ class _StoryStatusChoiceChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             color: Colors.white.withValues(alpha: 0.08),
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _carmaBlue.withValues(alpha: 0.86),
+                ),
+                child: Icon(
+                  _storyStatusStickerIcon(label),
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryVehicleStickerChoice extends StatelessWidget {
+  const _StoryVehicleStickerChoice({required this.option, required this.onTap});
+
+  final _StoryVehicleStickerOption option;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            color: Colors.white.withValues(alpha: 0.07),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _carmaBlue.withValues(alpha: 0.92),
+                      const Color(0xFF62D2FF).withValues(alpha: 0.78),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _carmaBlue.withValues(alpha: 0.22),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Icon(option.icon, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      option.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      option.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.62),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.48),
+              ),
+            ],
           ),
         ),
       ),
@@ -3344,17 +3657,28 @@ class _StoryStickerChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vehicleStyle = type == 'vehicle'
+        ? _vehicleStickerStyleFromPayload(payload)
+        : '';
+    final vehicleDetail = type == 'vehicle'
+        ? _vehicleStickerDetailFromPayload(payload)
+        : '';
+    final isPlateSticker = type == 'vehicle' && vehicleStyle == 'plate';
+    final isCompactSticker = type == 'vehicle' && vehicleStyle == 'compact';
+    final isBadgeSticker = type == 'vehicle' && vehicleStyle == 'badge';
+    final isStatusSticker = type == 'status';
     final icon = switch (type) {
       'vehicle' => Icons.directions_car_filled_rounded,
       'location' => Icons.location_on_rounded,
-      'status' => Icons.bolt_rounded,
+      'status' => _storyStatusStickerIcon(label),
       'link' => Icons.link_rounded,
       'hashtag' => Icons.tag_rounded,
       'poll' => Icons.poll_rounded,
       _ => Icons.add_reaction_rounded,
     };
     final subtitle = switch (type) {
-      'vehicle' => payload.trim(),
+      'vehicle' => isPlateSticker ? '' : vehicleDetail,
+      'status' => 'Carma Status',
       'poll' =>
         payload
             .split('\n')
@@ -3364,30 +3688,82 @@ class _StoryStickerChip extends StatelessWidget {
       _ => '',
     };
     final isExpandedSticker = subtitle.isNotEmpty;
+    final effectiveLabel = isPlateSticker && vehicleDetail.isNotEmpty
+        ? vehicleDetail
+        : label;
+    final borderRadius = isPlateSticker
+        ? 14.0
+        : isStatusSticker
+        ? 24.0
+        : isExpandedSticker
+        ? 22.0
+        : 999.0;
+    final maxWidth = isStatusSticker
+        ? 286.0
+        : isExpandedSticker
+        ? 310.0
+        : 270.0;
+    final foregroundColor = isPlateSticker
+        ? const Color(0xFF08111F)
+        : Colors.white;
+    final secondaryColor = isPlateSticker
+        ? const Color(0xFF20304A).withValues(alpha: 0.72)
+        : Colors.white.withValues(alpha: 0.72);
+    final iconColor = isPlateSticker ? Colors.white : Colors.white;
+    final iconBackground = isPlateSticker
+        ? const Color(0xFF08111F)
+        : isBadgeSticker
+        ? const Color(0xFF2A7DFF)
+        : isStatusSticker
+        ? const Color(0xFF00A3FF)
+        : _carmaBlue.withValues(alpha: 0.92);
+    final gradientColors = isPlateSticker
+        ? <Color>[
+            Colors.white.withValues(alpha: 0.96),
+            const Color(0xFFDDEBFF).withValues(alpha: 0.92),
+          ]
+        : isBadgeSticker
+        ? <Color>[
+            const Color(0xFF064F8F).withValues(alpha: 0.9),
+            const Color(0xFF0B1A2D).withValues(alpha: 0.86),
+          ]
+        : isStatusSticker
+        ? <Color>[
+            const Color(0xFF073A63).withValues(alpha: 0.92),
+            const Color(0xFF0A1628).withValues(alpha: 0.88),
+          ]
+        : <Color>[
+            const Color(0xFF101827).withValues(alpha: 0.84),
+            _carmaBlueDark.withValues(alpha: 0.74),
+          ];
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(isExpandedSticker ? 22 : 999),
+      borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          constraints: BoxConstraints(maxWidth: isExpandedSticker ? 310 : 270),
+          constraints: BoxConstraints(maxWidth: maxWidth),
           padding: EdgeInsets.fromLTRB(
-            12,
-            isExpandedSticker ? 11 : 9,
-            9,
-            isExpandedSticker ? 11 : 9,
+            isPlateSticker ? 14 : 12,
+            isExpandedSticker || isPlateSticker ? 11 : 9,
+            isPlateSticker || isStatusSticker ? 12 : 9,
+            isExpandedSticker || isPlateSticker ? 11 : 9,
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(isExpandedSticker ? 22 : 999),
+            borderRadius: BorderRadius.circular(borderRadius),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF101827).withValues(alpha: 0.84),
-                _carmaBlueDark.withValues(alpha: 0.74),
-              ],
+              colors: gradientColors,
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+            border: Border.all(
+              color: isPlateSticker
+                  ? const Color(0xFF08111F).withValues(alpha: 0.42)
+                  : isStatusSticker
+                  ? _carmaBlueLight.withValues(alpha: 0.24)
+                  : Colors.white.withValues(alpha: 0.18),
+              width: isPlateSticker ? 1.4 : 1,
+            ),
             boxShadow: [
               BoxShadow(
                 blurRadius: 22,
@@ -3404,9 +3780,19 @@ class _StoryStickerChip extends StatelessWidget {
                 height: 30,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _carmaBlue.withValues(alpha: 0.92),
+                  color: isStatusSticker ? null : iconBackground,
+                  gradient: isStatusSticker
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            _carmaBlueLight.withValues(alpha: 0.96),
+                            _carmaBlue.withValues(alpha: 0.9),
+                          ],
+                        )
+                      : null,
                 ),
-                child: Icon(icon, color: Colors.white, size: 18),
+                child: Icon(icon, color: iconColor, size: 18),
               ),
               const SizedBox(width: 9),
               Flexible(
@@ -3415,12 +3801,13 @@ class _StoryStickerChip extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      label,
-                      maxLines: isExpandedSticker ? 2 : 1,
+                      effectiveLabel,
+                      maxLines: isExpandedSticker && !isCompactSticker ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: foregroundColor,
                         fontWeight: FontWeight.w900,
+                        letterSpacing: isPlateSticker ? 0.4 : 0,
                       ),
                     ),
                     if (subtitle.isNotEmpty) ...[
@@ -3430,7 +3817,7 @@ class _StoryStickerChip extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.72),
+                          color: secondaryColor,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                         ),

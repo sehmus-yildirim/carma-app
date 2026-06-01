@@ -91,10 +91,7 @@ class _ChatMessageBubble extends StatelessWidget {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _copyContactPhoneNumber(
-    BuildContext context,
-    _ContactPayload contact,
-  ) {
+  void _copyContactPhoneNumber(BuildContext context, _ContactPayload contact) {
     final phoneNumber = contact.phoneNumber.trim();
 
     if (phoneNumber.isEmpty) {
@@ -459,6 +456,123 @@ class _ChatMessageBubble extends StatelessWidget {
     );
   }
 
+  bool _isStoryReplyPreview(String value) {
+    return value.trim().startsWith('Story von ');
+  }
+
+  String _storyReplyTitle(String value) {
+    final text = value.trim();
+    final separatorIndex = text.indexOf(':');
+
+    if (separatorIndex < 0) {
+      return 'Story-Antwort';
+    }
+
+    return text.substring(0, separatorIndex).trim();
+  }
+
+  String _storyReplySubtitle(String value) {
+    final text = value.trim();
+    final separatorIndex = text.indexOf(':');
+
+    if (separatorIndex < 0 || separatorIndex >= text.length - 1) {
+      return 'Story';
+    }
+
+    return text.substring(separatorIndex + 1).trim();
+  }
+
+  Widget _buildReplyPreview(BuildContext context, String replyText) {
+    final isStoryReply = _isStoryReplyPreview(replyText);
+
+    if (!isStoryReply) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        ),
+        child: Text(
+          replyText,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.78),
+            fontWeight: FontWeight.w800,
+            height: 1.2,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.fromLTRB(9, 8, 10, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _carmaBlue.withValues(alpha: 0.34),
+            Colors.white.withValues(alpha: 0.08),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _carmaBlue.withValues(alpha: 0.86),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 17,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _storyReplyTitle(replyText),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _storyReplySubtitle(replyText),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showMessageActions(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -635,27 +749,7 @@ class _ChatMessageBubble extends StatelessWidget {
             children: [
               if (message.replyToText != null &&
                   message.replyToText!.trim().isNotEmpty) ...[
-                Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  child: Text(
-                    message.replyToText!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
+                _buildReplyPreview(context, message.replyToText!.trim()),
               ],
               if (isImageMessage) ...[
                 GestureDetector(
