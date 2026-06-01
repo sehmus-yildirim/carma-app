@@ -291,10 +291,7 @@ class _ChatsOverview extends StatelessWidget {
             chats: visibleChats,
             stories: stories,
             isAddingOwnStory: isAddingOwnStory,
-            onAddOwnStory: () => onAddOwnStory([
-              ...chats,
-              ...archivedChats,
-            ]),
+            onAddOwnStory: () => onAddOwnStory([...chats, ...archivedChats]),
             onOpenStory: onOpenStory,
           ),
           const SizedBox(height: 16),
@@ -627,9 +624,7 @@ class _InlineTextTab<T> extends StatelessWidget {
                   const SizedBox(width: 8),
                   Container(
                     height: isCompact ? 21 : 24,
-                    constraints: BoxConstraints(
-                      minWidth: isCompact ? 21 : 24,
-                    ),
+                    constraints: BoxConstraints(minWidth: isCompact ? 21 : 24),
                     alignment: Alignment.center,
                     padding: const EdgeInsets.symmetric(horizontal: 7),
                     decoration: BoxDecoration(
@@ -733,6 +728,13 @@ class _ChatStoriesStrip extends StatelessWidget {
         itemBuilder: (context, index) {
           if (index == 0) {
             final currentOwnStory = ownStory;
+            final ownStoryViewCount =
+                currentOwnStory?.viewedAtBy.keys
+                    .where(
+                      (viewerId) => viewerId != currentOwnStory.ownerUserId,
+                    )
+                    .length ??
+                0;
 
             return _StoryBubble(
               label: 'Deine Story',
@@ -741,15 +743,15 @@ class _ChatStoriesStrip extends StatelessWidget {
               isOwnStory: true,
               hasStory: currentOwnStory != null,
               isViewed: true,
+              viewCount: ownStoryViewCount,
               isBusy: isAddingOwnStory,
               onTap: isAddingOwnStory
                   ? () {}
                   : currentOwnStory == null
                   ? onAddOwnStory
-                  : () => onOpenStory(
+                  : () => onOpenStory(currentOwnStory, <ChatStoryRecord>[
                       currentOwnStory,
-                      <ChatStoryRecord>[currentOwnStory],
-                    ),
+                    ]),
               onAddTap: isAddingOwnStory ? null : onAddOwnStory,
             );
           }
@@ -780,6 +782,7 @@ class _StoryBubble extends StatelessWidget {
     this.isOwnStory = false,
     this.hasStory = false,
     this.isViewed = false,
+    this.viewCount = 0,
     this.isBusy = false,
     required this.onTap,
     this.onAddTap,
@@ -791,12 +794,15 @@ class _StoryBubble extends StatelessWidget {
   final bool isOwnStory;
   final bool hasStory;
   final bool isViewed;
+  final int viewCount;
   final bool isBusy;
   final VoidCallback onTap;
   final VoidCallback? onAddTap;
 
   @override
   Widget build(BuildContext context) {
+    final viewCountLabel = viewCount > 99 ? '99+' : '$viewCount';
+
     return SizedBox(
       width: 78,
       child: InkWell(
@@ -847,11 +853,14 @@ class _StoryBubble extends StatelessWidget {
                             width: 62,
                             height: 62,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _AvatarCircle(
-                              size: 62,
-                              imageUrl: null,
-                              iconSize: 34,
-                            ),
+                            errorBuilder: (_, _, _) => isVideo
+                                ? const _StoryVideoBubblePlaceholder()
+                                : _AvatarCircle(
+                                    size: 62,
+                                    imageUrl: null,
+                                    iconSize: 34,
+                                    fallbackLabel: label,
+                                  ),
                           )
                         : hasStory && isVideo
                         ? const _StoryVideoBubblePlaceholder()
@@ -859,6 +868,7 @@ class _StoryBubble extends StatelessWidget {
                             size: 62,
                             imageUrl: imageUrl,
                             iconSize: 34,
+                            fallbackLabel: label,
                           ),
                   ),
                 ),
@@ -912,7 +922,8 @@ class _StoryBubble extends StatelessWidget {
                   ),
                 if (hasStory && isVideo)
                   Positioned(
-                    right: 1,
+                    left: isOwnStory ? 1 : null,
+                    right: isOwnStory ? null : 1,
                     bottom: 1,
                     child: Container(
                       width: 22,
@@ -929,6 +940,50 @@ class _StoryBubble extends StatelessWidget {
                         Icons.play_arrow_rounded,
                         color: Colors.white,
                         size: 17,
+                      ),
+                    ),
+                  ),
+                if (isOwnStory && hasStory && viewCount > 0)
+                  Positioned(
+                    left: -4,
+                    top: -2,
+                    child: Container(
+                      height: 22,
+                      constraints: const BoxConstraints(minWidth: 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 7),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: const Color(0xFF101827).withValues(alpha: 0.92),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.24),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.visibility_rounded,
+                            color: Colors.white.withValues(alpha: 0.82),
+                            size: 12,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            viewCountLabel,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              height: 1,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -967,18 +1022,11 @@ class _StoryVideoBubblePlaceholder extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            _myMessageBlueLight,
-            _carmaBlueDark.withValues(alpha: 0.86),
-          ],
+          colors: [_myMessageBlueLight, _carmaBlueDark.withValues(alpha: 0.86)],
         ),
       ),
       child: const Center(
-        child: Icon(
-          Icons.videocam_rounded,
-          color: Colors.white,
-          size: 32,
-        ),
+        child: Icon(Icons.videocam_rounded, color: Colors.white, size: 32),
       ),
     );
   }

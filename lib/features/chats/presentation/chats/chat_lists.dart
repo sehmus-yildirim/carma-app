@@ -367,11 +367,13 @@ class _AvatarCircle extends StatelessWidget {
     required this.size,
     required this.iconSize,
     this.imageUrl,
+    this.fallbackLabel,
   });
 
   final double size;
   final double iconSize;
   final String? imageUrl;
+  final String? fallbackLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -386,26 +388,67 @@ class _AvatarCircle extends StatelessWidget {
             ? Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _AvatarFallbackIcon(size: iconSize),
+                errorBuilder: (_, _, _) =>
+                    _AvatarFallbackIcon(size: iconSize, label: fallbackLabel),
               )
-            : _AvatarFallbackIcon(size: iconSize),
+            : _AvatarFallbackIcon(size: iconSize, label: fallbackLabel),
       ),
     );
   }
 }
 
 class _AvatarFallbackIcon extends StatelessWidget {
-  const _AvatarFallbackIcon({required this.size});
+  const _AvatarFallbackIcon({required this.size, this.label});
 
   final double size;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
+    final initials = _avatarInitialsFrom(label);
+
     return ColoredBox(
       color: Colors.transparent,
-      child: Icon(Icons.person_rounded, color: Colors.white, size: size),
+      child: Center(
+        child: initials.isEmpty
+            ? Icon(Icons.person_rounded, color: Colors.white, size: size)
+            : Text(
+                initials,
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: size * 0.72,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+      ),
     );
   }
+}
+
+String _avatarInitialsFrom(String? value) {
+  final words =
+      value
+          ?.trim()
+          .split(RegExp(r'\s+'))
+          .where((word) => word.trim().isNotEmpty)
+          .toList() ??
+      const <String>[];
+
+  if (words.isEmpty) {
+    return '';
+  }
+
+  return words.take(2).map((word) {
+    final runes = word.runes;
+
+    if (runes.isEmpty) {
+      return '';
+    }
+
+    return String.fromCharCode(runes.first).toUpperCase();
+  }).join();
 }
 
 class _RoundIconButton extends StatelessWidget {

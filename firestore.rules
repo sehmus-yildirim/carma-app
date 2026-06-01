@@ -713,7 +713,15 @@ service cloud.firestore {
     }
 
     function isValidStoryStickerType(value) {
-      return value in ['', 'location', 'link', 'hashtag'];
+      return value in [
+        '',
+        'location',
+        'link',
+        'hashtag',
+        'vehicle',
+        'status',
+        'poll',
+      ];
     }
 
     function isValidStoryStickerData(type, label, payload) {
@@ -745,6 +753,27 @@ service cloud.firestore {
           && label.matches('^#.+$')
           && payload.size() > 0
           && payload.size() <= 79
+        )
+        || (
+          type == 'vehicle'
+          && label.size() > 0
+          && label.size() <= 80
+          && payload.size() > 0
+          && payload.size() <= 24
+        )
+        || (
+          type == 'status'
+          && label.size() > 0
+          && label.size() <= 32
+          && payload.size() > 0
+          && payload.size() <= 32
+        )
+        || (
+          type == 'poll'
+          && label.size() > 0
+          && label.size() <= 80
+          && payload.size() > 0
+          && payload.size() <= 57
         );
     }
 
@@ -755,6 +784,7 @@ service cloud.firestore {
         'ownerPhotoUrl',
         'viewerUserIds',
         'viewerNameBy',
+        'viewerPhotoUrlBy',
         'viewedAtBy',
         'imageUrl',
         'imagePath',
@@ -803,6 +833,20 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.viewerUserIds
         && request.resource.data.viewedAtBy is map
         && request.resource.data.viewerNameBy is map
+        && (
+          !request.resource.data.keys().hasAny(['viewerPhotoUrlBy']) ||
+          (
+            request.resource.data.viewerPhotoUrlBy is map
+            && request.resource.data.viewerPhotoUrlBy.keys().hasOnly([request.auth.uid])
+            && (
+              request.resource.data.viewerPhotoUrlBy[request.auth.uid] == null ||
+              (
+                request.resource.data.viewerPhotoUrlBy[request.auth.uid] is string
+                && request.resource.data.viewerPhotoUrlBy[request.auth.uid].size() <= 500
+              )
+            )
+          )
+        )
         && request.resource.data.viewedAtBy[request.auth.uid] is timestamp
         && request.resource.data.viewerNameBy[request.auth.uid] is string
         && request.resource.data.viewerNameBy[request.auth.uid].size() > 0
@@ -872,16 +916,30 @@ service cloud.firestore {
       return isSignedIn()
         && request.auth.uid in resource.data.viewerUserIds
         && resource.data.expiresAt > request.time
-        && changedOnly(['viewedAtBy', 'viewerNameBy', 'updatedAt'])
+        && changedOnly(['viewedAtBy', 'viewerNameBy', 'viewerPhotoUrlBy', 'updatedAt'])
         && request.resource.data.viewedAtBy is map
         && request.resource.data.viewerNameBy is map
+        && (
+          !request.resource.data.keys().hasAny(['viewerPhotoUrlBy']) ||
+          (
+            request.resource.data.viewerPhotoUrlBy is map
+            && (
+              request.resource.data.viewerPhotoUrlBy[request.auth.uid] == null ||
+              (
+                request.resource.data.viewerPhotoUrlBy[request.auth.uid] is string
+                && request.resource.data.viewerPhotoUrlBy[request.auth.uid].size() <= 500
+              )
+            )
+          )
+        )
         && request.resource.data.viewedAtBy[request.auth.uid] is timestamp
         && request.resource.data.viewerNameBy[request.auth.uid] is string
         && request.resource.data.viewerNameBy[request.auth.uid].size() > 0
         && request.resource.data.viewerNameBy[request.auth.uid].size() <= 80
         && request.resource.data.updatedAt is timestamp
         && changedOnlyNestedMapKey('viewedAtBy', request.auth.uid)
-        && changedOnlyNestedMapKey('viewerNameBy', request.auth.uid);
+        && changedOnlyNestedMapKey('viewerNameBy', request.auth.uid)
+        && changedOnlyNestedMapKey('viewerPhotoUrlBy', request.auth.uid);
     }
 
     match /users/{userId} {

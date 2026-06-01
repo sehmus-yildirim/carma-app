@@ -24,6 +24,8 @@ import '../data/chat_repository.dart';
 import '../data/chat_story_repository.dart';
 import '../data/contact_request_repository.dart';
 import '../domain/accept_contact_request_use_case.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../../shared/plate/plate_country_config.dart';
 
 part 'chats/chat_shell.dart';
 part 'chats/chat_models.dart';

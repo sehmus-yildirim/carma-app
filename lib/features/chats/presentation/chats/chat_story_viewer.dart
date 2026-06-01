@@ -29,10 +29,17 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   late int _storyIndex;
   Duration? _storyDuration;
   bool _isStoryPaused = false;
+  bool _isLocallyMuted = false;
+  String? _localMuteStoryId;
 
   ChatStoryRecord get _story => widget.stories[_storyIndex];
 
   bool get _isOwnStory => _story.ownerUserId == widget.currentUserId;
+
+  bool _effectiveStoryVideoMuted(ChatStoryRecord story) {
+    return story.videoIsMuted ||
+        (_localMuteStoryId == story.id && _isLocallyMuted);
+  }
 
   @override
   void initState() {
@@ -41,12 +48,10 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       (story) => story.id == widget.initialStoryId,
     );
     _storyIndex = initialIndex < 0 ? 0 : initialIndex;
-    _progressController = AnimationController(
-      vsync: this,
-      duration: _defaultStoryDuration,
-    )
-      ..addStatusListener(_handleProgressStatus)
-      ..forward();
+    _progressController =
+        AnimationController(vsync: this, duration: _defaultStoryDuration)
+          ..addStatusListener(_handleProgressStatus)
+          ..forward();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         widget.onStoryVisible(_story);
@@ -150,8 +155,15 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     _restartProgress();
   }
 
-  void _handleTapUp(TapUpDetails details, double width) {
-    final tapX = details.localPosition.dx;
+  void _handleTapUp(TapUpDetails details, Size size) {
+    final tap = details.localPosition;
+
+    if (_isTapInsideStoryControls(tap, size)) {
+      return;
+    }
+
+    final tapX = tap.dx;
+    final width = size.width;
     if (tapX < width * 0.34) {
       _showPreviousStory();
       return;
@@ -163,6 +175,13 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     }
 
     _restartProgress();
+  }
+
+  bool _isTapInsideStoryControls(Offset tap, Size size) {
+    const headerTapHeight = 128.0;
+    final bottomTapHeight = _isOwnStory || _story.isVideo ? 144.0 : 72.0;
+
+    return tap.dy < headerTapHeight || tap.dy > size.height - bottomTapHeight;
   }
 
   void _handleHorizontalDragEnd(DragEndDetails details) {
@@ -193,6 +212,19 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     }
   }
 
+  void _toggleStoryVideoSound() {
+    final story = _story;
+
+    if (!story.isVideo || story.videoIsMuted) {
+      return;
+    }
+
+    setState(() {
+      _localMuteStoryId = story.id;
+      _isLocallyMuted = !_effectiveStoryVideoMuted(story);
+    });
+  }
+
   Future<void> _pauseForAction(
     Future<void> Function(ChatStoryRecord story) action,
   ) async {
@@ -214,7 +246,10 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     final seenCount = story.viewedAtBy.keys
         .where((viewerId) => viewerId != story.ownerUserId)
         .length;
-    final headerTimeLabel = _formatStoryHeaderTime(story, isOwnStory: _isOwnStory);
+    final headerTimeLabel = _formatStoryHeaderTime(
+      story,
+      isOwnStory: _isOwnStory,
+    );
     final textAlignment = Alignment(
       (story.textAlignmentX * 2) - 1,
       (story.textAlignmentY * 2) - 1,
@@ -224,13 +259,13 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       (story.stickerAlignmentY * 2) - 1,
     );
     final fontFamily = _storyFontFamily(story.textFontFamily);
+    final isVideoMuted = _effectiveStoryVideoMuted(story);
 
     return Dialog.fullscreen(
       backgroundColor: Colors.black,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapUp: (details) =>
-            _handleTapUp(details, MediaQuery.sizeOf(context).width),
+        onTapUp: (details) => _handleTapUp(details, MediaQuery.sizeOf(context)),
         onLongPressStart: (_) => _pauseStory(),
         onLongPressEnd: (_) => _resumeStory(),
         onHorizontalDragEnd: _handleHorizontalDragEnd,
@@ -244,7 +279,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                 child: story.isVideo
                     ? _StoryViewerVideo(
                         videoUrl: story.videoUrl,
-                        isMuted: story.videoIsMuted,
+                        isMuted: isVideoMuted,
                         isPaused: _isStoryPaused,
                         filterType: story.filterType,
                         onDurationReady: _updateStoryDuration,
@@ -331,6 +366,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                     child: _StoryStickerChip(
                       type: story.stickerType,
                       label: storyStickerLabel,
+                      payload: story.stickerPayload,
                     ),
                   ),
                 ),
@@ -458,6 +494,18 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                 ),
               ),
             ),
+            if (story.isVideo)
+              Positioned(
+                left: 16,
+                bottom: _isOwnStory ? 86 : 26,
+                child: SafeArea(
+                  child: _StoryVideoSoundPill(
+                    isMuted: isVideoMuted,
+                    isLocked: story.videoIsMuted,
+                    onTap: story.videoIsMuted ? null : _toggleStoryVideoSound,
+                  ),
+                ),
+              ),
             if (_isOwnStory)
               Positioned(
                 left: 0,
@@ -479,11 +527,74 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   }
 }
 
-class _StorySeenButton extends StatelessWidget {
-  const _StorySeenButton({
-    required this.count,
-    required this.onPressed,
+class _StoryVideoSoundPill extends StatelessWidget {
+  const _StoryVideoSoundPill({
+    required this.isMuted,
+    required this.isLocked,
+    required this.onTap,
   });
+
+  final bool isMuted;
+  final bool isLocked;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: Colors.black.withValues(alpha: 0.36),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isMuted
+                        ? Icons.volume_off_rounded
+                        : Icons.volume_up_rounded,
+                    color: Colors.white,
+                    size: 17,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isMuted ? 'Stumm' : 'Ton an',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (!isLocked) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.touch_app_rounded,
+                      color: Colors.white.withValues(alpha: 0.72),
+                      size: 13,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StorySeenButton extends StatelessWidget {
+  const _StorySeenButton({required this.count, required this.onPressed});
 
   final int count;
   final VoidCallback onPressed;
@@ -511,9 +622,7 @@ class _StorySeenButton extends StatelessWidget {
                     Colors.black.withValues(alpha: 0.44),
                   ],
                 ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.14),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

@@ -37,6 +37,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   final FirestoreContactRequestRepository _requestRepository =
       FirestoreContactRequestRepository();
   final ChatStoryRepository _storyRepository = ChatStoryRepository();
+  final ProfileRepository _profileRepository = ProfileRepository();
   final ChatAttachmentStorage _attachmentStorage = ChatAttachmentStorage();
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _searchController = TextEditingController();
@@ -159,9 +160,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     final userId = _effectiveUserId.trim();
 
     if (userId.isEmpty) {
-      return Stream<List<ChatStoryRecord>>.value(
-        const <ChatStoryRecord>[],
-      );
+      return Stream<List<ChatStoryRecord>>.value(const <ChatStoryRecord>[]);
     }
 
     return _storyRepository.watchVisibleStories(userId: userId);
@@ -170,9 +169,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
   List<ChatStoryRecord> _visibleStoryRecords(List<ChatStoryRecord> stories) {
     final currentUserId = _effectiveUserId.trim();
 
-    return stories.where((story) {
-      return story.ownerUserId == currentUserId || !story.isExpired;
-    }).toList(growable: false);
+    return stories
+        .where((story) {
+          return story.ownerUserId == currentUserId || !story.isExpired;
+        })
+        .toList(growable: false);
   }
 
   Stream<List<ContactRequestRecord>> _watchIncomingRequests() {
@@ -492,16 +493,25 @@ class _ChatsScreenState extends State<ChatsScreen> {
     });
 
     try {
-      final captureResult = await Navigator.of(context).push<_StoryCaptureResult>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => _StoryCaptureScreen(imagePicker: _imagePicker),
-        ),
-      );
+      final captureResult = await Navigator.of(context)
+          .push<_StoryCaptureResult>(
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => _StoryCaptureScreen(imagePicker: _imagePicker),
+            ),
+          );
 
       if (captureResult == null || captureResult.path.trim().isEmpty) {
         return;
       }
+
+      if (!mounted) {
+        return;
+      }
+
+      final vehicleStickerData = await _loadStoryVehicleStickerData(
+        currentUserId,
+      );
 
       if (!mounted) {
         return;
@@ -512,6 +522,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           builder: (_) => _StoryDraftEditorScreen(
             mediaPath: captureResult.path,
             isVideo: captureResult.isVideo,
+            vehicleStickerData: vehicleStickerData,
           ),
         ),
       );
@@ -596,18 +607,74 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
   }
 
+  Future<_StoryVehicleStickerData?> _loadStoryVehicleStickerData(
+    String userId,
+  ) async {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty) {
+      return null;
+    }
+
+    try {
+      final profile = await _profileRepository.getProfile(trimmedUserId);
+
+      if (profile == null) {
+        return null;
+      }
+
+      final vehicleParts = <String>[
+        if ((profile.vehicleBrand ?? '').trim().isNotEmpty)
+          profile.vehicleBrand!.trim(),
+        if ((profile.vehicleModel ?? '').trim().isNotEmpty)
+          profile.vehicleModel!.trim(),
+      ];
+      final vehicleLabel = vehicleParts.join(' ').trim();
+      final plateLabel = formatDisplayPlate(
+        countryCode: (profile.countryCode ?? profile.country).trim(),
+        region: profile.plateRegion?.trim() ?? '',
+        letters: profile.plateLetters?.trim() ?? '',
+        numbers: profile.plateNumbers?.trim() ?? '',
+      );
+
+      final stickerData = _StoryVehicleStickerData(
+        vehicleLabel: vehicleLabel,
+        plateLabel: plateLabel,
+      );
+
+      return stickerData.isComplete ? stickerData : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _markStoryVisible(ChatStoryRecord story) async {
     final currentUser = FirebaseAuth.instance.currentUser;
     final currentUserId = _effectiveUserId.trim();
     final isOwnStory = story.ownerUserId == currentUserId;
 
-    if (currentUserId.isEmpty ||
-        isOwnStory ||
-        story.viewedAtBy.containsKey(currentUserId)) {
+    if (currentUserId.isEmpty || isOwnStory) {
       return;
     }
 
     try {
+      final photoUrl = currentUser?.photoURL?.trim() ?? '';
+
+      if (story.viewedAtBy.containsKey(currentUserId)) {
+        final storedPhotoUrl =
+            story.viewerPhotoUrlBy[currentUserId]?.trim() ?? '';
+
+        if (photoUrl.isNotEmpty && storedPhotoUrl.isEmpty) {
+          await _storyRepository.updateStoryViewerPhotoUrl(
+            storyId: story.id,
+            userId: currentUserId,
+            photoUrl: photoUrl,
+          );
+        }
+
+        return;
+      }
+
       final displayName = currentUser?.displayName?.trim().isNotEmpty == true
           ? currentUser!.displayName!.trim()
           : 'Carma Nutzer';
@@ -616,6 +683,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         storyId: story.id,
         userId: currentUserId,
         displayName: displayName,
+        photoUrl: photoUrl,
       );
     } catch (_) {
       // Viewing the story should not fail if the read receipt cannot be saved.
@@ -651,15 +719,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
       }
     }
 
-    final otherViewerUserIds = viewerUserIds
-        .where((userId) => userId != trimmedCurrentUserId)
-        .toList()
-      ..sort();
+    final otherViewerUserIds =
+        viewerUserIds.where((userId) => userId != trimmedCurrentUserId).toList()
+          ..sort();
 
-    return <String>[
-      trimmedCurrentUserId,
-      ...otherViewerUserIds.take(199),
-    ];
+    return <String>[trimmedCurrentUserId, ...otherViewerUserIds.take(199)];
   }
 
   bool _canUseChatForStoryViewers(ChatRecord chat, String currentUserId) {
@@ -687,11 +751,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
       return;
     }
 
-    final visibleStories = (stories.isEmpty ? <ChatStoryRecord>[story] : stories)
-        .where((visibleStory) {
-      return visibleStory.ownerUserId == currentUserId ||
-          !visibleStory.isExpired;
-    }).toList(growable: false);
+    final visibleStories =
+        (stories.isEmpty ? <ChatStoryRecord>[story] : stories)
+            .where((visibleStory) {
+              return visibleStory.ownerUserId == currentUserId ||
+                  !visibleStory.isExpired;
+            })
+            .toList(growable: false);
 
     if (visibleStories.isEmpty) {
       setState(() {
@@ -725,191 +791,229 @@ class _ChatsScreenState extends State<ChatsScreen> {
     BuildContext context,
     ChatStoryRecord story,
   ) async {
-    final viewers = story.viewedAtBy.entries
-        .where((entry) => entry.key != story.ownerUserId)
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final viewers =
+        story.viewedAtBy.entries
+            .where((entry) => entry.key != story.ownerUserId)
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: const Color(0xFF101827),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (context) {
+        final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.74;
+
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(999),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxSheetHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        _carmaBlue.withValues(alpha: 0.24),
-                        Colors.white.withValues(alpha: 0.06),
-                      ],
-                    ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _carmaBlue.withValues(alpha: 0.82),
-                        ),
-                        child: const Icon(
-                          Icons.visibility_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Story-Aufrufe',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                              ),
-                        ),
-                      ),
-                      Container(
-                        height: 34,
-                        constraints: const BoxConstraints(minWidth: 34),
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: Colors.white.withValues(alpha: 0.12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                          ),
-                        ),
-                        child: Text(
-                          '${viewers.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (viewers.isEmpty)
+                  const SizedBox(height: 20),
                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          _carmaBlue.withValues(alpha: 0.24),
+                          Colors.white.withValues(alpha: 0.06),
+                        ],
+                      ),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: Colors.white.withValues(alpha: 0.12),
                       ),
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.visibility_off_rounded,
-                          color: Colors.white.withValues(alpha: 0.62),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _carmaBlue.withValues(alpha: 0.82),
+                          ),
+                          child: const Icon(
+                            Icons.visibility_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          'Noch keine Aufrufe.',
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.72),
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: viewers.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final viewer = viewers[index];
-                        final viewerName =
-                            story.viewerNameBy[viewer.key]?.trim() ?? '';
-                        final label = viewerName.isEmpty
-                            ? 'Carma Nutzer'
-                            : viewerName;
-
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: Colors.white.withValues(alpha: 0.06),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
-                            ),
-                          ),
-                          child: Row(
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const _AvatarCircle(size: 42, iconSize: 24),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      label,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                      ),
+                              Text(
+                                'Story-Aufrufe',
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
                                     ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      _formatStorySeenAt(viewer.value),
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.58,
-                                        ),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Nur du kannst diese Liste sehen.',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white.withValues(alpha: 0.62),
                                 ),
                               ),
                             ],
                           ),
-                        );
-                      },
+                        ),
+                        Container(
+                          height: 34,
+                          constraints: const BoxConstraints(minWidth: 34),
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: Colors.white.withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Text(
+                            '${viewers.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-              ],
+                  const SizedBox(height: 16),
+                  if (viewers.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.white.withValues(alpha: 0.06),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.visibility_off_rounded,
+                            color: Colors.white.withValues(alpha: 0.62),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Noch keine Aufrufe.',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: viewers.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final viewer = viewers[index];
+                          final viewerName =
+                              story.viewerNameBy[viewer.key]?.trim() ?? '';
+                          final label = viewerName.isEmpty
+                              ? 'Carma Nutzer'
+                              : viewerName;
+                          final photoUrl = story.viewerPhotoUrlBy[viewer.key]
+                              ?.trim();
+
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.white.withValues(alpha: 0.06),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                _AvatarCircle(
+                                  size: 42,
+                                  imageUrl: photoUrl,
+                                  iconSize: 24,
+                                  fallbackLabel: label,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        _formatStorySeenAt(viewer.value),
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.58,
+                                          ),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Icon(
+                                  Icons.visibility_rounded,
+                                  color: Colors.white.withValues(alpha: 0.42),
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -982,9 +1086,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
 
     _refreshChatsAndRequests();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Story wurde gelöscht.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Story wurde gelöscht.')));
   }
 
   Future<void> _openStorySticker(ChatStoryRecord story) async {
@@ -1045,9 +1149,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Hashtag wurde kopiert.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Hashtag wurde kopiert.')));
         return;
       }
     } catch (_) {
@@ -1344,9 +1448,7 @@ class _StoryDeleteDialog extends StatelessWidget {
                   const Color(0xFF071120).withValues(alpha: 0.90),
                 ],
               ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.13),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.36),

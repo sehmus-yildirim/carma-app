@@ -29,6 +29,7 @@ class ChatStoryRecord {
     this.stickerAlignmentY = 0.76,
     this.viewedAtBy = const <String, DateTime>{},
     this.viewerNameBy = const <String, String>{},
+    this.viewerPhotoUrlBy = const <String, String>{},
     required this.createdAt,
     required this.expiresAt,
   });
@@ -59,6 +60,7 @@ class ChatStoryRecord {
   final double stickerAlignmentY;
   final Map<String, DateTime> viewedAtBy;
   final Map<String, String> viewerNameBy;
+  final Map<String, String> viewerPhotoUrlBy;
   final DateTime createdAt;
   final DateTime expiresAt;
 
@@ -136,6 +138,7 @@ class ChatStoryRepository {
   }) async {
     final trimmedOwnerUserId = ownerUserId.trim();
     final trimmedOwnerDisplayName = ownerDisplayName.trim();
+    final trimmedOwnerPhotoUrl = ownerPhotoUrl?.trim() ?? '';
     final trimmedImageUrl = imageUrl.trim();
     final trimmedImagePath = imagePath.trim();
     final trimmedMediaType = mediaType.trim() == 'video' ? 'video' : 'image';
@@ -189,11 +192,17 @@ class ChatStoryRepository {
     await storyReference.set({
       'ownerUserId': trimmedOwnerUserId,
       'ownerDisplayName': trimmedOwnerDisplayName,
-      'ownerPhotoUrl': ownerPhotoUrl?.trim(),
+      'ownerPhotoUrl': trimmedOwnerPhotoUrl.isEmpty
+          ? null
+          : trimmedOwnerPhotoUrl,
       'viewerUserIds': safeViewerUserIds,
       'viewerNameBy': <String, String>{
         trimmedOwnerUserId: trimmedOwnerDisplayName,
       },
+      if (trimmedOwnerPhotoUrl.isNotEmpty)
+        'viewerPhotoUrlBy': <String, String>{
+          trimmedOwnerUserId: trimmedOwnerPhotoUrl,
+        },
       'viewedAtBy': <String, Timestamp>{
         trimmedOwnerUserId: Timestamp.fromDate(now),
       },
@@ -235,10 +244,12 @@ class ChatStoryRepository {
     required String storyId,
     required String userId,
     required String displayName,
+    String? photoUrl,
   }) async {
     final trimmedStoryId = storyId.trim();
     final trimmedUserId = userId.trim();
     final trimmedDisplayName = displayName.trim();
+    final trimmedPhotoUrl = photoUrl?.trim() ?? '';
 
     if (trimmedStoryId.isEmpty || trimmedUserId.isEmpty) {
       return;
@@ -249,6 +260,29 @@ class ChatStoryRepository {
       'viewerNameBy.$trimmedUserId': trimmedDisplayName.isEmpty
           ? 'Carma Nutzer'
           : trimmedDisplayName,
+      if (trimmedPhotoUrl.isNotEmpty)
+        'viewerPhotoUrlBy.$trimmedUserId': trimmedPhotoUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateStoryViewerPhotoUrl({
+    required String storyId,
+    required String userId,
+    required String photoUrl,
+  }) async {
+    final trimmedStoryId = storyId.trim();
+    final trimmedUserId = userId.trim();
+    final trimmedPhotoUrl = photoUrl.trim();
+
+    if (trimmedStoryId.isEmpty ||
+        trimmedUserId.isEmpty ||
+        trimmedPhotoUrl.isEmpty) {
+      return;
+    }
+
+    await _storiesCollection.doc(trimmedStoryId).set({
+      'viewerPhotoUrlBy.$trimmedUserId': trimmedPhotoUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -345,6 +379,7 @@ class ChatStoryRepository {
       stickerAlignmentY: _doubleFromValue(data['stickerAlignmentY']) ?? 0.76,
       viewedAtBy: _dateTimeMapFromValue(data['viewedAtBy']),
       viewerNameBy: _stringMapFromValue(data['viewerNameBy']),
+      viewerPhotoUrlBy: _stringMapFromValue(data['viewerPhotoUrlBy']),
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       expiresAt: _dateTimeFromValue(data['expiresAt']) ?? DateTime(1970),
     );
@@ -438,7 +473,12 @@ class ChatStoryRepository {
     final stickerType = value?.toString().trim() ?? '';
 
     return switch (stickerType) {
-      'location' || 'link' || 'hashtag' => stickerType,
+      'location' ||
+      'link' ||
+      'hashtag' ||
+      'vehicle' ||
+      'status' ||
+      'poll' => stickerType,
       _ => '',
     };
   }
@@ -452,8 +492,8 @@ class ChatStoryRepository {
 
     if (type == 'location') {
       return RegExp(
-        r'^-?[0-9]+\.[0-9]{1,6},-?[0-9]+\.[0-9]{1,6}$',
-      ).hasMatch(payload)
+            r'^-?[0-9]+\.[0-9]{1,6},-?[0-9]+\.[0-9]{1,6}$',
+          ).hasMatch(payload)
           ? payload
           : '';
     }
@@ -465,6 +505,25 @@ class ChatStoryRepository {
           : 'https://$payload';
 
       return _limitedText(normalizedPayload, 300);
+    }
+
+    if (type == 'vehicle') {
+      return _limitedText(payload, 24);
+    }
+
+    if (type == 'status') {
+      return _limitedText(payload, 32);
+    }
+
+    if (type == 'poll') {
+      final options = payload
+          .split('\n')
+          .map((option) => _limitedText(option, 28))
+          .where((option) => option.isNotEmpty)
+          .take(2)
+          .toList(growable: false);
+
+      return options.length < 2 ? '' : options.join('\n');
     }
 
     return _limitedText(payload.replaceFirst(RegExp(r'^#+'), ''), 79);
@@ -489,6 +548,20 @@ class ChatStoryRepository {
     if (type == 'link') {
       final linkLabel = label.isEmpty ? safePayload : label;
       return _limitedText(linkLabel, 80);
+    }
+
+    if (type == 'vehicle') {
+      final vehicleLabel = label.isEmpty ? 'Fahrzeug' : label;
+      return _limitedText(vehicleLabel, 80);
+    }
+
+    if (type == 'status') {
+      final statusLabel = label.isEmpty ? safePayload : label;
+      return _limitedText(statusLabel, 32);
+    }
+
+    if (type == 'poll') {
+      return _limitedText(label, 80);
     }
 
     final hashtagLabel = label.replaceFirst(RegExp(r'^#+'), '');
