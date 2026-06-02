@@ -173,7 +173,9 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
 
   bool _isInitializingCamera = true;
   bool _isCapturing = false;
+  bool _isStartingVideoRecording = false;
   bool _isRecordingVideo = false;
+  bool _shouldStopRecordingWhenReady = false;
   String? _cameraError;
   Duration _recordingDuration = Duration.zero;
   int _cameraIndex = 0;
@@ -430,6 +432,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     final controller = _cameraController;
 
     if (_isCapturing ||
+        _isStartingVideoRecording ||
         _isRecordingVideo ||
         controller == null ||
         !controller.value.isInitialized ||
@@ -442,12 +445,16 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     }
 
     try {
+      _isStartingVideoRecording = true;
+      _shouldStopRecordingWhenReady = false;
       await controller.startVideoRecording();
 
       if (!mounted) {
+        _isStartingVideoRecording = false;
         return;
       }
 
+      _isStartingVideoRecording = false;
       setState(() {
         _isRecordingVideo = true;
         _recordingDuration = Duration.zero;
@@ -464,10 +471,17 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
         });
 
         if (nextDuration >= _maxStoryVideoDuration) {
-          _handleLongPressEnd();
+          _requestStopVideoRecording();
         }
       });
+
+      if (_shouldStopRecordingWhenReady) {
+        _requestStopVideoRecording();
+      }
     } catch (error) {
+      _isStartingVideoRecording = false;
+      _shouldStopRecordingWhenReady = false;
+
       if (!mounted) {
         return;
       }
@@ -478,8 +492,24 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     }
   }
 
+  void _requestStopVideoRecording() {
+    if (_isStartingVideoRecording) {
+      _shouldStopRecordingWhenReady = true;
+      return;
+    }
+
+    if (_isRecordingVideo) {
+      _handleLongPressEnd();
+    }
+  }
+
   Future<void> _handleLongPressEnd() async {
     final controller = _cameraController;
+
+    if (_isStartingVideoRecording) {
+      _shouldStopRecordingWhenReady = true;
+      return;
+    }
 
     if (!_isRecordingVideo ||
         controller == null ||
@@ -491,6 +521,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     setState(() {
       _isCapturing = true;
     });
+    _shouldStopRecordingWhenReady = false;
     _recordingTimer?.cancel();
 
     try {
@@ -696,21 +727,13 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
                         onTap: _pickFromGallery,
                       ),
                       Listener(
-                        onPointerUp: (_) {
-                          if (_isRecordingVideo) {
-                            _handleLongPressEnd();
-                          }
-                        },
-                        onPointerCancel: (_) {
-                          if (_isRecordingVideo) {
-                            _handleLongPressEnd();
-                          }
-                        },
+                        onPointerUp: (_) => _requestStopVideoRecording(),
+                        onPointerCancel: (_) => _requestStopVideoRecording(),
                         child: GestureDetector(
                           onTap: _takePhoto,
                           onLongPressStart: (_) => _handleLongPressStart(),
-                          onLongPressEnd: (_) => _handleLongPressEnd(),
-                          onLongPressCancel: _handleLongPressEnd,
+                          onLongPressEnd: (_) => _requestStopVideoRecording(),
+                          onLongPressCancel: _requestStopVideoRecording,
                           child: _StoryCaptureButton(
                             isBusy: _isCapturing,
                             isRecording: _isRecordingVideo,
@@ -1673,7 +1696,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.62;
+        final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.68;
 
         return SafeArea(
           child: Padding(
@@ -1682,8 +1705,8 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
               borderRadius: BorderRadius.circular(28),
               child: BackdropFilter(
                 filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxSheetHeight),
+                child: SizedBox(
+                  height: maxSheetHeight,
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
                     decoration: BoxDecoration(
@@ -1724,9 +1747,8 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                           ),
                         ),
                         const SizedBox(height: 14),
-                        Flexible(
+                        Expanded(
                           child: ListView.separated(
-                            shrinkWrap: true,
                             itemCount: options.length,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 10),
@@ -1799,7 +1821,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       );
     }
 
-    for (final place in places.take(6)) {
+    for (final place in places.take(8)) {
       addOption(
         label: place.city,
         city: place.city,
@@ -1807,25 +1829,21 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         country: place.country,
       );
 
-      addOption(
-        label: place.region,
-        city: place.city,
-        region: place.region,
-        country: place.country,
-      );
+      if (place.region.trim().toLowerCase() !=
+          place.city.trim().toLowerCase()) {
+        addOption(
+          label: place.region,
+          city: place.city,
+          region: place.region,
+          country: place.country,
+        );
+      }
 
       addOption(
         label: [
           place.city,
-          place.country,
+          place.region,
         ].where((value) => value.trim().isNotEmpty).join(', '),
-        city: place.city,
-        region: place.region,
-        country: place.country,
-      );
-
-      addOption(
-        label: place.label,
         city: place.city,
         region: place.region,
         country: place.country,
@@ -1834,7 +1852,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
 
     addOption(label: fallbackLabel, city: '', region: '', country: '');
 
-    return options.take(6).toList(growable: false);
+    return options.take(8).toList(growable: false);
   }
 
   Future<_StoryStickerDraft?> _showStickerTextDialog({
@@ -1846,72 +1864,161 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     required int maxLength,
   }) async {
     final controller = TextEditingController();
+    final isHashtag = type == 'hashtag';
+    final dialogIcon = switch (type) {
+      'link' => Icons.link_rounded,
+      'hashtag' => Icons.tag_rounded,
+      _ => Icons.edit_rounded,
+    };
+
+    String normalizedInput(String rawValue) {
+      final trimmedValue = rawValue.trim();
+
+      if (type == 'link') {
+        return _normalizeStoryLink(trimmedValue);
+      }
+
+      return trimmedValue
+          .replaceFirst(RegExp(r'^#+'), '')
+          .replaceAll(RegExp(r'\s+'), '');
+    }
 
     try {
       final value = await showDialog<String>(
         context: context,
-        builder: (context) {
-          return _StoryTextInputDialog(
-            backgroundColor: const Color(0xFF101827),
-            title: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              maxLength: maxLength,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (value) => Navigator.of(context).pop(value),
-              buildCounter: _hideStoryInputCounter,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: hintText,
-                prefixText: iconPrefix.isEmpty ? null : iconPrefix,
-                prefixStyle: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
-                hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.48),
-                ),
-              ),
-            ),
-            actions: [
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+        builder: (dialogContext) {
+          return ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, textValue, _) {
+              final normalizedPreview = normalizedInput(textValue.text);
+              final canSubmit = normalizedPreview.isNotEmpty;
+              final hashtagPreview = normalizedPreview.isEmpty
+                  ? '#carma'
+                  : '#$normalizedPreview';
+
+              return _StoryTextInputDialog(
+                backgroundColor: const Color(0xFF101827),
+                icon: dialogIcon,
+                title: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(controller.text),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _carmaBlue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      maxLength: maxLength,
+                      keyboardType: type == 'link'
+                          ? TextInputType.url
+                          : TextInputType.text,
+                      autocorrect: type != 'link',
+                      enableSuggestions: type != 'link',
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (value) {
+                        if (normalizedInput(value).isNotEmpty) {
+                          Navigator.of(dialogContext).pop(value);
+                        }
+                      },
+                      buildCounter: _hideStoryInputCounter,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: hintText,
+                        prefixText: iconPrefix.isEmpty ? null : iconPrefix,
+                        prefixStyle: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.48),
+                        ),
+                      ),
+                    ),
+                    if (isHashtag) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: _carmaBlue.withValues(alpha: 0.14),
+                          border: Border.all(
+                            color: _carmaBlueLight.withValues(alpha: 0.20),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.tag_rounded,
+                              color: _carmaBlueLight,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                hashtagPreview,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                child: const Text('Hinzufügen'),
-              ),
-            ],
+                actions: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.16),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('Abbrechen'),
+                  ),
+                  FilledButton(
+                    onPressed: canSubmit
+                        ? () => Navigator.of(dialogContext).pop(controller.text)
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _carmaBlue,
+                      disabledBackgroundColor: _carmaBlue.withValues(
+                        alpha: 0.34,
+                      ),
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white.withValues(
+                        alpha: 0.52,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('Hinzufügen'),
+                  ),
+                ],
+              );
+            },
           );
         },
       );
@@ -1922,11 +2029,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         return null;
       }
 
-      final normalizedValue = type == 'link'
-          ? _normalizeStoryLink(trimmedValue)
-          : trimmedValue
-                .replaceFirst(RegExp(r'^#+'), '')
-                .replaceAll(RegExp(r'\s+'), '');
+      final normalizedValue = normalizedInput(trimmedValue);
 
       if (normalizedValue.isEmpty) {
         return null;
@@ -2487,61 +2590,64 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                                 constraints: BoxConstraints(
                                   maxWidth: constraints.maxWidth * 0.82,
                                 ),
-                                child: TextField(
-                                  controller: _textController,
-                                  focusNode: _textFocusNode,
-                                  textAlign: TextAlign.center,
-                                  maxLength: _storyTextMaxLength,
-                                  maxLines: 4,
-                                  minLines: 1,
-                                  cursorColor: _textColor,
-                                  readOnly: !_isTextEditingEnabled,
-                                  enableInteractiveSelection:
-                                      _isTextEditingEnabled,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) => _finishTextEditing(),
-                                  buildCounter: _hideStoryInputCounter,
-                                  style: TextStyle(
-                                    color: _textColor,
-                                    fontSize: 30,
-                                    height: 1.08,
-                                    fontWeight: _isBold
-                                        ? FontWeight.w900
-                                        : FontWeight.w600,
-                                    fontStyle: _isItalic
-                                        ? FontStyle.italic
-                                        : FontStyle.normal,
-                                    fontFamily: _effectiveFontFamily,
-                                    decoration: _isUnderline
-                                        ? TextDecoration.underline
-                                        : TextDecoration.none,
-                                    decorationColor: _textColor,
-                                    decorationThickness: 2,
-                                    shadows: const [
-                                      Shadow(
-                                        blurRadius: 12,
-                                        color: Colors.black87,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  decoration: InputDecoration(
-                                    isCollapsed: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    hintText: 'Text hinzufügen',
-                                    hintStyle: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.62,
-                                      ),
-                                      fontWeight: FontWeight.w800,
+                                child: AbsorbPointer(
+                                  absorbing: !_isTextEditingEnabled,
+                                  child: TextField(
+                                    controller: _textController,
+                                    focusNode: _textFocusNode,
+                                    textAlign: TextAlign.center,
+                                    maxLength: _storyTextMaxLength,
+                                    maxLines: 4,
+                                    minLines: 1,
+                                    cursorColor: _textColor,
+                                    readOnly: !_isTextEditingEnabled,
+                                    enableInteractiveSelection:
+                                        _isTextEditingEnabled,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) => _finishTextEditing(),
+                                    buildCounter: _hideStoryInputCounter,
+                                    style: TextStyle(
+                                      color: _textColor,
+                                      fontSize: 30,
+                                      height: 1.08,
+                                      fontWeight: _isBold
+                                          ? FontWeight.w900
+                                          : FontWeight.w600,
+                                      fontStyle: _isItalic
+                                          ? FontStyle.italic
+                                          : FontStyle.normal,
+                                      fontFamily: _effectiveFontFamily,
+                                      decoration: _isUnderline
+                                          ? TextDecoration.underline
+                                          : TextDecoration.none,
+                                      decorationColor: _textColor,
+                                      decorationThickness: 2,
+                                      shadows: const [
+                                        Shadow(
+                                          blurRadius: 12,
+                                          color: Colors.black87,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                    errorBorder: InputBorder.none,
-                                    focusedErrorBorder: InputBorder.none,
-                                    filled: false,
+                                    decoration: InputDecoration(
+                                      isCollapsed: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      hintText: 'Text hinzufügen',
+                                      hintStyle: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.62,
+                                        ),
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      disabledBorder: InputBorder.none,
+                                      errorBorder: InputBorder.none,
+                                      focusedErrorBorder: InputBorder.none,
+                                      filled: false,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2918,11 +3024,13 @@ class _StoryDiscardDialog extends StatelessWidget {
 class _StoryTextInputDialog extends StatelessWidget {
   const _StoryTextInputDialog({
     Color? backgroundColor,
+    this.icon = Icons.edit_rounded,
     this.title,
     this.content,
     this.actions,
   });
 
+  final IconData icon;
   final Widget? title;
   final Widget? content;
   final List<Widget>? actions;
@@ -2973,11 +3081,7 @@ class _StoryTextInputDialog extends StatelessWidget {
                           color: _carmaBlueLight.withValues(alpha: 0.24),
                         ),
                       ),
-                      child: const Icon(
-                        Icons.edit_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
+                      child: Icon(icon, color: Colors.white, size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: title ?? const SizedBox.shrink()),
@@ -3341,17 +3445,29 @@ class _StoryTextStyleBar extends StatelessWidget {
                     onTap: onToggleUnderline,
                   ),
                   const SizedBox(width: 6),
-                  _StoryToolButton(
-                    icon: Icons.check_rounded,
-                    isSelected: true,
-                    onTap: onDone,
-                  ),
-                  const SizedBox(width: 6),
                   Expanded(
                     child: _StoryFontSelector(
                       selectedValue: fontFamily,
                       onChanged: onFontChanged,
                     ),
+                  ),
+                  const SizedBox(width: 6),
+                  FilledButton(
+                    onPressed: onDone,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _carmaBlue,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(76, 40),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    child: const Text('Fertig'),
                   ),
                 ],
               ),

@@ -431,7 +431,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       ),
     );
 
-    if (!mounted) {
+    if (!context.mounted) {
       return;
     }
 
@@ -450,7 +450,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       ),
     );
 
-    if (!mounted) {
+    if (!context.mounted) {
       return;
     }
 
@@ -858,11 +858,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
     BuildContext context,
     ChatStoryRecord story,
   ) async {
+    final currentStory =
+        await _storyRepository.getStoryById(story.id).catchError((_) => null) ??
+        story;
     final viewers =
-        story.viewedAtBy.entries
-            .where((entry) => entry.key != story.ownerUserId)
+        currentStory.viewedAtBy.entries
+            .where((entry) => entry.key != currentStory.ownerUserId)
             .toList()
           ..sort((a, b) => b.value.compareTo(a.value));
+
+    if (!context.mounted) {
+      return;
+    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1015,11 +1022,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         itemBuilder: (context, index) {
                           final viewer = viewers[index];
                           final viewerName =
-                              story.viewerNameBy[viewer.key]?.trim() ?? '';
+                              currentStory.viewerNameBy[viewer.key]?.trim() ??
+                              '';
                           final label = viewerName.isEmpty
                               ? 'Carma Nutzer'
                               : viewerName;
-                          final photoUrl = story.viewerPhotoUrlBy[viewer.key]
+                          final photoUrl = currentStory
+                              .viewerPhotoUrlBy[viewer.key]
                               ?.trim();
 
                           return Container(
@@ -1193,7 +1202,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
           return;
         }
 
-        await ChatNativeBridge().openMap(
+        await _showStoryLocationStickerSheet(
+          story,
           latitude: latitude,
           longitude: longitude,
         );
@@ -1201,24 +1211,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
       }
 
       if (type == 'link') {
-        await ChatNativeBridge().openDocumentUrl(
-          url: _normalizeStoryLink(payload),
-          contentType: 'text/html',
-        );
+        await _showStoryLinkStickerSheet(story);
         return;
       }
 
       if (type == 'hashtag') {
-        final hashtag = payload.startsWith('#') ? payload : '#$payload';
-        await Clipboard.setData(ClipboardData(text: hashtag));
-
-        if (!mounted) {
-          return;
-        }
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Hashtag wurde kopiert.')));
+        await _showStoryHashtagStickerSheet(story);
         return;
       }
 
@@ -1234,6 +1232,181 @@ class _ChatsScreenState extends State<ChatsScreen> {
     } catch (_) {
       showStickerError();
     }
+  }
+
+  Future<void> _showStoryLocationStickerSheet(
+    ChatStoryRecord story, {
+    required double latitude,
+    required double longitude,
+  }) async {
+    final stickerLabel = story.stickerLabel.trim();
+    final title = stickerLabel.isEmpty ? 'Standort' : stickerLabel;
+    final coordinateLabel =
+        '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
+
+    if (!mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return _StoryStickerInfoSheet(
+          icon: Icons.location_on_rounded,
+          title: title,
+          subtitle: 'Ort von ${story.ownerDisplayName}',
+          rows: [
+            _StoryStickerInfoRow(
+              label: 'Ort',
+              value: title,
+              icon: Icons.place_rounded,
+            ),
+            _StoryStickerInfoRow(
+              label: 'Koordinaten',
+              value: coordinateLabel,
+              icon: Icons.my_location_rounded,
+            ),
+          ],
+          actionIcon: Icons.map_rounded,
+          actionLabel: 'In Karten öffnen',
+          onAction: () async {
+            final navigator = Navigator.of(sheetContext);
+            final messenger = ScaffoldMessenger.of(context);
+
+            try {
+              await ChatNativeBridge().openMap(
+                latitude: latitude,
+                longitude: longitude,
+              );
+
+              if (!mounted) {
+                return;
+              }
+
+              navigator.pop();
+            } catch (error) {
+              if (!mounted) {
+                return;
+              }
+
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Karten konnten nicht geöffnet werden: $error'),
+                ),
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showStoryLinkStickerSheet(ChatStoryRecord story) async {
+    final rawLink = story.stickerPayload.trim();
+    final normalizedLink = _normalizeStoryLink(rawLink);
+    final stickerLabel = story.stickerLabel.trim();
+    final title = stickerLabel.isEmpty ? 'Link' : stickerLabel;
+
+    if (!mounted || rawLink.isEmpty) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return _StoryStickerInfoSheet(
+          icon: Icons.link_rounded,
+          title: title,
+          subtitle: 'Link von ${story.ownerDisplayName}',
+          rows: [
+            _StoryStickerInfoRow(
+              label: 'Adresse',
+              value: normalizedLink,
+              icon: Icons.language_rounded,
+            ),
+          ],
+          actionIcon: Icons.open_in_new_rounded,
+          actionLabel: 'Link öffnen',
+          onAction: () async {
+            final navigator = Navigator.of(sheetContext);
+            final messenger = ScaffoldMessenger.of(context);
+
+            try {
+              await ChatNativeBridge().openDocumentUrl(
+                url: normalizedLink,
+                contentType: 'text/html',
+              );
+
+              if (!mounted) {
+                return;
+              }
+
+              navigator.pop();
+            } catch (error) {
+              if (!mounted) {
+                return;
+              }
+
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Link konnte nicht geöffnet werden: $error'),
+                ),
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showStoryHashtagStickerSheet(ChatStoryRecord story) async {
+    final payload = story.stickerPayload.trim();
+    final hashtag = payload.startsWith('#') ? payload : '#$payload';
+
+    if (!mounted || payload.isEmpty) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return _StoryStickerInfoSheet(
+          icon: Icons.tag_rounded,
+          title: hashtag,
+          subtitle: 'Hashtag von ${story.ownerDisplayName}',
+          rows: [
+            _StoryStickerInfoRow(
+              label: 'Hashtag',
+              value: hashtag,
+              icon: Icons.tag_rounded,
+            ),
+          ],
+          actionIcon: Icons.copy_rounded,
+          actionLabel: 'Hashtag kopieren',
+          onAction: () async {
+            final navigator = Navigator.of(sheetContext);
+            final messenger = ScaffoldMessenger.of(context);
+
+            await Clipboard.setData(ClipboardData(text: hashtag));
+
+            if (!mounted) {
+              return;
+            }
+
+            navigator.pop();
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Hashtag wurde kopiert.')),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _showStoryVehicleStickerSheet(ChatStoryRecord story) async {

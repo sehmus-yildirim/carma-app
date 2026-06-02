@@ -40,6 +40,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   bool _isSendingReply = false;
   int? _busyPollOptionIndex;
   String? _localMuteStoryId;
+  double _verticalDragOffset = 0;
   final Map<String, int> _localPollVoteByStoryId = <String, int>{};
 
   ChatStoryRecord get _story => widget.stories[_storyIndex];
@@ -227,15 +228,26 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     _showPreviousStory();
   }
 
+  void _handleVerticalDragStart(DragStartDetails details) {
+    _verticalDragOffset = 0;
+  }
+
+  void _handleVerticalDragUpdate(DragUpdateDetails details) {
+    _verticalDragOffset += details.primaryDelta ?? 0;
+  }
+
   void _handleVerticalDragEnd(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
+    final dragOffset = _verticalDragOffset;
+
+    _verticalDragOffset = 0;
 
     if (velocity > 320) {
       Navigator.of(context).maybePop();
       return;
     }
 
-    if (_isOwnStory && velocity < -260) {
+    if (_isOwnStory && (velocity < -260 || dragOffset < -56)) {
       _pauseForAction(widget.onShowViewers);
     }
   }
@@ -326,7 +338,21 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   Future<void> _sendStoryReply() async {
     final text = _replyController.text.trim();
 
-    if (_isOwnStory || text.isEmpty || _isSendingReply) {
+    await _sendStoryReplyText(text, clearComposer: true, showSuccess: true);
+  }
+
+  Future<void> _sendStoryReaction(String reaction) async {
+    await _sendStoryReplyText(reaction, clearComposer: false);
+  }
+
+  Future<void> _sendStoryReplyText(
+    String text, {
+    required bool clearComposer,
+    bool showSuccess = false,
+  }) async {
+    final trimmedText = text.trim();
+
+    if (_isOwnStory || trimmedText.isEmpty || _isSendingReply) {
       return;
     }
 
@@ -336,17 +362,22 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     _pauseStory();
 
     try {
-      await widget.onReplyStory(_story, text);
+      await widget.onReplyStory(_story, trimmedText);
 
       if (!mounted) {
         return;
       }
 
-      _replyController.clear();
-      _replyFocusNode.unfocus();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Antwort gesendet.')));
+      if (clearComposer) {
+        _replyController.clear();
+        _replyFocusNode.unfocus();
+      }
+
+      if (showSuccess) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Antwort gesendet.')));
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -399,6 +430,8 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
         onLongPressStart: (_) => _pauseStory(),
         onLongPressEnd: (_) => _resumeStory(),
         onHorizontalDragEnd: _handleHorizontalDragEnd,
+        onVerticalDragStart: _handleVerticalDragStart,
+        onVerticalDragUpdate: _handleVerticalDragUpdate,
         onVerticalDragEnd: _handleVerticalDragEnd,
         child: Stack(
           children: [
@@ -659,11 +692,23 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                   ),
                   child: SafeArea(
                     top: false,
-                    child: _StoryReplyComposer(
-                      controller: _replyController,
-                      focusNode: _replyFocusNode,
-                      isSending: _isSendingReply,
-                      onSend: _sendStoryReply,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!_replyFocusNode.hasFocus) ...[
+                          _StoryQuickReactions(
+                            isSending: _isSendingReply,
+                            onReaction: _sendStoryReaction,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        _StoryReplyComposer(
+                          controller: _replyController,
+                          focusNode: _replyFocusNode,
+                          isSending: _isSendingReply,
+                          onSend: _sendStoryReply,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -785,6 +830,100 @@ class _StoryReplyComposer extends StatelessWidget {
   }
 }
 
+class _StoryQuickReactions extends StatelessWidget {
+  const _StoryQuickReactions({
+    required this.isSending,
+    required this.onReaction,
+  });
+
+  static const List<String> _reactions = [
+    '\u{1F44D}',
+    '\u{1F604}',
+    '\u{1F525}',
+    '\u{1F440}',
+    '\u{2764}\u{FE0F}',
+  ];
+
+  final bool isSending;
+  final ValueChanged<String> onReaction;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: const Color(0xFF101827).withValues(alpha: 0.58),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final reaction in _reactions)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: _StoryQuickReactionButton(
+                    reaction: reaction,
+                    isDisabled: isSending,
+                    onTap: () => onReaction(reaction),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryQuickReactionButton extends StatelessWidget {
+  const _StoryQuickReactionButton({
+    required this.reaction,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  final String reaction;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 38,
+          height: 38,
+          child: Center(
+            child: Text(
+              reaction,
+              style: TextStyle(
+                fontSize: 23,
+                color: Colors.white.withValues(alpha: isDisabled ? 0.42 : 1),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StoryPollSticker extends StatelessWidget {
   const _StoryPollSticker({
     required this.question,
@@ -820,6 +959,14 @@ class _StoryPollSticker extends StatelessWidget {
         .toList(growable: false);
     final totalVotes = validVotes.length;
     final selectedOption = voteBy[currentUserId];
+    final hasVoted = selectedOption != null;
+    final voteHint = isOwnStory
+        ? (totalVotes == 1 ? '1 Stimme' : '$totalVotes Stimmen')
+        : hasVoted
+        ? (totalVotes == 1
+              ? 'Abgestimmt · 1 Stimme'
+              : 'Abgestimmt · $totalVotes Stimmen')
+        : 'Tippe zum Abstimmen';
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 320),
@@ -895,15 +1042,16 @@ class _StoryPollSticker extends StatelessWidget {
                           .length,
                       totalVotes: totalVotes,
                       isSelected: selectedOption == index,
-                      showResults: isOwnStory || selectedOption != null,
+                      showResults: isOwnStory || hasVoted,
                       isBusy: busyOptionIndex == index,
-                      isDisabled: busyOptionIndex != null || isOwnStory,
+                      isDisabled:
+                          busyOptionIndex != null || isOwnStory || hasVoted,
                       onTap: () => onVote(index),
                     ),
                   ),
                 const SizedBox(height: 10),
                 Text(
-                  totalVotes == 1 ? '1 Stimme' : '$totalVotes Stimmen',
+                  voteHint,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.66),
@@ -1160,13 +1308,29 @@ class _StorySeenButton extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'gesehen',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Aufrufe',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                      Text(
+                        'hochziehen',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.58),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

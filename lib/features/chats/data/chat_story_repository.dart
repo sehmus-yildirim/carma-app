@@ -112,6 +112,22 @@ class ChatStoryRepository {
         });
   }
 
+  Future<ChatStoryRecord?> getStoryById(String storyId) async {
+    final trimmedStoryId = storyId.trim();
+
+    if (trimmedStoryId.isEmpty) {
+      return null;
+    }
+
+    final snapshot = await _storiesCollection.doc(trimmedStoryId).get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return _storyFromSnapshot(snapshot);
+  }
+
   Future<void> setOwnImageStory({
     required String ownerUserId,
     required String ownerDisplayName,

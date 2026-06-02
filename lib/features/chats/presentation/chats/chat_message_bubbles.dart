@@ -460,6 +460,24 @@ class _ChatMessageBubble extends StatelessWidget {
     return value.trim().startsWith('Story von ');
   }
 
+  bool _isStoryQuickReaction(String value) {
+    return switch (value.trim()) {
+      '\u{1F44D}' ||
+      '\u{1F604}' ||
+      '\u{1F525}' ||
+      '\u{1F440}' ||
+      '\u{2764}\u{FE0F}' => true,
+      _ => false,
+    };
+  }
+
+  bool _isStoryReactionMessage(_LocalChatMessage message) {
+    final replyText = message.replyToText?.trim() ?? '';
+
+    return _isStoryReplyPreview(replyText) &&
+        _isStoryQuickReaction(message.text);
+  }
+
   String _storyReplyTitle(String value) {
     final text = value.trim();
     final separatorIndex = text.indexOf(':');
@@ -563,6 +581,78 @@ class _ChatMessageBubble extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.72),
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoryReactionCard(
+    BuildContext context,
+    _LocalChatMessage message,
+  ) {
+    final replyText = message.replyToText?.trim() ?? '';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _carmaBlue.withValues(alpha: 0.30),
+            Colors.white.withValues(alpha: 0.08),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            ),
+            child: Text(
+              message.text.trim(),
+              style: const TextStyle(fontSize: 22, height: 1),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Story-Reaktion',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _storyReplySubtitle(replyText),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.70),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -701,6 +791,7 @@ class _ChatMessageBubble extends StatelessWidget {
     final bubbleCrossAxisAlignment = message.isMine
         ? CrossAxisAlignment.end
         : CrossAxisAlignment.start;
+    final isStoryReactionMessage = _isStoryReactionMessage(message);
 
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -748,7 +839,8 @@ class _ChatMessageBubble extends StatelessWidget {
             crossAxisAlignment: bubbleCrossAxisAlignment,
             children: [
               if (message.replyToText != null &&
-                  message.replyToText!.trim().isNotEmpty) ...[
+                  message.replyToText!.trim().isNotEmpty &&
+                  !isStoryReactionMessage) ...[
                 _buildReplyPreview(context, message.replyToText!.trim()),
               ],
               if (isImageMessage) ...[
@@ -776,6 +868,8 @@ class _ChatMessageBubble extends StatelessWidget {
                 _buildDocumentCard(context)
               else if (isAudioMessage)
                 _buildAudioCard(context)
+              else if (isStoryReactionMessage)
+                _buildStoryReactionCard(context, message)
               else
                 Text(
                   message.text,
