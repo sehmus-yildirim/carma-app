@@ -1,9 +1,4 @@
-enum LegalConsentType {
-  terms,
-  privacy,
-  responsibleUse,
-  noEmergencyUse,
-}
+enum LegalConsentType { terms, privacy, responsibleUse, noEmergencyUse }
 
 class LegalConsent {
   const LegalConsent({
@@ -80,7 +75,7 @@ class LegalConsent {
 
   static LegalConsentType _typeFromName(String? name) {
     return LegalConsentType.values.firstWhere(
-          (type) => type.name == name,
+      (type) => type.name == name,
       orElse: () => LegalConsentType.terms,
     );
   }

@@ -43,25 +43,25 @@ class AppUserState {
 
   bool get hasAcceptedTerms {
     return legalConsents.any(
-          (consent) => consent.type == LegalConsentType.terms,
+      (consent) => consent.type == LegalConsentType.terms,
     );
   }
 
   bool get hasAcceptedPrivacy {
     return legalConsents.any(
-          (consent) => consent.type == LegalConsentType.privacy,
+      (consent) => consent.type == LegalConsentType.privacy,
     );
   }
 
   bool get hasAcceptedResponsibleUse {
     return legalConsents.any(
-          (consent) => consent.type == LegalConsentType.responsibleUse,
+      (consent) => consent.type == LegalConsentType.responsibleUse,
     );
   }
 
   bool get hasAcceptedNoEmergencyUse {
     return legalConsents.any(
-          (consent) => consent.type == LegalConsentType.noEmergencyUse,
+      (consent) => consent.type == LegalConsentType.noEmergencyUse,
     );
   }
 
@@ -78,13 +78,13 @@ class AppUserState {
 
   bool get _hasActiveBlockingModeration {
     return moderationActions.any(
-          (action) => action.isActive && action.blocksAccount,
+      (action) => action.isActive && action.blocksAccount,
     );
   }
 
   bool get _hasActiveFeatureRestriction {
     return moderationActions.any(
-          (action) => action.isActive && action.restrictsFeatures,
+      (action) => action.isActive && action.restrictsFeatures,
     );
   }
 
@@ -109,45 +109,27 @@ class AppUserState {
   }
 
   AppUserState markOnboardingCompleted() {
-    return copyWith(
-      accountStatus: accountStatus.markOnboardingCompleted(),
-    );
+    return copyWith(accountStatus: accountStatus.markOnboardingCompleted());
   }
 
   AppUserState markVerificationPending() {
-    return copyWith(
-      accountStatus: accountStatus.markVerificationPending(),
-    );
+    return copyWith(accountStatus: accountStatus.markVerificationPending());
   }
 
   AppUserState markVerified() {
-    return copyWith(
-      accountStatus: accountStatus.markVerified(),
-    );
+    return copyWith(accountStatus: accountStatus.markVerified());
   }
 
   AppUserState consumeSearchCredit() {
-    return copyWith(
-      searchCredit: searchCredit.consume(),
-    );
+    return copyWith(searchCredit: searchCredit.consume());
   }
 
   AppUserState addLegalConsents(List<LegalConsent> consents) {
-    return copyWith(
-      legalConsents: [
-        ...legalConsents,
-        ...consents,
-      ],
-    );
+    return copyWith(legalConsents: [...legalConsents, ...consents]);
   }
 
   AppUserState addModerationAction(ModerationAction action) {
-    return copyWith(
-      moderationActions: [
-        ...moderationActions,
-        action,
-      ],
-    );
+    return copyWith(moderationActions: [...moderationActions, action]);
   }
 
   Map<String, dynamic> toMap() {
@@ -156,8 +138,9 @@ class AppUserState {
       'accountStatus': accountStatus.toMap(),
       'searchCredit': searchCredit.toMap(),
       'legalConsents': legalConsents.map((consent) => consent.toMap()).toList(),
-      'moderationActions':
-      moderationActions.map((action) => action.toMap()).toList(),
+      'moderationActions': moderationActions
+          .map((action) => action.toMap())
+          .toList(),
       'canUseApp': canUseApp,
       'canSearchPlates': canSearchPlates,
       'canSendReports': canSendReports,
@@ -184,23 +167,22 @@ class AppUserState {
       ),
       legalConsents: legalConsentValues is List
           ? legalConsentValues
-          .whereType<Map>()
-          .map(
-            (value) => LegalConsent.fromMap(
-          Map<String, dynamic>.from(value),
-        ),
-      )
-          .toList()
+                .whereType<Map>()
+                .map(
+                  (value) =>
+                      LegalConsent.fromMap(Map<String, dynamic>.from(value)),
+                )
+                .toList()
           : const [],
       moderationActions: moderationActionValues is List
           ? moderationActionValues
-          .whereType<Map>()
-          .map(
-            (value) => ModerationAction.fromMap(
-          Map<String, dynamic>.from(value),
-        ),
-      )
-          .toList()
+                .whereType<Map>()
+                .map(
+                  (value) => ModerationAction.fromMap(
+                    Map<String, dynamic>.from(value),
+                  ),
+                )
+                .toList()
           : const [],
     );
   }
@@ -212,13 +194,8 @@ class AppUserState {
   }) {
     return AppUserState(
       userId: userId,
-      accountStatus: AccountStatus.localRegistered(
-        userId: userId,
-        now: now,
-      ),
-      searchCredit: SearchCredit.freeDefault(
-        userId: userId,
-      ),
+      accountStatus: AccountStatus.localRegistered(userId: userId, now: now),
+      searchCredit: SearchCredit.freeDefault(userId: userId),
       legalConsents: legalConsents,
     );
   }

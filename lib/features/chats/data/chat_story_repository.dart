@@ -1,12 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+final RegExp _storyStoragePathPattern = RegExp(
+  r'^chat_stories/([^/]+)/[0-9]{12,24}\.(jpg|mp4)$',
+);
+
 class ChatStoryRecord {
   const ChatStoryRecord({
     required this.id,
     required this.ownerUserId,
     required this.ownerDisplayName,
     this.ownerPhotoUrl,
+    this.viewerUserIds = const <String>[],
     required this.imageUrl,
     required this.imagePath,
     this.mediaType = 'image',
@@ -19,6 +24,7 @@ class ChatStoryRecord {
     this.textIsBold = true,
     this.textIsItalic = false,
     this.textIsUnderline = false,
+    this.textAlign = 'center',
     this.textAlignmentX = 0.5,
     this.textAlignmentY = 0.58,
     this.filterType = 'normal',
@@ -39,6 +45,7 @@ class ChatStoryRecord {
   final String ownerUserId;
   final String ownerDisplayName;
   final String? ownerPhotoUrl;
+  final List<String> viewerUserIds;
   final String imageUrl;
   final String imagePath;
   final String mediaType;
@@ -51,6 +58,7 @@ class ChatStoryRecord {
   final bool textIsBold;
   final bool textIsItalic;
   final bool textIsUnderline;
+  final String textAlign;
   final double textAlignmentX;
   final double textAlignmentY;
   final String filterType;
@@ -73,12 +81,41 @@ class ChatStoryRecord {
   bool get isVideo {
     return mediaType == 'video' && videoUrl.trim().isNotEmpty;
   }
+
+  bool get hasRenderableMedia {
+    if (mediaType == 'video') {
+      return videoUrl.trim().isNotEmpty;
+    }
+
+    return imageUrl.trim().isNotEmpty;
+  }
 }
 
 class ChatStoryRepository {
   ChatStoryRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
     : _firestore = firestore ?? FirebaseFirestore.instance,
       _storage = storage ?? FirebaseStorage.instance;
+
+  static const Set<int> _allowedStoryTextColorValues = <int>{
+    4294967295,
+    4294965429,
+    4294956367,
+    4294941245,
+    4294925404,
+    4294922138,
+    4293425657,
+    4290807036,
+    4286331629,
+    4282090230,
+    4281908728,
+    4280472558,
+    4281193663,
+    4283096704,
+    4288931381,
+    4293257195,
+    4279310375,
+    4278190080,
+  };
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
@@ -104,7 +141,9 @@ class ChatStoryRepository {
           final stories =
               snapshot.docs
                   .map(_storyFromSnapshot)
-                  .where((story) => !story.isExpired)
+                  .where(
+                    (story) => !story.isExpired && story.hasRenderableMedia,
+                  )
                   .toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -125,7 +164,8 @@ class ChatStoryRepository {
       return null;
     }
 
-    return _storyFromSnapshot(snapshot);
+    final story = _storyFromSnapshot(snapshot);
+    return story.hasRenderableMedia ? story : null;
   }
 
   Future<void> setOwnImageStory({
@@ -145,6 +185,7 @@ class ChatStoryRepository {
     bool textIsBold = true,
     bool textIsItalic = false,
     bool textIsUnderline = false,
+    String textAlign = 'center',
     double textAlignmentX = 0.5,
     double textAlignmentY = 0.58,
     String filterType = 'normal',
@@ -163,7 +204,9 @@ class ChatStoryRepository {
     final trimmedVideoUrl = videoUrl.trim();
     final trimmedVideoPath = videoPath.trim();
     final safeStoryText = _limitedText(text, 280);
+    final safeTextColorValue = _safeStoryTextColorValue(textColorValue);
     final safeTextFontFamily = _safeStoryTextFontFamily(textFontFamily);
+    final safeTextAlign = _safeStoryTextAlign(textAlign);
     final safeFilterType = _safeStoryFilterType(filterType);
     final safeStickerType = _safeStoryStickerType(stickerType);
     final safeStickerPayload = _safeStoryStickerPayload(
@@ -231,11 +274,12 @@ class ChatStoryRepository {
       'videoPath': trimmedVideoPath,
       'videoIsMuted': videoIsMuted,
       'text': safeStoryText,
-      'textColorValue': textColorValue,
+      'textColorValue': safeTextColorValue,
       'textFontFamily': safeTextFontFamily,
       'textIsBold': textIsBold,
       'textIsItalic': textIsItalic,
       'textIsUnderline': textIsUnderline,
+      'textAlign': safeTextAlign,
       'textAlignmentX': textAlignmentX.clamp(0.08, 0.92),
       'textAlignmentY': textAlignmentY.clamp(0.18, 0.82),
       'filterType': safeFilterType,
@@ -244,19 +288,51 @@ class ChatStoryRepository {
       'stickerPayload': safeStickerPayload,
       'stickerAlignmentX': stickerAlignmentX.clamp(0.08, 0.92),
       'stickerAlignmentY': stickerAlignmentY.clamp(0.18, 0.86),
-      'pollVoteBy': <String, int>{},
       'createdAt': Timestamp.fromDate(now),
       'updatedAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(now.add(const Duration(hours: 24))),
     });
 
     if (previousImagePath.isNotEmpty && previousImagePath != trimmedImagePath) {
-      await _deleteStorageObjectIfExists(previousImagePath);
+      try {
+        await _deleteStorageObjectIfExists(
+          ownerUserId: trimmedOwnerUserId,
+          path: previousImagePath,
+        );
+      } catch (_) {
+        // Old story media cleanup must not make a successfully saved story fail.
+      }
     }
 
     if (previousVideoPath.isNotEmpty && previousVideoPath != trimmedVideoPath) {
-      await _deleteStorageObjectIfExists(previousVideoPath);
+      try {
+        await _deleteStorageObjectIfExists(
+          ownerUserId: trimmedOwnerUserId,
+          path: previousVideoPath,
+        );
+      } catch (_) {
+        // Old story media cleanup must not make a successfully saved story fail.
+      }
     }
+  }
+
+  Future<void> updateOwnStoryMediaUrl({
+    required String ownerUserId,
+    required String mediaType,
+    required String url,
+  }) async {
+    final trimmedOwnerUserId = ownerUserId.trim();
+    final trimmedUrl = url.trim();
+    final isVideo = mediaType.trim() == 'video';
+
+    if (trimmedOwnerUserId.isEmpty || trimmedUrl.isEmpty) {
+      return;
+    }
+
+    await _storiesCollection.doc(trimmedOwnerUserId).update({
+      if (isVideo) 'videoUrl': trimmedUrl else 'imageUrl': trimmedUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> markStoryViewed({
@@ -274,15 +350,15 @@ class ChatStoryRepository {
       return;
     }
 
-    await _storiesCollection.doc(trimmedStoryId).set({
-      'viewedAtBy.$trimmedUserId': FieldValue.serverTimestamp(),
-      'viewerNameBy.$trimmedUserId': trimmedDisplayName.isEmpty
-          ? 'Carma Nutzer'
+    await _storiesCollection.doc(trimmedStoryId).update({
+      FieldPath(['viewedAtBy', trimmedUserId]): FieldValue.serverTimestamp(),
+      FieldPath(['viewerNameBy', trimmedUserId]): trimmedDisplayName.isEmpty
+          ? 'CaRisma Nutzer'
           : trimmedDisplayName,
       if (trimmedPhotoUrl.isNotEmpty)
-        'viewerPhotoUrlBy.$trimmedUserId': trimmedPhotoUrl,
+        FieldPath(['viewerPhotoUrlBy', trimmedUserId]): trimmedPhotoUrl,
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
   Future<void> updateStoryViewerPhotoUrl({
@@ -300,31 +376,18 @@ class ChatStoryRepository {
       return;
     }
 
-    await _storiesCollection.doc(trimmedStoryId).set({
-      'viewerPhotoUrlBy.$trimmedUserId': trimmedPhotoUrl,
+    await _storiesCollection.doc(trimmedStoryId).update({
+      FieldPath(['viewerPhotoUrlBy', trimmedUserId]): trimmedPhotoUrl,
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
-  Future<void> voteStoryPoll({
+  Future<bool> voteStoryPoll({
     required String storyId,
     required String userId,
     required int optionIndex,
   }) async {
-    final trimmedStoryId = storyId.trim();
-    final trimmedUserId = userId.trim();
-
-    if (trimmedStoryId.isEmpty ||
-        trimmedUserId.isEmpty ||
-        optionIndex < 0 ||
-        optionIndex > 1) {
-      return;
-    }
-
-    await _storiesCollection.doc(trimmedStoryId).set({
-      'pollVoteBy.$trimmedUserId': optionIndex,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    return false;
   }
 
   Future<void> deleteOwnStory({required String ownerUserId}) async {
@@ -336,13 +399,24 @@ class ChatStoryRepository {
 
     final storyReference = _storiesCollection.doc(trimmedOwnerUserId);
     final storySnapshot = await storyReference.get();
+
+    if (!storySnapshot.exists) {
+      return;
+    }
+
     final imagePath = (storySnapshot.data()?['imagePath'] as String? ?? '')
         .trim();
     final videoPath = (storySnapshot.data()?['videoPath'] as String? ?? '')
         .trim();
 
-    await _deleteStorageObjectIfExists(imagePath);
-    await _deleteStorageObjectIfExists(videoPath);
+    await _deleteStorageObjectIfExists(
+      ownerUserId: trimmedOwnerUserId,
+      path: imagePath,
+    );
+    await _deleteStorageObjectIfExists(
+      ownerUserId: trimmedOwnerUserId,
+      path: videoPath,
+    );
 
     await storyReference.delete();
   }
@@ -371,10 +445,19 @@ class ChatStoryRepository {
     await deleteOwnStory(ownerUserId: trimmedOwnerUserId);
   }
 
-  Future<void> _deleteStorageObjectIfExists(String path) async {
+  Future<void> _deleteStorageObjectIfExists({
+    required String ownerUserId,
+    required String path,
+  }) async {
+    final trimmedOwnerUserId = ownerUserId.trim();
     final trimmedPath = path.trim();
 
-    if (trimmedPath.isEmpty) {
+    if (trimmedOwnerUserId.isEmpty ||
+        trimmedPath.isEmpty ||
+        !_isOwnStoryStoragePath(
+          ownerUserId: trimmedOwnerUserId,
+          path: trimmedPath,
+        )) {
       return;
     }
 
@@ -387,34 +470,60 @@ class ChatStoryRepository {
     }
   }
 
+  bool _isOwnStoryStoragePath({
+    required String ownerUserId,
+    required String path,
+  }) {
+    final match = _storyStoragePathPattern.firstMatch(path.trim());
+
+    return match != null && match.group(1) == ownerUserId.trim();
+  }
+
   ChatStoryRecord _storyFromSnapshot(
     DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
     final data = snapshot.data() ?? const <String, dynamic>{};
+    final imageUrl = (data['imageUrl'] as String? ?? '').trim();
+    final imagePath = (data['imagePath'] as String? ?? '').trim();
+    final videoUrl = (data['videoUrl'] as String? ?? '').trim();
+    final videoPath = (data['videoPath'] as String? ?? '').trim();
+    final safeMediaType = _safeStoryMediaType(data['mediaType']);
+    final safeStickerType = _safeStoryStickerType(data['stickerType']);
+    final safeStickerPayload = _safeStoryStickerPayload(
+      safeStickerType,
+      data['stickerPayload'],
+    );
+    final safeStickerLabel = _safeStoryStickerLabel(
+      safeStickerType,
+      data['stickerLabel'],
+      safeStickerPayload,
+    );
 
     return ChatStoryRecord(
       id: snapshot.id,
       ownerUserId: data['ownerUserId'] as String? ?? '',
-      ownerDisplayName: data['ownerDisplayName'] as String? ?? 'Carma Nutzer',
+      ownerDisplayName: data['ownerDisplayName'] as String? ?? 'CaRisma Nutzer',
       ownerPhotoUrl: data['ownerPhotoUrl'] as String?,
-      imageUrl: data['imageUrl'] as String? ?? '',
-      imagePath: data['imagePath'] as String? ?? '',
-      mediaType: data['mediaType'] as String? ?? 'image',
-      videoUrl: data['videoUrl'] as String? ?? '',
-      videoPath: data['videoPath'] as String? ?? '',
+      viewerUserIds: _stringListFromValue(data['viewerUserIds']),
+      imageUrl: imageUrl,
+      imagePath: imagePath,
+      mediaType: safeMediaType,
+      videoUrl: videoUrl,
+      videoPath: videoPath,
       videoIsMuted: data['videoIsMuted'] as bool? ?? false,
       text: data['text'] as String? ?? '',
-      textColorValue: data['textColorValue'] as int? ?? 0xFFFFFFFF,
+      textColorValue: _safeStoryTextColorValue(data['textColorValue']),
       textFontFamily: _safeStoryTextFontFamily(data['textFontFamily']),
       textIsBold: data['textIsBold'] as bool? ?? true,
       textIsItalic: data['textIsItalic'] as bool? ?? false,
       textIsUnderline: data['textIsUnderline'] as bool? ?? false,
+      textAlign: _safeStoryTextAlign(data['textAlign']),
       textAlignmentX: _doubleFromValue(data['textAlignmentX']) ?? 0.5,
       textAlignmentY: _doubleFromValue(data['textAlignmentY']) ?? 0.58,
       filterType: _safeStoryFilterType(data['filterType']),
-      stickerType: data['stickerType'] as String? ?? '',
-      stickerLabel: data['stickerLabel'] as String? ?? '',
-      stickerPayload: data['stickerPayload'] as String? ?? '',
+      stickerType: safeStickerType,
+      stickerLabel: safeStickerLabel,
+      stickerPayload: safeStickerPayload,
       stickerAlignmentX: _doubleFromValue(data['stickerAlignmentX']) ?? 0.5,
       stickerAlignmentY: _doubleFromValue(data['stickerAlignmentY']) ?? 0.76,
       viewedAtBy: _dateTimeMapFromValue(data['viewedAtBy']),
@@ -484,6 +593,19 @@ class ChatStoryRepository {
     return entries;
   }
 
+  List<String> _stringListFromValue(Object? value) {
+    if (value is! Iterable) {
+      return const <String>[];
+    }
+
+    final entries = <String>{
+      for (final entry in value)
+        if (entry.toString().trim().isNotEmpty) entry.toString().trim(),
+    }.toList()..sort();
+
+    return entries;
+  }
+
   Map<String, int> _intMapFromValue(Object? value) {
     if (value is! Map) {
       return const <String, int>{};
@@ -497,7 +619,7 @@ class ChatStoryRepository {
           ? entry.value as int
           : int.tryParse('${entry.value}') ?? -1;
 
-      if (key.isNotEmpty && parsedValue >= 0) {
+      if (key.isNotEmpty && parsedValue >= 0 && parsedValue <= 1) {
         entries[key] = parsedValue;
       }
     }
@@ -522,6 +644,27 @@ class ChatStoryRepository {
     };
   }
 
+  String _safeStoryTextAlign(Object? value) {
+    final textAlign = value?.toString().trim() ?? '';
+
+    return switch (textAlign) {
+      'left' || 'right' => textAlign,
+      _ => 'center',
+    };
+  }
+
+  int _safeStoryTextColorValue(Object? value) {
+    final parsedValue = value is int ? value : int.tryParse('$value');
+
+    if (parsedValue == null) {
+      return 0xFFFFFFFF;
+    }
+
+    return _allowedStoryTextColorValues.contains(parsedValue)
+        ? parsedValue
+        : 0xFFFFFFFF;
+  }
+
   String _safeStoryFilterType(Object? value) {
     final filterType = value?.toString().trim() ?? '';
 
@@ -531,16 +674,17 @@ class ChatStoryRepository {
     };
   }
 
+  String _safeStoryMediaType(Object? value) {
+    final mediaType = value?.toString().trim() ?? '';
+
+    return mediaType == 'video' ? 'video' : 'image';
+  }
+
   String _safeStoryStickerType(Object? value) {
     final stickerType = value?.toString().trim() ?? '';
 
     return switch (stickerType) {
-      'location' ||
-      'link' ||
-      'hashtag' ||
-      'vehicle' ||
-      'status' ||
-      'poll' => stickerType,
+      'location' || 'vehicle' || 'status' => stickerType,
       _ => '',
     };
   }
@@ -560,15 +704,6 @@ class ChatStoryRepository {
           : '';
     }
 
-    if (type == 'link') {
-      final normalizedPayload =
-          payload.startsWith('http://') || payload.startsWith('https://')
-          ? payload
-          : 'https://$payload';
-
-      return _limitedText(normalizedPayload, 300);
-    }
-
     if (type == 'vehicle') {
       return _limitedText(payload, 24);
     }
@@ -577,18 +712,7 @@ class ChatStoryRepository {
       return _limitedText(payload, 32);
     }
 
-    if (type == 'poll') {
-      final options = payload
-          .split('\n')
-          .map((option) => _limitedText(option, 28))
-          .where((option) => option.isNotEmpty)
-          .take(2)
-          .toList(growable: false);
-
-      return options.length < 2 ? '' : options.join('\n');
-    }
-
-    return _limitedText(payload.replaceFirst(RegExp(r'^#+'), ''), 79);
+    return '';
   }
 
   String _safeStoryStickerLabel(
@@ -607,11 +731,6 @@ class ChatStoryRepository {
       return _limitedText(locationLabel, 80);
     }
 
-    if (type == 'link') {
-      final linkLabel = label.isEmpty ? safePayload : label;
-      return _limitedText(linkLabel, 80);
-    }
-
     if (type == 'vehicle') {
       final vehicleLabel = label.isEmpty ? 'Fahrzeug' : label;
       return _limitedText(vehicleLabel, 80);
@@ -622,13 +741,7 @@ class ChatStoryRepository {
       return _limitedText(statusLabel, 32);
     }
 
-    if (type == 'poll') {
-      return _limitedText(label, 80);
-    }
-
-    final hashtagLabel = label.replaceFirst(RegExp(r'^#+'), '');
-    final hashtag = hashtagLabel.isEmpty ? safePayload : hashtagLabel;
-    return '#${_limitedText(hashtag, 79)}';
+    return '';
   }
 
   String _limitedText(Object? value, int maxLength) {

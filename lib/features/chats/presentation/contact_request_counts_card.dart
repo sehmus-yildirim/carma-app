@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/models/carma_models.dart';
-import '../../../shared/widgets/carma_blue_icon_box.dart';
+import '../../../shared/models/carisma_models.dart';
+import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/contact_request_repository.dart';
 
@@ -80,7 +80,7 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CarmaBlueIconBox(
+              CaRismaBlueIconBox(
                 icon: hasError
                     ? Icons.cloud_off_rounded
                     : Icons.mark_chat_unread_rounded,
@@ -147,7 +147,7 @@ class _RequestContent extends StatelessWidget {
           const SizedBox(height: 8),
           ...incomingPreview.map(
             (request) => _RequestMiniTile(
-              title: _safeText(request.senderDisplayName, 'Carma Nutzer'),
+              title: _safeText(request.senderDisplayName, 'CaRisma Nutzer'),
               subtitle:
                   'Kennzeichen: ${_safeText(request.displayPlate, request.plateKey)}',
               status: request.statusLabel,
@@ -160,7 +160,7 @@ class _RequestContent extends StatelessWidget {
           const SizedBox(height: 8),
           ...outgoingPreview.map(
             (request) => _RequestMiniTile(
-              title: _safeText(request.receiverDisplayName, 'Carma Nutzer'),
+              title: _safeText(request.receiverDisplayName, 'CaRisma Nutzer'),
               subtitle:
                   'Kennzeichen: ${_safeText(request.displayPlate, request.plateKey)}',
               status: request.statusLabel,

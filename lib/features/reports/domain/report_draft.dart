@@ -1,4 +1,4 @@
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/models/carisma_models.dart';
 
 enum ReportDraftCategory {
   vehicleOpen,
@@ -20,6 +20,7 @@ class ReportDraft {
     required this.message,
     required this.useGpsLocation,
     this.manualAddress,
+    this.gpsAddressLabel,
     this.latitude,
     this.longitude,
     this.imageLocalPath,
@@ -37,13 +38,14 @@ class ReportDraft {
 
   final bool useGpsLocation;
   final String? manualAddress;
+  final String? gpsAddressLabel;
   final double? latitude;
   final double? longitude;
 
   final String? imageLocalPath;
 
-  CarmaPlate get targetPlate {
-    return CarmaPlate(
+  CaRismaPlate get targetPlate {
+    return CaRismaPlate(
       countryCode: countryCode,
       region: region,
       letters: letters,
@@ -120,7 +122,12 @@ class ReportDraft {
         return null;
       }
 
-      return '${latitude!.toStringAsFixed(6)}, ${longitude!.toStringAsFixed(6)}';
+      final address = gpsAddressLabel?.trim();
+      if (address != null && address.isNotEmpty) {
+        return address;
+      }
+
+      return 'GPS-Standort erfasst';
     }
 
     final address = manualAddress?.trim();
@@ -132,9 +139,7 @@ class ReportDraft {
     return address;
   }
 
-  Report toReport({
-    String id = 'local-report',
-  }) {
+  Report toReport({String id = 'local-report'}) {
     return Report(
       id: id,
       senderUserId: senderUserId,
@@ -159,6 +164,7 @@ class ReportDraft {
     String? message,
     bool? useGpsLocation,
     String? manualAddress,
+    String? gpsAddressLabel,
     double? latitude,
     double? longitude,
     String? imageLocalPath,
@@ -173,6 +179,7 @@ class ReportDraft {
       message: message ?? this.message,
       useGpsLocation: useGpsLocation ?? this.useGpsLocation,
       manualAddress: manualAddress ?? this.manualAddress,
+      gpsAddressLabel: gpsAddressLabel ?? this.gpsAddressLabel,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       imageLocalPath: imageLocalPath ?? this.imageLocalPath,

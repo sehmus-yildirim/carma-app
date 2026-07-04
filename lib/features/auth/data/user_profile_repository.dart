@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../shared/firebase/carma_firestore_paths.dart';
+import '../../../shared/firebase/carisma_firestore_paths.dart';
 
 class UserProfileRepository {
   UserProfileRepository({FirebaseFirestore? firestore})
@@ -10,7 +10,7 @@ class UserProfileRepository {
   final FirebaseFirestore _firestore;
 
   DocumentReference<Map<String, dynamic>> _userDocument(String userId) {
-    return _firestore.doc(CarmaFirestorePaths.user(userId));
+    return _firestore.doc(CaRismaFirestorePaths.user(userId));
   }
 
   Future<void> createProfileForUser(User user) async {

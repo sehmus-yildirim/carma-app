@@ -6,22 +6,22 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/models/carisma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_country_selector_card.dart';
-import '../../../shared/widgets/carma_message_card.dart';
-import '../../../shared/widgets/carma_page_header.dart';
-import '../../../shared/widgets/carma_plate_input_card.dart';
-import '../../../shared/widgets/carma_primary_button.dart';
-import '../../../shared/widgets/carma_secondary_button.dart';
-import '../../../shared/widgets/carma_section_title.dart';
+import '../../../shared/plate/german_plate_region_codes.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_blue_icon_box.dart';
+import '../../../shared/widgets/carisma_country_selector_card.dart';
+import '../../../shared/widgets/carisma_message_card.dart';
+import '../../../shared/widgets/carisma_page_header.dart';
+import '../../../shared/widgets/carisma_plate_input_card.dart';
+import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_secondary_button.dart';
+import '../../../shared/widgets/carisma_section_title.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../chats/data/chat_native_bridge.dart';
+import '../data/report_repository.dart';
 import '../domain/report_draft.dart';
-
-const Color _carmaBlue = Color(0xFF139CFF);
-const Color _carmaBlueLight = Color(0xFF63D5FF);
-const Color _carmaBlueDark = Color(0xFF0A76FF);
 
 enum _ReportCategory {
   vehicleOpen,
@@ -33,10 +33,7 @@ enum _ReportCategory {
 }
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({
-    super.key,
-    required this.userState,
-  });
+  const ReportScreen({super.key, required this.userState});
 
   final AppUserState userState;
 
@@ -46,6 +43,8 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   final ImagePicker _imagePicker = ImagePicker();
+  final ReportRepository _reportRepository = ReportRepository();
+  final ChatNativeBridge _nativeBridge = ChatNativeBridge();
 
   final TextEditingController _regionController = TextEditingController();
   final TextEditingController _lettersController = TextEditingController();
@@ -61,7 +60,9 @@ class _ReportScreenState extends State<ReportScreen> {
   _ReportCategory? _selectedCategory;
 
   Position? _position;
+  String? _gpsAddressLabel;
   XFile? _capturedPhoto;
+  Timer? _successMessageTimer;
 
   bool _isLoadingLocation = false;
   bool _isSending = false;
@@ -119,6 +120,7 @@ class _ReportScreenState extends State<ReportScreen> {
       manualAddress: _addressController.text.trim(),
       latitude: _position?.latitude,
       longitude: _position?.longitude,
+      gpsAddressLabel: _gpsAddressLabel,
       imageLocalPath: _capturedPhoto?.path,
     );
   }
@@ -160,6 +162,7 @@ class _ReportScreenState extends State<ReportScreen> {
     _regionFocusNode.dispose();
     _lettersFocusNode.dispose();
     _numbersFocusNode.dispose();
+    _successMessageTimer?.cancel();
 
     super.dispose();
   }
@@ -169,8 +172,22 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   void _clearMessages() {
+    _successMessageTimer?.cancel();
     _errorMessage = null;
     _successMessage = null;
+  }
+
+  void _scheduleSuccessMessageClear() {
+    _successMessageTimer?.cancel();
+    _successMessageTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _successMessage = null;
+      });
+    });
   }
 
   void _selectCategory(_ReportCategory category) {
@@ -198,6 +215,19 @@ class _ReportScreenState extends State<ReportScreen> {
 
   void _handleRegionChanged(String value) {
     _clearMessages();
+
+    if (_countryCode == 'DE') {
+      final normalized = value.toUpperCase().replaceAll(
+        RegExp(r'[^A-ZÄÖÜ0-9]'),
+        '',
+      );
+      final regionCodes = germanPlateRegionCodesBySpeechKey.values.toSet();
+
+      if (regionCodes.contains(normalized)) {
+        _lettersFocusNode.requestFocus();
+        return;
+      }
+    }
 
     if (value.length >= _regionMaxLength) {
       if (_countryCode == 'CH' || _countryCode == 'AT') {
@@ -257,8 +287,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
         setState(() {
           _position = null;
+          _gpsAddressLabel = null;
           _locationError =
-          'Standortdienste sind deaktiviert. Du kannst alternativ eine Adresse eingeben.';
+              'Standortdienste sind deaktiviert. Du kannst alternativ eine Adresse eingeben.';
           _isLoadingLocation = false;
           _useGpsLocation = false;
         });
@@ -278,8 +309,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
         setState(() {
           _position = null;
+          _gpsAddressLabel = null;
           _locationError =
-          'Standortberechtigung wurde verweigert. Du kannst alternativ eine Adresse eingeben.';
+              'Standortberechtigung wurde verweigert. Du kannst alternativ eine Adresse eingeben.';
           _isLoadingLocation = false;
           _useGpsLocation = false;
         });
@@ -293,8 +325,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
         setState(() {
           _position = null;
+          _gpsAddressLabel = null;
           _locationError =
-          'Standortberechtigung wurde dauerhaft verweigert. Bitte nutze die manuelle Adresse.';
+              'Standortberechtigung wurde dauerhaft verweigert. Bitte nutze die manuelle Adresse.';
           _isLoadingLocation = false;
           _useGpsLocation = false;
         });
@@ -306,6 +339,19 @@ class _ReportScreenState extends State<ReportScreen> {
           accuracy: LocationAccuracy.high,
         ),
       ).timeout(const Duration(seconds: 8));
+      String? gpsAddressLabel;
+
+      try {
+        final places = await _nativeBridge
+            .reverseGeocodeLocation(
+              latitude: position.latitude,
+              longitude: position.longitude,
+            )
+            .timeout(const Duration(seconds: 5));
+        gpsAddressLabel = _bestGpsAddressLabel(places);
+      } catch (_) {
+        gpsAddressLabel = null;
+      }
 
       if (!mounted) {
         return;
@@ -313,6 +359,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
       setState(() {
         _position = position;
+        _gpsAddressLabel = gpsAddressLabel;
         _locationError = null;
         _isLoadingLocation = false;
         _useGpsLocation = true;
@@ -324,8 +371,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
       setState(() {
         _position = null;
+        _gpsAddressLabel = null;
         _locationError =
-        'Standort lädt zu lange. Bitte setze im Emulator einen Standort oder nutze die manuelle Adresse.';
+            'Standort lädt zu lange. Bitte setze im Emulator einen Standort oder nutze die manuelle Adresse.';
         _isLoadingLocation = false;
         _useGpsLocation = false;
       });
@@ -336,12 +384,45 @@ class _ReportScreenState extends State<ReportScreen> {
 
       setState(() {
         _position = null;
+        _gpsAddressLabel = null;
         _locationError =
-        'Standort konnte nicht geladen werden. Du kannst alternativ eine Adresse eingeben.';
+            'Standort konnte nicht geladen werden. Du kannst alternativ eine Adresse eingeben.';
         _isLoadingLocation = false;
         _useGpsLocation = false;
       });
     }
+  }
+
+  String? _bestGpsAddressLabel(List<ResolvedLocationPlace> places) {
+    final labels = places
+        .map((place) => place.label.trim())
+        .where((label) => label.isNotEmpty && !_looksLikeCoordinateLabel(label))
+        .toList(growable: false);
+
+    if (labels.isEmpty) {
+      return null;
+    }
+
+    return labels.firstWhere(
+      _looksLikeStreetAddressLabel,
+      orElse: () => labels.first,
+    );
+  }
+
+  bool _looksLikeStreetAddressLabel(String label) {
+    final hasNumber = RegExp(r'\d').hasMatch(label);
+    final hasStreetHint = RegExp(
+      r'\b(strasse|straße|str\.|weg|allee|platz|ring|damm|gasse|chaussee|ufer|markt)\b',
+      caseSensitive: false,
+    ).hasMatch(label);
+
+    return hasNumber && (hasStreetHint || label.contains(','));
+  }
+
+  bool _looksLikeCoordinateLabel(String label) {
+    return RegExp(
+      r'^-?\d{1,3}([.,]\d+)?\s*,\s*-?\d{1,3}([.,]\d+)?$',
+    ).hasMatch(label.trim());
   }
 
   Future<void> _takePhoto() async {
@@ -372,7 +453,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
       setState(() {
         _errorMessage =
-        'Kamera konnte nicht geöffnet werden. Bitte prüfe die Kameraberechtigung.';
+            'Kamera konnte nicht geöffnet werden. Bitte prüfe die Kameraberechtigung.';
       });
     }
   }
@@ -389,7 +470,8 @@ class _ReportScreenState extends State<ReportScreen> {
     if (!gateDecision.isAllowed) {
       setState(() {
         _errorMessage =
-            gateDecision.reason ?? 'Anonyme Hinweise sind aktuell nicht verfügbar.';
+            gateDecision.reason ??
+            'Anonyme Hinweise sind aktuell nicht verfügbar.';
         _successMessage = null;
       });
       return;
@@ -398,7 +480,7 @@ class _ReportScreenState extends State<ReportScreen> {
     if (_isLoadingLocation) {
       setState(() {
         _errorMessage =
-        'Standort wird noch geladen. Bitte warte kurz oder nutze die manuelle Adresse.';
+            'Standort wird noch geladen. Bitte warte kurz oder nutze die manuelle Adresse.';
         _successMessage = null;
       });
       return;
@@ -409,7 +491,7 @@ class _ReportScreenState extends State<ReportScreen> {
     if (!reportDraft.canSubmit || _isSending) {
       setState(() {
         _errorMessage =
-        'Bitte wähle einen Hinweis, gib ein Kennzeichen ein und füge einen Ort hinzu.';
+            'Bitte wähle einen Hinweis, gib ein Kennzeichen ein und füge einen Ort hinzu.';
         _successMessage = null;
       });
       return;
@@ -422,39 +504,126 @@ class _ReportScreenState extends State<ReportScreen> {
       _clearMessages();
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    try {
+      await _reportRepository.submitPlateHint(reportDraft);
 
-    if (!mounted) {
+      if (!mounted) {
+        return;
+      }
+
+      final categoryLabel = reportDraft.categoryLabel;
+
+      setState(() {
+        _selectedCategory = null;
+        _regionController.clear();
+        _lettersController.clear();
+        _numbersController.clear();
+        _addressController.clear();
+        _noteController.clear();
+        _capturedPhoto = null;
+        _isSending = false;
+        _successMessage =
+            'Dein Hinweis „$categoryLabel“ wurde sicher und anonym übermittelt.';
+      });
+      _scheduleSuccessMessageClear();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSending = false;
+        _errorMessage = _mapReportError(error);
+      });
+    }
+  }
+
+  Future<void> _markNotificationRead(
+    ReportNotificationRecord notification,
+  ) async {
+    if (!notification.isUnread) {
       return;
     }
 
-    final preparedReport = reportDraft.toReport(
-      id: 'local-report-${DateTime.now().millisecondsSinceEpoch}',
-    );
+    try {
+      await _reportRepository.markReportNotificationRead(
+        userId: widget.userState.userId,
+        reportId: notification.reportId,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
 
-    setState(() {
-      _isSending = false;
-      _successMessage =
-      'Dein Hinweis „${preparedReport.typeLabel}“ wurde vorbereitet. Die echte anonyme Zustellung verbinden wir später mit Firebase.';
-    });
+      setState(() {
+        _errorMessage =
+            'Der Hinweis konnte gerade nicht als gelesen markiert werden.';
+      });
+    }
+  }
+
+  void _openNotificationDetails(ReportNotificationRecord notification) {
+    if (notification.isUnread) {
+      unawaited(_markNotificationRead(notification));
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.62),
+      builder: (context) {
+        return _ReportNotificationDetailsSheet(
+          repository: _reportRepository,
+          notification: notification,
+        );
+      },
+    );
+  }
+
+  String _mapReportError(Object error) {
+    final raw = error.toString();
+
+    if (raw.contains('invalid-image')) {
+      return 'Das Foto konnte nicht verwendet werden. Bitte nimm ein neues JPEG-Foto mit höchstens 10 MB auf.';
+    }
+
+    if (raw.contains('storage/unauthorized')) {
+      return 'Das Foto darf nicht hochgeladen werden. Bitte versuche es erneut.';
+    }
+
+    if (raw.contains('not-found')) {
+      return 'Für dieses Kennzeichen wurde kein aktiver Nutzer gefunden.';
+    }
+
+    if (raw.contains('unauthenticated')) {
+      return 'Bitte melde dich an, um einen Hinweis zu senden.';
+    }
+
+    if (raw.contains('invalid-argument')) {
+      return 'Bitte prüfe Kennzeichen, Kategorie und Ort.';
+    }
+
+    if (raw.contains('permission-denied')) {
+      return 'Dieser Hinweis darf nicht gesendet werden.';
+    }
+
+    if (raw.contains('unavailable') || raw.contains('network')) {
+      return 'Die Verbindung ist gerade nicht verfügbar. Bitte versuche es erneut.';
+    }
+
+    return 'Der Hinweis konnte nicht gesendet werden. Bitte versuche es erneut.';
   }
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return CarmaBackground(
+    return CaRismaBackground(
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                112 + keyboardInset,
-              ),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 112),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: constraints.maxHeight - 112,
@@ -462,7 +631,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CarmaPageHeader(
+                    const CaRismaPageHeader(
                       icon: Icons.report_rounded,
                       title: 'Melden',
                     ),
@@ -479,7 +648,14 @@ class _ReportScreenState extends State<ReportScreen> {
                     const SizedBox(height: 16),
                     const _MisuseWarningCard(),
                     const SizedBox(height: 16),
-                    const CarmaSectionTitle(
+                    _IncomingReportNotificationsSection(
+                      repository: _reportRepository,
+                      userId: widget.userState.userId,
+                      onOpen: _openNotificationDetails,
+                      onMarkRead: _markNotificationRead,
+                    ),
+                    const SizedBox(height: 16),
+                    const CaRismaSectionTitle(
                       number: '1',
                       title: 'Was möchtest du melden?',
                     ),
@@ -489,17 +665,17 @@ class _ReportScreenState extends State<ReportScreen> {
                       onSelected: _selectCategory,
                     ),
                     const SizedBox(height: 18),
-                    const CarmaSectionTitle(
+                    const CaRismaSectionTitle(
                       number: '2',
                       title: 'Kennzeichen',
                     ),
                     const SizedBox(height: 10),
-                    CarmaCountrySelectorCard(
+                    CaRismaCountrySelectorCard(
                       selectedCountryCode: _countryCode,
                       onChanged: _changeCountry,
                     ),
                     const SizedBox(height: 12),
-                    CarmaPlateInputCard(
+                    CaRismaPlateInputCard(
                       countryCode: _countryCode,
                       regionController: _regionController,
                       lettersController: _lettersController,
@@ -512,7 +688,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onNumbersChanged: _handleNumbersChanged,
                     ),
                     const SizedBox(height: 18),
-                    const CarmaSectionTitle(
+                    const CaRismaSectionTitle(
                       number: '3',
                       title: 'Ort des Hinweises',
                     ),
@@ -521,6 +697,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       useGpsLocation: _useGpsLocation,
                       isLoadingLocation: _isLoadingLocation,
                       position: _position,
+                      gpsAddressLabel: _gpsAddressLabel,
                       locationError: _locationError,
                       addressController: _addressController,
                       onUseGpsChanged: (value) {
@@ -536,7 +713,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       onRetryLocation: _loadLocation,
                     ),
                     const SizedBox(height: 18),
-                    const CarmaSectionTitle(
+                    const CaRismaSectionTitle(
                       number: '4',
                       title: 'Foto aufnehmen',
                       optional: true,
@@ -548,25 +725,23 @@ class _ReportScreenState extends State<ReportScreen> {
                       onRemovePhoto: _removePhoto,
                     ),
                     const SizedBox(height: 18),
-                    const CarmaSectionTitle(
+                    const CaRismaSectionTitle(
                       number: '5',
                       title: 'Kurzer Hinweis',
                       optional: true,
                     ),
                     const SizedBox(height: 10),
-                    _NoteCard(
-                      controller: _noteController,
-                    ),
+                    _NoteCard(controller: _noteController),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 14),
-                      CarmaMessageCard(
+                      CaRismaMessageCard(
                         icon: Icons.error_outline_rounded,
                         message: _errorMessage!,
                       ),
                     ],
                     if (_successMessage != null) ...[
                       const SizedBox(height: 14),
-                      CarmaMessageCard(
+                      CaRismaMessageCard(
                         icon: Icons.check_circle_outline_rounded,
                         message: _successMessage!,
                       ),
@@ -577,12 +752,852 @@ class _ReportScreenState extends State<ReportScreen> {
                       isLoading: _isSending,
                       onPressed: _sendReport,
                     ),
+                    const SizedBox(height: 22),
+                    _SentReportNotificationsSection(
+                      repository: _reportRepository,
+                      userId: widget.userState.userId,
+                      onOpen: _openNotificationDetails,
+                    ),
                   ],
                 ),
               ),
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _IncomingReportNotificationsSection extends StatelessWidget {
+  const _IncomingReportNotificationsSection({
+    required this.repository,
+    required this.userId,
+    required this.onOpen,
+    required this.onMarkRead,
+  });
+
+  final ReportRepository repository;
+  final String userId;
+  final ValueChanged<ReportNotificationRecord> onOpen;
+  final ValueChanged<ReportNotificationRecord> onMarkRead;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ReportNotificationRecord>>(
+      stream: repository.watchReportNotifications(userId: userId),
+      builder: (context, snapshot) {
+        final notifications = snapshot.data ?? const [];
+
+        if (snapshot.hasError) {
+          return const _IncomingReportsStatusCard(
+            icon: Icons.error_outline_rounded,
+            title: 'Hinweise konnten nicht geladen werden',
+            subtitle: 'Bitte versuche es später erneut.',
+          );
+        }
+
+        if (notifications.isEmpty &&
+            snapshot.connectionState == ConnectionState.waiting) {
+          return const _IncomingReportsStatusCard(
+            icon: Icons.notifications_active_outlined,
+            title: 'Hinweise werden geladen',
+            subtitle: 'Einen Moment bitte.',
+          );
+        }
+
+        if (notifications.isEmpty) {
+          return const _IncomingReportsStatusCard(
+            icon: Icons.notifications_none_rounded,
+            title: 'Keine Hinweise erhalten',
+            subtitle:
+                'Wenn jemand dein Kennzeichen meldet, erscheint der Hinweis hier.',
+          );
+        }
+
+        final unreadCount = notifications
+            .where((notification) => notification.isUnread)
+            .length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Empfangene Hinweise',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (unreadCount > 0) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: const Color(0xFF1E9BFF).withValues(alpha: 0.25),
+                      border: Border.all(
+                        color: const Color(0xFF63D5FF).withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Text(
+                      unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...notifications.map((notification) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _IncomingReportNotificationCard(
+                  notification: notification,
+                  onOpen: () => onOpen(notification),
+                  onMarkRead: () => onMarkRead(notification),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _IncomingReportsStatusCard extends StatelessWidget {
+  const _IncomingReportsStatusCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          CaRismaBlueIconBox(icon: icon, size: 46, iconSize: 23),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SentReportNotificationsSection extends StatelessWidget {
+  const _SentReportNotificationsSection({
+    required this.repository,
+    required this.userId,
+    required this.onOpen,
+  });
+
+  final ReportRepository repository;
+  final String userId;
+  final ValueChanged<ReportNotificationRecord> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ReportNotificationRecord>>(
+      stream: repository.watchSentReportNotifications(userId: userId),
+      builder: (context, snapshot) {
+        final notifications = snapshot.data ?? const [];
+
+        if (snapshot.hasError) {
+          return const _IncomingReportsStatusCard(
+            icon: Icons.error_outline_rounded,
+            title: 'Gesendete Hinweise konnten nicht geladen werden',
+            subtitle: 'Bitte versuche es später erneut.',
+          );
+        }
+
+        if (notifications.isEmpty &&
+            snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+
+        if (notifications.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Gesendete Hinweise',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...notifications.map((notification) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _SentReportNotificationCard(
+                  notification: notification,
+                  onOpen: () => onOpen(notification),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SentReportNotificationCard extends StatelessWidget {
+  const _SentReportNotificationCard({
+    required this.notification,
+    required this.onOpen,
+  });
+
+  final ReportNotificationRecord notification;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryLabel = _IncomingReportNotificationCard._reportCategoryLabel(
+      notification.category,
+    );
+    final createdLabel = _IncomingReportNotificationCard._createdAtLabel(
+      notification.createdAt,
+    );
+
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(22),
+        child: Row(
+          children: [
+            CaRismaBlueIconBox(
+              icon: Icons.outbox_rounded,
+              size: 48,
+              iconSize: 24,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    categoryLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.formattedPlate,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (createdLabel.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Gesendet am $createdLabel',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.52),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFF63D5FF),
+              size: 28,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IncomingReportNotificationCard extends StatelessWidget {
+  const _IncomingReportNotificationCard({
+    required this.notification,
+    required this.onOpen,
+    required this.onMarkRead,
+  });
+
+  final ReportNotificationRecord notification;
+  final VoidCallback onOpen;
+  final VoidCallback onMarkRead;
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryLabel = _reportCategoryLabel(notification.category);
+    final createdLabel = _createdAtLabel(notification.createdAt);
+
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CaRismaBlueIconBox(
+                  icon: _reportCategoryIcon(notification.category),
+                  size: 48,
+                  iconSize: 24,
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              categoryLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                          ),
+                          if (notification.isUnread)
+                            Container(
+                              width: 9,
+                              height: 9,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2DF58D),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.formattedPlate,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 13),
+            Text(
+              notification.message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.84),
+                fontWeight: FontWeight.w800,
+                height: 1.28,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _IncomingReportChip(
+                  icon: Icons.place_rounded,
+                  label: notification.locationLabel,
+                ),
+                if (createdLabel.isNotEmpty)
+                  _IncomingReportChip(
+                    icon: Icons.schedule_rounded,
+                    label: createdLabel,
+                  ),
+                if (notification.hasImage)
+                  const _IncomingReportChip(
+                    icon: Icons.photo_camera_rounded,
+                    label: 'Foto vorhanden',
+                  ),
+              ],
+            ),
+            if (notification.isUnread) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onMarkRead,
+                  icon: const Icon(Icons.done_all_rounded, size: 18),
+                  label: const Text('Als gelesen markieren'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF63D5FF),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _reportCategoryLabel(String category) {
+    return switch (category) {
+      'vehicleOpen' => 'Fahrzeug offen',
+      'lightsOrElectric' => 'Licht / Elektrik',
+      'vehicleBlocked' => 'Blockiert',
+      'visibleDamage' => 'Schaden',
+      'acuteDanger' => 'Akute Gefahr',
+      'policeOnSite' => 'Polizei vor Ort',
+      _ => 'Hinweis',
+    };
+  }
+
+  static IconData _reportCategoryIcon(String category) {
+    return switch (category) {
+      'vehicleOpen' => Icons.sensor_door_outlined,
+      'lightsOrElectric' => Icons.lightbulb_outline_rounded,
+      'vehicleBlocked' => Icons.block_rounded,
+      'visibleDamage' => Icons.car_crash_outlined,
+      'acuteDanger' => Icons.warning_amber_rounded,
+      'policeOnSite' => Icons.local_police_outlined,
+      _ => Icons.report_outlined,
+    };
+  }
+
+  static String _createdAtLabel(DateTime? createdAt) {
+    if (createdAt == null) {
+      return '';
+    }
+
+    final local = createdAt.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year.toString();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day.$month.$year um $hour:$minute Uhr';
+  }
+}
+
+class _IncomingReportChip extends StatelessWidget {
+  const _IncomingReportChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 260),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: const Color(0xFF63D5FF)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportNotificationDetailsSheet extends StatelessWidget {
+  const _ReportNotificationDetailsSheet({
+    required this.repository,
+    required this.notification,
+  });
+
+  final ReportRepository repository;
+  final ReportNotificationRecord notification;
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryLabel = _IncomingReportNotificationCard._reportCategoryLabel(
+      notification.category,
+    );
+    final categoryIcon = _IncomingReportNotificationCard._reportCategoryIcon(
+      notification.category,
+    );
+    final createdLabel = _detailDateLabel(notification.createdAt);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          14,
+          0,
+          14,
+          14 + MediaQuery.of(context).padding.bottom,
+        ),
+        child: GlassCard(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: Colors.white.withValues(alpha: 0.22),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CaRismaBlueIconBox(
+                      icon: categoryIcon,
+                      size: 54,
+                      iconSize: 27,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            categoryLabel,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.05,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            notification.formattedPlate,
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.70),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      color: Colors.white,
+                      tooltip: 'Schließen',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _ReportDetailBlock(
+                  title: 'Hinweis',
+                  child: Text(
+                    notification.message,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.86),
+                      fontWeight: FontWeight.w800,
+                      height: 1.32,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _ReportDetailBlock(
+                  title: 'Ort',
+                  child: _IncomingReportChip(
+                    icon: Icons.place_rounded,
+                    label: notification.locationLabel,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (createdLabel.isNotEmpty)
+                      _IncomingReportChip(
+                        icon: Icons.schedule_rounded,
+                        label: createdLabel,
+                      ),
+                    if (notification.hasImage)
+                      const _IncomingReportChip(
+                        icon: Icons.photo_camera_rounded,
+                        label: 'Foto sicher gespeichert',
+                      ),
+                  ],
+                ),
+                if (notification.imagePath != null) ...[
+                  const SizedBox(height: 12),
+                  _ReportDetailBlock(
+                    title: 'Foto',
+                    child: _ReportEvidenceImagePreview(
+                      repository: repository,
+                      notification: notification,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _detailDateLabel(DateTime? createdAt) {
+    if (createdAt == null) {
+      return '';
+    }
+
+    final local = createdAt.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final year = local.year.toString();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day.$month.$year um $hour:$minute Uhr';
+  }
+}
+
+class _ReportDetailBlock extends StatelessWidget {
+  const _ReportDetailBlock({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withValues(alpha: 0.07),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: const Color(0xFF63D5FF),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportEvidenceImagePreview extends StatelessWidget {
+  const _ReportEvidenceImagePreview({
+    required this.repository,
+    required this.notification,
+  });
+
+  final ReportRepository repository;
+  final ReportNotificationRecord notification;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: repository.reportEvidenceDownloadUrl(notification),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _ReportEvidencePlaceholder(
+            icon: Icons.photo_camera_rounded,
+            label: 'Foto wird geladen',
+          );
+        }
+
+        final downloadUrl = snapshot.data;
+        if (snapshot.hasError || downloadUrl == null || downloadUrl.isEmpty) {
+          return const _ReportEvidencePlaceholder(
+            icon: Icons.lock_outline_rounded,
+            label: 'Foto kann gerade nicht geladen werden',
+          );
+        }
+
+        return GestureDetector(
+          onTap: () {
+            showDialog<void>(
+              context: context,
+              barrierColor: Colors.black.withValues(alpha: 0.88),
+              builder: (context) {
+                return _ReportEvidenceImageDialog(downloadUrl: downloadUrl);
+              },
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.network(
+              downloadUrl,
+              width: double.infinity,
+              height: 220,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) {
+                  return child;
+                }
+
+                return const _ReportEvidencePlaceholder(
+                  icon: Icons.photo_camera_rounded,
+                  label: 'Foto wird geladen',
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return const _ReportEvidencePlaceholder(
+                  icon: Icons.broken_image_rounded,
+                  label: 'Foto kann gerade nicht angezeigt werden',
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ReportEvidencePlaceholder extends StatelessWidget {
+  const _ReportEvidencePlaceholder({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 148,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.black.withValues(alpha: 0.18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: const Color(0xFF63D5FF), size: 32),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.76),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportEvidenceImageDialog extends StatelessWidget {
+  const _ReportEvidenceImageDialog({required this.downloadUrl});
+
+  final String downloadUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4,
+              child: Image.network(downloadUrl, fit: BoxFit.contain),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: IconButton.filled(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.12),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -598,26 +1613,10 @@ class _MisuseWarningCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
-              ),
-            ),
-            child: const Icon(
-              Icons.shield_outlined,
-              color: Colors.white,
-              size: 23,
-            ),
+          const CaRismaBlueIconBox(
+            icon: Icons.shield_outlined,
+            size: 46,
+            iconSize: 24,
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -694,7 +1693,7 @@ class _CategoryGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        mainAxisExtent: 118,
+        mainAxisExtent: 150,
       ),
       itemBuilder: (context, index) {
         final item = items[index];
@@ -746,44 +1745,42 @@ class _CategoryCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
               gradient: isSelected
-                  ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _carmaBlueDark,
-                  _carmaBlue,
-                  _carmaBlueLight,
-                ],
-              )
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.08),
+                        const Color(0xFF139CFF).withValues(alpha: 0.16),
+                        Colors.white.withValues(alpha: 0.035),
+                      ],
+                    )
                   : null,
               border: Border.all(
                 color: isSelected
-                    ? Colors.white.withValues(alpha: 0.22)
+                    ? const Color(0xFF1E7BFF).withValues(alpha: 0.60)
                     : Colors.transparent,
+                width: isSelected ? 1.5 : 1.0,
               ),
               boxShadow: isSelected
                   ? [
-                BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.24),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ]
+                      BoxShadow(
+                        color: const Color(0xFF139CFF).withValues(alpha: 0.24),
+                        blurRadius: 24,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
                   : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  item.icon,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                const Spacer(),
+                CaRismaBlueIconBox(icon: item.icon, size: 42, iconSize: 23),
+                const SizedBox(height: 10),
                 Text(
                   item.title,
                   maxLines: 1,
@@ -791,7 +1788,7 @@ class _CategoryCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: 15.5,
+                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -819,6 +1816,7 @@ class _LocationCard extends StatelessWidget {
     required this.useGpsLocation,
     required this.isLoadingLocation,
     required this.position,
+    required this.gpsAddressLabel,
     required this.locationError,
     required this.addressController,
     required this.onUseGpsChanged,
@@ -828,6 +1826,7 @@ class _LocationCard extends StatelessWidget {
   final bool useGpsLocation;
   final bool isLoadingLocation;
   final Position? position;
+  final String? gpsAddressLabel;
   final String? locationError;
   final TextEditingController addressController;
   final ValueChanged<bool> onUseGpsChanged;
@@ -865,6 +1864,7 @@ class _LocationCard extends StatelessWidget {
             _GpsStatusBox(
               isLoading: isLoadingLocation,
               position: position,
+              gpsAddressLabel: gpsAddressLabel,
               locationError: locationError,
               onRetry: onRetryLocation,
             )
@@ -907,7 +1907,7 @@ class _LocationCard extends StatelessWidget {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
                       borderSide: BorderSide(
-                        color: _carmaBlueLight.withValues(alpha: 0.90),
+                        color: const Color(0xFF63D5FF).withValues(alpha: 0.90),
                         width: 1.4,
                       ),
                     ),
@@ -948,14 +1948,14 @@ class _LocationModeButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             gradient: isSelected
                 ? const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlue,
-                _carmaBlueLight,
-              ],
-            )
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF0A76FF),
+                      Color(0xFF139CFF),
+                      Color(0xFF63D5FF),
+                    ],
+                  )
                 : null,
             color: isSelected ? null : Colors.white.withValues(alpha: 0.05),
             border: Border.all(
@@ -970,18 +1970,15 @@ class _LocationModeButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 22,
-                  ),
+                  Icon(icon, color: Colors.white, size: 22),
                   const SizedBox(width: 9),
                   Text(
                     label,
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight:
-                      isSelected ? FontWeight.w900 : FontWeight.w800,
+                      fontWeight: isSelected
+                          ? FontWeight.w900
+                          : FontWeight.w800,
                       fontSize: 16,
                     ),
                   ),
@@ -999,12 +1996,14 @@ class _GpsStatusBox extends StatelessWidget {
   const _GpsStatusBox({
     required this.isLoading,
     required this.position,
+    required this.gpsAddressLabel,
     required this.locationError,
     required this.onRetry,
   });
 
   final bool isLoading;
   final Position? position;
+  final String? gpsAddressLabel;
   final String? locationError;
   final VoidCallback onRetry;
 
@@ -1018,9 +2017,11 @@ class _GpsStatusBox extends StatelessWidget {
     }
 
     if (position != null) {
-      return const _InlineStatusBox(
+      final label = gpsAddressLabel?.trim();
+
+      return _InlineStatusBox(
         icon: Icons.check_circle_outline_rounded,
-        text: 'Standort wurde erfasst.',
+        text: label == null || label.isEmpty ? 'GPS-Standort erfasst.' : label,
       );
     }
 
@@ -1042,10 +2043,7 @@ class _GpsStatusBox extends StatelessWidget {
 }
 
 class _InlineStatusBox extends StatelessWidget {
-  const _InlineStatusBox({
-    required this.icon,
-    required this.text,
-  });
+  const _InlineStatusBox({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -1058,17 +2056,11 @@ class _InlineStatusBox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: Colors.white,
-            size: 22,
-          ),
+          Icon(icon, color: Colors.white, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -1099,7 +2091,7 @@ class _SmallActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CarmaSecondaryButton(
+    return CaRismaSecondaryButton(
       label: label,
       icon: icon,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -1126,53 +2118,53 @@ class _PhotoCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       child: capturedPhoto == null
           ? Column(
-        children: [
-          const _InlineStatusBox(
-            icon: Icons.no_photography_outlined,
-            text:
-            'Aus Datenschutzgründen kannst du hier nur ein neues Foto aufnehmen. Galerie-Uploads sind nicht erlaubt.',
-          ),
-          const SizedBox(height: 12),
-          _PrimaryActionButton(
-            label: 'Foto aufnehmen',
-            icon: Icons.photo_camera_rounded,
-            onTap: onTakePhoto,
-          ),
-        ],
-      )
-          : Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: Image.file(
-              File(capturedPhoto!.path),
-              width: double.infinity,
-              height: 190,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _SmallActionButton(
-                  label: 'Entfernen',
-                  icon: Icons.delete_outline_rounded,
-                  onTap: onRemovePhoto,
+              children: [
+                const _InlineStatusBox(
+                  icon: Icons.no_photography_outlined,
+                  text:
+                      'Aus Datenschutzgründen kannst du hier nur ein neues Foto aufnehmen. Galerie-Uploads sind nicht erlaubt.',
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _PrimaryActionButton(
-                  label: 'Neu aufnehmen',
+                const SizedBox(height: 12),
+                _PrimaryActionButton(
+                  label: 'Foto aufnehmen',
                   icon: Icons.photo_camera_rounded,
                   onTap: onTakePhoto,
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
+              ],
+            )
+          : Column(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.file(
+                    File(capturedPhoto!.path),
+                    width: double.infinity,
+                    height: 190,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SmallActionButton(
+                        label: 'Entfernen',
+                        icon: Icons.delete_outline_rounded,
+                        onTap: onRemovePhoto,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _PrimaryActionButton(
+                        label: 'Neu aufnehmen',
+                        icon: Icons.photo_camera_rounded,
+                        onTap: onTakePhoto,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 }
@@ -1190,46 +2182,55 @@ class _PrimaryActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.all(Radius.circular(20)),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                _carmaBlueDark,
-                _carmaBlue,
-                _carmaBlueLight,
-              ],
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E7BFF).withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    label,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              borderRadius: const BorderRadius.all(Radius.circular(22)),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0B5EF5),
+                  Color(0xFF1E7BFF),
+                  Color(0xFF2D6DFF),
                 ],
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+            ),
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, color: Colors.white, size: 22),
+                    const SizedBox(width: 10),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1240,9 +2241,7 @@ class _PrimaryActionButton extends StatelessWidget {
 }
 
 class _NoteCard extends StatelessWidget {
-  const _NoteCard({
-    required this.controller,
-  });
+  const _NoteCard({required this.controller});
 
   final TextEditingController controller;
 
@@ -1261,7 +2260,7 @@ class _NoteCard extends StatelessWidget {
         ),
         decoration: InputDecoration(
           hintText:
-          'Kurzer sachlicher Hinweis - Dieser Bereich ist nur für echte Hinweise gedacht. Missbrauch kann zur Sperrung deines Kontos führen.',
+              'Kurzer sachlicher Hinweis - Dieser Bereich ist nur für echte Hinweise gedacht. Missbrauch kann zur Sperrung deines Kontos führen.',
           hintMaxLines: 4,
           hintStyle: TextStyle(
             color: Colors.white.withValues(alpha: 0.48),
@@ -1277,14 +2276,12 @@ class _NoteCard extends StatelessWidget {
           contentPadding: const EdgeInsets.all(16),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.10),
-            ),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(
-              color: _carmaBlueLight.withValues(alpha: 0.90),
+              color: const Color(0xFF63D5FF).withValues(alpha: 0.90),
               width: 1.4,
             ),
           ),
@@ -1307,7 +2304,7 @@ class _SendReportButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CarmaPrimaryButton(
+    return CaRismaPrimaryButton(
       label: 'Anonym senden',
       loadingLabel: 'Wird gesendet...',
       icon: Icons.send_rounded,

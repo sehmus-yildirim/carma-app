@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/glass_card.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -8,12 +8,10 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CarmaBackground(
+    return const CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: _DashboardContent(),
-        ),
+        body: SafeArea(child: _DashboardContent()),
       ),
     );
   }
@@ -73,7 +71,7 @@ class _DashboardContent extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
-                  'Carma zeigt keine persönlichen Daten öffentlich an. Erst nach Annahme einer Anfrage entsteht ein Chat.',
+                  'CaRisma zeigt keine persönlichen Daten öffentlich an. Erst nach Annahme einer Anfrage entsteht ein Chat.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.76),
                     height: 1.4,
@@ -109,7 +107,7 @@ class _HomeHeader extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: Image.asset(
-            'assets/images/carma_logo.png',
+            'assets/images/carisma_logo.png',
             width: 54,
             height: 54,
             fit: BoxFit.contain,
@@ -129,7 +127,7 @@ class _HomeHeader extends StatelessWidget {
                 ),
               ),
               const Text(
-                'Carma',
+                'CaRisma',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w900,
@@ -161,9 +159,7 @@ class _PlatePreviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
@@ -173,17 +169,12 @@ class _PlatePreviewCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.16),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
             ),
             child: const Center(
               child: Text(
                 'D',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
             ),
           ),
@@ -284,10 +275,7 @@ class _QuickActionCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           Text(

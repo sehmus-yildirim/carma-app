@@ -5,11 +5,13 @@ class LettersOnlyFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
-    final normalized =
-    newValue.text.toUpperCase().replaceAll(RegExp(r'[^A-ZÄÖÜ]'), '');
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final normalized = newValue.text.toUpperCase().replaceAll(
+      RegExp(r'[^A-ZÄÖÜ]'),
+      '',
+    );
 
     return TextEditingValue(
       text: normalized,
@@ -23,9 +25,9 @@ class NumbersOnlyFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final normalized = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
 
     return TextEditingValue(
@@ -40,9 +42,9 @@ class GermanNumberWithOptionalEFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final upper = newValue.text.toUpperCase();
     final buffer = StringBuffer();
 

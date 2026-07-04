@@ -47,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _isSyncingProfile = false;
         _profileErrorMessage =
-        'Profil konnte nicht mit Firestore synchronisiert werden.';
+            'Profil konnte nicht mit Firestore synchronisiert werden.';
       });
     }
   }
@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Carma'),
+        title: const Text('CaRisma'),
         actions: [
           IconButton(
             onPressed: _signOut,
@@ -80,10 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Text(
                 'Du bist eingeloggt.',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Text(

@@ -1,4 +1,4 @@
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/models/carisma_models.dart';
 
 class ProfileDraft {
   const ProfileDraft({
@@ -40,8 +40,8 @@ class ProfileDraft {
   final bool isSubmittedForVerification;
   final bool isVerified;
 
-  CarmaPlate get plate {
-    return CarmaPlate(
+  CaRismaPlate get plate {
+    return CaRismaPlate(
       countryCode: countryCode,
       region: region,
       letters: letters,
@@ -90,9 +90,7 @@ class ProfileDraft {
     }).toList();
   }
 
-  UserProfile toUserProfile({
-    String id = 'local-user',
-  }) {
+  UserProfile toUserProfile({String id = 'local-user'}) {
     return UserProfile(
       id: id,
       firstName: firstName,

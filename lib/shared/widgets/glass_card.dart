@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/carisma_design_tokens.dart';
+
 class GlassCard extends StatelessWidget {
   const GlassCard({
     required this.child,
@@ -30,67 +32,31 @@ class GlassCard extends StatelessWidget {
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(effectiveRadius),
+        color: CaRismaDesignTokens.card,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+          width: 1.0,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.34),
-            blurRadius: 30,
-            offset: const Offset(0, 18),
+            color: Colors.black.withValues(alpha: 0.65),
+            blurRadius: 16,
+            offset: const Offset(5, 5),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(-5, -5),
           ),
           if (glow)
             BoxShadow(
-              color: Colors.white.withValues(alpha: 0.08),
-              blurRadius: 38,
-              offset: const Offset(0, 0),
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.15),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(effectiveRadius),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(effectiveRadius),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: opacity + 0.08),
-                Colors.white.withValues(alpha: opacity),
-                Colors.white.withValues(alpha: opacity * 0.55),
-              ],
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: borderOpacity),
-              width: 1.2,
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 1,
-                  color: Colors.white.withValues(alpha: 0.34),
-                ),
-              ),
-              Positioned(
-                top: 1,
-                left: 1,
-                bottom: 1,
-                child: Container(
-                  width: 1,
-                  color: Colors.white.withValues(alpha: 0.14),
-                ),
-              ),
-              Padding(
-                padding: padding,
-                child: child,
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
@@ -117,18 +83,20 @@ class GlassSurface extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: opacity + 0.05),
-            Colors.white.withValues(alpha: opacity),
-            Colors.white.withValues(alpha: opacity * 0.65),
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: borderOpacity),
-        ),
+        color: CaRismaDesignTokens.surface2,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.60),
+            blurRadius: 12,
+            offset: const Offset(4, 4),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.015),
+            blurRadius: 8,
+            offset: const Offset(-4, -4),
+          ),
+        ],
       ),
       child: child,
     );

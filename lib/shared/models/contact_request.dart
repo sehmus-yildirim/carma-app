@@ -1,4 +1,4 @@
-import 'carma_plate.dart';
+import 'carisma_plate.dart';
 
 enum ContactRequestStatus {
   pending,
@@ -9,10 +9,7 @@ enum ContactRequestStatus {
   blocked,
 }
 
-enum ContactRequestDirection {
-  incoming,
-  outgoing,
-}
+enum ContactRequestDirection { incoming, outgoing }
 
 class ContactRequest {
   const ContactRequest({
@@ -36,7 +33,7 @@ class ContactRequest {
   final String receiverUserId;
   final ContactRequestDirection direction;
   final ContactRequestStatus status;
-  final CarmaPlate targetPlate;
+  final CaRismaPlate targetPlate;
   final String messagePreview;
   final String? senderDisplayName;
   final String? receiverDisplayName;
@@ -89,7 +86,7 @@ class ContactRequest {
     String? receiverUserId,
     ContactRequestDirection? direction,
     ContactRequestStatus? status,
-    CarmaPlate? targetPlate,
+    CaRismaPlate? targetPlate,
     String? messagePreview,
     String? senderDisplayName,
     String? receiverDisplayName,
@@ -143,13 +140,13 @@ class ContactRequest {
       direction: _directionFromName(map['direction'] as String?),
       status: _statusFromName(map['status'] as String?),
       targetPlate: rawPlate is Map<String, dynamic>
-          ? CarmaPlate.fromMap(rawPlate)
-          : const CarmaPlate(
-        countryCode: 'DE',
-        region: '',
-        letters: '',
-        numbers: '',
-      ),
+          ? CaRismaPlate.fromMap(rawPlate)
+          : const CaRismaPlate(
+              countryCode: 'DE',
+              region: '',
+              letters: '',
+              numbers: '',
+            ),
       messagePreview: map['messagePreview'] as String? ?? '',
       senderDisplayName: map['senderDisplayName'] as String?,
       receiverDisplayName: map['receiverDisplayName'] as String?,
@@ -162,14 +159,14 @@ class ContactRequest {
 
   static ContactRequestDirection _directionFromName(String? name) {
     return ContactRequestDirection.values.firstWhere(
-          (direction) => direction.name == name,
+      (direction) => direction.name == name,
       orElse: () => ContactRequestDirection.incoming,
     );
   }
 
   static ContactRequestStatus _statusFromName(String? name) {
     return ContactRequestStatus.values.firstWhere(
-          (status) => status.name == name,
+      (status) => status.name == name,
       orElse: () => ContactRequestStatus.pending,
     );
   }

@@ -1,4 +1,4 @@
-import 'carma_plate.dart';
+import 'carisma_plate.dart';
 
 class Vehicle {
   const Vehicle({
@@ -12,7 +12,7 @@ class Vehicle {
   });
 
   final String id;
-  final CarmaPlate plate;
+  final CaRismaPlate plate;
   final String brand;
   final String model;
   final String color;
@@ -40,7 +40,7 @@ class Vehicle {
 
   Vehicle copyWith({
     String? id,
-    CarmaPlate? plate,
+    CaRismaPlate? plate,
     String? brand,
     String? model,
     String? color,
@@ -78,13 +78,13 @@ class Vehicle {
     return Vehicle(
       id: map['id'] as String? ?? '',
       plate: rawPlate is Map<String, dynamic>
-          ? CarmaPlate.fromMap(rawPlate)
-          : const CarmaPlate(
-        countryCode: 'DE',
-        region: '',
-        letters: '',
-        numbers: '',
-      ),
+          ? CaRismaPlate.fromMap(rawPlate)
+          : const CaRismaPlate(
+              countryCode: 'DE',
+              region: '',
+              letters: '',
+              numbers: '',
+            ),
       brand: map['brand'] as String? ?? '',
       model: map['model'] as String? ?? '',
       color: map['color'] as String? ?? '',
@@ -114,14 +114,6 @@ class Vehicle {
 
   @override
   int get hashCode {
-    return Object.hash(
-      id,
-      plate,
-      brand,
-      model,
-      color,
-      isPrimary,
-      isVerified,
-    );
+    return Object.hash(id, plate, brand, model, color, isPrimary, isVerified);
   }
 }

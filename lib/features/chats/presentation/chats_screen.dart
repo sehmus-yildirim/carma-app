@@ -12,12 +12,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
-import '../../../shared/models/carma_models.dart';
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_blue_icon_box.dart';
-import '../../../shared/widgets/carma_page_header.dart';
-import '../../../shared/widgets/carma_sub_page_header.dart';
+import '../../../shared/firebase/carisma_firestore_schema.dart';
+import '../../../shared/models/carisma_models.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_blue_icon_box.dart';
+import '../../../shared/widgets/carisma_page_header.dart';
+import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../data/chat_attachment_storage.dart';
 import '../data/chat_native_bridge.dart';
 import '../data/chat_repository.dart';
@@ -38,13 +40,35 @@ part 'chats/chat_composer.dart';
 part 'chats/chat_story_editor.dart';
 part 'chats/chat_story_viewer.dart';
 
-const Color _carmaBlue = Color(0xFF139CFF);
-const Color _carmaBlueLight = Color(0xFF63D5FF);
-const Color _carmaBlueDark = Color(0xFF0A76FF);
+const Color _carismaBlue = CaRismaDesignTokens.bluePrimary;
+const Color _carismaBlueLight = CaRismaDesignTokens.blueBright;
+const Color _carismaBlueDark = CaRismaDesignTokens.blueDark;
 
-const Color _myMessageBlueDark = Color(0xFF03172F);
-const Color _myMessageBlue = Color(0xFF08264A);
-const Color _myMessageBlueLight = Color(0xFF0D3566);
-const Color _myMessageBorder = Color(0xFF164A86);
+const Color _myMessageBlueDark = Color(0xFF052142);
+const Color _myMessageBlue = Color(0xFF0A3C78);
+const Color _myMessageBlueLight = Color(0xFF105EA8);
+const Color _myMessageBorder = Color(0xFF1E7BFF);
 
-const Color _myMessageCheckBlue = Color(0xFF7FD6FF);
+const Color _myMessageCheckBlue = CaRismaDesignTokens.blueBright;
+
+Route<void> buildChatConversationRoute({
+  required String chatId,
+  String displayName = 'CaRisma Nutzer',
+  String? profilePhotoUrl,
+  String vehicleModel = 'Fahrzeug',
+  String vehicleColor = '',
+  String? displayPlate,
+}) {
+  return MaterialPageRoute<void>(
+    builder: (_) => _ChatConversationScreen(
+      chatId: chatId,
+      initialMessages: const <_LocalChatMessage>[],
+      displayName: displayName,
+      profilePhotoUrl: profilePhotoUrl,
+      vehicleModel: vehicleModel,
+      vehicleColor: vehicleColor,
+      displayPlate: displayPlate,
+      isOnline: false,
+    ),
+  );
+}

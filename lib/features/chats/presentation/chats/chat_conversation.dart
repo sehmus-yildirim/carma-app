@@ -4,7 +4,7 @@ class _ChatConversationScreen extends StatefulWidget {
   const _ChatConversationScreen({
     required this.initialMessages,
     this.chatId,
-    this.displayName = 'Carma Nutzer',
+    this.displayName = 'CaRisma Nutzer',
     this.profilePhotoUrl,
     this.vehicleModel = 'BMW 1er',
     this.vehicleColor = 'Schwarz',
@@ -44,6 +44,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   final ChatNativeBridge _nativeBridge = ChatNativeBridge();
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
   final ScrollController _messageScrollController = ScrollController();
   final GlobalKey _messageListEndKey = GlobalKey();
 
@@ -52,6 +53,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _isLoadingMessages = false;
   bool _isSendingMessage = false;
   bool _isRecordingVoiceMemo = false;
+  bool _isChatStatusLoading = false;
   bool _isOtherUserTyping = false;
   bool _isCurrentUserTyping = false;
   bool _forceScrollToBottomOnNextMessages = false;
@@ -60,19 +62,27 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   _LocalChatMessage? _replyingToMessage;
   String? _playingAudioMessageKey;
   DateTime? _lastTypingWriteAt;
+  DateTime? _lastMarkedReadMessageAt;
+  DateTime? _pendingMarkReadMessageAt;
   DateTime? _otherLastReadAt;
   DateTime? _otherLastActiveAt;
   DateTime? _keepLatestMessageVisibleUntil;
   DateTime? _suppressMessageAutoScrollUntil;
+  DateTime? _outgoingReadReceiptGuardStartedAt;
+  DateTime? _outgoingReadReceiptBaselineAt;
+  ChatRecord? _currentChatRecord;
+  String? _chatStatusErrorMessage;
   double _lastKeyboardInset = 0;
   Timer? _typingStopTimer;
   Timer? _voiceMemoRecordingTimer;
   Timer? _audioPlaybackStopTimer;
   Timer? _presenceTimer;
+  bool _isMarkingChatRead = false;
   StreamSubscription<bool>? _typingSubscription;
   StreamSubscription<DateTime?>? _readReceiptSubscription;
   StreamSubscription<DateTime?>? _presenceSubscription;
   StreamSubscription<List<ChatMessageRecord>>? _messagesSubscription;
+  StreamSubscription<ChatRecord?>? _chatStatusSubscription;
 
   static const Duration _onlineStatusWindow = Duration(seconds: 90);
 
@@ -81,14 +91,72 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     return chatId != null && chatId.isNotEmpty;
   }
 
+  String? get _chatSendDisabledMessage {
+    final chatId = widget.chatId?.trim();
+
+    if (chatId == null || chatId.isEmpty) {
+      return null;
+    }
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+
+    if (currentUserId.isEmpty) {
+      return 'Bitte melde dich an.';
+    }
+
+    final statusErrorMessage = _chatStatusErrorMessage;
+
+    if (statusErrorMessage != null) {
+      return statusErrorMessage;
+    }
+
+    final chat = _currentChatRecord;
+
+    if (chat == null) {
+      return _isChatStatusLoading
+          ? 'Chat wird geprüft...'
+          : 'Dieser Chat wurde nicht gefunden.';
+    }
+
+    final participantIds = chat.participants
+        .map((participant) => participant.trim())
+        .where((participant) => participant.isNotEmpty)
+        .toSet();
+
+    if (!participantIds.contains(currentUserId)) {
+      return 'Du bist kein Teilnehmer dieses Chats.';
+    }
+
+    if (chat.status == ChatStatus.deleted || chat.isDeletedFor(currentUserId)) {
+      return 'Dieser Chat wurde gelöscht.';
+    }
+
+    if (chat.status == ChatStatus.blocked) {
+      return 'Dieser Chat ist blockiert.';
+    }
+
+    if (chat.status != ChatStatus.active &&
+        chat.status != ChatStatus.archived) {
+      return 'Dieser Chat ist nicht mehr aktiv.';
+    }
+
+    return null;
+  }
+
+  bool get _isChatComposerEnabled {
+    return _chatSendDisabledMessage == null;
+  }
+
   @override
   void initState() {
     super.initState();
     _messages = [...widget.initialMessages];
     _messageController.addListener(_handleMessageChanged);
+    _messageFocusNode.addListener(_handleMessageFocusChanged);
     _scheduleScrollToBottom(animated: false);
 
     if (_hasFirestoreChat) {
+      _watchCurrentChatStatus();
       _markChatRead();
       _watchMessages();
       _watchTypingStatus();
@@ -111,8 +179,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     _readReceiptSubscription?.cancel();
     _presenceSubscription?.cancel();
     _messagesSubscription?.cancel();
+    _chatStatusSubscription?.cancel();
     _messageController.removeListener(_handleMessageChanged);
+    _messageFocusNode.removeListener(_handleMessageFocusChanged);
     _messageController.dispose();
+    _messageFocusNode.dispose();
     _messageScrollController.dispose();
     super.dispose();
   }
@@ -148,6 +219,155 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
 
     return DateTime.now().difference(activeAt) <= _onlineStatusWindow;
+  }
+
+  Future<String> _requireSendableCurrentChat({
+    required String unauthenticatedMessage,
+  }) async {
+    final chatId = widget.chatId?.trim();
+
+    if (chatId == null || chatId.isEmpty) {
+      return '';
+    }
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUserId = currentUser?.uid.trim() ?? '';
+
+    if (currentUserId.isEmpty) {
+      throw StateError(unauthenticatedMessage);
+    }
+
+    final chat = await _chatRepository.loadChat(chatId: chatId);
+
+    if (chat == null) {
+      throw StateError('Dieser Chat wurde nicht gefunden.');
+    }
+
+    final participantIds = chat.participants
+        .map((participant) => participant.trim())
+        .where((participant) => participant.isNotEmpty)
+        .toSet();
+
+    if (!participantIds.contains(currentUserId)) {
+      throw StateError('Du bist kein Teilnehmer dieses Chats.');
+    }
+
+    if (chat.status == ChatStatus.deleted || chat.isDeletedFor(currentUserId)) {
+      throw StateError('Dieser Chat wurde gelöscht.');
+    }
+
+    if (chat.status == ChatStatus.blocked) {
+      throw StateError('Dieser Chat ist blockiert.');
+    }
+
+    if (chat.status != ChatStatus.active &&
+        chat.status != ChatStatus.archived) {
+      throw StateError('Dieser Chat ist nicht mehr aktiv.');
+    }
+
+    return currentUserId;
+  }
+
+  String _friendlyChatErrorMessage(Object error) {
+    if (error is StateError) {
+      return error.message;
+    }
+
+    return error.toString();
+  }
+
+  void _watchCurrentChatStatus() {
+    final chatId = widget.chatId?.trim();
+
+    if (chatId == null || chatId.isEmpty) {
+      return;
+    }
+
+    _isChatStatusLoading = true;
+    _chatStatusSubscription?.cancel();
+    _chatStatusSubscription = _chatRepository
+        .watchChat(chatId: chatId)
+        .listen(
+          (chat) {
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _currentChatRecord = chat;
+              _isChatStatusLoading = false;
+              _chatStatusErrorMessage = null;
+            });
+            _stopComposerSideEffectsIfChatUnavailable();
+            _cancelVoiceMemoIfChatBecameUnavailable();
+          },
+          onError: (Object _) {
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _currentChatRecord = null;
+              _isChatStatusLoading = false;
+              _chatStatusErrorMessage =
+                  'Chatstatus konnte nicht geladen werden.';
+            });
+            _stopComposerSideEffectsIfChatUnavailable();
+            _cancelVoiceMemoIfChatBecameUnavailable();
+          },
+        );
+  }
+
+  void _stopComposerSideEffectsIfChatUnavailable() {
+    if (_isChatComposerEnabled) {
+      return;
+    }
+
+    _typingStopTimer?.cancel();
+    unawaited(_setCurrentUserTyping(false, force: true));
+    _messageFocusNode.unfocus();
+
+    if (!mounted || _replyingToMessage == null) {
+      return;
+    }
+
+    setState(() {
+      _replyingToMessage = null;
+    });
+  }
+
+  void _cancelVoiceMemoIfChatBecameUnavailable() {
+    if (!_isRecordingVoiceMemo || _isChatComposerEnabled) {
+      return;
+    }
+
+    _voiceMemoRecordingTimer?.cancel();
+    _typingStopTimer?.cancel();
+    unawaited(_nativeBridge.cancelVoiceMemo());
+    unawaited(_setCurrentUserTyping(false, force: true));
+
+    if (!mounted) {
+      return;
+    }
+
+    _messageFocusNode.unfocus();
+    setState(() {
+      _isRecordingVoiceMemo = false;
+      _voiceMemoRecordingSeconds = 0;
+      _replyingToMessage = null;
+    });
+  }
+
+  void _showChatUnavailableMessage() {
+    final message = _chatSendDisabledMessage;
+
+    if (!mounted || message == null) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _scrollToBottomNow({bool animated = true, bool force = false}) {
@@ -191,14 +411,15 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
   }
 
-  void _scheduleScrollToBottom({
-    bool animated = true,
-    bool force = false,
-  }) {
+  void _scheduleScrollToBottom({bool animated = true, bool force = false}) {
+    if (force) {
+      _suppressMessageAutoScrollUntil = null;
+    }
+
     _messageScrollRequestGeneration += 1;
     final requestGeneration = _messageScrollRequestGeneration;
     _keepLatestMessageVisibleUntil = DateTime.now().add(
-      const Duration(milliseconds: 700),
+      const Duration(milliseconds: 420),
     );
 
     void schedule(Duration delay, {bool forceRequest = false}) {
@@ -212,15 +433,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             return;
           }
 
-          _scrollToBottomNow(
-            animated: animated,
-            force: force || forceRequest,
-          );
+          _scrollToBottomNow(animated: animated, force: force || forceRequest);
         });
       });
     }
 
-    schedule(Duration.zero, forceRequest: true);
+    schedule(Duration.zero, forceRequest: force);
     schedule(const Duration(milliseconds: 80));
     schedule(const Duration(milliseconds: 220));
     schedule(const Duration(milliseconds: 520));
@@ -243,19 +461,28 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   bool _handleMessageScrollNotification(ScrollNotification notification) {
-    if (notification is UserScrollNotification &&
-        notification.direction != ScrollDirection.idle) {
-      _messageScrollRequestGeneration += 1;
-      _suppressMessageAutoScrollUntil = DateTime.now().add(
-        const Duration(milliseconds: 1400),
-      );
-      _keepLatestMessageVisibleUntil = null;
+    final isUserDragging =
+        notification is ScrollUpdateNotification &&
+        notification.dragDetails != null;
+    final isUserOverscrolling =
+        notification is OverscrollNotification &&
+        notification.dragDetails != null;
+    if (isUserDragging || isUserOverscrolling) {
+      _suppressMessageAutoScroll();
     }
 
     return false;
   }
 
-  Future<void> _markChatRead() async {
+  void _suppressMessageAutoScroll() {
+    _messageScrollRequestGeneration += 1;
+    _suppressMessageAutoScrollUntil = DateTime.now().add(
+      const Duration(milliseconds: 1500),
+    );
+    _keepLatestMessageVisibleUntil = null;
+  }
+
+  Future<void> _markChatRead({DateTime? latestIncomingMessageAt}) async {
     final chatId = widget.chatId?.trim();
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -263,17 +490,57 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
+    final lastMarkedReadMessageAt = _lastMarkedReadMessageAt;
+    if (latestIncomingMessageAt != null &&
+        lastMarkedReadMessageAt != null &&
+        !latestIncomingMessageAt.isAfter(lastMarkedReadMessageAt)) {
+      return;
+    }
+
+    if (_isMarkingChatRead) {
+      if (latestIncomingMessageAt != null &&
+          (_pendingMarkReadMessageAt == null ||
+              latestIncomingMessageAt.isAfter(_pendingMarkReadMessageAt!))) {
+        _pendingMarkReadMessageAt = latestIncomingMessageAt;
+      }
+      return;
+    }
+
+    _isMarkingChatRead = true;
+
     try {
       await _chatRepository.markChatRead(chatId: chatId, userId: currentUserId);
+
+      if (latestIncomingMessageAt != null) {
+        _lastMarkedReadMessageAt = latestIncomingMessageAt;
+      }
     } catch (_) {
       // Read receipts are non-critical UI state.
+    } finally {
+      _isMarkingChatRead = false;
+
+      final pendingMarkReadMessageAt = _pendingMarkReadMessageAt;
+      _pendingMarkReadMessageAt = null;
+
+      if (mounted && pendingMarkReadMessageAt != null) {
+        unawaited(
+          _markChatRead(latestIncomingMessageAt: pendingMarkReadMessageAt),
+        );
+      }
     }
   }
 
   void _handleReplyMessage(_LocalChatMessage message) {
+    if (!_isChatComposerEnabled) {
+      _showChatUnavailableMessage();
+      return;
+    }
+
     setState(() {
       _replyingToMessage = message;
     });
+    _messageFocusNode.requestFocus();
+    _scheduleScrollToBottomAfterKeyboard();
   }
 
   void _clearReplyMessage() {
@@ -294,6 +561,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     setState(() {
       _hasText = nextHasText;
     });
+  }
+
+  void _handleMessageFocusChanged() {
+    if (_messageFocusNode.hasFocus) {
+      _scheduleScrollToBottomAfterKeyboard();
+    }
   }
 
   void _watchTypingStatus() {
@@ -429,10 +702,43 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     required DateTime? createdAt,
     required DateTime? otherLastReadAt,
   }) {
-    return isMine &&
-        createdAt != null &&
-        otherLastReadAt != null &&
-        !createdAt.isAfter(otherLastReadAt);
+    if (!isMine || createdAt == null || otherLastReadAt == null) {
+      return false;
+    }
+
+    final guardStartedAt = _outgoingReadReceiptGuardStartedAt;
+    final baselineAt = _outgoingReadReceiptBaselineAt;
+
+    if (guardStartedAt != null && !createdAt.isBefore(guardStartedAt)) {
+      if (baselineAt != null && !otherLastReadAt.isAfter(baselineAt)) {
+        return false;
+      }
+
+      if (baselineAt == null && otherLastReadAt.isBefore(guardStartedAt)) {
+        return false;
+      }
+    }
+
+    return !createdAt.isAfter(otherLastReadAt);
+  }
+
+  void _rememberOutgoingReadReceiptBaseline() {
+    final currentBaselineAt = _otherLastReadAt;
+    final existingBaselineAt = _outgoingReadReceiptBaselineAt;
+    final hasNoGuard = _outgoingReadReceiptGuardStartedAt == null;
+    final hasAdvancedBaseline =
+        currentBaselineAt != null &&
+        (existingBaselineAt == null ||
+            currentBaselineAt.isAfter(existingBaselineAt));
+
+    if (!hasNoGuard && !hasAdvancedBaseline) {
+      return;
+    }
+
+    _outgoingReadReceiptGuardStartedAt = DateTime.now().subtract(
+      const Duration(milliseconds: 50),
+    );
+    _outgoingReadReceiptBaselineAt = currentBaselineAt;
   }
 
   void _handleTypingChanged(bool hasText) {
@@ -441,6 +747,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
 
     _typingStopTimer?.cancel();
+
+    if (!_isChatComposerEnabled) {
+      unawaited(_setCurrentUserTyping(false, force: true));
+      return;
+    }
 
     if (!hasText) {
       _setCurrentUserTyping(false);
@@ -462,7 +773,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     });
   }
 
-  Future<void> _setCurrentUserTyping(bool isTyping) async {
+  Future<void> _setCurrentUserTyping(
+    bool isTyping, {
+    bool force = false,
+  }) async {
     final chatId = widget.chatId?.trim();
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
@@ -470,6 +784,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         chatId.isEmpty ||
         currentUserId == null ||
         currentUserId.isEmpty) {
+      return;
+    }
+
+    if (!force && isTyping && !_isChatComposerEnabled) {
       return;
     }
 
@@ -519,6 +837,18 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 _forceScrollToBottomOnNextMessages ||
                 (records.length > previousMessageCount &&
                     (shouldKeepBottom || lastRecordIsMine));
+            DateTime? latestIncomingMessageAt;
+
+            for (final record in records) {
+              if (record.senderUserId == currentUserId) {
+                continue;
+              }
+
+              if (latestIncomingMessageAt == null ||
+                  record.createdAt.isAfter(latestIncomingMessageAt)) {
+                latestIncomingMessageAt = record.createdAt;
+              }
+            }
 
             if (!mounted) {
               return;
@@ -562,7 +892,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
               _scheduleScrollToBottom(force: true);
             }
 
-            unawaited(_markChatRead());
+            if (latestIncomingMessageAt != null) {
+              unawaited(
+                _markChatRead(latestIncomingMessageAt: latestIncomingMessageAt),
+              );
+            }
           },
           onError: (error) {
             if (!mounted) {
@@ -614,9 +948,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Foto konnte nicht ausgew\u00E4hlt werden: $error'),
-        ),
+        SnackBar(content: Text('Foto konnte nicht ausgewählt werden: $error')),
       );
     }
   }
@@ -626,13 +958,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
+    String? uploadedPath;
+
     setState(() {
       _isSendingMessage = true;
     });
 
     try {
       final chatId = widget.chatId?.trim();
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
       if (chatId == null || chatId.isEmpty) {
         if (!mounted) {
@@ -659,9 +992,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         return;
       }
 
-      if (currentUserId == null || currentUserId.isEmpty) {
-        throw StateError('Du musst angemeldet sein, um Fotos zu senden.');
-      }
+      final currentUserId = await _requireSendableCurrentChat(
+        unauthenticatedMessage: 'Du musst angemeldet sein, um Fotos zu senden.',
+      );
 
       final messageId = _chatRepository.createMessageId(chatId: chatId);
       final upload = await _attachmentStorage.uploadChatImage(
@@ -670,8 +1003,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         messageId: messageId,
         file: imageFile,
       );
+      uploadedPath = upload.path;
 
       _forceScrollToBottomOnNextMessages = true;
+      _rememberOutgoingReadReceiptBaseline();
 
       await _chatRepository.sendImageMessage(
         chatId: chatId,
@@ -690,6 +1025,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
       _scheduleScrollToBottom(force: true);
     } catch (error) {
+      final cleanupError = await _cleanupFailedChatAttachment(uploadedPath);
+
       if (!mounted) {
         return;
       }
@@ -700,7 +1037,15 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       _forceScrollToBottomOnNextMessages = false;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Foto konnte nicht gesendet werden: $error')),
+        SnackBar(
+          content: Text(
+            _chatAttachmentSendErrorMessage(
+              'Foto konnte nicht gesendet werden',
+              error,
+              cleanupError: cleanupError,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -724,9 +1069,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           return;
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(validationError)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(validationError)));
         return;
       }
 
@@ -738,7 +1083,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Dokument konnte nicht ausgew\u00E4hlt werden: $error'),
+          content: Text('Dokument konnte nicht ausgewählt werden: $error'),
         ),
       );
     }
@@ -761,11 +1106,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
 
     if (document.sizeBytes > _maxDocumentSizeBytes) {
-      return 'Dokumente d\u00FCrfen maximal 25 MB gro\u00DF sein.';
+      return 'Dokumente dürfen maximal 25 MB groß sein.';
     }
 
     if (!_isAllowedDocumentContentType(contentType)) {
-      return 'Dieser Dateityp wird nicht unterst\u00FCtzt.';
+      return 'Dieser Dateityp wird nicht unterstützt.';
     }
 
     return null;
@@ -781,13 +1126,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
+    String? uploadedPath;
+
     setState(() {
       _isSendingMessage = true;
     });
 
     try {
       final chatId = widget.chatId?.trim();
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
       final documentFile = File(document.path);
 
       if (chatId == null || chatId.isEmpty) {
@@ -818,9 +1164,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         return;
       }
 
-      if (currentUserId == null || currentUserId.isEmpty) {
-        throw StateError('Du musst angemeldet sein, um Dokumente zu senden.');
-      }
+      final currentUserId = await _requireSendableCurrentChat(
+        unauthenticatedMessage:
+            'Du musst angemeldet sein, um Dokumente zu senden.',
+      );
 
       final messageId = _chatRepository.createMessageId(chatId: chatId);
       final upload = await _attachmentStorage.uploadChatDocument(
@@ -831,8 +1178,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         fileName: document.name,
         contentType: document.contentType,
       );
+      uploadedPath = upload.path;
 
       _forceScrollToBottomOnNextMessages = true;
+      _rememberOutgoingReadReceiptBaseline();
 
       await _chatRepository.sendDocumentMessage(
         chatId: chatId,
@@ -854,6 +1203,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
       _scheduleScrollToBottom(force: true);
     } catch (error) {
+      final cleanupError = await _cleanupFailedChatAttachment(uploadedPath);
+
       if (!mounted) {
         return;
       }
@@ -865,7 +1216,13 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Dokument konnte nicht gesendet werden: $error'),
+          content: Text(
+            _chatAttachmentSendErrorMessage(
+              'Dokument konnte nicht gesendet werden',
+              error,
+              cleanupError: cleanupError,
+            ),
+          ),
         ),
       );
     }
@@ -878,6 +1235,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
     if (!_isRecordingVoiceMemo) {
       try {
+        await _requireSendableCurrentChat(
+          unauthenticatedMessage:
+              'Du musst angemeldet sein, um Sprachmemos aufzunehmen.',
+        );
+
         await _nativeBridge.startVoiceMemo();
 
         if (!mounted) {
@@ -895,7 +1257,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sprachmemo konnte nicht starten: $error')),
+          SnackBar(
+            content: Text(
+              'Sprachmemo konnte nicht starten: ${_friendlyChatErrorMessage(error)}',
+            ),
+          ),
         );
       }
 
@@ -929,7 +1295,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sprachmemo konnte nicht gesendet werden: $error'),
+          content: Text(
+            'Sprachmemo konnte nicht gesendet werden: ${_friendlyChatErrorMessage(error)}',
+          ),
         ),
       );
     }
@@ -953,13 +1321,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
+    String? uploadedPath;
+
     setState(() {
       _isSendingMessage = true;
     });
 
     try {
       final chatId = widget.chatId?.trim();
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
       final voiceMemoFile = File(voiceMemo.path);
 
       if (chatId == null || chatId.isEmpty) {
@@ -991,9 +1360,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         return;
       }
 
-      if (currentUserId == null || currentUserId.isEmpty) {
-        throw StateError('Du musst angemeldet sein, um Sprachmemos zu senden.');
-      }
+      final currentUserId = await _requireSendableCurrentChat(
+        unauthenticatedMessage:
+            'Du musst angemeldet sein, um Sprachmemos zu senden.',
+      );
 
       final messageId = _chatRepository.createMessageId(chatId: chatId);
       final upload = await _attachmentStorage.uploadChatVoiceMemo(
@@ -1004,8 +1374,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         fileName: voiceMemo.name,
         contentType: voiceMemo.contentType,
       );
+      uploadedPath = upload.path;
 
       _forceScrollToBottomOnNextMessages = true;
+      _rememberOutgoingReadReceiptBaseline();
 
       await _chatRepository.sendAudioMessage(
         chatId: chatId,
@@ -1028,6 +1400,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
       _scheduleScrollToBottom(force: true);
     } catch (error) {
+      final cleanupError = await _cleanupFailedChatAttachment(uploadedPath);
+
       if (!mounted) {
         return;
       }
@@ -1039,10 +1413,47 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sprachmemo konnte nicht gesendet werden: $error'),
+          content: Text(
+            _chatAttachmentSendErrorMessage(
+              'Sprachmemo konnte nicht gesendet werden',
+              error,
+              cleanupError: cleanupError,
+            ),
+          ),
         ),
       );
     }
+  }
+
+  Future<Object?> _cleanupFailedChatAttachment(String? path) async {
+    final trimmedPath = path?.trim() ?? '';
+
+    if (trimmedPath.isEmpty) {
+      return null;
+    }
+
+    try {
+      await _attachmentStorage.deleteUploadedChatAttachment(path: trimmedPath);
+      return null;
+    } catch (error) {
+      return error;
+    }
+  }
+
+  String _chatAttachmentSendErrorMessage(
+    String fallbackMessage,
+    Object error, {
+    Object? cleanupError,
+  }) {
+    final message = error is ChatAttachmentStorageException
+        ? error.message
+        : '$fallbackMessage: ${_friendlyChatErrorMessage(error)}';
+
+    if (cleanupError == null) {
+      return message;
+    }
+
+    return '$message Hochgeladener Anhang konnte nicht bereinigt werden: $cleanupError';
   }
 
   Future<Position> _resolveCurrentPosition() async {
@@ -1111,13 +1522,13 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         return;
       }
 
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-
-      if (currentUserId == null || currentUserId.isEmpty) {
-        throw StateError('Du musst angemeldet sein, um Standort zu senden.');
-      }
+      final currentUserId = await _requireSendableCurrentChat(
+        unauthenticatedMessage:
+            'Du musst angemeldet sein, um diesen Anhang zu senden.',
+      );
 
       _forceScrollToBottomOnNextMessages = true;
+      _rememberOutgoingReadReceiptBaseline();
 
       await _chatRepository.sendTextMessage(
         chatId: chatId,
@@ -1145,7 +1556,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       _forceScrollToBottomOnNextMessages = false;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Anhang konnte nicht gesendet werden: $error')),
+        SnackBar(
+          content: Text(
+            'Anhang konnte nicht gesendet werden: ${_friendlyChatErrorMessage(error)}',
+          ),
+        ),
       );
     }
   }
@@ -1245,7 +1660,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Dokument konnte nicht ge\u00F6ffnet werden: $error'),
+          content: Text('Dokument konnte nicht geöffnet werden: $error'),
         ),
       );
     }
@@ -1370,6 +1785,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     _LocalChatMessage message,
     String reaction,
   ) async {
+    if (_hasFirestoreChat && !_isChatComposerEnabled) {
+      _showChatUnavailableMessage();
+      return;
+    }
+
     final chatId = widget.chatId?.trim();
     final messageId = message.messageId?.trim();
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -1421,6 +1841,16 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   Future<void> _handleDeleteMessage(_LocalChatMessage message) async {
+    final shouldDelete = await _confirmDeleteMessage();
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     final chatId = widget.chatId?.trim();
     final messageId = message.messageId?.trim();
 
@@ -1448,16 +1878,150 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nachricht wurde gel\u00F6scht.')),
+        const SnackBar(content: Text('Nachricht wurde gelöscht.')),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Nachricht konnte nicht gel\u00F6scht werden: $error'),
+          content: Text('Nachricht konnte nicht gelöscht werden: $error'),
         ),
       );
     }
+  }
+
+  Future<bool> _confirmDeleteMessage() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 26),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF101827).withValues(alpha: 0.95),
+                      const Color(0xFF071120).withValues(alpha: 0.92),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.13),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.34),
+                      blurRadius: 30,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.redAccent.withValues(alpha: 0.16),
+                            border: Border.all(
+                              color: Colors.redAccent.withValues(alpha: 0.28),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.redAccent,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Nachricht löschen?',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Diese Nachricht wird aus diesem Chat entfernt.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w700,
+                        height: 1.32,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.16),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              'Abbrechen',
+                              style: TextStyle(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () =>
+                                Navigator.of(dialogContext).pop(true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              'Löschen',
+                              style: TextStyle(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return result == true;
   }
 
   Future<void> _handleSend() async {
@@ -1466,10 +2030,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
 
     final replyTarget = _replyingToMessage;
-    final replyPrefix = _replyingToMessage == null
-        ? ''
-        : 'Antwort auf: "${_replyingToMessage!.text}"\n';
-    final message = '$replyPrefix${_messageController.text.trim()}';
+    final message = _messageController.text.trim();
 
     if (message.isEmpty) {
       return;
@@ -1490,21 +2051,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             isReadByOther: false,
           ),
         ];
+        _replyingToMessage = null;
       });
       _scheduleScrollToBottom(force: true);
 
       _messageController.clear();
-      return;
-    }
-
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-
-    if (currentUserId == null || currentUserId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Du musst angemeldet sein, um Nachrichten zu senden.'),
-        ),
-      );
       return;
     }
 
@@ -1513,7 +2064,13 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     });
 
     try {
+      final currentUserId = await _requireSendableCurrentChat(
+        unauthenticatedMessage:
+            'Du musst angemeldet sein, um Nachrichten zu senden.',
+      );
+
       _forceScrollToBottomOnNextMessages = true;
+      _rememberOutgoingReadReceiptBaseline();
 
       await _chatRepository.sendTextMessage(
         chatId: chatId,
@@ -1546,7 +2103,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Nachricht konnte nicht gesendet werden: $error'),
+          content: Text(
+            'Nachricht konnte nicht gesendet werden: ${_friendlyChatErrorMessage(error)}',
+          ),
         ),
       );
     }
@@ -1555,6 +2114,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final chatSendDisabledMessage = _chatSendDisabledMessage;
+    final isChatComposerEnabled = chatSendDisabledMessage == null;
 
     if (keyboardInset > _lastKeyboardInset) {
       _scheduleScrollToBottomAfterKeyboard();
@@ -1562,7 +2123,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
     _lastKeyboardInset = keyboardInset;
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         resizeToAvoidBottomInset: true,
@@ -1632,6 +2193,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
               ),
               _MessageComposer(
                 controller: _messageController,
+                focusNode: _messageFocusNode,
                 hasText: _hasText,
                 onPickPhoto: () => _handlePickImage(ImageSource.gallery),
                 onTakePhoto: () => _handlePickImage(ImageSource.camera),
@@ -1640,6 +2202,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 onPickDocument: _handlePickDocument,
                 onSend: _handleSend,
                 onVoiceMemo: _handleVoiceMemo,
+                isSending: _isSendingMessage,
+                isEnabled: isChatComposerEnabled,
+                disabledMessage: chatSendDisabledMessage,
                 isRecordingVoiceMemo: _isRecordingVoiceMemo,
                 voiceMemoRecordingSeconds: _voiceMemoRecordingSeconds,
                 onTextInputFocus: _scheduleScrollToBottomAfterKeyboard,
@@ -1691,9 +2256,7 @@ String _formatChatPlateLabel(String? value) {
   }
 
   final compact = upper.replaceAll(RegExp(r'[^A-ZÄÖÜ0-9]'), '');
-  final compactMatch = RegExp(
-    r'^([A-ZÄÖÜ]+)(\d{1,4})$',
-  ).firstMatch(compact);
+  final compactMatch = RegExp(r'^([A-ZÄÖÜ]+)(\d{1,4})$').firstMatch(compact);
 
   if (compactMatch == null) {
     return upper;
@@ -1745,7 +2308,7 @@ Future<void> _showChatProfileImage(
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded),
                 color: Colors.white,
-                tooltip: 'Schlie\u00DFen',
+                tooltip: 'Schließen',
               ),
             ),
           ],
@@ -1815,7 +2378,7 @@ class _CompactChatInfoCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: _carmaBlueLight.withValues(alpha: 0.30),
+                        color: _carismaBlueLight.withValues(alpha: 0.30),
                       ),
                     ),
                     child: _UserAvatarPlaceholder(
@@ -1870,17 +2433,15 @@ class _CompactChatInfoCard extends StatelessWidget {
                       Row(
                         children: [
                           Expanded(
-                            flex: 4,
+                            flex: 3,
                             child: _ChatHeaderInfoChip(
                               label: vehicleModelLabel,
                             ),
                           ),
                           const SizedBox(width: 5),
                           Expanded(
-                            flex: 6,
-                            child: _ChatHeaderInfoChip(
-                              label: plateLabel,
-                            ),
+                            flex: 7,
+                            child: _ChatHeaderInfoChip(label: plateLabel),
                           ),
                         ],
                       ),
@@ -1894,6 +2455,8 @@ class _CompactChatInfoCard extends StatelessWidget {
               chatId: chatId,
               title: displayName,
               subtitle: '$vehicleModelLabel - $plateLabel',
+              vehicleLabel: vehicleModelLabel,
+              plateLabel: plateLabel,
             ),
           ],
         ),
@@ -1910,34 +2473,29 @@ class _ChatHeaderInfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 28),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         color: Colors.white.withValues(alpha: 0.08),
         border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.visible,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.86),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 10.5,
-                  height: 1,
-                ),
-              ),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.visible,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.86),
+              fontWeight: FontWeight.w900,
+              fontSize: 10,
+              height: 1,
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2076,6 +2634,179 @@ class _ChatProfileSheet extends StatelessWidget {
     );
   }
 
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _shareText(BuildContext context, String text) async {
+    final safeText = text.trim();
+
+    if (safeText.isEmpty) {
+      _showSnackBar(context, 'Inhalt konnte nicht geteilt werden.');
+      return;
+    }
+
+    try {
+      await ChatNativeBridge().shareText(text: safeText);
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
+    }
+  }
+
+  Future<void> _saveMediaMessage(
+    BuildContext context,
+    _LocalChatMessage message,
+  ) async {
+    final imageUrl = message.imageUrl?.trim() ?? '';
+
+    if (imageUrl.isEmpty) {
+      _showSnackBar(context, 'Medium konnte nicht gespeichert werden.');
+      return;
+    }
+
+    try {
+      await ChatNativeBridge().saveImageToGallery(
+        url: imageUrl,
+        fileName: message.fileName?.trim().isNotEmpty == true
+            ? message.fileName!.trim()
+            : 'carisma_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: message.fileContentType?.trim().isNotEmpty == true
+            ? message.fileContentType!.trim()
+            : 'image/jpeg',
+      );
+
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, 'Medium wurde in der Galerie gespeichert.');
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(
+        context,
+        'Speichern konnte nicht ausgeführt werden: $error',
+      );
+    }
+  }
+
+  Future<void> _saveDocumentMessage(
+    BuildContext context,
+    _LocalChatMessage message,
+  ) async {
+    final fileUrl = message.fileUrl?.trim() ?? '';
+
+    if (fileUrl.isEmpty) {
+      _showSnackBar(context, 'Dokument konnte nicht gespeichert werden.');
+      return;
+    }
+
+    try {
+      await ChatNativeBridge().saveDocumentToDownloads(
+        url: fileUrl,
+        fileName: message.fileName?.trim().isNotEmpty == true
+            ? message.fileName!.trim()
+            : 'carisma_document_${DateTime.now().millisecondsSinceEpoch}',
+        contentType: message.fileContentType?.trim().isNotEmpty == true
+            ? message.fileContentType!.trim()
+            : 'application/octet-stream',
+      );
+
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(context, 'Dokument wurde gespeichert.');
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      _showSnackBar(
+        context,
+        'Speichern konnte nicht ausgeführt werden: $error',
+      );
+    }
+  }
+
+  Future<void> _copyLink(BuildContext context, String url) async {
+    final safeUrl = url.trim();
+
+    if (safeUrl.isEmpty) {
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: safeUrl));
+
+    if (!context.mounted) {
+      return;
+    }
+
+    _showSnackBar(context, 'Link wurde kopiert.');
+  }
+
+  Future<void> _showProfileItemActions({
+    required BuildContext context,
+    required _LocalChatMessage replyMessage,
+    required VoidCallback onShare,
+    required VoidCallback onSave,
+    required IconData saveIcon,
+    required String saveLabel,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF101827),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _MessageActionTile(
+                  icon: Icons.reply_rounded,
+                  label: 'Antworten',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    Navigator.of(context).pop();
+                    onReplyMessage(replyMessage);
+                  },
+                ),
+                _MessageActionTile(
+                  icon: Icons.ios_share_rounded,
+                  label: 'Teilen',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    onShare();
+                  },
+                ),
+                _MessageActionTile(
+                  icon: saveIcon,
+                  label: saveLabel,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    onSave();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mediaMessages = _mediaMessages;
@@ -2204,22 +2935,69 @@ class _ChatProfileSheet extends StatelessWidget {
                   onShowAll: () => _showAllMedia(context, mediaMessages),
                 ),
                 const SizedBox(height: 10),
-                _ChatProfileMediaPreview(messages: mediaMessages),
+                _ChatProfileMediaPreview(
+                  messages: mediaMessages,
+                  onOpenMessage: (message) {
+                    unawaited(
+                      _showProfileItemActions(
+                        context: context,
+                        replyMessage: message,
+                        onShare: () => unawaited(
+                          _shareText(context, message.imageUrl ?? ''),
+                        ),
+                        onSave: () =>
+                            unawaited(_saveMediaMessage(context, message)),
+                        saveIcon: Icons.download_rounded,
+                        saveLabel: 'Speichern',
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 22),
                 _ChatProfileSectionTitle(
                   title: 'Links',
                   onShowAll: () => _showAllLinks(context, links),
                 ),
                 const SizedBox(height: 8),
-                _ChatProfileLinkList(links: links),
+                _ChatProfileLinkList(
+                  links: links,
+                  onOpenLink: (link) {
+                    unawaited(
+                      _showProfileItemActions(
+                        context: context,
+                        replyMessage: link.message,
+                        onShare: () => unawaited(_shareText(context, link.url)),
+                        onSave: () => unawaited(_copyLink(context, link.url)),
+                        saveIcon: Icons.copy_rounded,
+                        saveLabel: 'Kopieren',
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 22),
                 _ChatProfileSectionTitle(
                   title: 'Doks',
-                  onShowAll: () =>
-                      _showAllDocuments(context, documentMessages),
+                  onShowAll: () => _showAllDocuments(context, documentMessages),
                 ),
                 const SizedBox(height: 8),
-                _ChatProfileDocumentList(messages: documentMessages),
+                _ChatProfileDocumentList(
+                  messages: documentMessages,
+                  onOpenMessage: (message) {
+                    unawaited(
+                      _showProfileItemActions(
+                        context: context,
+                        replyMessage: message,
+                        onShare: () => unawaited(
+                          _shareText(context, message.fileUrl ?? ''),
+                        ),
+                        onSave: () =>
+                            unawaited(_saveDocumentMessage(context, message)),
+                        saveIcon: Icons.download_rounded,
+                        saveLabel: 'Speichern',
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 22),
                 _ChatProfileSectionTitle(title: 'Mit Stern markiert'),
                 const SizedBox(height: 8),
@@ -2251,7 +3029,7 @@ class _ChatProfileChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: _carmaBlueLight),
+          Icon(icon, size: 15, color: _carismaBlueLight),
           const SizedBox(width: 7),
           Flexible(
             child: Text(
@@ -2344,7 +3122,7 @@ class _ChatProfileSectionTitle extends StatelessWidget {
           TextButton(
             onPressed: onShowAll,
             style: TextButton.styleFrom(
-              foregroundColor: _carmaBlueLight,
+              foregroundColor: _carismaBlueLight,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               minimumSize: const Size(0, 34),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -2357,9 +3135,13 @@ class _ChatProfileSectionTitle extends StatelessWidget {
 }
 
 class _ChatProfileMediaPreview extends StatelessWidget {
-  const _ChatProfileMediaPreview({required this.messages});
+  const _ChatProfileMediaPreview({
+    required this.messages,
+    required this.onOpenMessage,
+  });
 
   final List<_LocalChatMessage> messages;
+  final ValueChanged<_LocalChatMessage> onOpenMessage;
 
   bool _isNetworkImage(String value) {
     return value.startsWith('http://') || value.startsWith('https://');
@@ -2389,11 +3171,14 @@ class _ChatProfileMediaPreview extends StatelessWidget {
             ? Image.network(imageUrl, fit: BoxFit.cover)
             : Image.file(File(imageUrl), fit: BoxFit.cover);
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: Container(
-            color: Colors.white.withValues(alpha: 0.08),
-            child: image,
+        return GestureDetector(
+          onTap: () => onOpenMessage(messages[index]),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.08),
+              child: image,
+            ),
           ),
         );
       },
@@ -2402,9 +3187,10 @@ class _ChatProfileMediaPreview extends StatelessWidget {
 }
 
 class _ChatProfileLinkList extends StatelessWidget {
-  const _ChatProfileLinkList({required this.links});
+  const _ChatProfileLinkList({required this.links, required this.onOpenLink});
 
   final List<_ChatProfileLinkItem> links;
+  final ValueChanged<_ChatProfileLinkItem> onOpenLink;
 
   @override
   Widget build(BuildContext context) {
@@ -2417,10 +3203,13 @@ class _ChatProfileLinkList extends StatelessWidget {
 
     return Column(
       children: links.take(6).map((link) {
-        return _ChatProfileListTile(
-          icon: Icons.link_rounded,
-          title: link.url,
-          subtitle: 'Link',
+        return GestureDetector(
+          onTap: () => onOpenLink(link),
+          child: _ChatProfileListTile(
+            icon: Icons.link_rounded,
+            title: link.url,
+            subtitle: 'Link',
+          ),
         );
       }).toList(),
     );
@@ -2428,9 +3217,13 @@ class _ChatProfileLinkList extends StatelessWidget {
 }
 
 class _ChatProfileDocumentList extends StatelessWidget {
-  const _ChatProfileDocumentList({required this.messages});
+  const _ChatProfileDocumentList({
+    required this.messages,
+    required this.onOpenMessage,
+  });
 
   final List<_LocalChatMessage> messages;
+  final ValueChanged<_LocalChatMessage> onOpenMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -2443,12 +3236,15 @@ class _ChatProfileDocumentList extends StatelessWidget {
 
     return Column(
       children: messages.take(6).map((message) {
-        return _ChatProfileListTile(
-          icon: Icons.insert_drive_file_rounded,
-          title: message.fileName?.trim().isNotEmpty == true
-              ? message.fileName!.trim()
-              : 'Dokument',
-          subtitle: message.timeLabel,
+        return GestureDetector(
+          onTap: () => onOpenMessage(message),
+          child: _ChatProfileListTile(
+            icon: Icons.insert_drive_file_rounded,
+            title: message.fileName?.trim().isNotEmpty == true
+                ? message.fileName!.trim()
+                : 'Dokument',
+            subtitle: message.timeLabel,
+          ),
         );
       }).toList(),
     );
@@ -2489,9 +3285,9 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _mediaShareText(List<_LocalChatMessage> selectedMessages) {
@@ -2519,7 +3315,7 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Teilen konnte nicht ge\u00F6ffnet werden: $error');
+      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
     }
   }
 
@@ -2537,10 +3333,9 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
 
         await ChatNativeBridge().saveImageToGallery(
           url: url,
-          fileName:
-              message.fileName?.trim().isNotEmpty == true
-                  ? message.fileName!.trim()
-                  : 'carma_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          fileName: message.fileName?.trim().isNotEmpty == true
+              ? message.fileName!.trim()
+              : 'carisma_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
           contentType: message.fileContentType?.trim().isNotEmpty == true
               ? message.fileContentType!.trim()
               : 'image/jpeg',
@@ -2557,7 +3352,10 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Speichern konnte nicht ausgef\u00FChrt werden: $error');
+      _showSnackBar(
+        context,
+        'Speichern konnte nicht ausgeführt werden: $error',
+      );
     }
   }
 
@@ -2618,11 +3416,9 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
                   label: 'Antworten',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.reply,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.reply);
                   },
                 ),
                 _MessageActionTile(
@@ -2630,11 +3426,9 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
                   label: 'Teilen',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.share,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.share);
                   },
                 ),
                 _MessageActionTile(
@@ -2642,11 +3436,9 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
                   label: 'Speichern',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.save,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.save);
                   },
                 ),
               ],
@@ -2673,60 +3465,60 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
             selectedIndexes,
             onToggleSelection,
           ) {
-        if (messages.isEmpty) {
-          return ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            children: const [
-              _ChatProfileEmptyRow(
-                icon: Icons.photo_library_outlined,
-                label: 'Keine Medien',
+            if (messages.isEmpty) {
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: const [
+                  _ChatProfileEmptyRow(
+                    icon: Icons.photo_library_outlined,
+                    label: 'Keine Medien',
+                  ),
+                ],
+              );
+            }
+
+            return GridView.builder(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              itemCount: messages.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
               ),
-            ],
-          );
-        }
+              itemBuilder: (context, index) {
+                final imageUrl = messages[index].imageUrl?.trim() ?? '';
+                final isSelected = selectedIndexes.contains(index);
 
-        return GridView.builder(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          itemCount: messages.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemBuilder: (context, index) {
-            final imageUrl = messages[index].imageUrl?.trim() ?? '';
-            final isSelected = selectedIndexes.contains(index);
-
-            return GestureDetector(
-              onTap: isSelectionMode
-                  ? () => onToggleSelection(index)
-                  : () => _showItemActions(context, index),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Container(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      child: _buildImage(imageUrl),
-                    ),
-                    if (isSelectionMode)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: _ChatProfileSelectionCheck(
-                          isSelected: isSelected,
+                return GestureDetector(
+                  onTap: isSelectionMode
+                      ? () => onToggleSelection(index)
+                      : () => _showItemActions(context, index),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Container(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          child: _buildImage(imageUrl),
                         ),
-                      ),
-                  ],
-                ),
-              ),
+                        if (isSelectionMode)
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: _ChatProfileSelectionCheck(
+                              isSelected: isSelected,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             );
           },
-        );
-      },
     );
   }
 }
@@ -2741,9 +3533,9 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
   final ValueChanged<_LocalChatMessage> onReplyMessage;
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _shareLinks(
@@ -2759,7 +3551,7 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Teilen konnte nicht ge\u00F6ffnet werden: $error');
+      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
     }
   }
 
@@ -2798,9 +3590,7 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
         unawaited(_shareLinks(context, selectedLinks));
       case _ChatProfileSelectionAction.save:
         Clipboard.setData(
-          ClipboardData(
-            text: selectedLinks.map((item) => item.url).join('\n'),
-          ),
+          ClipboardData(text: selectedLinks.map((item) => item.url).join('\n')),
         );
         _showSnackBar(context, 'Links wurden kopiert.');
     }
@@ -2825,11 +3615,9 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
                   label: 'Antworten',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.reply,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.reply);
                   },
                 ),
                 _MessageActionTile(
@@ -2837,11 +3625,9 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
                   label: 'Teilen',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.share,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.share);
                   },
                 ),
                 _MessageActionTile(
@@ -2849,11 +3635,9 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
                   label: 'Kopieren',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.save,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.save);
                   },
                 ),
               ],
@@ -2880,51 +3664,51 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
             selectedIndexes,
             onToggleSelection,
           ) {
-        if (links.isEmpty) {
-          return ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            children: const [
-              _ChatProfileEmptyRow(
-                icon: Icons.link_rounded,
-                label: 'Keine Links',
-              ),
-            ],
-          );
-        }
-
-        return ListView.builder(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          itemCount: links.length,
-          itemBuilder: (context, index) {
-            final isSelected = selectedIndexes.contains(index);
-
-            return GestureDetector(
-              onTap: isSelectionMode
-                  ? () => onToggleSelection(index)
-                  : () => _showItemActions(context, index),
-              child: Stack(
-                children: [
-                  _ChatProfileListTile(
+            if (links.isEmpty) {
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: const [
+                  _ChatProfileEmptyRow(
                     icon: Icons.link_rounded,
-                    title: links[index].url,
-                    subtitle: 'Link',
+                    label: 'Keine Links',
                   ),
-                  if (isSelectionMode)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: _ChatProfileSelectionCheck(
-                        isSelected: isSelected,
-                      ),
-                    ),
                 ],
-              ),
+              );
+            }
+
+            return ListView.builder(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              itemCount: links.length,
+              itemBuilder: (context, index) {
+                final isSelected = selectedIndexes.contains(index);
+
+                return GestureDetector(
+                  onTap: isSelectionMode
+                      ? () => onToggleSelection(index)
+                      : () => _showItemActions(context, index),
+                  child: Stack(
+                    children: [
+                      _ChatProfileListTile(
+                        icon: Icons.link_rounded,
+                        title: links[index].url,
+                        subtitle: 'Link',
+                      ),
+                      if (isSelectionMode)
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: _ChatProfileSelectionCheck(
+                            isSelected: isSelected,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             );
           },
-        );
-      },
     );
   }
 }
@@ -2939,9 +3723,9 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
   final ValueChanged<_LocalChatMessage> onReplyMessage;
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _documentShareText(List<_LocalChatMessage> selectedMessages) {
@@ -2969,7 +3753,7 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Teilen konnte nicht ge\u00F6ffnet werden: $error');
+      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
     }
   }
 
@@ -2989,7 +3773,7 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
           url: url,
           fileName: message.fileName?.trim().isNotEmpty == true
               ? message.fileName!.trim()
-              : 'carma_document_${DateTime.now().millisecondsSinceEpoch}',
+              : 'carisma_document_${DateTime.now().millisecondsSinceEpoch}',
           contentType: message.fileContentType?.trim().isNotEmpty == true
               ? message.fileContentType!.trim()
               : 'application/octet-stream',
@@ -3006,7 +3790,10 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Speichern konnte nicht ausgef\u00FChrt werden: $error');
+      _showSnackBar(
+        context,
+        'Speichern konnte nicht ausgeführt werden: $error',
+      );
     }
   }
 
@@ -3067,11 +3854,9 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
                   label: 'Antworten',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.reply,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.reply);
                   },
                 ),
                 _MessageActionTile(
@@ -3079,11 +3864,9 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
                   label: 'Teilen',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.share,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.share);
                   },
                 ),
                 _MessageActionTile(
@@ -3091,11 +3874,9 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
                   label: 'Speichern',
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    _handleAction(
-                      context,
-                      <int>{index},
-                      _ChatProfileSelectionAction.save,
-                    );
+                    _handleAction(context, <int>{
+                      index,
+                    }, _ChatProfileSelectionAction.save);
                   },
                 ),
               ],
@@ -3122,54 +3903,54 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
             selectedIndexes,
             onToggleSelection,
           ) {
-        if (messages.isEmpty) {
-          return ListView(
-            controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            children: const [
-              _ChatProfileEmptyRow(
-                icon: Icons.insert_drive_file_outlined,
-                label: 'Keine Dokumente',
-              ),
-            ],
-          );
-        }
-
-        return ListView.builder(
-          controller: scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-          itemCount: messages.length,
-          itemBuilder: (context, index) {
-            final message = messages[index];
-            final isSelected = selectedIndexes.contains(index);
-
-            return GestureDetector(
-              onTap: isSelectionMode
-                  ? () => onToggleSelection(index)
-                  : () => _showItemActions(context, index),
-              child: Stack(
-                children: [
-                  _ChatProfileListTile(
-                    icon: Icons.insert_drive_file_rounded,
-                    title: message.fileName?.trim().isNotEmpty == true
-                        ? message.fileName!.trim()
-                        : 'Dokument',
-                    subtitle: message.timeLabel,
+            if (messages.isEmpty) {
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: const [
+                  _ChatProfileEmptyRow(
+                    icon: Icons.insert_drive_file_outlined,
+                    label: 'Keine Dokumente',
                   ),
-                  if (isSelectionMode)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: _ChatProfileSelectionCheck(
-                        isSelected: isSelected,
-                      ),
-                    ),
                 ],
-              ),
+              );
+            }
+
+            return ListView.builder(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                final isSelected = selectedIndexes.contains(index);
+
+                return GestureDetector(
+                  onTap: isSelectionMode
+                      ? () => onToggleSelection(index)
+                      : () => _showItemActions(context, index),
+                  child: Stack(
+                    children: [
+                      _ChatProfileListTile(
+                        icon: Icons.insert_drive_file_rounded,
+                        title: message.fileName?.trim().isNotEmpty == true
+                            ? message.fileName!.trim()
+                            : 'Dokument',
+                        subtitle: message.timeLabel,
+                      ),
+                      if (isSelectionMode)
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: _ChatProfileSelectionCheck(
+                            isSelected: isSelected,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             );
           },
-        );
-      },
     );
   }
 }
@@ -3184,7 +3965,10 @@ class _ChatProfileCollectionShell extends StatelessWidget {
 
   final String title;
   final int itemCount;
-  final void Function(Set<int> selectedIndexes, _ChatProfileSelectionAction action)
+  final void Function(
+    Set<int> selectedIndexes,
+    _ChatProfileSelectionAction action,
+  )
   onSelectionAction;
   final Widget Function(
     BuildContext context,
@@ -3216,7 +4000,10 @@ class _ChatProfileCollectionShellBody extends StatefulWidget {
 
   final String title;
   final int itemCount;
-  final void Function(Set<int> selectedIndexes, _ChatProfileSelectionAction action)
+  final void Function(
+    Set<int> selectedIndexes,
+    _ChatProfileSelectionAction action,
+  )
   onSelectionAction;
   final Widget Function(
     BuildContext context,
@@ -3297,10 +4084,9 @@ class _ChatProfileCollectionShellBodyState
                     Expanded(
                       child: Text(
                         widget.title,
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
@@ -3308,14 +4094,14 @@ class _ChatProfileCollectionShellBodyState
                       TextButton(
                         onPressed: _toggleSelectionMode,
                         child: Text(
-                          _isSelectionMode ? 'Abbrechen' : 'Ausw\u00E4hlen',
+                          _isSelectionMode ? 'Abbrechen' : 'Auswählen',
                         ),
                       ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                       color: Colors.white,
-                      tooltip: 'Schlie\u00DFen',
+                      tooltip: 'Schließen',
                     ),
                   ],
                 ),
@@ -3424,7 +4210,7 @@ class _ChatProfileSelectionCheck extends StatelessWidget {
       height: 26,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isSelected ? _carmaBlue : Colors.black.withValues(alpha: 0.46),
+        color: isSelected ? _carismaBlue : Colors.black.withValues(alpha: 0.46),
         border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
       ),
       child: Icon(
@@ -3452,7 +4238,8 @@ class _ChatProfileStarredList extends StatelessWidget {
 
     return Column(
       children: messages.take(4).map((message) {
-        final title = message.contactPayload?.name ??
+        final title =
+            message.contactPayload?.name ??
             message.fileName ??
             message.text.replaceAll('\n', ' ').trim();
 
@@ -3489,7 +4276,7 @@ class _ChatProfileListTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: _carmaBlueLight, size: 22),
+          Icon(icon, color: _carismaBlueLight, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

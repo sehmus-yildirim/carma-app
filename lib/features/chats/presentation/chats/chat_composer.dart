@@ -3,6 +3,7 @@ part of '../chats_screen.dart';
 class _MessageComposer extends StatelessWidget {
   const _MessageComposer({
     required this.controller,
+    required this.focusNode,
     required this.hasText,
     required this.onPickPhoto,
     required this.onTakePhoto,
@@ -11,12 +12,16 @@ class _MessageComposer extends StatelessWidget {
     required this.onPickDocument,
     required this.onSend,
     required this.onVoiceMemo,
+    required this.isSending,
+    required this.isEnabled,
+    this.disabledMessage,
     required this.isRecordingVoiceMemo,
     required this.voiceMemoRecordingSeconds,
     required this.onTextInputFocus,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final bool hasText;
   final VoidCallback onPickPhoto;
   final VoidCallback onTakePhoto;
@@ -25,6 +30,9 @@ class _MessageComposer extends StatelessWidget {
   final VoidCallback onPickDocument;
   final VoidCallback onSend;
   final VoidCallback onVoiceMemo;
+  final bool isSending;
+  final bool isEnabled;
+  final String? disabledMessage;
   final bool isRecordingVoiceMemo;
   final int voiceMemoRecordingSeconds;
   final VoidCallback onTextInputFocus;
@@ -38,7 +46,7 @@ class _MessageComposer extends StatelessWidget {
   Future<void> _openAttachmentSheet(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.surface1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -54,7 +62,7 @@ class _MessageComposer extends StatelessWidget {
                   height: 4,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
-                    color: Colors.white.withValues(alpha: 0.24),
+                    color: Colors.white.withValues(alpha: 0.16),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -117,6 +125,12 @@ class _MessageComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canUseComposer = isEnabled && !isSending;
+    final hintText = !isEnabled
+        ? disabledMessage ?? 'Chat nicht verfügbar'
+        : isRecordingVoiceMemo
+        ? 'Aufnahme ${_formatRecordingDuration()}'
+        : 'Nachricht schreiben';
     final sendIcon = hasText
         ? Icons.send_rounded
         : isRecordingVoiceMemo
@@ -133,36 +147,44 @@ class _MessageComposer extends StatelessWidget {
           children: [
             _ComposerIconButton(
               icon: Icons.add_rounded,
-              onTap: () => _openAttachmentSheet(context),
+              onTap: canUseComposer
+                  ? () => _openAttachmentSheet(context)
+                  : null,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: controller,
-                onTap: onTextInputFocus,
+                focusNode: focusNode,
+                readOnly: !canUseComposer,
+                onTap: isEnabled ? onTextInputFocus : null,
                 minLines: 1,
                 maxLines: 1,
                 textInputAction: TextInputAction.newline,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
+                  color: isEnabled
+                      ? CaRismaDesignTokens.textPrimary
+                      : CaRismaDesignTokens.textMuted,
                   fontWeight: FontWeight.w700,
                   height: 1.1,
                 ),
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: isRecordingVoiceMemo
-                      ? 'Aufnahme ${_formatRecordingDuration()}'
-                      : 'Nachricht schreiben',
+                  hintText: hintText,
                   hintMaxLines: 1,
                   hintStyle: TextStyle(
-                    color: isRecordingVoiceMemo
+                    color: !isEnabled
+                        ? CaRismaDesignTokens.textMuted
+                        : isRecordingVoiceMemo
                         ? const Color(0xFFFF8A9A)
-                        : Colors.white.withValues(alpha: 0.48),
+                        : CaRismaDesignTokens.textMuted,
                     fontWeight: FontWeight.w700,
                     height: 1.1,
                   ),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.08),
+                  fillColor: isEnabled
+                      ? CaRismaDesignTokens.surface2.withValues(alpha: 0.82)
+                      : CaRismaDesignTokens.surface1.withValues(alpha: 0.72),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
@@ -177,12 +199,13 @@ class _MessageComposer extends StatelessWidget {
             const SizedBox(width: 8),
             _ComposerIconButton(
               icon: Icons.photo_camera_rounded,
-              onTap: onTakePhoto,
+              onTap: canUseComposer ? onTakePhoto : null,
             ),
             const SizedBox(width: 8),
             _SendButton(
-              isEnabled: true,
+              isEnabled: canUseComposer,
               icon: sendIcon,
+              isBusy: isSending,
               isRecording: isRecordingVoiceMemo && !hasText,
               onTap: hasText ? onSend : onVoiceMemo,
             ),
@@ -212,7 +235,7 @@ class _AttachmentSheetAction extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Material(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: CaRismaDesignTokens.surface2.withValues(alpha: 0.86),
             shape: const CircleBorder(),
             child: InkWell(
               onTap: onTap,
@@ -229,7 +252,7 @@ class _AttachmentSheetAction extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.78),
+              color: CaRismaDesignTokens.textSecondary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -243,7 +266,7 @@ class _ComposerIconButton extends StatelessWidget {
   const _ComposerIconButton({required this.icon, required this.onTap});
 
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -259,9 +282,15 @@ class _ComposerIconButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
-          child: Icon(icon, color: Colors.white, size: 22),
+          child: Icon(
+            icon,
+            color: onTap == null
+                ? Colors.white.withValues(alpha: 0.38)
+                : CaRismaDesignTokens.textPrimary,
+            size: 22,
+          ),
         ),
       ),
     );
@@ -272,12 +301,14 @@ class _SendButton extends StatelessWidget {
   const _SendButton({
     required this.isEnabled,
     required this.icon,
+    this.isBusy = false,
     this.isRecording = false,
     required this.onTap,
   });
 
   final bool isEnabled;
   final IconData icon;
+  final bool isBusy;
   final bool isRecording;
   final VoidCallback onTap;
 
@@ -306,33 +337,45 @@ class _SendButton extends StatelessWidget {
                             Color(0xFF9F1430),
                           ]
                         : const [
-                            _myMessageBlueDark,
-                            _myMessageBlue,
-                            _myMessageBlueLight,
+                            CaRismaDesignTokens.bluePrimary,
+                            CaRismaDesignTokens.blueBright,
                           ],
                   )
                 : null,
-            color: isEnabled ? null : Colors.white.withValues(alpha: 0.10),
+            color: isEnabled
+                ? null
+                : CaRismaDesignTokens.surface2.withValues(alpha: 0.72),
             border: Border.all(
               color: Colors.white.withValues(alpha: isEnabled ? 0.0 : 0.14),
             ),
             boxShadow: isEnabled
                 ? [
                     BoxShadow(
-                      color: _carmaBlue.withValues(alpha: 0.24),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
+                      color: _carismaBlue.withValues(alpha: 0.35),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
                   ]
                 : const [],
           ),
-          child: Icon(
-            icon,
-            color: isEnabled
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.42),
-            size: 22,
-          ),
+          child: isBusy
+              ? const Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  ),
+                )
+              : Icon(
+                  icon,
+                  color: isEnabled
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.42),
+                  size: 22,
+                ),
         ),
       ),
     );

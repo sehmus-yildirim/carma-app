@@ -1,8 +1,8 @@
 part of '../chats_screen.dart';
 
 const int _storyTextMaxLength = 280;
-const int _storyLinkMaxLength = 300;
-const int _storyHashtagMaxLength = 79;
+const int _storyCustomStatusMaxLength = 32;
+const String _storyCustomStatusOption = '__custom_status__';
 
 Widget? _hideStoryInputCounter(
   BuildContext context, {
@@ -24,6 +24,7 @@ class _StoryDraft {
     required this.textIsBold,
     required this.textIsItalic,
     required this.textIsUnderline,
+    required this.textAlign,
     required this.textAlignment,
     required this.filterType,
     required this.sticker,
@@ -38,6 +39,7 @@ class _StoryDraft {
   final bool textIsBold;
   final bool textIsItalic;
   final bool textIsUnderline;
+  final String textAlign;
   final Alignment textAlignment;
   final String filterType;
   final _StoryStickerDraft sticker;
@@ -144,6 +146,7 @@ IconData _storyStatusStickerIcon(String label) {
     'Treffen offen' => Icons.event_available_rounded,
     'Nicht stören' => Icons.do_disturb_on_rounded,
     'Auto gesehen' => Icons.visibility_rounded,
+    'Bin am Auto' => Icons.car_repair_rounded,
     _ => Icons.bolt_rounded,
   };
 }
@@ -166,16 +169,21 @@ class _StoryCaptureScreen extends StatefulWidget {
 
 class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   static const Duration _maxStoryVideoDuration = Duration(seconds: 30);
+  static const Duration _videoRecordHoldDelay = Duration(milliseconds: 280);
 
   final List<CameraDescription> _cameras = <CameraDescription>[];
   CameraController? _cameraController;
   Timer? _recordingTimer;
+  Timer? _captureHoldTimer;
 
   bool _isInitializingCamera = true;
   bool _isCapturing = false;
   bool _isStartingVideoRecording = false;
   bool _isRecordingVideo = false;
+  bool _isStoppingVideoRecording = false;
   bool _shouldStopRecordingWhenReady = false;
+  bool _isCapturePointerDown = false;
+  bool _hasCaptureHoldStartedVideo = false;
   String? _cameraError;
   Duration _recordingDuration = Duration.zero;
   int _cameraIndex = 0;
@@ -189,6 +197,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   @override
   void dispose() {
     _recordingTimer?.cancel();
+    _captureHoldTimer?.cancel();
     _cameraController?.dispose();
     super.dispose();
   }
@@ -250,7 +259,10 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   }
 
   Future<void> _pickFromGallery() async {
-    if (_isCapturing || _isRecordingVideo) {
+    if (_isCapturing ||
+        _isRecordingVideo ||
+        _isStartingVideoRecording ||
+        _isStoppingVideoRecording) {
       return;
     }
 
@@ -382,6 +394,8 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
 
     if (_isCapturing ||
         _isRecordingVideo ||
+        _isStartingVideoRecording ||
+        _isStoppingVideoRecording ||
         controller == null ||
         !controller.value.isInitialized ||
         controller.value.isTakingPicture) {
@@ -420,12 +434,59 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   }
 
   Future<void> _switchCamera() async {
-    if (_cameras.length < 2 || _isCapturing || _isInitializingCamera) {
+    if (_cameras.length < 2 ||
+        _isCapturing ||
+        _isInitializingCamera ||
+        _isRecordingVideo ||
+        _isStartingVideoRecording ||
+        _isStoppingVideoRecording) {
       return;
     }
 
     final nextIndex = (_cameraIndex + 1) % _cameras.length;
     await _initializeCamera(cameraIndex: nextIndex);
+  }
+
+  void _handleCapturePointerDown() {
+    if (_isCapturing ||
+        _isRecordingVideo ||
+        _isStartingVideoRecording ||
+        _isStoppingVideoRecording) {
+      return;
+    }
+
+    _captureHoldTimer?.cancel();
+    _isCapturePointerDown = true;
+    _hasCaptureHoldStartedVideo = false;
+    _captureHoldTimer = Timer(_videoRecordHoldDelay, () {
+      if (!_isCapturePointerDown || _hasCaptureHoldStartedVideo || !mounted) {
+        return;
+      }
+
+      _hasCaptureHoldStartedVideo = true;
+      unawaited(_handleLongPressStart());
+    });
+  }
+
+  void _handleCapturePointerUp({required bool takePhotoOnShortPress}) {
+    if (!_isCapturePointerDown && !_hasCaptureHoldStartedVideo) {
+      return;
+    }
+
+    _isCapturePointerDown = false;
+    _captureHoldTimer?.cancel();
+    _captureHoldTimer = null;
+
+    if (_hasCaptureHoldStartedVideo ||
+        _isStartingVideoRecording ||
+        _isRecordingVideo) {
+      _requestStopVideoRecording();
+      return;
+    }
+
+    if (takePhotoOnShortPress) {
+      unawaited(_takePhoto());
+    }
   }
 
   Future<void> _handleLongPressStart() async {
@@ -434,6 +495,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     if (_isCapturing ||
         _isStartingVideoRecording ||
         _isRecordingVideo ||
+        _isStoppingVideoRecording ||
         controller == null ||
         !controller.value.isInitialized ||
         controller.value.isRecordingVideo) {
@@ -493,6 +555,10 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   }
 
   void _requestStopVideoRecording() {
+    if (_isStoppingVideoRecording) {
+      return;
+    }
+
     if (_isStartingVideoRecording) {
       _shouldStopRecordingWhenReady = true;
       return;
@@ -511,7 +577,8 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
       return;
     }
 
-    if (!_isRecordingVideo ||
+    if (_isStoppingVideoRecording ||
+        !_isRecordingVideo ||
         controller == null ||
         !controller.value.isInitialized ||
         !controller.value.isRecordingVideo) {
@@ -520,6 +587,8 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
 
     setState(() {
       _isCapturing = true;
+      _isRecordingVideo = false;
+      _isStoppingVideoRecording = true;
     });
     _shouldStopRecordingWhenReady = false;
     _recordingTimer?.cancel();
@@ -549,6 +618,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
         setState(() {
           _isCapturing = false;
           _isRecordingVideo = false;
+          _isStoppingVideoRecording = false;
           _recordingDuration = Duration.zero;
         });
       }
@@ -566,10 +636,21 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   Widget build(BuildContext context) {
     final viewPadding = MediaQuery.paddingOf(context);
     final controller = _cameraController;
+    final previewSize = controller?.value.previewSize;
     final isCameraReady =
         controller != null &&
+        previewSize != null &&
         controller.value.isInitialized &&
         !_isInitializingCamera;
+    final isCaptureBusy =
+        _isCapturing ||
+        _isStartingVideoRecording ||
+        _isRecordingVideo ||
+        _isStoppingVideoRecording;
+    final canTakePhoto = isCameraReady && !isCaptureBusy;
+    final canPickMedia = !isCaptureBusy;
+    final canSwitchCamera =
+        isCameraReady && _cameras.length > 1 && !isCaptureBusy;
     final recordingProgress =
         (_recordingDuration.inMilliseconds /
                 _maxStoryVideoDuration.inMilliseconds)
@@ -577,182 +658,193 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: isCameraReady
-                ? FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: controller.value.previewSize!.height,
-                      height: controller.value.previewSize!.width,
-                      child: CameraPreview(controller),
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerUp: (_) => _requestStopVideoRecording(),
+        onPointerCancel: (_) => _requestStopVideoRecording(),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: isCameraReady
+                  ? FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: previewSize.height,
+                        height: previewSize.width,
+                        child: CameraPreview(controller),
+                      ),
+                    )
+                  : _StoryCameraPlaceholder(
+                      isLoading: _isInitializingCamera,
+                      message: _cameraError,
+                      onRetry: () => _initializeCamera(),
                     ),
-                  )
-                : _StoryCameraPlaceholder(
-                    isLoading: _isInitializingCamera,
-                    message: _cameraError,
-                    onRetry: () => _initializeCamera(),
-                  ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.42),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.50),
-                    ],
-                    stops: const [0, 0.42, 1],
-                  ),
-                ),
-              ),
             ),
-          ),
-          Positioned(
-            left: 14,
-            right: 14,
-            top: viewPadding.top + 10,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(8, 7, 14, 7),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
                     gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                       colors: [
-                        const Color(0xFF101827).withValues(alpha: 0.70),
-                        Colors.black.withValues(alpha: 0.34),
+                        Colors.black.withValues(alpha: 0.42),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.50),
                       ],
+                      stops: const [0, 0.42, 1],
                     ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      _StoryEditorHeaderButton(
-                        icon: Icons.close_rounded,
-                        tooltip: 'Abbrechen',
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Story aufnehmen',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _takePhoto,
-                        icon: const Icon(Icons.photo_camera_rounded),
-                        color: Colors.white,
-                        tooltip: 'Foto aufnehmen',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
             ),
-          ),
-          if (_isRecordingVideo)
             Positioned(
-              left: 0,
-              right: 0,
-              top: viewPadding.top + 86,
-              child: Center(
-                child: _StoryRecordingIndicator(
-                  durationLabel: _formatRecordingDuration(_recordingDuration),
+              left: 14,
+              right: 14,
+              top: viewPadding.top + 10,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(8, 7, 14, 7),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF101827).withValues(alpha: 0.70),
+                          Colors.black.withValues(alpha: 0.34),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.14),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        _StoryEditorHeaderButton(
+                          icon: Icons.close_rounded,
+                          tooltip: 'Abbrechen',
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Story aufnehmen',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: canTakePhoto ? _takePhoto : null,
+                          icon: const Icon(Icons.photo_camera_rounded),
+                          color: canTakePhoto
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.36),
+                          tooltip: 'Foto aufnehmen',
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(
+                              alpha: canTakePhoto ? 0.10 : 0.05,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          Positioned(
-            left: 14,
-            right: 14,
-            bottom: viewPadding.bottom + 22,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(34),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(18, 13, 18, 14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(34),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF101827).withValues(alpha: 0.72),
-                        Colors.black.withValues(alpha: 0.40),
+            if (_isRecordingVideo)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: viewPadding.top + 86,
+                child: Center(
+                  child: _StoryRecordingIndicator(
+                    durationLabel: _formatRecordingDuration(_recordingDuration),
+                  ),
+                ),
+              ),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: viewPadding.bottom + 22,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(34),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(18, 13, 18, 14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(34),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF101827).withValues(alpha: 0.72),
+                          Colors.black.withValues(alpha: 0.40),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.14),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28),
+                          blurRadius: 26,
+                          offset: const Offset(0, 14),
+                        ),
                       ],
                     ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 26,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _StoryCaptureSideAction(
-                        icon: Icons.photo_library_rounded,
-                        label: 'Aufnahmen',
-                        onTap: _pickFromGallery,
-                      ),
-                      Listener(
-                        onPointerUp: (_) => _requestStopVideoRecording(),
-                        onPointerCancel: (_) => _requestStopVideoRecording(),
-                        child: GestureDetector(
-                          onTap: _takePhoto,
-                          onLongPressStart: (_) => _handleLongPressStart(),
-                          onLongPressEnd: (_) => _requestStopVideoRecording(),
-                          onLongPressCancel: _requestStopVideoRecording,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _StoryCaptureSideAction(
+                          icon: Icons.photo_library_rounded,
+                          label: 'Aufnahmen',
+                          enabled: canPickMedia,
+                          onTap: _pickFromGallery,
+                        ),
+                        Listener(
+                          behavior: HitTestBehavior.opaque,
+                          onPointerDown: (_) => _handleCapturePointerDown(),
+                          onPointerUp: (_) => _handleCapturePointerUp(
+                            takePhotoOnShortPress: true,
+                          ),
+                          onPointerCancel: (_) => _handleCapturePointerUp(
+                            takePhotoOnShortPress: false,
+                          ),
                           child: _StoryCaptureButton(
                             isBusy: _isCapturing,
                             isRecording: _isRecordingVideo,
                             recordingProgress: recordingProgress,
                           ),
                         ),
-                      ),
-                      _StoryCaptureSideAction(
-                        icon: Icons.flip_camera_android_rounded,
-                        label: 'Kamera',
-                        onTap: _switchCamera,
-                      ),
-                    ],
+                        _StoryCaptureSideAction(
+                          icon: Icons.flip_camera_android_rounded,
+                          label: 'Kamera',
+                          enabled: canSwitchCamera,
+                          onTap: _switchCamera,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -864,7 +956,7 @@ class _StoryMediaPickerTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             color: Colors.white.withValues(alpha: 0.07),
@@ -873,14 +965,14 @@ class _StoryMediaPickerTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _carmaBlue.withValues(alpha: 0.82),
+                  color: _carismaBlue.withValues(alpha: 0.82),
                   boxShadow: [
                     BoxShadow(
-                      color: _carmaBlue.withValues(alpha: 0.22),
+                      color: _carismaBlue.withValues(alpha: 0.22),
                       blurRadius: 14,
                       offset: const Offset(0, 7),
                     ),
@@ -994,7 +1086,7 @@ class _StoryFilterNamePill extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 Colors.black.withValues(alpha: 0.46),
-                _carmaBlueDark.withValues(alpha: 0.28),
+                _carismaBlueDark.withValues(alpha: 0.28),
               ],
             ),
             border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
@@ -1102,7 +1194,7 @@ class _StoryCaptureButton extends StatelessWidget {
                   : Colors.transparent,
               boxShadow: [
                 BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.32),
+                  color: _carismaBlue.withValues(alpha: 0.32),
                   blurRadius: 26,
                   offset: const Offset(0, 12),
                 ),
@@ -1122,7 +1214,7 @@ class _StoryCaptureButton extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          _carmaBlue.withValues(alpha: 0.92),
+                          _carismaBlue.withValues(alpha: 0.92),
                           _myMessageBlueDark.withValues(alpha: 0.88),
                         ],
                       )
@@ -1182,16 +1274,20 @@ class _StoryCaptureSideAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.enabled = true,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
+    final opacity = enabled ? 1.0 : 0.42;
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1204,33 +1300,105 @@ class _StoryCaptureSideAction extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withValues(alpha: 0.18),
-                  Colors.white.withValues(alpha: 0.07),
+                  Colors.white.withValues(alpha: enabled ? 0.18 : 0.08),
+                  Colors.white.withValues(alpha: enabled ? 0.07 : 0.04),
                 ],
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: enabled ? 0.20 : 0.09),
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.26),
+                  color: Colors.black.withValues(alpha: enabled ? 0.26 : 0.12),
                   blurRadius: 18,
                   offset: const Offset(0, 10),
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(
+              icon,
+              color: Colors.white.withValues(alpha: opacity),
+              size: 24,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: opacity),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StoryDeleteDropTarget extends StatelessWidget {
+  const _StoryDeleteDropTarget({required this.isActive});
+
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      scale: isActive ? 1.08 : 1,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.fromLTRB(18, 11, 20, 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: (isActive ? const Color(0xFFFF315A) : Colors.black)
+                  .withValues(alpha: isActive ? 0.72 : 0.44),
+              border: Border.all(
+                color: isActive
+                    ? const Color(0xFFFFA0B0).withValues(alpha: 0.74)
+                    : Colors.white.withValues(alpha: 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (isActive ? const Color(0xFFFF315A) : Colors.black)
+                      .withValues(alpha: isActive ? 0.34 : 0.24),
+                  blurRadius: isActive ? 26 : 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isActive
+                      ? Icons.delete_forever_rounded
+                      : Icons.delete_outline_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isActive ? 'Loslassen zum Löschen' : 'Zum Löschen hierher',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1265,28 +1433,37 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
   bool _isTextEditingEnabled = false;
   bool _isVideoMuted = false;
   String _fontFamily = 'standard';
-  Alignment _textAlignment = const Alignment(0, 0.16);
+  TextAlign _textAlign = TextAlign.center;
+  Alignment _textAlignment = const Alignment(0, -0.20);
   String _filterType = 'normal';
   _StoryStickerDraft _sticker = const _StoryStickerDraft.empty();
   bool _isSaving = false;
   bool _isPublishing = false;
   bool _isVideoTooLong = false;
+  bool _isDraggingText = false;
+  bool _isDraggingSticker = false;
+  bool _isDeleteTargetActive = false;
 
   static const Duration _maxDraftVideoDuration = Duration(seconds: 30);
 
   static const List<Color> _storyTextColors = [
     Colors.white,
+    Color(0xFFFFF8B5),
     Color(0xFFFFD54F),
-    Color(0xFFFF7A3D),
-    Color(0xFFFF3B30),
-    Color(0xFFFF5C8A),
-    Color(0xFFFF8AD8),
+    Color(0xFFFF9A3D),
+    Color(0xFFFF5C5C),
+    Color(0xFFFF4F9A),
+    Color(0xFFE879F9),
     Color(0xFFC084FC),
-    Color(0xFF007AFF),
-    Color(0xFF63D5FF),
+    Color(0xFF7C3AED),
+    Color(0xFF3B82F6),
+    Color(0xFF38BDF8),
+    Color(0xFF22D3EE),
     Color(0xFF2DD4BF),
-    Color(0xFF64F29B),
-    Color(0xFFB6FF3B),
+    Color(0xFF4ADE80),
+    Color(0xFFA3E635),
+    Color(0xFFE5E7EB),
+    Color(0xFF111827),
     Colors.black,
   ];
 
@@ -1427,6 +1604,34 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
 
     setState(() {
       _textAlignment = Alignment(nextX.toDouble(), nextY.toDouble());
+      _isDeleteTargetActive = nextY > 0.60;
+    });
+  }
+
+  void _startTextDrag() {
+    if (_textController.text.trim().isEmpty || _isTextEditingEnabled) {
+      return;
+    }
+
+    setState(() {
+      _isDraggingText = true;
+      _isDeleteTargetActive = false;
+    });
+  }
+
+  void _finishTextDrag() {
+    if (!_isDraggingText) {
+      return;
+    }
+
+    setState(() {
+      if (_isDeleteTargetActive) {
+        _textController.clear();
+        _isTextEditingEnabled = false;
+      }
+
+      _isDraggingText = false;
+      _isDeleteTargetActive = false;
     });
   }
 
@@ -1447,22 +1652,101 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         payload: _sticker.payload,
         alignment: Alignment(nextX.toDouble(), nextY.toDouble()),
       );
+      _isDeleteTargetActive = nextY > 0.60;
     });
   }
 
-  void _activateTextEditing() {
+  void _startStickerDrag() {
+    if (_sticker.isEmpty) {
+      return;
+    }
+
     setState(() {
-      _isTextEditingEnabled = true;
+      _isDraggingSticker = true;
+      _isDeleteTargetActive = false;
     });
+  }
+
+  void _finishStickerDrag() {
+    if (!_isDraggingSticker) {
+      return;
+    }
+
+    setState(() {
+      if (_isDeleteTargetActive) {
+        _sticker = const _StoryStickerDraft.empty();
+      }
+
+      _isDraggingSticker = false;
+      _isDeleteTargetActive = false;
+    });
+  }
+
+  void _keepTextInputFocused() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && _isTextEditingEnabled) {
         _textFocusNode.requestFocus();
       }
     });
   }
 
+  Alignment _visibleTextAlignmentForEditing(BuildContext context) {
+    if (!_isTextEditingEnabled) {
+      return _textAlignment;
+    }
+
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    if (screenHeight <= 0) {
+      return _textAlignment;
+    }
+
+    final keyboardHeight = mediaQuery.viewInsets.bottom;
+    final safeTop = mediaQuery.padding.top + 104;
+    final styleBarHeight = keyboardHeight > 0 ? 120.0 : 108.0;
+    final safeBottom =
+        (keyboardHeight > 0 ? keyboardHeight : mediaQuery.padding.bottom) +
+        styleBarHeight;
+
+    final minY = ((safeTop / screenHeight) * 2 - 1).clamp(-0.82, 0.40);
+    final maxY = (((screenHeight - safeBottom) / screenHeight) * 2 - 1).clamp(
+      minY + 0.08,
+      0.72,
+    );
+
+    return Alignment(
+      _textAlignment.x.clamp(-0.88, 0.88).toDouble(),
+      _textAlignment.y.clamp(minY, maxY).toDouble(),
+    );
+  }
+
+  void _activateTextEditing() {
+    final isNewText = _textController.text.trim().isEmpty;
+
+    setState(() {
+      _isTextEditingEnabled = true;
+      if (isNewText) {
+        _textAlignment = const Alignment(0, -0.20);
+      }
+    });
+    _keepTextInputFocused();
+  }
+
   void _finishTextEditing() {
+    _textFocusNode.unfocus();
     FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final trimmedText = _textController.text.trim();
+    if (trimmedText.isEmpty) {
+      _textController.clear();
+    } else if (_textController.text != trimmedText) {
+      _textController.text = trimmedText;
+      _textController.selection = TextSelection.collapsed(
+        offset: trimmedText.length,
+      );
+    }
+
     setState(() {
       _isTextEditingEnabled = false;
     });
@@ -1483,44 +1767,6 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
 
   Future<void> _addLocationSticker() async {
     final sticker = await _buildLocationSticker(context);
-
-    if (sticker == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _sticker = sticker;
-    });
-  }
-
-  Future<void> _addLinkSticker() async {
-    final sticker = await _showStickerTextDialog(
-      context: context,
-      title: 'Link hinzuf\u00FCgen',
-      hintText: 'https://...',
-      type: 'link',
-      iconPrefix: '',
-      maxLength: _storyLinkMaxLength,
-    );
-
-    if (sticker == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _sticker = sticker;
-    });
-  }
-
-  Future<void> _addHashtagSticker() async {
-    final sticker = await _showStickerTextDialog(
-      context: context,
-      title: 'Hashtag hinzuf\u00FCgen',
-      hintText: 'carma',
-      type: 'hashtag',
-      iconPrefix: '#',
-      maxLength: _storyHashtagMaxLength,
-    );
 
     if (sticker == null || !mounted) {
       return;
@@ -1560,31 +1806,35 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
   }
 
   Future<void> _addStatusSticker() async {
-    final status = await _showStatusStickerPicker(context);
+    var status = await _showStatusStickerPicker(context);
 
     if (status == null || !mounted) {
       return;
     }
 
+    if (status == _storyCustomStatusOption) {
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      if (!mounted) {
+        return;
+      }
+
+      status = await _showCustomStatusInput(context);
+
+      if (status == null || !mounted) {
+        return;
+      }
+    }
+
+    final effectiveStatus = status;
+
     setState(() {
       _sticker = _StoryStickerDraft(
         type: 'status',
-        label: status,
-        payload: status,
+        label: effectiveStatus,
+        payload: effectiveStatus,
         alignment: const Alignment(0, 0.52),
       );
-    });
-  }
-
-  Future<void> _addPollSticker() async {
-    final sticker = await _showPollStickerDialog(context);
-
-    if (sticker == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _sticker = sticker;
     });
   }
 
@@ -1641,7 +1891,6 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition();
-      final fallbackLabel = 'Aktueller Standort';
       final places = await ChatNativeBridge()
           .reverseGeocodeLocation(
             latitude: position.latitude,
@@ -1649,20 +1898,24 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
           )
           .catchError((_) => const <ResolvedLocationPlace>[]);
       final selectedPlace = context.mounted
-          ? await _showLocationPlacePicker(
-              context: context,
-              places: places,
-              fallbackLabel: fallbackLabel,
-            )
+          ? await _showLocationPlacePicker(context: context, places: places)
           : null;
-      final label = selectedPlace?.label.trim().isNotEmpty == true
-          ? selectedPlace!.label.trim()
-          : fallbackLabel;
+
+      if (selectedPlace == null) {
+        return null;
+      }
+
+      final label = selectedPlace.label.trim();
+
+      if (label.isEmpty) {
+        return null;
+      }
 
       return _StoryStickerDraft(
         type: 'location',
         label: label,
-        payload: '${position.latitude},${position.longitude}',
+        payload:
+            '${position.latitude.toStringAsFixed(6)},${position.longitude.toStringAsFixed(6)}',
         alignment: const Alignment(0, 0.52),
       );
     } catch (error) {
@@ -1680,95 +1933,118 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
   Future<ResolvedLocationPlace?> _showLocationPlacePicker({
     required BuildContext context,
     required List<ResolvedLocationPlace> places,
-    required String fallbackLabel,
   }) async {
-    final options = _buildLocationPickerOptions(
-      places: places,
-      fallbackLabel: fallbackLabel,
-    );
+    final options = _buildLocationPickerOptions(places: places);
+
+    if (options.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kein passender Standort gefunden.')),
+        );
+      }
+
+      return null;
+    }
 
     if (options.length == 1) {
       return options.first;
     }
+
+    final initialChildSize = (0.50 + (options.length * 0.055))
+        .clamp(0.58, 0.88)
+        .toDouble();
+    final minChildSize = (initialChildSize - 0.18).clamp(0.42, 0.72).toDouble();
 
     return showModalBottomSheet<ResolvedLocationPlace>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.68;
-
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: SizedBox(
-                  height: maxSheetHeight,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF101827).withValues(alpha: 0.94),
-                          const Color(0xFF071120).withValues(alpha: 0.88),
-                        ],
+        return DraggableScrollableSheet(
+          initialChildSize: initialChildSize,
+          minChildSize: minChildSize,
+          maxChildSize: 0.96,
+          expand: false,
+          builder: (context, scrollController) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF101827).withValues(alpha: 0.94),
+                            const Color(0xFF071120).withValues(alpha: 0.88),
+                          ],
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
                       ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 44,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(999),
+                      child: Scrollbar(
+                        controller: scrollController,
+                        thumbVisibility: options.length > 4,
+                        child: ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.only(bottom: 6),
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 44,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Standort auswählen',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Wähle, wie dein Ort in der Story erscheinen soll.',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.62),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            for (var index = 0; index < options.length; index++)
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: index == options.length - 1 ? 0 : 8,
+                                ),
+                                child: _StoryLocationPlaceTile(
+                                  place: options[index],
+                                  onTap: () =>
+                                      Navigator.of(context).pop(options[index]),
+                                ),
+                              ),
+                          ],
                         ),
-                        const SizedBox(height: 18),
-                        const Text(
-                          'Standort auswählen',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: options.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) {
-                              final place = options[index];
-
-                              return _StoryLocationPlaceTile(
-                                place: place,
-                                onTap: () => Navigator.of(context).pop(place),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -1776,10 +2052,13 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
 
   List<ResolvedLocationPlace> _buildLocationPickerOptions({
     required List<ResolvedLocationPlace> places,
-    required String fallbackLabel,
   }) {
     final options = <ResolvedLocationPlace>[];
     final seenLabels = <String>{};
+
+    String normalizeKey(String label) {
+      return label.trim().toLowerCase().replaceAll(RegExp(r'[\s,.-]+'), ' ');
+    }
 
     bool isUsefulLabel(String label) {
       final trimmedLabel = label.trim();
@@ -1788,7 +2067,22 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         return false;
       }
 
+      if (RegExp(r'^-?\d+\.\d+,\s*-?\d+\.\d+$').hasMatch(trimmedLabel)) {
+        return false;
+      }
+
       if (RegExp(r'^\d+[a-zA-Z]?\b').hasMatch(trimmedLabel)) {
+        return false;
+      }
+
+      if (RegExp(
+        r'\b(stra(?:ß|ss)e|str\.?|weg|allee|platz|ring|damm|ufer|chaussee|stieg|kamp|hof|barg|berg)\b',
+        caseSensitive: false,
+      ).hasMatch(trimmedLabel)) {
+        return false;
+      }
+
+      if (trimmedLabel.split(',').length > 2) {
         return false;
       }
 
@@ -1806,7 +2100,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         return;
       }
 
-      final key = trimmedLabel.toLowerCase();
+      final key = normalizeKey(trimmedLabel);
       if (!seenLabels.add(key)) {
         return;
       }
@@ -1829,225 +2123,43 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         country: place.country,
       );
 
-      if (place.region.trim().toLowerCase() !=
-          place.city.trim().toLowerCase()) {
-        addOption(
-          label: place.region,
-          city: place.city,
-          region: place.region,
-          country: place.country,
-        );
-      }
+      addOption(
+        label: [
+          place.city,
+          if (place.region.trim().toLowerCase() !=
+              place.city.trim().toLowerCase())
+            place.region,
+        ].where((value) => value.trim().isNotEmpty).join(', '),
+        city: place.city,
+        region: place.region,
+        country: place.country,
+      );
 
       addOption(
         label: [
           place.city,
-          place.region,
+          if (place.country.trim().toLowerCase() !=
+              place.city.trim().toLowerCase())
+            place.country,
         ].where((value) => value.trim().isNotEmpty).join(', '),
+        city: place.city,
+        region: place.region,
+        country: place.country,
+      );
+
+      addOption(
+        label: place.label,
         city: place.city,
         region: place.region,
         country: place.country,
       );
     }
 
-    addOption(label: fallbackLabel, city: '', region: '', country: '');
-
-    return options.take(8).toList(growable: false);
-  }
-
-  Future<_StoryStickerDraft?> _showStickerTextDialog({
-    required BuildContext context,
-    required String title,
-    required String hintText,
-    required String type,
-    required String iconPrefix,
-    required int maxLength,
-  }) async {
-    final controller = TextEditingController();
-    final isHashtag = type == 'hashtag';
-    final dialogIcon = switch (type) {
-      'link' => Icons.link_rounded,
-      'hashtag' => Icons.tag_rounded,
-      _ => Icons.edit_rounded,
-    };
-
-    String normalizedInput(String rawValue) {
-      final trimmedValue = rawValue.trim();
-
-      if (type == 'link') {
-        return _normalizeStoryLink(trimmedValue);
-      }
-
-      return trimmedValue
-          .replaceFirst(RegExp(r'^#+'), '')
-          .replaceAll(RegExp(r'\s+'), '');
+    if (options.length <= 8) {
+      return options;
     }
 
-    try {
-      final value = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, textValue, _) {
-              final normalizedPreview = normalizedInput(textValue.text);
-              final canSubmit = normalizedPreview.isNotEmpty;
-              final hashtagPreview = normalizedPreview.isEmpty
-                  ? '#carma'
-                  : '#$normalizedPreview';
-
-              return _StoryTextInputDialog(
-                backgroundColor: const Color(0xFF101827),
-                icon: dialogIcon,
-                title: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      maxLength: maxLength,
-                      keyboardType: type == 'link'
-                          ? TextInputType.url
-                          : TextInputType.text,
-                      autocorrect: type != 'link',
-                      enableSuggestions: type != 'link',
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (value) {
-                        if (normalizedInput(value).isNotEmpty) {
-                          Navigator.of(dialogContext).pop(value);
-                        }
-                      },
-                      buildCounter: _hideStoryInputCounter,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: hintText,
-                        prefixText: iconPrefix.isEmpty ? null : iconPrefix,
-                        prefixStyle: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.48),
-                        ),
-                      ),
-                    ),
-                    if (isHashtag) ...[
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: _carmaBlue.withValues(alpha: 0.14),
-                          border: Border.all(
-                            color: _carmaBlueLight.withValues(alpha: 0.20),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.tag_rounded,
-                              color: _carmaBlueLight,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                hashtagPreview,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                actions: [
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.16),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text('Abbrechen'),
-                  ),
-                  FilledButton(
-                    onPressed: canSubmit
-                        ? () => Navigator.of(dialogContext).pop(controller.text)
-                        : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _carmaBlue,
-                      disabledBackgroundColor: _carmaBlue.withValues(
-                        alpha: 0.34,
-                      ),
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white.withValues(
-                        alpha: 0.52,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text('Hinzufügen'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-
-      final trimmedValue = value?.trim() ?? '';
-
-      if (trimmedValue.isEmpty) {
-        return null;
-      }
-
-      final normalizedValue = normalizedInput(trimmedValue);
-
-      if (normalizedValue.isEmpty) {
-        return null;
-      }
-
-      final label = type == 'link'
-          ? normalizedValue
-          : '$iconPrefix$normalizedValue';
-
-      return _StoryStickerDraft(
-        type: type,
-        label: label,
-        payload: normalizedValue,
-        alignment: const Alignment(0, 0.52),
-      );
-    } finally {
-      controller.dispose();
-    }
+    return options.take(8).toList();
   }
 
   Future<_StoryStickerDraft?> _showVehicleStickerPicker({
@@ -2103,7 +2215,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         ),
       ),
       _StoryVehicleStickerOption(
-        title: 'Carma Badge',
+        title: 'CaRisma Badge',
         subtitle: '$vehicleLabel - $visiblePlateLabel',
         icon: Icons.verified_rounded,
         sticker: _StoryStickerDraft(
@@ -2205,6 +2317,11 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       'Nicht stören',
       'Auto gesehen',
     ];
+    final visibleStatusOptions = <String>[
+      for (final status in statusOptions)
+        if (status != 'Kurze Frage' && !status.startsWith('Nicht ')) status,
+      'Bin am Auto',
+    ];
 
     return showModalBottomSheet<String>(
       context: context,
@@ -2261,11 +2378,17 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          for (final status in statusOptions)
+                          for (final status in visibleStatusOptions)
                             _StoryStatusChoiceChip(
                               label: status,
                               onTap: () => Navigator.of(context).pop(status),
                             ),
+                          _StoryStatusChoiceChip(
+                            label: 'Eigener Status',
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pop(_storyCustomStatusOption),
+                          ),
                         ],
                       ),
                     ],
@@ -2279,119 +2402,86 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     );
   }
 
-  Future<_StoryStickerDraft?> _showPollStickerDialog(
-    BuildContext context,
-  ) async {
-    final questionController = TextEditingController();
-    final firstOptionController = TextEditingController(text: 'Ja');
-    final secondOptionController = TextEditingController(text: 'Nein');
+  Future<String?> _showCustomStatusInput(BuildContext context) async {
+    final controller = TextEditingController();
 
     try {
-      final confirmed = await showDialog<bool>(
+      final value = await showDialog<String>(
         context: context,
-        builder: (context) {
-          return _StoryTextInputDialog(
-            backgroundColor: const Color(0xFF101827),
-            title: const Text(
-              'Umfrage hinzufügen',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
+        barrierColor: Colors.black.withValues(alpha: 0.58),
+        builder: (dialogContext) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 18),
+            child: _StoryTextInputDialog(
+              icon: Icons.bolt_rounded,
+              title: const Text(
+                'Eigener Status',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: questionController,
-                  autofocus: true,
-                  maxLength: 80,
-                  textInputAction: TextInputAction.next,
-                  buildCounter: _hideStoryInputCounter,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    hintText: 'Frage, z. B. Treffen heute?',
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: _storyCustomStatusMaxLength,
+                textInputAction: TextInputAction.done,
+                buildCounter: _hideStoryInputCounter,
+                onSubmitted: (text) {
+                  final trimmed = text.trim();
+
+                  if (trimmed.isNotEmpty) {
+                    Navigator.of(dialogContext).pop(trimmed);
+                  }
+                },
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'z. B. Gleich wieder da',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text(
+                    'Abbrechen',
+                    style: TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: firstOptionController,
-                  maxLength: 28,
-                  textInputAction: TextInputAction.next,
-                  buildCounter: _hideStoryInputCounter,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(hintText: 'Antwort 1'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: secondOptionController,
-                  maxLength: 28,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => Navigator.of(context).pop(true),
-                  buildCounter: _hideStoryInputCounter,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(hintText: 'Antwort 2'),
+                FilledButton(
+                  onPressed: () {
+                    final trimmed = controller.text.trim();
+
+                    if (trimmed.isNotEmpty) {
+                      Navigator.of(dialogContext).pop(trimmed);
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _carismaBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Hinzufügen',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
                 ),
               ],
             ),
-            actions: [
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text('Abbrechen'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _carmaBlue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text('Hinzufügen'),
-              ),
-            ],
           );
         },
       );
 
-      if (confirmed != true) {
-        return null;
-      }
-
-      final question = questionController.text.trim();
-      final firstOption = firstOptionController.text.trim();
-      final secondOption = secondOptionController.text.trim();
-
-      if (question.isEmpty || firstOption.isEmpty || secondOption.isEmpty) {
-        return null;
-      }
-
-      return _StoryStickerDraft(
-        type: 'poll',
-        label: question,
-        payload: '$firstOption\n$secondOption',
-        alignment: const Alignment(0, 0.52),
-      );
+      final trimmedValue = value?.trim() ?? '';
+      return trimmedValue.isEmpty ? null : trimmedValue;
     } finally {
-      questionController.dispose();
-      firstOptionController.dispose();
-      secondOptionController.dispose();
+      controller.dispose();
     }
   }
 
@@ -2406,9 +2496,10 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
 
     try {
       if (widget.isVideo) {
-        await ChatNativeBridge().saveImageToGallery(
+        await ChatNativeBridge().saveVideoToGallery(
           url: widget.mediaPath,
-          fileName: 'carma_story_${DateTime.now().millisecondsSinceEpoch}.mp4',
+          fileName:
+              'carisma_story_${DateTime.now().millisecondsSinceEpoch}.mp4',
           contentType: 'video/mp4',
         );
 
@@ -2444,10 +2535,10 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       }
 
       final tempDirectory = await Directory.systemTemp.createTemp(
-        'carma_story_',
+        'carisma_story_',
       );
       final fileName =
-          'carma_story_${DateTime.now().millisecondsSinceEpoch}.png';
+          'carisma_story_${DateTime.now().millisecondsSinceEpoch}.png';
       final renderedFile = File(
         '${tempDirectory.path}${Platform.pathSeparator}$fileName',
       );
@@ -2514,6 +2605,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         textIsBold: _isBold,
         textIsItalic: _isItalic,
         textIsUnderline: _isUnderline,
+        textAlign: _storyTextAlignName(_textAlign),
         textAlignment: _textAlignment,
         filterType: _filterType,
         sticker: _sticker,
@@ -2578,77 +2670,121 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                             return const SizedBox.shrink();
                           }
 
+                          final textAlignment = _visibleTextAlignmentForEditing(
+                            context,
+                          );
+
                           return Align(
-                            alignment: _textAlignment,
+                            alignment: textAlignment,
                             child: GestureDetector(
                               onTap: hasText && !_isTextEditingEnabled
                                   ? _activateTextEditing
                                   : null,
+                              onPanStart: (_) => _startTextDrag(),
                               onPanUpdate: (details) =>
                                   _moveText(details, size),
+                              onPanEnd: (_) => _finishTextDrag(),
+                              onPanCancel: _finishTextDrag,
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
                                   maxWidth: constraints.maxWidth * 0.82,
                                 ),
                                 child: AbsorbPointer(
                                   absorbing: !_isTextEditingEnabled,
-                                  child: TextField(
-                                    controller: _textController,
-                                    focusNode: _textFocusNode,
-                                    textAlign: TextAlign.center,
-                                    maxLength: _storyTextMaxLength,
-                                    maxLines: 4,
-                                    minLines: 1,
-                                    cursorColor: _textColor,
-                                    readOnly: !_isTextEditingEnabled,
-                                    enableInteractiveSelection:
-                                        _isTextEditingEnabled,
-                                    textInputAction: TextInputAction.done,
-                                    onSubmitted: (_) => _finishTextEditing(),
-                                    buildCounter: _hideStoryInputCounter,
-                                    style: TextStyle(
-                                      color: _textColor,
-                                      fontSize: 30,
-                                      height: 1.08,
-                                      fontWeight: _isBold
-                                          ? FontWeight.w900
-                                          : FontWeight.w600,
-                                      fontStyle: _isItalic
-                                          ? FontStyle.italic
-                                          : FontStyle.normal,
-                                      fontFamily: _effectiveFontFamily,
-                                      decoration: _isUnderline
-                                          ? TextDecoration.underline
-                                          : TextDecoration.none,
-                                      decorationColor: _textColor,
-                                      decorationThickness: 2,
-                                      shadows: const [
-                                        Shadow(
-                                          blurRadius: 12,
-                                          color: Colors.black87,
-                                          offset: Offset(0, 2),
+                                  child: _isTextEditingEnabled
+                                      ? TextField(
+                                          controller: _textController,
+                                          focusNode: _textFocusNode,
+                                          textAlign: _textAlign,
+                                          maxLength: _storyTextMaxLength,
+                                          maxLines: 4,
+                                          minLines: 1,
+                                          cursorColor: _textColor,
+                                          readOnly: !_isTextEditingEnabled,
+                                          enableInteractiveSelection:
+                                              _isTextEditingEnabled,
+                                          textInputAction: TextInputAction.done,
+                                          onTapOutside: (_) =>
+                                              _keepTextInputFocused(),
+                                          onEditingComplete: _finishTextEditing,
+                                          onSubmitted: (_) =>
+                                              _finishTextEditing(),
+                                          onChanged: (_) => setState(() {}),
+                                          buildCounter: _hideStoryInputCounter,
+                                          style: TextStyle(
+                                            color: _textColor,
+                                            fontSize: 30,
+                                            height: 1.08,
+                                            fontWeight: _isBold
+                                                ? FontWeight.w900
+                                                : FontWeight.w600,
+                                            fontStyle: _isItalic
+                                                ? FontStyle.italic
+                                                : FontStyle.normal,
+                                            fontFamily: _effectiveFontFamily,
+                                            decoration: _isUnderline
+                                                ? TextDecoration.underline
+                                                : TextDecoration.none,
+                                            decorationColor: _textColor,
+                                            decorationThickness: 2,
+                                            shadows: const [
+                                              Shadow(
+                                                blurRadius: 12,
+                                                color: Colors.black87,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          decoration: InputDecoration(
+                                            isCollapsed: true,
+                                            contentPadding: EdgeInsets.zero,
+                                            hintText: 'Text hinzufügen',
+                                            hintStyle: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.62,
+                                              ),
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                            border: InputBorder.none,
+                                            enabledBorder: InputBorder.none,
+                                            focusedBorder: InputBorder.none,
+                                            disabledBorder: InputBorder.none,
+                                            errorBorder: InputBorder.none,
+                                            focusedErrorBorder:
+                                                InputBorder.none,
+                                            filled: false,
+                                          ),
+                                        )
+                                      : Text(
+                                          _textController.text.trim(),
+                                          textAlign: _textAlign,
+                                          maxLines: 4,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: _textColor,
+                                            fontSize: 30,
+                                            height: 1.08,
+                                            fontWeight: _isBold
+                                                ? FontWeight.w900
+                                                : FontWeight.w600,
+                                            fontStyle: _isItalic
+                                                ? FontStyle.italic
+                                                : FontStyle.normal,
+                                            fontFamily: _effectiveFontFamily,
+                                            decoration: _isUnderline
+                                                ? TextDecoration.underline
+                                                : TextDecoration.none,
+                                            decorationColor: _textColor,
+                                            decorationThickness: 2,
+                                            shadows: const [
+                                              Shadow(
+                                                blurRadius: 12,
+                                                color: Colors.black87,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ],
-                                    ),
-                                    decoration: InputDecoration(
-                                      isCollapsed: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      hintText: 'Text hinzufügen',
-                                      hintStyle: TextStyle(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.62,
-                                        ),
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      disabledBorder: InputBorder.none,
-                                      errorBorder: InputBorder.none,
-                                      focusedErrorBorder: InputBorder.none,
-                                      filled: false,
-                                    ),
-                                  ),
                                 ),
                               ),
                             ),
@@ -2668,20 +2804,15 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                             return Align(
                               alignment: _sticker.alignment,
                               child: GestureDetector(
+                                onPanStart: (_) => _startStickerDrag(),
                                 onPanUpdate: (details) =>
                                     _moveSticker(details, size),
+                                onPanEnd: (_) => _finishStickerDrag(),
+                                onPanCancel: _finishStickerDrag,
                                 child: _StoryStickerChip(
                                   type: _sticker.type,
                                   label: _sticker.label,
                                   payload: _sticker.payload,
-                                  onRemove: _isSaving || _isPublishing
-                                      ? null
-                                      : () {
-                                          setState(() {
-                                            _sticker =
-                                                const _StoryStickerDraft.empty();
-                                          });
-                                        },
                                 ),
                               ),
                             );
@@ -2708,6 +2839,17 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
               right: 16,
               bottom: viewPadding.bottom + 124,
               child: const _StoryVideoLengthWarning(),
+            ),
+          if ((_isDraggingText || _isDraggingSticker) &&
+              !_isSaving &&
+              !_isPublishing)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: viewPadding.bottom + 28,
+              child: Center(
+                child: _StoryDeleteDropTarget(isActive: _isDeleteTargetActive),
+              ),
             ),
           if (!_isSaving)
             Positioned(
@@ -2762,8 +2904,8 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                           onPressed: canPublish ? _publish : null,
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.white,
-                            backgroundColor: _carmaBlue,
-                            disabledBackgroundColor: _carmaBlue.withValues(
+                            backgroundColor: _carismaBlue,
+                            disabledBackgroundColor: _carismaBlue.withValues(
                               alpha: _isVideoTooLong ? 0.24 : 0.54,
                             ),
                             padding: const EdgeInsets.symmetric(
@@ -2794,7 +2936,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                 ),
               ),
             ),
-          if (!_isSaving && !_isPublishing)
+          if (!_isSaving && !_isPublishing && !_isTextEditingEnabled)
             Positioned(
               right: 14,
               top: viewPadding.top + 86,
@@ -2810,9 +2952,6 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                 onAddVehicle: _addVehicleSticker,
                 onAddLocation: _addLocationSticker,
                 onAddStatus: _addStatusSticker,
-                onAddLink: _addLinkSticker,
-                onAddHashtag: _addHashtagSticker,
-                onAddPoll: _addPollSticker,
                 onToggleVideoMuted: _toggleVideoMuted,
                 onSave: _saveDraftImage,
               ),
@@ -2831,22 +2970,39 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                 isItalic: _isItalic,
                 isUnderline: _isUnderline,
                 fontFamily: _fontFamily,
+                textAlign: _textAlign,
                 textColor: _textColor,
                 colors: _storyTextColors,
                 onDone: _finishTextEditing,
-                onToggleBold: () => setState(() => _isBold = !_isBold),
-                onToggleItalic: () => setState(() => _isItalic = !_isItalic),
-                onToggleUnderline: () =>
-                    setState(() => _isUnderline = !_isUnderline),
+                onToggleBold: () {
+                  setState(() => _isBold = !_isBold);
+                  _keepTextInputFocused();
+                },
+                onToggleItalic: () {
+                  setState(() => _isItalic = !_isItalic);
+                  _keepTextInputFocused();
+                },
+                onToggleUnderline: () {
+                  setState(() => _isUnderline = !_isUnderline);
+                  _keepTextInputFocused();
+                },
+                onTextAlignChanged: (value) {
+                  setState(() {
+                    _textAlign = value;
+                  });
+                  _keepTextInputFocused();
+                },
                 onFontChanged: (value) {
                   setState(() {
                     _fontFamily = value;
                   });
+                  _keepTextInputFocused();
                 },
                 onColorChanged: (value) {
                   setState(() {
                     _textColor = value;
                   });
+                  _keepTextInputFocused();
                 },
               ),
             ),
@@ -2937,9 +3093,9 @@ class _StoryDiscardDialog extends StatelessWidget {
                       height: 46,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _carmaBlue.withValues(alpha: 0.18),
+                        color: _carismaBlue.withValues(alpha: 0.18),
                         border: Border.all(
-                          color: _carmaBlueLight.withValues(alpha: 0.24),
+                          color: _carismaBlueLight.withValues(alpha: 0.24),
                         ),
                       ),
                       child: const Icon(
@@ -2997,7 +3153,7 @@ class _StoryDiscardDialog extends StatelessWidget {
                       child: FilledButton(
                         onPressed: () => Navigator.of(context).pop(true),
                         style: FilledButton.styleFrom(
-                          backgroundColor: _carmaBlue,
+                          backgroundColor: _carismaBlue,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -3023,7 +3179,6 @@ class _StoryDiscardDialog extends StatelessWidget {
 
 class _StoryTextInputDialog extends StatelessWidget {
   const _StoryTextInputDialog({
-    Color? backgroundColor,
     this.icon = Icons.edit_rounded,
     this.title,
     this.content,
@@ -3037,103 +3192,113 @@ class _StoryTextInputDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF101827).withValues(alpha: 0.94),
-                  const Color(0xFF071120).withValues(alpha: 0.90),
-                ],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.36),
-                  blurRadius: 32,
-                  offset: const Offset(0, 18),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _carmaBlue.withValues(alpha: 0.18),
-                        border: Border.all(
-                          color: _carmaBlueLight.withValues(alpha: 0.24),
-                        ),
-                      ),
-                      child: Icon(icon, color: Colors.white, size: 22),
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return SafeArea(
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.fromLTRB(14, 0, 14, keyboardInset + 14),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF101827).withValues(alpha: 0.94),
+                      const Color(0xFF071120).withValues(alpha: 0.90),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.13),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.36),
+                      blurRadius: 32,
+                      offset: const Offset(0, 18),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(child: title ?? const SizedBox.shrink()),
                   ],
                 ),
-                if (content != null) ...[
-                  const SizedBox(height: 16),
-                  Theme(
-                    data: Theme.of(context).copyWith(
-                      inputDecorationTheme: InputDecorationTheme(
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.08),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.46),
-                          fontWeight: FontWeight.w700,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    child: content!,
-                  ),
-                ],
-                if (actions != null && actions!.isNotEmpty) ...[
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: actions!
-                        .map(
-                          (action) => Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: action,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _carismaBlue.withValues(alpha: 0.18),
+                            border: Border.all(
+                              color: _carismaBlueLight.withValues(alpha: 0.24),
+                            ),
                           ),
-                        )
-                        .toList(),
-                  ),
-                ],
-              ],
+                          child: Icon(icon, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: title ?? const SizedBox.shrink()),
+                      ],
+                    ),
+                    if (content != null) ...[
+                      const SizedBox(height: 16),
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          inputDecorationTheme: InputDecorationTheme(
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.08),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            hintStyle: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.46),
+                              fontWeight: FontWeight.w700,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        child: content!,
+                      ),
+                    ],
+                    if (actions != null && actions!.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: actions!
+                            .map(
+                              (action) => Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: action,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -3153,9 +3318,6 @@ class _StoryEditorActionRail extends StatelessWidget {
     required this.onAddVehicle,
     required this.onAddLocation,
     required this.onAddStatus,
-    required this.onAddLink,
-    required this.onAddHashtag,
-    required this.onAddPoll,
     required this.onToggleVideoMuted,
     required this.onSave,
   });
@@ -3169,9 +3331,6 @@ class _StoryEditorActionRail extends StatelessWidget {
   final VoidCallback onAddVehicle;
   final VoidCallback onAddLocation;
   final VoidCallback onAddStatus;
-  final VoidCallback onAddLink;
-  final VoidCallback onAddHashtag;
-  final VoidCallback onAddPoll;
   final VoidCallback onToggleVideoMuted;
   final VoidCallback onSave;
 
@@ -3244,27 +3403,6 @@ class _StoryEditorActionRail extends StatelessWidget {
                     isSelected: selectedStickerType == 'status',
                     onTap: onAddStatus,
                   ),
-                  const SizedBox(height: 8),
-                  _StoryRailButton(
-                    icon: Icons.link_rounded,
-                    label: 'Link',
-                    isSelected: selectedStickerType == 'link',
-                    onTap: onAddLink,
-                  ),
-                  const SizedBox(height: 8),
-                  _StoryRailButton(
-                    icon: Icons.tag_rounded,
-                    label: 'Hashtag',
-                    isSelected: selectedStickerType == 'hashtag',
-                    onTap: onAddHashtag,
-                  ),
-                  const SizedBox(height: 8),
-                  _StoryRailButton(
-                    icon: Icons.poll_rounded,
-                    label: 'Umfrage',
-                    isSelected: selectedStickerType == 'poll',
-                    onTap: onAddPoll,
-                  ),
                   if (isVideo) ...[
                     const SizedBox(height: 8),
                     _StoryRailButton(
@@ -3325,13 +3463,13 @@ class _StoryRailButton extends StatelessWidget {
                   ? const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [_myMessageBlueDark, _carmaBlue],
+                      colors: [_myMessageBlueDark, _carismaBlue],
                     )
                   : null,
               color: isSelected ? null : Colors.white.withValues(alpha: 0.10),
               border: Border.all(
                 color: isSelected
-                    ? _carmaBlueLight
+                    ? _carismaBlueLight
                     : Colors.white.withValues(alpha: 0.12),
               ),
             ),
@@ -3349,15 +3487,19 @@ class _StoryRailButton extends StatelessWidget {
                 : Icon(icon, color: Colors.white, size: 22),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.82),
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
+          SizedBox(
+            width: 64,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
             ),
           ),
         ],
@@ -3366,18 +3508,44 @@ class _StoryRailButton extends StatelessWidget {
   }
 }
 
+TextAlign _nextStoryTextAlign(TextAlign value) {
+  return switch (value) {
+    TextAlign.left => TextAlign.center,
+    TextAlign.center => TextAlign.right,
+    _ => TextAlign.left,
+  };
+}
+
+String _storyTextAlignName(TextAlign value) {
+  return switch (value) {
+    TextAlign.left => 'left',
+    TextAlign.right => 'right',
+    _ => 'center',
+  };
+}
+
+IconData _storyTextAlignIcon(TextAlign value) {
+  return switch (value) {
+    TextAlign.left => Icons.format_align_left_rounded,
+    TextAlign.right => Icons.format_align_right_rounded,
+    _ => Icons.format_align_center_rounded,
+  };
+}
+
 class _StoryTextStyleBar extends StatelessWidget {
   const _StoryTextStyleBar({
     required this.isBold,
     required this.isItalic,
     required this.isUnderline,
     required this.fontFamily,
+    required this.textAlign,
     required this.textColor,
     required this.colors,
     required this.onDone,
     required this.onToggleBold,
     required this.onToggleItalic,
     required this.onToggleUnderline,
+    required this.onTextAlignChanged,
     required this.onFontChanged,
     required this.onColorChanged,
   });
@@ -3386,25 +3554,27 @@ class _StoryTextStyleBar extends StatelessWidget {
   final bool isItalic;
   final bool isUnderline;
   final String fontFamily;
+  final TextAlign textAlign;
   final Color textColor;
   final List<Color> colors;
   final VoidCallback onDone;
   final VoidCallback onToggleBold;
   final VoidCallback onToggleItalic;
   final VoidCallback onToggleUnderline;
+  final ValueChanged<TextAlign> onTextAlignChanged;
   final ValueChanged<String> onFontChanged;
   final ValueChanged<Color> onColorChanged;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(9, 8, 9, 8),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -3422,109 +3592,133 @@ class _StoryTextStyleBar extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 360;
+              final swatchSize = isCompact ? 28.0 : 30.0;
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _StoryToolButton(
-                    icon: Icons.format_bold_rounded,
-                    isSelected: isBold,
-                    onTap: onToggleBold,
-                  ),
-                  const SizedBox(width: 6),
-                  _StoryToolButton(
-                    icon: Icons.format_italic_rounded,
-                    isSelected: isItalic,
-                    onTap: onToggleItalic,
-                  ),
-                  const SizedBox(width: 6),
-                  _StoryToolButton(
-                    icon: Icons.format_underlined_rounded,
-                    isSelected: isUnderline,
-                    onTap: onToggleUnderline,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _StoryFontSelector(
-                      selectedValue: fontFamily,
-                      onChanged: onFontChanged,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  FilledButton(
-                    onPressed: onDone,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _carmaBlue,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(76, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _StoryToolButton(
+                                icon: Icons.format_bold_rounded,
+                                isSelected: isBold,
+                                onTap: onToggleBold,
+                              ),
+                              const SizedBox(width: 4),
+                              _StoryToolButton(
+                                icon: Icons.format_italic_rounded,
+                                isSelected: isItalic,
+                                onTap: onToggleItalic,
+                              ),
+                              const SizedBox(width: 4),
+                              _StoryToolButton(
+                                icon: Icons.format_underlined_rounded,
+                                isSelected: isUnderline,
+                                onTap: onToggleUnderline,
+                              ),
+                              const SizedBox(width: 4),
+                              _StoryToolButton(
+                                icon: _storyTextAlignIcon(textAlign),
+                                isSelected: textAlign != TextAlign.center,
+                                onTap: () => onTextAlignChanged(
+                                  _nextStoryTextAlign(textAlign),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
+                      const SizedBox(width: 6),
+                      _StoryDoneToolButton(onTap: onDone),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: isCompact ? 126 : 148,
+                        child: _StoryFontSelector(
+                          selectedValue: fontFamily,
+                          onChanged: onFontChanged,
+                        ),
                       ),
-                    ),
-                    child: const Text('Fertig'),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: SizedBox(
+                          height: swatchSize,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: colors.length,
+                            separatorBuilder: (_, _) =>
+                                SizedBox(width: isCompact ? 4 : 5),
+                            itemBuilder: (context, index) {
+                              final color = colors[index];
+                              final isSelected =
+                                  color.toARGB32() == textColor.toARGB32();
+
+                              return GestureDetector(
+                                onTap: () => onColorChanged(color),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 160),
+                                  width: swatchSize,
+                                  height: swatchSize,
+                                  padding: EdgeInsets.all(isSelected ? 3 : 4),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isSelected
+                                        ? Colors.white.withValues(alpha: 0.20)
+                                        : Colors.white.withValues(alpha: 0.06),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? _carismaBlueLight
+                                          : Colors.white.withValues(
+                                              alpha: 0.12,
+                                            ),
+                                      width: isSelected ? 2 : 1,
+                                    ),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: _carismaBlueLight
+                                                  .withValues(alpha: 0.24),
+                                              blurRadius: 16,
+                                              offset: const Offset(0, 7),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: color,
+                                      border: Border.all(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 29,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: colors.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 7),
-                  itemBuilder: (context, index) {
-                    final color = colors[index];
-                    final isSelected = color.toARGB32() == textColor.toARGB32();
-
-                    return GestureDetector(
-                      onTap: () => onColorChanged(color),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        width: 29,
-                        height: 29,
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isSelected
-                              ? Colors.white.withValues(alpha: 0.20)
-                              : Colors.white.withValues(alpha: 0.06),
-                          border: Border.all(
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.12),
-                            width: isSelected ? 2 : 1,
-                          ),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: color.withValues(alpha: 0.42),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: color,
-                            border: Border.all(
-                              color: Colors.black.withValues(alpha: 0.18),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
@@ -3552,7 +3746,7 @@ class _StoryLocationPlaceTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.fromLTRB(11, 9, 10, 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             color: Colors.white.withValues(alpha: 0.07),
@@ -3561,14 +3755,14 @@ class _StoryLocationPlaceTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _carmaBlue.withValues(alpha: 0.82),
+                  color: _carismaBlue.withValues(alpha: 0.82),
                   boxShadow: [
                     BoxShadow(
-                      color: _carmaBlue.withValues(alpha: 0.22),
+                      color: _carismaBlue.withValues(alpha: 0.22),
                       blurRadius: 14,
                       offset: const Offset(0, 7),
                     ),
@@ -3577,10 +3771,10 @@ class _StoryLocationPlaceTile extends StatelessWidget {
                 child: const Icon(
                   Icons.location_on_rounded,
                   color: Colors.white,
-                  size: 22,
+                  size: 18,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3592,23 +3786,30 @@ class _StoryLocationPlaceTile extends StatelessWidget {
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
                       ),
                     ),
                     if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.62),
-                          fontSize: 12,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.46),
+                size: 24,
               ),
             ],
           ),
@@ -3646,7 +3847,7 @@ class _StoryStatusChoiceChip extends StatelessWidget {
                 height: 28,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _carmaBlue.withValues(alpha: 0.86),
+                  color: _carismaBlue.withValues(alpha: 0.86),
                 ),
                 child: Icon(
                   _storyStatusStickerIcon(label),
@@ -3702,13 +3903,13 @@ class _StoryVehicleStickerChoice extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      _carmaBlue.withValues(alpha: 0.92),
+                      _carismaBlue.withValues(alpha: 0.92),
                       const Color(0xFF62D2FF).withValues(alpha: 0.78),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: _carmaBlue.withValues(alpha: 0.22),
+                      color: _carismaBlue.withValues(alpha: 0.22),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -3763,13 +3964,11 @@ class _StoryStickerChip extends StatelessWidget {
     required this.type,
     required this.label,
     this.payload = '',
-    this.onRemove,
   });
 
   final String type;
   final String label;
   final String payload;
-  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -3782,25 +3981,20 @@ class _StoryStickerChip extends StatelessWidget {
     final isPlateSticker = type == 'vehicle' && vehicleStyle == 'plate';
     final isCompactSticker = type == 'vehicle' && vehicleStyle == 'compact';
     final isBadgeSticker = type == 'vehicle' && vehicleStyle == 'badge';
+    final isLocationSticker = type == 'location';
     final isStatusSticker = type == 'status';
     final icon = switch (type) {
       'vehicle' => Icons.directions_car_filled_rounded,
       'location' => Icons.location_on_rounded,
       'status' => _storyStatusStickerIcon(label),
-      'link' => Icons.link_rounded,
-      'hashtag' => Icons.tag_rounded,
-      'poll' => Icons.poll_rounded,
       _ => Icons.add_reaction_rounded,
     };
     final subtitle = switch (type) {
-      'vehicle' => isPlateSticker ? '' : vehicleDetail,
-      'status' => 'Carma Status',
-      'poll' =>
-        payload
-            .split('\n')
-            .where((option) => option.trim().isNotEmpty)
-            .take(2)
-            .join('  ·  '),
+      'vehicle' =>
+        isPlateSticker || isCompactSticker || isBadgeSticker
+            ? ''
+            : vehicleDetail,
+      'status' => '',
       _ => '',
     };
     final isExpandedSticker = subtitle.isNotEmpty;
@@ -3832,7 +4026,7 @@ class _StoryStickerChip extends StatelessWidget {
         ? const Color(0xFF2A7DFF)
         : isStatusSticker
         ? const Color(0xFF00A3FF)
-        : _carmaBlue.withValues(alpha: 0.92);
+        : _carismaBlue.withValues(alpha: 0.92);
     final gradientColors = isPlateSticker
         ? <Color>[
             Colors.white.withValues(alpha: 0.96),
@@ -3850,8 +4044,264 @@ class _StoryStickerChip extends StatelessWidget {
           ]
         : <Color>[
             const Color(0xFF101827).withValues(alpha: 0.84),
-            _carmaBlueDark.withValues(alpha: 0.74),
+            _carismaBlueDark.withValues(alpha: 0.74),
           ];
+
+    if (isCompactSticker) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 300),
+            padding: const EdgeInsets.fromLTRB(13, 8, 9, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: const Color(0xFF08111F).withValues(alpha: 0.72),
+              border: Border.all(
+                color: _carismaBlueLight.withValues(alpha: 0.28),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 18,
+                  color: Colors.black.withValues(alpha: 0.26),
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.directions_car_filled_rounded,
+                  color: _carismaBlueLight,
+                  size: 18,
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    [
+                      label,
+                      if (vehicleDetail.isNotEmpty) vehicleDetail,
+                    ].join('  |  '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (isBadgeSticker) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 290),
+            padding: const EdgeInsets.fromLTRB(13, 11, 10, 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF0A76FF), Color(0xFF061628)],
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 22,
+                  color: _carismaBlue.withValues(alpha: 0.24),
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.16),
+                  ),
+                  child: const Icon(
+                    Icons.verified_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'CaRisma',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        vehicleDetail.isEmpty
+                            ? label
+                            : '$label - $vehicleDetail',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (isLocationSticker) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 286),
+            padding: const EdgeInsets.fromLTRB(13, 10, 14, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF0B1B2F).withValues(alpha: 0.88),
+                  const Color(0xFF0F766E).withValues(alpha: 0.78),
+                ],
+              ),
+              border: Border.all(
+                color: const Color(0xFF5EEAD4).withValues(alpha: 0.24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 22,
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.18),
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.14),
+                  ),
+                  child: const Icon(
+                    Icons.location_on_rounded,
+                    color: Colors.white,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      height: 1.05,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (isStatusSticker) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 270),
+            padding: const EdgeInsets.fromLTRB(12, 8, 15, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF0A76FF).withValues(alpha: 0.94),
+                  const Color(0xFF061628).withValues(alpha: 0.86),
+                ],
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+              boxShadow: [
+                BoxShadow(
+                  blurRadius: 22,
+                  color: _carismaBlue.withValues(alpha: 0.24),
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.16),
+                  ),
+                  child: Icon(
+                    _storyStatusStickerIcon(label),
+                    color: Colors.white,
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
@@ -3876,7 +4326,7 @@ class _StoryStickerChip extends StatelessWidget {
               color: isPlateSticker
                   ? const Color(0xFF08111F).withValues(alpha: 0.42)
                   : isStatusSticker
-                  ? _carmaBlueLight.withValues(alpha: 0.24)
+                  ? _carismaBlueLight.withValues(alpha: 0.24)
                   : Colors.white.withValues(alpha: 0.18),
               width: isPlateSticker ? 1.4 : 1,
             ),
@@ -3902,8 +4352,8 @@ class _StoryStickerChip extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            _carmaBlueLight.withValues(alpha: 0.96),
-                            _carmaBlue.withValues(alpha: 0.9),
+                            _carismaBlueLight.withValues(alpha: 0.96),
+                            _carismaBlue.withValues(alpha: 0.9),
                           ],
                         )
                       : null,
@@ -3942,25 +4392,6 @@ class _StoryStickerChip extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onRemove != null) ...[
-                const SizedBox(width: 7),
-                GestureDetector(
-                  onTap: onRemove,
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.12),
-                    ),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      size: 17,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -3991,13 +4422,23 @@ class _StoryDraftVideoPreview extends StatelessWidget {
       );
     }
 
+    final videoSize = videoController.value.size;
+    if (videoSize.width <= 0 || videoSize.height <= 0) {
+      return const ColoredBox(
+        color: Colors.black,
+        child: Center(
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        ),
+      );
+    }
+
     return _StoryFilteredContent(
       filterType: filterType,
       child: FittedBox(
         fit: BoxFit.cover,
         child: SizedBox(
-          width: videoController.value.size.width,
-          height: videoController.value.size.height,
+          width: videoSize.width,
+          height: videoSize.height,
           child: VideoPlayer(videoController),
         ),
       ),
@@ -4026,18 +4467,25 @@ class _StoryFilteredImage extends StatelessWidget {
     required this.filterType,
     required this.fit,
     this.errorBuilder,
+    this.loadingBuilder,
   });
 
   final ImageProvider image;
   final String filterType;
   final BoxFit fit;
   final ImageErrorWidgetBuilder? errorBuilder;
+  final ImageLoadingBuilder? loadingBuilder;
 
   @override
   Widget build(BuildContext context) {
     return _StoryFilteredContent(
       filterType: filterType,
-      child: Image(image: image, fit: fit, errorBuilder: errorBuilder),
+      child: Image(
+        image: image,
+        fit: fit,
+        errorBuilder: errorBuilder,
+        loadingBuilder: loadingBuilder,
+      ),
     );
   }
 }
@@ -4159,8 +4607,8 @@ class _StoryFontSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         color: Colors.white.withValues(alpha: 0.10),
@@ -4173,6 +4621,7 @@ class _StoryFontSelector extends StatelessWidget {
           iconEnabledColor: Colors.white,
           style: const TextStyle(
             color: Colors.white,
+            fontSize: 13,
             fontWeight: FontWeight.w800,
           ),
           items: const [
@@ -4212,19 +4661,53 @@ class _StoryToolButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 40,
-      height: 40,
+      width: 36,
+      height: 36,
       child: IconButton(
         onPressed: onTap,
+        iconSize: 20,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
         icon: Icon(icon),
         color: Colors.white,
         style: IconButton.styleFrom(
           backgroundColor: isSelected
-              ? _carmaBlue
+              ? _carismaBlue
               : Colors.white.withValues(alpha: 0.12),
           disabledBackgroundColor: Colors.white.withValues(alpha: 0.08),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryDoneToolButton extends StatelessWidget {
+  const _StoryDoneToolButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: TextButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.check_rounded, size: 18),
+        label: const Text('Fertig'),
+        style: TextButton.styleFrom(
+          backgroundColor: _carismaBlue,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
           ),
         ),
       ),

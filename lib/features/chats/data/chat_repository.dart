@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../shared/firebase/carma_firestore_paths.dart';
-import '../../../shared/firebase/carma_firestore_schema.dart';
+import '../../../shared/firebase/carisma_firestore_paths.dart';
+import '../../../shared/firebase/carisma_firestore_schema.dart';
 
 enum ChatStatus { active, archived, blocked, deleted }
 
@@ -10,6 +10,29 @@ enum ChatMessageType { text, image, document, audio, location, contact, system }
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+const Set<String> _allowedMessageReactions = <String>{
+  '\u2764\uFE0F',
+  '\u{1F44D}',
+  '\u{1F602}',
+  '\u{1F62E}',
+  '\u{1F622}',
+  '\u{1F64F}',
+};
+
+String _normalizedMessageReaction(String reaction) {
+  final trimmed = reaction.trim();
+
+  if (trimmed.isEmpty) {
+    return '';
+  }
+
+  if (!_allowedMessageReactions.contains(trimmed)) {
+    throw ArgumentError.value(reaction, 'reaction', 'Unsupported reaction.');
+  }
+
+  return trimmed;
 }
 
 class ChatRecord {
@@ -172,7 +195,7 @@ class ChatRecord {
       return trimmed;
     }
 
-    return 'Carma Nutzer';
+    return 'CaRisma Nutzer';
   }
 
   String? profilePhotoUrlFor(String currentUserId) {
@@ -398,6 +421,8 @@ class ChatMessageRecord {
 abstract class ChatRepository {
   Future<List<ChatRecord>> loadChats({required String userId});
 
+  Future<ChatRecord?> loadChat({required String chatId});
+
   Stream<List<ChatRecord>> watchChats({required String userId});
 
   Stream<List<ChatRecord>> watchArchivedChats({required String userId});
@@ -526,7 +551,7 @@ class FirestoreChatRepository implements ChatRepository {
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _chatsCollection {
-    return _firestore.collection(CarmaFirestoreCollections.chats);
+    return _firestore.collection(CaRismaFirestoreCollections.chats);
   }
 
   @override
@@ -559,6 +584,39 @@ class FirestoreChatRepository implements ChatRepository {
           });
 
     return chats;
+  }
+
+  @override
+  Future<ChatRecord?> loadChat({required String chatId}) async {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
+      return null;
+    }
+
+    final snapshot = await _chatsCollection.doc(trimmedChatId).get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return _chatFromSnapshot(snapshot);
+  }
+
+  Stream<ChatRecord?> watchChat({required String chatId}) {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
+      return Stream<ChatRecord?>.value(null);
+    }
+
+    return _chatsCollection.doc(trimmedChatId).snapshots().map((snapshot) {
+      if (!snapshot.exists) {
+        return null;
+      }
+
+      return _chatFromSnapshot(snapshot);
+    });
   }
 
   @override
@@ -1036,6 +1094,11 @@ class FirestoreChatRepository implements ChatRepository {
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(chatId);
+      final chatSnapshot = await transaction.get(chatDocument);
+      final chatData = chatSnapshot.data();
+      final participantIds = _stringListFromValue(
+        chatData?['participants'],
+      ).where((participantId) => participantId.trim().isNotEmpty).toSet();
 
       transaction.set(messageDocument, {
         'chatId': chatId,
@@ -1055,6 +1118,15 @@ class FirestoreChatRepository implements ChatRepository {
         'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
         'manualUnreadBy': {senderUserId: false},
         'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        if (participantIds.isNotEmpty)
+          'archivedBy': {
+            for (final participantId in participantIds) participantId: false,
+          },
+        if (participantIds.isNotEmpty)
+          'archivedUpdatedAtBy': {
+            for (final participantId in participantIds)
+              participantId: Timestamp.fromDate(now),
+          },
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
     });
@@ -1091,6 +1163,11 @@ class FirestoreChatRepository implements ChatRepository {
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(chatId);
+      final chatSnapshot = await transaction.get(chatDocument);
+      final chatData = chatSnapshot.data();
+      final participantIds = _stringListFromValue(
+        chatData?['participants'],
+      ).where((participantId) => participantId.trim().isNotEmpty).toSet();
 
       transaction.set(messageDocument, {
         'chatId': chatId,
@@ -1110,6 +1187,15 @@ class FirestoreChatRepository implements ChatRepository {
         'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
         'manualUnreadBy': {senderUserId: false},
         'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        if (participantIds.isNotEmpty)
+          'archivedBy': {
+            for (final participantId in participantIds) participantId: false,
+          },
+        if (participantIds.isNotEmpty)
+          'archivedUpdatedAtBy': {
+            for (final participantId in participantIds)
+              participantId: Timestamp.fromDate(now),
+          },
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
     });
@@ -1150,6 +1236,11 @@ class FirestoreChatRepository implements ChatRepository {
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(chatId);
+      final chatSnapshot = await transaction.get(chatDocument);
+      final chatData = chatSnapshot.data();
+      final participantIds = _stringListFromValue(
+        chatData?['participants'],
+      ).where((participantId) => participantId.trim().isNotEmpty).toSet();
 
       transaction.set(messageDocument, {
         'chatId': chatId,
@@ -1175,6 +1266,15 @@ class FirestoreChatRepository implements ChatRepository {
         'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
         'manualUnreadBy': {senderUserId: false},
         'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        if (participantIds.isNotEmpty)
+          'archivedBy': {
+            for (final participantId in participantIds) participantId: false,
+          },
+        if (participantIds.isNotEmpty)
+          'archivedUpdatedAtBy': {
+            for (final participantId in participantIds)
+              participantId: Timestamp.fromDate(now),
+          },
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
     });
@@ -1220,6 +1320,11 @@ class FirestoreChatRepository implements ChatRepository {
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(chatId);
+      final chatSnapshot = await transaction.get(chatDocument);
+      final chatData = chatSnapshot.data();
+      final participantIds = _stringListFromValue(
+        chatData?['participants'],
+      ).where((participantId) => participantId.trim().isNotEmpty).toSet();
 
       transaction.set(messageDocument, {
         'chatId': chatId,
@@ -1246,6 +1351,15 @@ class FirestoreChatRepository implements ChatRepository {
         'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
         'manualUnreadBy': {senderUserId: false},
         'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        if (participantIds.isNotEmpty)
+          'archivedBy': {
+            for (final participantId in participantIds) participantId: false,
+          },
+        if (participantIds.isNotEmpty)
+          'archivedUpdatedAtBy': {
+            for (final participantId in participantIds)
+              participantId: Timestamp.fromDate(now),
+          },
         'updatedAt': Timestamp.fromDate(now),
       }, SetOptions(merge: true));
     });
@@ -1408,7 +1522,7 @@ class FirestoreChatRepository implements ChatRepository {
       throw ArgumentError('Chat ID and reporter user ID must not be empty.');
     }
 
-    await _firestore.collection(CarmaFirestoreCollections.reports).add({
+    await _firestore.collection(CaRismaFirestoreCollections.reports).add({
       'type': 'chat',
       'chatId': trimmedChatId,
       'reporterUserId': trimmedReporterId,
@@ -1563,7 +1677,7 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedChatId = chatId.trim();
     final trimmedMessageId = messageId.trim();
     final trimmedUserId = userId.trim();
-    final trimmedReaction = reaction.trim();
+    final trimmedReaction = _normalizedMessageReaction(reaction);
 
     if (trimmedChatId.isEmpty ||
         trimmedMessageId.isEmpty ||
@@ -1572,7 +1686,9 @@ class FirestoreChatRepository implements ChatRepository {
     }
 
     await _messagesCollection(trimmedChatId).doc(trimmedMessageId).update({
-      FieldPath(['reactionBy', trimmedUserId]): trimmedReaction,
+      FieldPath(['reactionBy', trimmedUserId]): trimmedReaction.isEmpty
+          ? FieldValue.delete()
+          : trimmedReaction,
       FieldPath(['reactionUpdatedAtBy', trimmedUserId]):
           FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -1582,7 +1698,7 @@ class FirestoreChatRepository implements ChatRepository {
   CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
     return _chatsCollection
         .doc(chatId)
-        .collection(CarmaFirestoreCollections.messages);
+        .collection(CaRismaFirestoreCollections.messages);
   }
 
   ChatRecord _chatFromSnapshot(
@@ -1647,7 +1763,10 @@ class FirestoreChatRepository implements ChatRepository {
       fileContentType: data['fileContentType'] as String?,
       fileSizeBytes: _intFromValue(data['fileSizeBytes']),
       fileDurationMs: _intFromValue(data['fileDurationMs']),
-      reactionBy: _stringMapFromValue(data['reactionBy']),
+      reactionBy: _stringMapFromValue(
+        data['reactionBy'],
+        allowedValues: _allowedMessageReactions,
+      ),
     );
   }
 
@@ -1702,7 +1821,10 @@ class FirestoreChatRepository implements ChatRepository {
     return const <String, bool>{};
   }
 
-  static Map<String, String> _stringMapFromValue(Object? value) {
+  static Map<String, String> _stringMapFromValue(
+    Object? value, {
+    Set<String>? allowedValues,
+  }) {
     if (value is! Map) {
       return const <String, String>{};
     }
@@ -1711,9 +1833,11 @@ class FirestoreChatRepository implements ChatRepository {
 
     for (final entry in value.entries) {
       final key = entry.key?.toString() ?? '';
-      final mapValue = entry.value?.toString() ?? '';
+      final mapValue = entry.value?.toString().trim() ?? '';
 
-      if (key.isNotEmpty && mapValue.isNotEmpty) {
+      if (key.isNotEmpty &&
+          mapValue.isNotEmpty &&
+          (allowedValues == null || allowedValues.contains(mapValue))) {
         result[key] = mapValue;
       }
     }
@@ -1796,6 +1920,23 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
+  Future<ChatRecord?> loadChat({required String chatId}) async {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
+      return null;
+    }
+
+    final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
+
+    if (index < 0) {
+      return null;
+    }
+
+    return _chats[index];
+  }
+
+  @override
   Stream<List<ChatRecord>> watchChats({required String userId}) {
     return Stream<List<ChatRecord>>.value(
       _sortChatsForUser(
@@ -1863,9 +2004,18 @@ class LocalChatRepository implements ChatRepository {
   }) async {
     final now = DateTime.now();
     final uniqueParticipants = participants.toSet().toList()..sort();
+    final trimmedRequestId = requestId?.trim() ?? '';
+    final chatId = trimmedRequestId.isEmpty
+        ? 'local-chat-${now.microsecondsSinceEpoch}'
+        : 'request_$trimmedRequestId';
+    final existingChat = await loadChat(chatId: chatId);
+
+    if (existingChat != null) {
+      return existingChat;
+    }
 
     final chat = ChatRecord(
-      id: 'local-chat-${now.microsecondsSinceEpoch}',
+      id: chatId,
       participants: uniqueParticipants,
       status: ChatStatus.active,
       createdAt: now,
@@ -1968,6 +2118,7 @@ class LocalChatRepository implements ChatRepository {
       chatId: chatId,
       lastMessage: lastMessageText,
       timestamp: now,
+      clearArchivedForParticipants: true,
     );
 
     return message;
@@ -2001,6 +2152,13 @@ class LocalChatRepository implements ChatRepository {
     );
 
     _messages.add(message);
+    _updateChatLastMessage(
+      chatId: chatId,
+      lastMessage: messageText,
+      timestamp: now,
+      clearArchivedForParticipants: true,
+    );
+
     return message;
   }
 
@@ -2040,6 +2198,7 @@ class LocalChatRepository implements ChatRepository {
       chatId: chatId,
       lastMessage: messageText,
       timestamp: now,
+      clearArchivedForParticipants: true,
     );
 
     return message;
@@ -2082,6 +2241,7 @@ class LocalChatRepository implements ChatRepository {
       chatId: chatId,
       lastMessage: messageText,
       timestamp: now,
+      clearArchivedForParticipants: true,
     );
 
     return message;
@@ -2312,10 +2472,12 @@ class LocalChatRepository implements ChatRepository {
 
     final nextReactionBy = Map<String, String>.of(_messages[index].reactionBy);
 
-    if (reaction.trim().isEmpty) {
+    final trimmedReaction = _normalizedMessageReaction(reaction);
+
+    if (trimmedReaction.isEmpty) {
       nextReactionBy.remove(userId);
     } else {
-      nextReactionBy[userId] = reaction.trim();
+      nextReactionBy[userId] = trimmedReaction;
     }
 
     _messages[index] = _messages[index].copyWith(
@@ -2358,6 +2520,7 @@ class LocalChatRepository implements ChatRepository {
     required String chatId,
     required String lastMessage,
     required DateTime timestamp,
+    bool clearArchivedForParticipants = false,
   }) {
     final index = _chats.indexWhere((chat) => chat.id == chatId);
 
@@ -2365,9 +2528,17 @@ class LocalChatRepository implements ChatRepository {
       throw StateError('Chat not found: $chatId');
     }
 
+    final archivedBy = clearArchivedForParticipants
+        ? {
+            for (final participantId in _chats[index].participants)
+              if (participantId.trim().isNotEmpty) participantId: false,
+          }
+        : _chats[index].archivedBy;
+
     _chats[index] = _chats[index].copyWith(
       lastMessage: lastMessage,
       lastMessageAt: timestamp,
+      archivedBy: archivedBy,
       updatedAt: timestamp,
     );
   }

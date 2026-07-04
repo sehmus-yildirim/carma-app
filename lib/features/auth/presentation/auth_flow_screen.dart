@@ -4,17 +4,10 @@ import 'forgot_password_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
-enum AuthFlowStep {
-  login,
-  register,
-  forgotPassword,
-}
+enum AuthFlowStep { login, register, forgotPassword }
 
 class AuthFlowScreen extends StatefulWidget {
-  const AuthFlowScreen({
-    super.key,
-    this.onAuthFinished,
-  });
+  const AuthFlowScreen({super.key, this.onAuthFinished});
 
   final VoidCallback? onAuthFinished;
 

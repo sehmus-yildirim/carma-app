@@ -1,4 +1,4 @@
-import '../models/carma_models.dart';
+import '../models/carisma_models.dart';
 
 enum AppFeature {
   appAccess,
@@ -35,14 +35,16 @@ class AppFeatureGate {
 
     if (userState.accountStatus.isSuspended) {
       return AppFeatureDecision.blocked(
-        reason: userState.accountStatus.reason ??
+        reason:
+            userState.accountStatus.reason ??
             'Dieses Konto ist aktuell gesperrt.',
       );
     }
 
     if (!userState.hasRequiredLegalConsents) {
       return const AppFeatureDecision.blocked(
-        reason: 'Bitte akzeptiere zuerst die erforderlichen Nutzungsbedingungen.',
+        reason:
+            'Bitte akzeptiere zuerst die erforderlichen Nutzungsbedingungen.',
       );
     }
 
@@ -64,7 +66,8 @@ class AppFeatureGate {
 
     if (userState.accountStatus.isRestricted) {
       return AppFeatureDecision.blocked(
-        reason: userState.accountStatus.reason ??
+        reason:
+            userState.accountStatus.reason ??
             'Dein Konto ist aktuell eingeschränkt.',
       );
     }
@@ -99,7 +102,8 @@ class AppFeatureGate {
 
     if (userState.accountStatus.isRestricted) {
       return AppFeatureDecision.blocked(
-        reason: userState.accountStatus.reason ??
+        reason:
+            userState.accountStatus.reason ??
             'Dein Konto ist aktuell eingeschränkt.',
       );
     }
@@ -128,7 +132,8 @@ class AppFeatureGate {
 
     if (userState.accountStatus.isRestricted) {
       return AppFeatureDecision.blocked(
-        reason: userState.accountStatus.reason ??
+        reason:
+            userState.accountStatus.reason ??
             'Dein Konto ist aktuell eingeschränkt.',
       );
     }
@@ -157,7 +162,8 @@ class AppFeatureGate {
 
     if (userState.accountStatus.isRestricted) {
       return AppFeatureDecision.blocked(
-        reason: userState.accountStatus.reason ??
+        reason:
+            userState.accountStatus.reason ??
             'Dein Konto ist aktuell eingeschränkt.',
       );
     }
@@ -166,8 +172,8 @@ class AppFeatureGate {
   }
 
   static AppFeatureDecision _evaluateProfileVerification(
-      AppUserState userState,
-      ) {
+    AppUserState userState,
+  ) {
     final appAccess = _evaluateAppAccess(userState);
 
     if (!appAccess.isAllowed) {
@@ -191,22 +197,12 @@ class AppFeatureGate {
 }
 
 class AppFeatureDecision {
-  const AppFeatureDecision._({
-    required this.isAllowed,
-    this.reason,
-  });
+  const AppFeatureDecision._({required this.isAllowed, this.reason});
 
-  const AppFeatureDecision.allowed()
-      : this._(
-    isAllowed: true,
-  );
+  const AppFeatureDecision.allowed() : this._(isAllowed: true);
 
-  const AppFeatureDecision.blocked({
-    required String reason,
-  }) : this._(
-    isAllowed: false,
-    reason: reason,
-  );
+  const AppFeatureDecision.blocked({required String reason})
+    : this._(isAllowed: false, reason: reason);
 
   final bool isAllowed;
   final String? reason;

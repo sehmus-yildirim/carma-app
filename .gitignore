@@ -43,3 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local Firebase admin tooling
+node_modules/
+*.service-account.json
+firebase-service-account.json
+service-account.json
+
+# Android release signing
+/android/key.properties
+/android/*.jks
+/android/*.keystore
+/android/app/*.jks
+/android/app/*.keystore

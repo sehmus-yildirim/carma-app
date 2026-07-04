@@ -36,7 +36,7 @@ const PlateCountryConfig germanPlateConfig = PlateCountryConfig(
 
 const PlateCountryConfig austrianPlateConfig = PlateCountryConfig(
   countryCode: 'AT',
-  countryLabel: 'Österreich',
+  countryLabel: '\u00d6sterreich',
   regionLabel: 'Bezirk',
   regionMaxLength: 2,
   lettersMaxLength: 2,
@@ -66,7 +66,7 @@ const List<PlateCountryConfig> plateCountryConfigs = [
 
 PlateCountryConfig plateConfigForCountry(String countryCode) {
   return plateCountryConfigs.firstWhere(
-        (config) => config.countryCode == countryCode,
+    (config) => config.countryCode == countryCode,
     orElse: () => germanPlateConfig,
   );
 }

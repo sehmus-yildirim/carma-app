@@ -1,20 +1,19 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_message_card.dart';
-import '../../../shared/widgets/carma_primary_button.dart';
-import '../../../shared/widgets/carma_secondary_button.dart';
-import '../../../shared/widgets/carma_social_auth_button.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_message_card.dart';
+import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_secondary_button.dart';
+import '../../../shared/widgets/carisma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
 import '../data/user_profile_repository.dart';
 import '../data/search_credit_repository.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 
-const Color _carmaBlueLight = Color(0xFF63D5FF);
-
-const String _carmaLogoAsset = 'assets/images/carma_logo.png';
+const String _carismaLogoAsset = 'assets/images/carisma_logo.png';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -50,10 +49,10 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorMessage;
   String? _successMessage;
 
-  bool get _hasEmail => _emailController.text.trim().isNotEmpty;
-  bool get _hasPassword => _passwordController.text.trim().isNotEmpty;
+  bool get _hasValidEmail => _isValidEmail(_emailController.text);
+  bool get _hasValidPassword => _passwordController.text.length >= 6;
 
-  bool get _canSubmit => _hasEmail && _hasPassword && !_isLoading;
+  bool get _canSubmit => _hasValidEmail && _hasValidPassword && !_isLoading;
 
   @override
   void initState() {
@@ -91,6 +90,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submitLogin() async {
+    if (_isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     final email = _emailController.text.trim();
@@ -140,8 +143,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       setState(() {
-        _successMessage = 'Erfolgreich eingeloggt.';
+        _successMessage = _loginSuccessMessage(user);
       });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_successMessage!)));
 
       widget.onLoginSuccess?.call();
     } on FirebaseAuthException catch (error) {
@@ -181,6 +188,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submitGoogleLogin() async {
+    if (_isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -200,6 +211,25 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
 
+      if (credential.additionalUserInfo?.isNewUser ?? false) {
+        try {
+          await user.delete();
+        } finally {
+          await _authService.signOut();
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _errorMessage =
+              'Bitte registriere dich zuerst, damit deine Zustimmungen gespeichert werden.';
+          _successMessage = null;
+        });
+        return;
+      }
+
       await _prepareFirestoreUser(user);
 
       if (!mounted) {
@@ -207,8 +237,15 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       setState(() {
-        _successMessage = 'Google-Anmeldung erfolgreich.';
+        _successMessage = _loginSuccessMessage(
+          user,
+          verifiedMessage: 'Google-Anmeldung erfolgreich.',
+        );
       });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_successMessage!)));
 
       widget.onLoginSuccess?.call();
     } on FirebaseAuthException catch (error) {
@@ -270,6 +307,19 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  String _loginSuccessMessage(
+    User user, {
+    String verifiedMessage = 'Erfolgreich eingeloggt.',
+  }) {
+    final email = user.email?.trim() ?? '';
+
+    if (email.isEmpty || user.emailVerified) {
+      return verifiedMessage;
+    }
+
+    return '$verifiedMessage Deine E-Mail-Adresse ist noch nicht bestätigt.';
+  }
+
   String _mapFirebaseError(FirebaseException error) {
     switch (error.code) {
       case 'permission-denied':
@@ -304,14 +354,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _showAppleAuthComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Apple Login wird später mit dem iOS-Setup aktiviert.'),
-      ),
-    );
-  }
-
   void _goBack() {
     if (widget.onBack != null) {
       widget.onBack!();
@@ -326,7 +368,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final canPop = widget.onBack != null || Navigator.of(context).canPop();
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -392,7 +434,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             'Passwort vergessen?',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                                  color: _carmaBlueLight,
+                                  color: CaRismaDesignTokens.blueBright,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),
@@ -403,20 +445,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 14),
-                  CarmaMessageCard(
+                  CaRismaMessageCard(
                     icon: Icons.error_outline_rounded,
                     message: _errorMessage!,
                   ),
                 ],
                 if (_successMessage != null) ...[
                   const SizedBox(height: 14),
-                  CarmaMessageCard(
+                  CaRismaMessageCard(
                     icon: Icons.check_circle_outline_rounded,
                     message: _successMessage!,
                   ),
                 ],
                 const SizedBox(height: 18),
-                CarmaPrimaryButton(
+                CaRismaPrimaryButton(
                   label: 'Einloggen',
                   loadingLabel: 'Wird geprüft...',
                   icon: Icons.login_rounded,
@@ -427,8 +469,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 const _AuthDivider(),
                 const SizedBox(height: 16),
-                CarmaSocialAuthButton(
-                  provider: CarmaSocialAuthProvider.google,
+                CaRismaSocialAuthButton(
+                  provider: CaRismaSocialAuthProvider.google,
                   onPressed: () {
                     if (_isLoading) {
                       return;
@@ -437,19 +479,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     _submitGoogleLogin();
                   },
                 ),
-                const SizedBox(height: 10),
-                CarmaSocialAuthButton(
-                  provider: CarmaSocialAuthProvider.apple,
-                  onPressed: () {
-                    if (_isLoading) {
-                      return;
-                    }
-
-                    _showAppleAuthComingSoon();
-                  },
-                ),
                 const SizedBox(height: 12),
-                CarmaSecondaryButton(
+                CaRismaSecondaryButton(
                   label: 'Noch kein Konto? Registrieren',
                   icon: Icons.person_add_alt_1_rounded,
                   borderRadius: 24,
@@ -482,7 +513,7 @@ class _LoginBrandHeader extends StatelessWidget {
     return Column(
       children: [
         Image.asset(
-          _carmaLogoAsset,
+          _carismaLogoAsset,
           height: 96,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
@@ -503,7 +534,7 @@ class _LoginBrandHeader extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Carma',
+          'CaRisma',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             color: Colors.white,
@@ -609,35 +640,10 @@ class _AuthTextField extends StatelessWidget {
       onSubmitted: onSubmitted,
       autocorrect: false,
       enableSuggestions: !obscureText,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.w800,
-      ),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.50),
-          fontWeight: FontWeight.w700,
-        ),
-        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
+        prefixIcon: Icon(icon),
         suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.08),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 17,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(
-            color: _carmaBlueLight.withValues(alpha: 0.90),
-            width: 1.4,
-          ),
-        ),
       ),
     );
   }

@@ -1,16 +1,21 @@
 part of '../chats_screen.dart';
 
 class _ChatVehicleDetailPill extends StatelessWidget {
-  const _ChatVehicleDetailPill({required this.icon, required this.label});
+  const _ChatVehicleDetailPill({
+    required this.icon,
+    required this.title,
+    required this.label,
+  });
 
   final IconData icon;
+  final String title;
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 46),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      constraints: const BoxConstraints(minHeight: 54),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: Colors.white.withValues(alpha: 0.10),
@@ -19,19 +24,33 @@ class _ChatVehicleDetailPill extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, color: Colors.white.withValues(alpha: 0.74), size: 18),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                label,
-                maxLines: 1,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.58),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -48,6 +67,8 @@ class _ChatOverflowMenu extends StatelessWidget {
     this.chatId,
     this.title,
     this.subtitle,
+    this.vehicleLabel,
+    this.plateLabel,
     this.isFavorite = false,
     this.isPinned = false,
     this.isMuted = false,
@@ -60,6 +81,8 @@ class _ChatOverflowMenu extends StatelessWidget {
   final String? chatId;
   final String? title;
   final String? subtitle;
+  final String? vehicleLabel;
+  final String? plateLabel;
   final bool isFavorite;
   final bool isPinned;
   final bool isMuted;
@@ -77,18 +100,24 @@ class _ChatOverflowMenu extends StatelessWidget {
   Future<void> _showVehicleDetails(BuildContext context) async {
     final safeTitle = title?.trim().isNotEmpty == true
         ? title!.trim()
-        : 'Carma Nutzer';
+        : 'CaRisma Nutzer';
 
     final safeSubtitle = subtitle?.trim().isNotEmpty == true
         ? subtitle!.trim()
-        : 'Fahrzeugdetails sind aktuell nicht verf\u00FCgbar.';
+        : 'Fahrzeugdetails sind aktuell nicht verfügbar.';
     final detailParts = safeSubtitle.split(RegExp(r'\s+-\s+'));
-    final vehicleLabel = detailParts.first.trim().isEmpty
+    final parsedVehicleLabel = detailParts.first.trim().isEmpty
         ? 'Fahrzeug'
         : detailParts.first.trim();
-    final plateLabel = detailParts.length > 1
+    final parsedPlateLabel = detailParts.length > 1
         ? _formatChatPlateLabel(detailParts.sublist(1).join(' - '))
         : '';
+    final resolvedVehicleLabel = vehicleLabel?.trim().isNotEmpty == true
+        ? vehicleLabel!.trim()
+        : parsedVehicleLabel;
+    final resolvedPlateLabel = plateLabel?.trim().isNotEmpty == true
+        ? _formatChatPlateLabel(plateLabel)
+        : parsedPlateLabel;
 
     await showDialog<void>(
       context: context,
@@ -112,7 +141,7 @@ class _ChatOverflowMenu extends StatelessWidget {
               border: Border.all(color: _myMessageBorder),
               boxShadow: [
                 BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.16),
+                  color: _carismaBlue.withValues(alpha: 0.16),
                   blurRadius: 24,
                   offset: const Offset(0, 12),
                 ),
@@ -141,7 +170,7 @@ class _ChatOverflowMenu extends StatelessWidget {
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
                       color: Colors.white70,
-                      tooltip: 'Schlie\u00DFen',
+                      tooltip: 'Schließen',
                     ),
                   ],
                 ),
@@ -154,26 +183,25 @@ class _ChatOverflowMenu extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: _ChatVehicleDetailPill(
-                        icon: Icons.directions_car_filled_rounded,
-                        label: vehicleLabel,
-                      ),
+                    _ChatVehicleDetailPill(
+                      icon: Icons.directions_car_filled_rounded,
+                      title: 'Fahrzeug',
+                      label: resolvedVehicleLabel,
                     ),
-                    if (plateLabel.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _ChatVehicleDetailPill(
-                          icon: Icons.confirmation_number_rounded,
-                          label: plateLabel,
-                        ),
+                    if (resolvedPlateLabel.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _ChatVehicleDetailPill(
+                        icon: Icons.confirmation_number_rounded,
+                        title: 'Kennzeichen',
+                        label: resolvedPlateLabel,
                       ),
                     ],
                   ],
                 ),
-                if (plateLabel.isEmpty) ...[
+                if (resolvedPlateLabel.isEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
                     safeSubtitle,
@@ -230,7 +258,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist f\u00FCr lokale Beispielchats noch nicht verf\u00FCgbar.',
+        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
       );
       return;
     }
@@ -320,7 +348,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           context: context,
           successMessage: nextIsPinned
               ? 'Chat wurde angepinnt.'
-              : 'Chat wurde gel\u00F6st.',
+              : 'Chat wurde gelöst.',
           action: ({required String chatId, required String userId}) async {
             await _chatRepository.setChatPinned(
               chatId: chatId,
@@ -334,7 +362,7 @@ class _ChatOverflowMenu extends StatelessWidget {
         await _runChatPreferenceAction(
           context: context,
           successMessage: nextIsFavorite
-              ? 'Chat wurde zu Favoriten hinzugefuegt.'
+              ? 'Chat wurde zu Favoriten hinzugefügt.'
               : 'Chat wurde aus Favoriten entfernt.',
           action: ({required String chatId, required String userId}) async {
             await _chatRepository.setChatFavorite(
@@ -386,9 +414,9 @@ class _ChatOverflowMenu extends StatelessWidget {
           context: context,
           title: isArchived ? 'Chat aus Archiv holen?' : 'Chat archivieren?',
           message: isArchived
-              ? 'Der Chat wird wieder in deiner aktiven \u00DCbersicht angezeigt.'
-              : 'Der Chat wird aus der aktiven \u00DCbersicht entfernt, bleibt aber f\u00FCr Sicherheit und Meldungen nachvollziehbar.',
-          confirmLabel: isArchived ? 'Zur\u00FCckholen' : 'Archivieren',
+              ? 'Der Chat wird wieder in deiner aktiven Übersicht angezeigt.'
+              : 'Der Chat wird aus der aktiven Übersicht entfernt, bleibt aber für Sicherheit und Meldungen nachvollziehbar.',
+          confirmLabel: isArchived ? 'Zurückholen' : 'Archivieren',
           successMessage: isArchived
               ? 'Chat wurde aus dem Archiv geholt.'
               : 'Chat wurde archiviert.',
@@ -420,11 +448,11 @@ class _ChatOverflowMenu extends StatelessWidget {
       case _ChatMenuAction.delete:
         await _runChatStatusAction(
           context: context,
-          title: 'Chat l\u00F6schen?',
+          title: 'Chat löschen?',
           message:
-              'Der Chat wird aus deiner aktiven \u00DCbersicht entfernt. Sicherheitsrelevante Daten k\u00F6nnen gesch\u00FCtzt erhalten bleiben.',
-          confirmLabel: 'L\u00F6schen',
-          successMessage: 'Chat wurde gel\u00F6scht.',
+              'Der Chat wird aus deiner aktiven Übersicht entfernt. Sicherheitsrelevante Daten können geschützt erhalten bleiben.',
+          confirmLabel: 'Löschen',
+          successMessage: 'Chat wurde gelöscht.',
           action: () async {
             final id = chatId?.trim();
             final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -445,7 +473,7 @@ class _ChatOverflowMenu extends StatelessWidget {
           context: context,
           title: 'Nutzer blockieren?',
           message:
-              'Blockierte Nutzer k\u00F6nnen dich nicht mehr \u00FCber diesen Chat kontaktieren.',
+              'Blockierte Nutzer können dich nicht mehr über diesen Chat kontaktieren.',
           confirmLabel: 'Blockieren',
           successMessage: 'Nutzer wurde blockiert.',
           action: () async {
@@ -511,7 +539,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist f\u00FCr lokale Beispielchats noch nicht verf\u00FCgbar.',
+        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
       );
       return;
     }
@@ -535,10 +563,7 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(
-        context,
-        'Aktion konnte nicht ausgef\u00FChrt werden: $error',
-      );
+      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
     }
   }
 
@@ -555,7 +580,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     if (id == null || id.isEmpty) {
       _showSnackBar(
         context,
-        'Diese Aktion ist f\u00FCr lokale Beispielchats noch nicht verf\u00FCgbar.',
+        'Diese Aktion ist für lokale Beispielchats noch nicht verfügbar.',
       );
       return;
     }
@@ -604,10 +629,7 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(
-        context,
-        'Aktion konnte nicht ausgef\u00FChrt werden: $error',
-      );
+      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
     }
   }
 
@@ -635,15 +657,13 @@ class _ChatOverflowMenu extends StatelessWidget {
               child: Text(
                 isFavorite
                     ? 'Aus Favoriten entfernen'
-                    : 'Zu Favoriten hinzuf\u00FCgen',
+                    : 'Zu Favoriten hinzufügen',
               ),
             ),
             PopupMenuItem(
               value: _ChatMenuAction.mute,
               child: Text(
-                isMuted
-                    ? 'Stummschaltung aufheben'
-                    : 'Stummschalten',
+                isMuted ? 'Stummschaltung aufheben' : 'Stummschalten',
               ),
             ),
             PopupMenuItem(
@@ -664,7 +684,7 @@ class _ChatOverflowMenu extends StatelessWidget {
             ),
             const PopupMenuItem(
               value: _ChatMenuAction.delete,
-              child: Text('Chat l\u00F6schen'),
+              child: Text('Chat löschen'),
             ),
             const PopupMenuItem(
               value: _ChatMenuAction.block,

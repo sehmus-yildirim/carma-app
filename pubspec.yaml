@@ -1,5 +1,5 @@
-name: carma
-description: "Carma is a modern social contact app for drivers and vehicle-related communication."
+name: carisma
+description: "CaRisma is a modern social contact app for drivers and vehicle-related communication."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -36,4 +36,4 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/carma_logo.png
+    - assets/images/carisma_logo.png

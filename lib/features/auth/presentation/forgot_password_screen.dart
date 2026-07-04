@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_message_card.dart';
-import '../../../shared/widgets/carma_primary_button.dart';
-import '../../../shared/widgets/carma_sub_page_header.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_message_card.dart';
+import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/auth_service.dart';
 
@@ -27,12 +27,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   String? _errorMessage;
   String? _successMessage;
 
-  bool get _hasEmail {
-    return _emailController.text.trim().isNotEmpty;
-  }
+  bool get _hasValidEmail => _isValidEmail(_emailController.text);
 
   bool get _canSubmit {
-    return _hasEmail && !_isLoading;
+    return _hasValidEmail && !_isLoading;
   }
 
   @override
@@ -64,6 +62,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _submitReset() async {
+    if (_isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     final email = _emailController.text.trim();
@@ -147,7 +149,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -157,7 +159,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CarmaSubPageHeader(
+                CaRismaSubPageHeader(
                   icon: Icons.lock_reset_rounded,
                   title: 'Passwort vergessen',
                   onBack: _goBack,
@@ -190,20 +192,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 14),
-                  CarmaMessageCard(
+                  CaRismaMessageCard(
                     icon: Icons.error_outline_rounded,
                     message: _errorMessage!,
                   ),
                 ],
                 if (_successMessage != null) ...[
                   const SizedBox(height: 14),
-                  CarmaMessageCard(
+                  CaRismaMessageCard(
                     icon: Icons.check_circle_outline_rounded,
                     message: _successMessage!,
                   ),
                 ],
                 const SizedBox(height: 18),
-                CarmaPrimaryButton(
+                CaRismaPrimaryButton(
                   label: 'Reset-Link senden',
                   loadingLabel: 'Wird gesendet...',
                   icon: Icons.mark_email_read_outlined,
@@ -246,35 +248,7 @@ class _AuthTextField extends StatelessWidget {
       onSubmitted: onSubmitted,
       autocorrect: false,
       enableSuggestions: false,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.w800,
-      ),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.50),
-          fontWeight: FontWeight.w700,
-        ),
-        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.08),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 17,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(
-            color: const Color(0xFF63D5FF).withValues(alpha: 0.90),
-            width: 1.4,
-          ),
-        ),
-      ),
+      decoration: InputDecoration(hintText: hintText, prefixIcon: Icon(icon)),
     );
   }
 }

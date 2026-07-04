@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/carisma_design_tokens.dart';
+
 class GlassPrimaryButton extends StatelessWidget {
   const GlassPrimaryButton({
     required this.label,
@@ -23,41 +25,42 @@ class GlassPrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: isLoading ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          disabledBackgroundColor: Colors.white.withValues(alpha: 0.72),
-          disabledForegroundColor: Colors.black.withValues(alpha: 0.45),
+          backgroundColor: CaRismaDesignTokens.bluePrimary,
+          foregroundColor: CaRismaDesignTokens.textPrimary,
+          disabledBackgroundColor: CaRismaDesignTokens.bluePrimary.withValues(
+            alpha: 0.30,
+          ),
+          disabledForegroundColor: CaRismaDesignTokens.textPrimary.withValues(
+            alpha: 0.48,
+          ),
           elevation: 0,
-          shadowColor: Colors.white.withValues(alpha: 0.18),
+          shadowColor: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.35),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
           ),
           textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w900,
-            letterSpacing: -0.1,
+            letterSpacing: 0,
           ),
         ),
         child: isLoading
             ? const SizedBox(
-          width: 21,
-          height: 21,
-          child: CircularProgressIndicator(
-            strokeWidth: 2.2,
-            color: Colors.black,
-          ),
-        )
+                width: 21,
+                height: 21,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: CaRismaDesignTokens.textPrimary,
+                ),
+              )
             : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              icon!,
-              const SizedBox(width: 10),
-            ],
-            Text(label),
-          ],
-        ),
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[icon!, const SizedBox(width: 10)],
+                  Text(label),
+                ],
+              ),
       ),
     );
   }
@@ -86,12 +89,10 @@ class GlassSecondaryButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
           disabledForegroundColor: Colors.white.withValues(alpha: 0.35),
-          side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.24),
-          ),
-          backgroundColor: Colors.white.withValues(alpha: 0.045),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          backgroundColor: CaRismaDesignTokens.surface2.withValues(alpha: 0.82),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
@@ -99,9 +100,7 @@ class GlassSecondaryButton extends StatelessWidget {
           children: [
             SizedBox(
               width: 26,
-              child: Center(
-                child: icon ?? const SizedBox.shrink(),
-              ),
+              child: Center(child: icon ?? const SizedBox.shrink()),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -111,7 +110,7 @@ class GlassSecondaryButton extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -0.1,
+                  letterSpacing: 0,
                 ),
               ),
             ),

@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../shared/firebase/carma_firestore_paths.dart';
-import '../../../shared/firebase/carma_firestore_schema.dart';
+import '../../../shared/firebase/carisma_firestore_paths.dart';
+import '../../../shared/firebase/carisma_firestore_schema.dart';
 
 enum ContactRequestStatus {
   pending,
@@ -10,6 +10,33 @@ enum ContactRequestStatus {
   withdrawn,
   expired,
   blocked,
+}
+
+String _contactRequestDocumentId({
+  required String senderUserId,
+  required String plateKey,
+}) {
+  return '${senderUserId.trim()}_${plateKey.trim().toUpperCase()}';
+}
+
+String _contactRequestDedupeKey({
+  required String senderUserId,
+  required String receiverUserId,
+  required String plateKey,
+}) {
+  return [
+    senderUserId.trim(),
+    receiverUserId.trim(),
+    plateKey.trim().toUpperCase(),
+  ].join('|');
+}
+
+FirebaseException _duplicateContactRequestException() {
+  return FirebaseException(
+    plugin: 'carisma',
+    code: 'already-exists',
+    message: 'Fuer dieses Kennzeichen existiert bereits eine Anfrage.',
+  );
 }
 
 class ContactRequestRecord {
@@ -63,6 +90,24 @@ class ContactRequestRecord {
 
   bool get isAccepted {
     return status == ContactRequestStatus.accepted;
+  }
+
+  bool get hasLinkedChat {
+    return chatId?.trim().isNotEmpty ?? false;
+  }
+
+  bool get isExpiredByTime {
+    final expiry = expiresAt;
+
+    if (expiry == null) {
+      return false;
+    }
+
+    return expiry.isBefore(DateTime.now());
+  }
+
+  bool get isVisibleInRequestLists {
+    return !isExpiredByTime && isPending;
   }
 
   String get vehicleTitle {
@@ -123,7 +168,7 @@ class ContactRequestRecord {
       ContactRequestStatus.pending => 'Ausstehend',
       ContactRequestStatus.accepted => 'Angenommen',
       ContactRequestStatus.declined => 'Abgelehnt',
-      ContactRequestStatus.withdrawn => 'Zur\u00FCckgezogen',
+      ContactRequestStatus.withdrawn => 'Zurückgezogen',
       ContactRequestStatus.expired => 'Abgelaufen',
       ContactRequestStatus.blocked => 'Blockiert',
     };
@@ -262,7 +307,23 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _collection {
-    return _firestore.collection(CarmaFirestoreCollections.contactRequests);
+    return _firestore.collection(CaRismaFirestoreCollections.contactRequests);
+  }
+
+  DateTime? _expiryFromValue(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String && value.isNotEmpty) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
   }
 
   Stream<List<ContactRequestRecord>> watchIncomingRequests({
@@ -270,7 +331,6 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
   }) {
     return _collection
         .where('receiverUserId', isEqualTo: userId)
-        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
         .snapshots()
         .map(_recordsFromSnapshot);
   }
@@ -280,7 +340,6 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
   }) {
     return _collection
         .where('senderUserId', isEqualTo: userId)
-        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
         .snapshots()
         .map(_recordsFromSnapshot);
   }
@@ -291,7 +350,6 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
   }) async {
     final snapshot = await _collection
         .where('receiverUserId', isEqualTo: userId)
-        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
         .get();
 
     return _recordsFromSnapshot(snapshot);
@@ -303,7 +361,6 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
   }) async {
     final snapshot = await _collection
         .where('senderUserId', isEqualTo: userId)
-        .where('status', isEqualTo: FirestoreContactRequestStatus.pending)
         .get();
 
     return _recordsFromSnapshot(snapshot);
@@ -317,19 +374,50 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
     required String plateKey,
     required String message,
   }) async {
+    final trimmedSenderUserId = senderUserId.trim();
+    final trimmedReceiverUserId = receiverUserId.trim();
+    final normalizedPlateKey = plateKey.trim().toUpperCase();
+    final normalizedCountryCode = countryCode.trim().toUpperCase();
+
+    final existingRequests = await _collection
+        .where('senderUserId', isEqualTo: trimmedSenderUserId)
+        .get();
+
+    final hasExistingRequest = existingRequests.docs.any((document) {
+      final data = document.data();
+      final status = data['status'] as String?;
+      final expiresAt = _expiryFromValue(data['expiresAt']);
+      return data['receiverUserId'] == trimmedReceiverUserId &&
+          data['plateKey'] == normalizedPlateKey &&
+          data['isDeleted'] != true &&
+          (expiresAt == null || expiresAt.isAfter(DateTime.now())) &&
+          (status == FirestoreContactRequestStatus.pending ||
+              status == FirestoreContactRequestStatus.accepted);
+    });
+
+    if (hasExistingRequest) {
+      throw _duplicateContactRequestException();
+    }
+
     final now = DateTime.now();
     final expiresAt = now.add(
       const Duration(
-        hours: FirestoreDocumentDefaults.defaultRequestExpiryHours,
+        minutes: FirestoreDocumentDefaults.defaultRequestExpiryMinutes,
+      ),
+    );
+    final document = _collection.doc(
+      _contactRequestDocumentId(
+        senderUserId: trimmedSenderUserId,
+        plateKey: normalizedPlateKey,
       ),
     );
 
-    final document = await _collection.add({
-      'senderUserId': senderUserId,
-      'receiverUserId': receiverUserId,
-      'targetUserId': receiverUserId,
-      'countryCode': countryCode.toUpperCase(),
-      'plateKey': plateKey.trim().toUpperCase(),
+    await document.set({
+      'senderUserId': trimmedSenderUserId,
+      'receiverUserId': trimmedReceiverUserId,
+      'targetUserId': trimmedReceiverUserId,
+      'countryCode': normalizedCountryCode,
+      'plateKey': normalizedPlateKey,
       'message': message.trim(),
       'status': FirestoreContactRequestStatus.pending,
       'createdAt': FieldValue.serverTimestamp(),
@@ -390,7 +478,7 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
       updateData['chatId'] = chatId;
     }
 
-    await document.set(updateData, SetOptions(merge: true));
+    await document.update(updateData);
 
     final snapshot = await document.get();
     return ContactRequestRecord.fromFirestore(snapshot);
@@ -399,12 +487,26 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
   List<ContactRequestRecord> _recordsFromSnapshot(
     QuerySnapshot<Map<String, dynamic>> snapshot,
   ) {
-    final records = snapshot.docs
-        .map(ContactRequestRecord.fromFirestore)
-        .where((request) => !request.isAccepted)
-        .toList();
+    final recordsByTarget = <String, ContactRequestRecord>{};
 
-    records.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    for (final request
+        in snapshot.docs
+            .map(ContactRequestRecord.fromFirestore)
+            .where((request) => request.isVisibleInRequestLists)) {
+      final key = _contactRequestDedupeKey(
+        senderUserId: request.senderUserId,
+        receiverUserId: request.receiverUserId,
+        plateKey: request.plateKey,
+      );
+      final existing = recordsByTarget[key];
+
+      if (existing == null || request.createdAt.isAfter(existing.createdAt)) {
+        recordsByTarget[key] = request;
+      }
+    }
+
+    final records = recordsByTarget.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return records;
   }
 }
@@ -424,7 +526,7 @@ class LocalContactRequestRepository implements ContactRequestRepository {
         .where(
           (request) =>
               request.receiverUserId == userId &&
-              request.status == ContactRequestStatus.pending,
+              request.isVisibleInRequestLists,
         )
         .toList();
   }
@@ -436,8 +538,7 @@ class LocalContactRequestRepository implements ContactRequestRepository {
     return _requests
         .where(
           (request) =>
-              request.senderUserId == userId &&
-              request.status == ContactRequestStatus.pending,
+              request.senderUserId == userId && request.isVisibleInRequestLists,
         )
         .toList();
   }
@@ -450,6 +551,25 @@ class LocalContactRequestRepository implements ContactRequestRepository {
     required String plateKey,
     required String message,
   }) async {
+    final duplicateKey = _contactRequestDedupeKey(
+      senderUserId: senderUserId,
+      receiverUserId: receiverUserId,
+      plateKey: plateKey,
+    );
+    final hasExistingRequest = _requests.any((request) {
+      return _contactRequestDedupeKey(
+                senderUserId: request.senderUserId,
+                receiverUserId: request.receiverUserId,
+                plateKey: request.plateKey,
+              ) ==
+              duplicateKey &&
+          !request.isExpiredByTime;
+    });
+
+    if (hasExistingRequest) {
+      throw StateError('Contact request already exists.');
+    }
+
     final now = DateTime.now();
 
     final request = ContactRequestRecord(

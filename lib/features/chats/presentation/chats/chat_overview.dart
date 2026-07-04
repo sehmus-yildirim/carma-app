@@ -12,7 +12,7 @@ class _ChatAccessBlockedCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CarmaBlueIconBox(
+          CaRismaBlueIconBox(
             icon: Icons.lock_outline_rounded,
             size: 48,
             iconSize: 24,
@@ -23,7 +23,7 @@ class _ChatAccessBlockedCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Chats nicht verf\u00FCgbar',
+                  'Chats nicht verfügbar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -59,28 +59,46 @@ class _ChatsSegmentedControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SegmentButton(
-              label: 'Chats',
-              icon: Icons.forum_rounded,
-              isSelected: selectedView == _ChatsView.chats,
-              onTap: () => onChanged(_ChatsView.chats),
-            ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            color: Colors.white.withValues(alpha: 0.02),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _SegmentButton(
-              label: 'Anfragen',
-              icon: Icons.mark_chat_unread_rounded,
-              isSelected: selectedView == _ChatsView.requests,
-              onTap: () => onChanged(_ChatsView.requests),
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _SegmentButton(
+                  label: 'Chats',
+                  icon: Icons.forum_rounded,
+                  isSelected: selectedView == _ChatsView.chats,
+                  onTap: () => onChanged(_ChatsView.chats),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _SegmentButton(
+                  label: 'Anfragen',
+                  icon: Icons.mark_chat_unread_rounded,
+                  isSelected: selectedView == _ChatsView.requests,
+                  onTap: () => onChanged(_ChatsView.requests),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -105,35 +123,35 @@ class _SegmentButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          height: 58,
+          height: 48,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(24),
             gradient: isSelected
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      _myMessageBlueDark,
-                      _myMessageBlue,
-                      _myMessageBlueLight,
+                      Color(0xFF1260E8),
+                      Color(0xFF1E7BFF),
+                      Color(0xFF28A8FF),
                     ],
                   )
                 : null,
-            color: isSelected ? null : Colors.white.withValues(alpha: 0.04),
+            color: isSelected ? null : Colors.transparent,
             border: Border.all(
               color: isSelected
-                  ? Colors.white.withValues(alpha: 0.22)
-                  : Colors.white.withValues(alpha: 0.10),
+                  ? Colors.white.withValues(alpha: 0.18)
+                  : Colors.transparent,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: _carmaBlue.withValues(alpha: 0.26),
+                      color: _carismaBlue.withValues(alpha: 0.38),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -143,18 +161,26 @@ class _SegmentButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white, size: 22),
-              const SizedBox(width: 9),
+              Icon(
+                icon,
+                color: isSelected
+                    ? Colors.white
+                    : CaRismaDesignTokens.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16.5,
-                    fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
-                    letterSpacing: -0.1,
+                    color: isSelected
+                        ? Colors.white
+                        : CaRismaDesignTokens.textSecondary,
+                    fontSize: 15,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -173,47 +199,68 @@ class _ChatSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      textInputAction: TextInputAction.search,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.w700,
-      ),
-      decoration: InputDecoration(
-        hintText: 'Suchen',
-        hintStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.48),
-          fontWeight: FontWeight.w800,
-        ),
-        prefixIcon: Icon(
-          Icons.search_rounded,
-          color: Colors.white.withValues(alpha: 0.58),
-        ),
-        suffixIcon: ValueListenableBuilder<TextEditingValue>(
-          valueListenable: controller,
-          builder: (context, value, _) {
-            if (value.text.isEmpty) {
-              return const SizedBox.shrink();
-            }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: TextField(
+          controller: controller,
+          textInputAction: TextInputAction.search,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Suchen',
+            hintStyle: TextStyle(
+              color: CaRismaDesignTokens.textMuted,
+              fontWeight: FontWeight.w900,
+            ),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: CaRismaDesignTokens.textSecondary.withValues(alpha: 0.74),
+            ),
+            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                if (value.text.isEmpty) {
+                  return const SizedBox.shrink();
+                }
 
-            return IconButton(
-              onPressed: controller.clear,
-              icon: const Icon(Icons.close_rounded),
-              color: Colors.white70,
-              tooltip: 'Suche löschen',
-            );
-          },
-        ),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.08),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
+                return IconButton(
+                  onPressed: controller.clear,
+                  icon: const Icon(Icons.close_rounded),
+                  color: CaRismaDesignTokens.textSecondary,
+                  tooltip: 'Suche löschen',
+                );
+              },
+            ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.02),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 18,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(24),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(24)),
+              borderSide: BorderSide(
+                color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.8),
+                width: 1.6,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -226,6 +273,7 @@ class _ChatsOverview extends StatelessWidget {
     required this.archivedChats,
     required this.blockedChats,
     required this.stories,
+    required this.currentUserPhotoUrl,
     required this.isAddingOwnStory,
     required this.isLoading,
     required this.hasLocalActiveChat,
@@ -245,6 +293,7 @@ class _ChatsOverview extends StatelessWidget {
   final List<ChatRecord> archivedChats;
   final List<ChatRecord> blockedChats;
   final List<ChatStoryRecord> stories;
+  final String currentUserPhotoUrl;
   final bool isAddingOwnStory;
   final bool isLoading;
   final bool hasLocalActiveChat;
@@ -279,17 +328,19 @@ class _ChatsOverview extends StatelessWidget {
         selectedListView == _ChatListView.messages &&
         hasLocalActiveChat &&
         (searchQuery.trim().isEmpty ||
-            'carma nutzer bmw 1er schwarz ${localMessages.map((message) => message.text).join(' ')}'
+            'carisma nutzer bmw 1er schwarz ${localMessages.map((message) => message.text).join(' ')}'
                 .toLowerCase()
                 .contains(searchQuery.trim().toLowerCase()));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (!isKeyboardOpen) ...[
           _ChatStoriesStrip(
-            chats: visibleChats,
+            chats: [...visibleChats, ...visibleArchivedChats],
             stories: stories,
+            currentUserPhotoUrl: currentUserPhotoUrl,
             isAddingOwnStory: isAddingOwnStory,
             onAddOwnStory: () => onAddOwnStory([...chats, ...archivedChats]),
             onOpenStory: onOpenStory,
@@ -316,88 +367,84 @@ class _ChatsOverview extends StatelessWidget {
           onChanged: onListViewChanged,
         ),
         SizedBox(height: isKeyboardOpen ? 6 : 12),
-        Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onHorizontalDragEnd: onHorizontalSwipe,
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isLoading)
-                    const _InlineLoadingRow(label: 'Chats werden geladen...')
-                  else if (selectedChats.isEmpty && !showLocalChat)
-                    _EmptyListCard(
-                      icon: isBlockedView
-                          ? Icons.block_rounded
-                          : isArchivedView
-                          ? Icons.archive_outlined
-                          : Icons.chat_bubble_outline_rounded,
-                      title: hasSearchQuery
-                          ? 'Keine Treffer'
-                          : isBlockedView
-                          ? 'Keine blockierten Chats'
-                          : isArchivedView
-                          ? 'Keine archivierten Chats'
-                          : 'Keine Chats',
-                    )
-                  else
-                    GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onHorizontalDragEnd: onHorizontalSwipe,
-                      child: Column(
-                        children: [
-                          for (final chat in selectedChats) ...[
-                            _ActiveChatListTile(
-                              title: chat.displayNameFor(currentUserId),
-                              imageUrl: chat.profilePhotoUrlFor(currentUserId),
-                              subtitle:
-                                  chat.lastMessage?.trim().isNotEmpty == true
-                                  ? chat.lastMessage!.trim()
-                                  : chat.vehicleTitle,
-                              isFavorite: chat.isFavoriteFor(currentUserId),
-                              isPinned: chat.isPinnedFor(currentUserId),
-                              isMuted: chat.isMutedFor(currentUserId),
-                              isUnread: chat.hasUnreadFor(currentUserId),
-                              trailing: _ChatOverflowMenu(
-                                chatId: chat.id,
-                                title: chat.displayNameFor(currentUserId),
-                                subtitle:
-                                    '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
-                                isFavorite: chat.isFavoriteFor(currentUserId),
-                                isPinned: chat.isPinnedFor(currentUserId),
-                                isMuted: chat.isMutedFor(currentUserId),
-                                isUnread: chat.hasUnreadFor(currentUserId),
-                                isBlocked: isBlockedView,
-                                isArchived: isArchivedView,
-                                popAfterStatusAction: false,
-                              ),
-                              onTap: isBlockedView
-                                  ? () {}
-                                  : () => onOpenChat(chat),
-                            ),
-                            const SizedBox(height: 6),
-                          ],
-                          if (showLocalChat)
-                            _ActiveChatListTile(
-                              title: 'Carma Nutzer',
-                              subtitle: localMessages.isNotEmpty
-                                  ? localMessages.last.text
-                                  : 'BMW 1er',
-                              trailing: const _ChatOverflowMenu(
-                                title: 'Carma Nutzer',
-                                subtitle: 'BMW 1er - HH-HY 4747',
-                                popAfterStatusAction: false,
-                              ),
-                              onTap: onOpenLocalChat,
-                            ),
-                        ],
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: onHorizontalSwipe,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isLoading)
+                const _InlineLoadingRow(label: 'Chats werden geladen...')
+              else if (selectedChats.isEmpty && !showLocalChat)
+                _EmptyListCard(
+                  icon: isBlockedView
+                      ? Icons.block_rounded
+                      : isArchivedView
+                      ? Icons.archive_outlined
+                      : Icons.chat_bubble_outline_rounded,
+                  title: hasSearchQuery
+                      ? 'Keine Treffer'
+                      : isBlockedView
+                      ? 'Keine blockierten Chats'
+                      : isArchivedView
+                      ? 'Keine archivierten Chats'
+                      : 'Keine Chats',
+                )
+              else
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final chat in selectedChats) ...[
+                      _ActiveChatListTile(
+                        title: chat.displayNameFor(currentUserId),
+                        imageUrl: chat.profilePhotoUrlFor(currentUserId),
+                        subtitle: chat.lastMessage?.trim().isNotEmpty == true
+                            ? chat.lastMessage!.trim()
+                            : chat.vehicleTitle,
+                        isFavorite: chat.isFavoriteFor(currentUserId),
+                        isPinned: chat.isPinnedFor(currentUserId),
+                        isMuted: chat.isMutedFor(currentUserId),
+                        isUnread: chat.hasUnreadFor(currentUserId),
+                        trailing: _ChatOverflowMenu(
+                          chatId: chat.id,
+                          title: chat.displayNameFor(currentUserId),
+                          subtitle:
+                              '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
+                          vehicleLabel: chat.vehicleModelLabel,
+                          plateLabel: _formatChatPlateLabel(chat.displayPlate),
+                          isFavorite: chat.isFavoriteFor(currentUserId),
+                          isPinned: chat.isPinnedFor(currentUserId),
+                          isMuted: chat.isMutedFor(currentUserId),
+                          isUnread: chat.hasUnreadFor(currentUserId),
+                          isBlocked: isBlockedView,
+                          isArchived: isArchivedView,
+                          popAfterStatusAction: false,
+                        ),
+                        onTap: isBlockedView ? () {} : () => onOpenChat(chat),
                       ),
-                    ),
-                ],
-              ),
-            ),
+                      const SizedBox(height: 6),
+                    ],
+                    if (showLocalChat) ...[
+                      _ActiveChatListTile(
+                        title: 'CaRisma Nutzer',
+                        subtitle: localMessages.isNotEmpty
+                            ? localMessages.last.text
+                            : 'BMW 1er',
+                        trailing: const _ChatOverflowMenu(
+                          title: 'CaRisma Nutzer',
+                          subtitle: 'BMW 1er - HH-HY 4747',
+                          vehicleLabel: 'BMW 1er',
+                          plateLabel: 'HH-HY 4747',
+                          popAfterStatusAction: false,
+                        ),
+                        onTap: onOpenLocalChat,
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                  ],
+                ),
+            ],
           ),
         ),
       ],
@@ -465,6 +512,7 @@ class _RequestsOverview extends StatelessWidget {
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _InlineTextTabs<_RequestListView>(
                   selectedValue: selectedListView,
@@ -486,46 +534,36 @@ class _RequestsOverview extends StatelessWidget {
                 SizedBox(
                   height: MediaQuery.of(context).viewInsets.bottom > 0 ? 6 : 12,
                 ),
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onHorizontalDragEnd: onHorizontalSwipe,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      layoutBuilder: (currentChild, previousChildren) {
-                        return Stack(
-                          alignment: Alignment.topLeft,
-                          children: [...previousChildren, ?currentChild],
-                        );
-                      },
-                      child: SingleChildScrollView(
-                        key: ValueKey(selectedListView),
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        child: isLoading
-                            ? const _InlineLoadingRow(
-                                label: 'Anfragen werden geladen...',
-                              )
-                            : selectedRequests.isEmpty
-                            ? _EmptyListCard(
-                                icon: isIncomingView
-                                    ? Icons.mark_email_unread_outlined
-                                    : Icons.schedule_send_outlined,
-                                title: hasSearchQuery
-                                    ? 'Keine Treffer'
-                                    : isIncomingView
-                                    ? 'Keine eingehenden Anfragen'
-                                    : 'Keine gesendeten Anfragen',
-                              )
-                            : _InlineRequestList(
-                                requests: selectedRequests,
-                                isIncoming: isIncomingView,
-                                busyRequestIds: busyRequestIds,
-                                onAccept: onAccept,
-                                onDecline: onDecline,
-                                onWithdraw: onWithdraw,
-                              ),
-                      ),
+                GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: onHorizontalSwipe,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: Container(
+                      key: ValueKey(selectedListView),
+                      child: isLoading
+                          ? const _InlineLoadingRow(
+                              label: 'Anfragen werden geladen...',
+                            )
+                          : selectedRequests.isEmpty
+                          ? _EmptyListCard(
+                              icon: isIncomingView
+                                  ? Icons.mark_email_unread_outlined
+                                  : Icons.schedule_send_outlined,
+                              title: hasSearchQuery
+                                  ? 'Keine Treffer'
+                                  : isIncomingView
+                                  ? 'Keine eingehenden Anfragen'
+                                  : 'Keine gesendeten Anfragen',
+                            )
+                          : _InlineRequestList(
+                              requests: selectedRequests,
+                              isIncoming: isIncomingView,
+                              busyRequestIds: busyRequestIds,
+                              onAccept: onAccept,
+                              onDecline: onDecline,
+                              onWithdraw: onWithdraw,
+                            ),
                     ),
                   ),
                 ),
@@ -565,18 +603,41 @@ class _InlineTextTabs<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final item in items) ...[
-          _InlineTextTab<T>(
-            item: item,
-            isSelected: item.value == selectedValue,
-            isCompact: isCompact,
-            onTap: () => onChanged(item.value),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: EdgeInsets.all(isCompact ? 5 : 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: Colors.white.withValues(alpha: 0.015),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          if (item != items.last) SizedBox(width: isCompact ? 18 : 22),
-        ],
-      ],
+          child: Row(
+            children: [
+              for (final item in items) ...[
+                Expanded(
+                  child: _InlineTextTab<T>(
+                    item: item,
+                    isSelected: item.value == selectedValue,
+                    isCompact: isCompact,
+                    onTap: () => onChanged(item.value),
+                  ),
+                ),
+                if (item != items.last) SizedBox(width: isCompact ? 3 : 4),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -600,66 +661,101 @@ class _InlineTextTab<T> extends StatelessWidget {
         ? Colors.white
         : Colors.white.withValues(alpha: 0.48);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: isCompact ? 2 : 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  item.label,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                    fontSize: isCompact ? 16 : 18,
-                  ),
-                ),
-                if (item.count != null) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    height: isCompact ? 21 : 24,
-                    constraints: BoxConstraints(minWidth: isCompact ? 21 : 24),
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 7),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? _carmaBlue.withValues(alpha: 0.22)
-                          : Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isSelected
-                            ? _carmaBlueLight.withValues(alpha: 0.45)
-                            : Colors.white.withValues(alpha: 0.12),
-                      ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(19),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 4 : 6,
+            vertical: isCompact ? 8 : 10,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(19),
+            gradient: isSelected ? CaRismaDesignTokens.blueGradient : null,
+            color: isSelected
+                ? null
+                : Colors.white.withValues(alpha: isCompact ? 0.02 : 0.03),
+            border: Border.all(
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.16)
+                  : Colors.transparent,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: _carismaBlue.withValues(alpha: 0.30),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
                     ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
                     child: Text(
-                      '${item.count}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.82),
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: color,
                         fontWeight: FontWeight.w900,
+                        fontSize: isCompact ? 12 : 13.5,
                       ),
                     ),
                   ),
+                  if (item.count != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      height: isCompact ? 21 : 24,
+                      constraints: BoxConstraints(
+                        minWidth: isCompact ? 21 : 24,
+                      ),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 7),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.white.withValues(alpha: 0.18)
+                            : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.white.withValues(alpha: 0.24)
+                              : Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: Text(
+                        '${item.count}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.82),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-            SizedBox(height: isCompact ? 3 : 5),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              width: isSelected ? (isCompact ? 24 : 28) : 0,
-              height: isCompact ? 2.5 : 3,
-              decoration: BoxDecoration(
-                color: _carmaBlueLight,
-                borderRadius: BorderRadius.circular(999),
               ),
-            ),
-          ],
+              SizedBox(height: isCompact ? 2 : 4),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: isSelected ? (isCompact ? 18 : 22) : 0,
+                height: isCompact ? 2 : 2.4,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -670,6 +766,7 @@ class _ChatStoriesStrip extends StatelessWidget {
   const _ChatStoriesStrip({
     required this.chats,
     required this.stories,
+    required this.currentUserPhotoUrl,
     required this.isAddingOwnStory,
     required this.onAddOwnStory,
     required this.onOpenStory,
@@ -677,6 +774,7 @@ class _ChatStoriesStrip extends StatelessWidget {
 
   final List<ChatRecord> chats;
   final List<ChatStoryRecord> stories;
+  final String currentUserPhotoUrl;
   final bool isAddingOwnStory;
   final VoidCallback onAddOwnStory;
   final void Function(ChatStoryRecord story, List<ChatStoryRecord> stories)
@@ -684,18 +782,47 @@ class _ChatStoriesStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final visibleOwnerIds = <String>{
-      for (final chat in chats)
-        for (final participant in chat.participants)
-          if (participant.trim().isNotEmpty) participant.trim(),
-    };
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUserId = currentUser?.uid ?? '';
+    final trimmedCurrentUserId = currentUserId.trim();
+    final ownProfilePhotoUrl = currentUserPhotoUrl.trim().isNotEmpty
+        ? currentUserPhotoUrl.trim()
+        : currentUser?.photoURL?.trim();
+    final visibleOwnerIds = <String>{};
+
+    if (trimmedCurrentUserId.isNotEmpty) {
+      for (final chat in chats) {
+        final participantIds = chat.participants
+            .map((participant) => participant.trim())
+            .where((participant) => participant.isNotEmpty)
+            .toSet();
+
+        if ((chat.status != ChatStatus.active &&
+                chat.status != ChatStatus.archived) ||
+            participantIds.length != 2 ||
+            !participantIds.contains(trimmedCurrentUserId) ||
+            chat.isDeletedFor(trimmedCurrentUserId)) {
+          continue;
+        }
+
+        for (final participantId in participantIds) {
+          if (!chat.isDeletedFor(participantId)) {
+            visibleOwnerIds.add(participantId);
+          }
+        }
+      }
+    }
     ChatStoryRecord? ownStory;
 
     for (final story in stories) {
-      if (story.ownerUserId == currentUserId) {
+      if (story.ownerUserId.trim() != trimmedCurrentUserId ||
+          story.isExpired ||
+          !story.hasRenderableMedia) {
+        continue;
+      }
+
+      if (ownStory == null || story.createdAt.isAfter(ownStory.createdAt)) {
         ownStory = story;
-        break;
       }
     }
 
@@ -703,8 +830,10 @@ class _ChatStoriesStrip extends StatelessWidget {
         stories
             .where(
               (story) =>
-                  story.ownerUserId != currentUserId &&
-                  visibleOwnerIds.contains(story.ownerUserId),
+                  story.ownerUserId.trim() != trimmedCurrentUserId &&
+                  !story.isExpired &&
+                  story.hasRenderableMedia &&
+                  visibleOwnerIds.contains(story.ownerUserId.trim()),
             )
             .toList()
           ..sort((a, b) {
@@ -719,56 +848,87 @@ class _ChatStoriesStrip extends StatelessWidget {
           });
     final visibleStories = otherStories.take(12).toList();
 
-    return SizedBox(
-      height: 106,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: visibleStories.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            final currentOwnStory = ownStory;
-            final ownStoryViewCount =
-                currentOwnStory?.viewedAtBy.keys
-                    .where(
-                      (viewerId) => viewerId != currentOwnStory.ownerUserId,
-                    )
-                    .length ??
-                0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          height: 128,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            color: Colors.white.withValues(alpha: 0.015),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: visibleStories.length + 1,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                final currentOwnStory = ownStory;
+                final ownBubbleImageUrl = ownProfilePhotoUrl?.isNotEmpty == true
+                    ? ownProfilePhotoUrl
+                    : currentOwnStory?.imageUrl;
+                final ownStoryViewCount =
+                    currentOwnStory?.viewedAtBy.keys
+                        .where(
+                          (viewerId) =>
+                              viewerId.trim() !=
+                              currentOwnStory.ownerUserId.trim(),
+                        )
+                        .length ??
+                    0;
 
-            return _StoryBubble(
-              label: 'Deine Story',
-              imageUrl: currentOwnStory?.imageUrl,
-              isVideo: currentOwnStory?.isVideo ?? false,
-              isOwnStory: true,
-              hasStory: currentOwnStory != null,
-              isViewed: true,
-              viewCount: ownStoryViewCount,
-              isBusy: isAddingOwnStory,
-              onTap: isAddingOwnStory
-                  ? () {}
-                  : currentOwnStory == null
-                  ? onAddOwnStory
-                  : () => onOpenStory(currentOwnStory, <ChatStoryRecord>[
-                      currentOwnStory,
-                    ]),
-              onAddTap: isAddingOwnStory ? null : onAddOwnStory,
-            );
-          }
+                return _StoryBubble(
+                  label: 'Deine Story',
+                  imageUrl: ownBubbleImageUrl,
+                  isVideo: currentOwnStory?.isVideo ?? false,
+                  isOwnStory: true,
+                  hasStory: currentOwnStory != null,
+                  isViewed: true,
+                  createdAt: currentOwnStory?.createdAt,
+                  expiresAt: currentOwnStory?.expiresAt,
+                  viewCount: ownStoryViewCount,
+                  isBusy: isAddingOwnStory,
+                  onTap: isAddingOwnStory
+                      ? () {}
+                      : currentOwnStory == null
+                      ? onAddOwnStory
+                      : () => onOpenStory(currentOwnStory, <ChatStoryRecord>[
+                          currentOwnStory,
+                        ]),
+                  onAddTap: isAddingOwnStory ? null : onAddOwnStory,
+                );
+              }
 
-          final story = visibleStories[index - 1];
-          final storyImageUrl = story.ownerPhotoUrl?.trim().isNotEmpty == true
-              ? story.ownerPhotoUrl
-              : story.imageUrl;
-          return _StoryBubble(
-            label: story.ownerDisplayName,
-            imageUrl: storyImageUrl,
-            isVideo: story.isVideo,
-            hasStory: true,
-            isViewed: story.viewedAtBy.containsKey(currentUserId),
-            onTap: () => onOpenStory(story, visibleStories),
-          );
-        },
+              final story = visibleStories[index - 1];
+              final storyImageUrl =
+                  story.ownerPhotoUrl?.trim().isNotEmpty == true
+                  ? story.ownerPhotoUrl
+                  : story.imageUrl;
+              return _StoryBubble(
+                label: story.ownerDisplayName,
+                imageUrl: storyImageUrl,
+                isVideo: story.isVideo,
+                hasStory: true,
+                isViewed: story.viewedAtBy.keys.any(
+                  (viewerId) => viewerId.trim() == trimmedCurrentUserId,
+                ),
+                createdAt: story.createdAt,
+                expiresAt: story.expiresAt,
+                onTap: () => onOpenStory(story, visibleStories),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -782,6 +942,8 @@ class _StoryBubble extends StatelessWidget {
     this.isOwnStory = false,
     this.hasStory = false,
     this.isViewed = false,
+    this.createdAt,
+    this.expiresAt,
     this.viewCount = 0,
     this.isBusy = false,
     required this.onTap,
@@ -794,6 +956,8 @@ class _StoryBubble extends StatelessWidget {
   final bool isOwnStory;
   final bool hasStory;
   final bool isViewed;
+  final DateTime? createdAt;
+  final DateTime? expiresAt;
   final int viewCount;
   final bool isBusy;
   final VoidCallback onTap;
@@ -802,35 +966,74 @@ class _StoryBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewCountLabel = viewCount > 99 ? '99+' : '$viewCount';
+    final isNewStory = hasStory && !isViewed && !isOwnStory;
+    final ageLabel = _storyBubbleAgeLabel(createdAt);
+    final remainingLabel = _storyBubbleRemainingLabel(expiresAt);
+    final statusLabel = isOwnStory
+        ? isBusy
+              ? 'Lädt'
+              : hasStory
+              ? remainingLabel == null
+                    ? 'Aktiv'
+                    : 'Noch $remainingLabel'
+              : 'Hinzufügen'
+        : isNewStory
+        ? ageLabel == null
+              ? 'Neu'
+              : 'Neu · $ageLabel'
+        : ageLabel ?? 'Gesehen';
+    final ringGradient = hasStory
+        ? isNewStory || isOwnStory
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_carismaBlueDark, _carismaBlueLight],
+                )
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.28),
+                    Colors.white.withValues(alpha: 0.10),
+                  ],
+                )
+        : null;
 
     return SizedBox(
-      width: 78,
+      width: 84,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         child: Column(
           children: [
             Stack(
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 66,
-                  height: 66,
-                  padding: const EdgeInsets.all(2),
+                  width: 68,
+                  height: 68,
+                  padding: const EdgeInsets.all(2.5),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: hasStory && (!isViewed || isOwnStory)
-                        ? const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [_carmaBlueDark, _carmaBlueLight],
-                          )
-                        : null,
-                    color: hasStory && isViewed
-                        ? Colors.white.withValues(alpha: 0.20)
-                        : hasStory
+                    gradient: ringGradient,
+                    color: hasStory
                         ? null
                         : Colors.white.withValues(alpha: 0.10),
+                    boxShadow: isNewStory
+                        ? [
+                            BoxShadow(
+                              color: _carismaBlueLight.withValues(alpha: 0.26),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.28),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                   ),
                   child: ClipOval(
                     child: isBusy
@@ -850,13 +1053,13 @@ class _StoryBubble extends StatelessWidget {
                         : hasStory && imageUrl?.trim().isNotEmpty == true
                         ? Image.network(
                             imageUrl!.trim(),
-                            width: 62,
-                            height: 62,
+                            width: 63,
+                            height: 63,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => isVideo
                                 ? const _StoryVideoBubblePlaceholder()
                                 : _AvatarCircle(
-                                    size: 62,
+                                    size: 63,
                                     imageUrl: null,
                                     iconSize: 34,
                                     fallbackLabel: label,
@@ -865,7 +1068,7 @@ class _StoryBubble extends StatelessWidget {
                         : hasStory && isVideo
                         ? const _StoryVideoBubblePlaceholder()
                         : _AvatarCircle(
-                            size: 62,
+                            size: 63,
                             imageUrl: imageUrl,
                             iconSize: 34,
                             fallbackLabel: label,
@@ -883,7 +1086,7 @@ class _StoryBubble extends StatelessWidget {
                         height: 24,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _carmaBlue,
+                          color: _carismaBlue,
                           border: Border.all(
                             color: const Color(0xFF101827),
                             width: 3,
@@ -899,24 +1102,34 @@ class _StoryBubble extends StatelessWidget {
                   ),
                 if (hasStory && !isViewed && !isOwnStory)
                   Positioned(
-                    right: -3,
-                    top: 2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
+                    right: -7,
+                    top: -3,
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _carmaBlueLight,
-                        border: Border.all(
-                          color: const Color(0xFF101827),
-                          width: 2,
-                        ),
+                        borderRadius: BorderRadius.circular(999),
+                        color: _carismaBlueLight,
+                        border: Border.all(color: const Color(0xFF101827)),
                         boxShadow: [
                           BoxShadow(
-                            color: _carmaBlueLight.withValues(alpha: 0.45),
+                            color: _carismaBlueLight.withValues(alpha: 0.36),
                             blurRadius: 8,
                           ),
                         ],
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        child: Text(
+                          'Neu',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -989,7 +1202,7 @@ class _StoryBubble extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             Text(
               label,
               maxLines: 1,
@@ -1002,6 +1215,23 @@ class _StoryBubble extends StatelessWidget {
                 fontWeight: hasStory && (!isViewed || isOwnStory)
                     ? FontWeight.w900
                     : FontWeight.w800,
+                fontSize: 12.2,
+                height: 1.05,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              statusLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: isNewStory
+                    ? _carismaBlueLight
+                    : Colors.white.withValues(alpha: 0.58),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                height: 1,
               ),
             ),
           ],
@@ -1009,6 +1239,50 @@ class _StoryBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _storyBubbleAgeLabel(DateTime? createdAt) {
+  if (createdAt == null) {
+    return null;
+  }
+
+  final difference = DateTime.now().difference(createdAt);
+
+  if (difference.isNegative || difference.inMinutes < 1) {
+    return 'Jetzt';
+  }
+
+  if (difference.inHours < 1) {
+    return '${difference.inMinutes}m';
+  }
+
+  if (difference.inDays < 1) {
+    return '${difference.inHours}h';
+  }
+
+  return '${difference.inDays}T';
+}
+
+String? _storyBubbleRemainingLabel(DateTime? expiresAt) {
+  if (expiresAt == null) {
+    return null;
+  }
+
+  final difference = expiresAt.difference(DateTime.now());
+
+  if (difference.isNegative) {
+    return null;
+  }
+
+  if (difference.inHours >= 1) {
+    return '${difference.inHours}h';
+  }
+
+  if (difference.inMinutes >= 1) {
+    return '${difference.inMinutes}m';
+  }
+
+  return '<1m';
 }
 
 class _StoryVideoBubblePlaceholder extends StatelessWidget {
@@ -1022,7 +1296,10 @@ class _StoryVideoBubblePlaceholder extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_myMessageBlueLight, _carmaBlueDark.withValues(alpha: 0.86)],
+          colors: [
+            _myMessageBlueLight,
+            _carismaBlueDark.withValues(alpha: 0.86),
+          ],
         ),
       ),
       child: const Center(
@@ -1082,7 +1359,7 @@ class _InlineErrorCard extends StatelessWidget {
   }
 }
 
-class _InlineRequestList extends StatelessWidget {
+class _InlineRequestList extends StatefulWidget {
   const _InlineRequestList({
     required this.requests,
     required this.isIncoming,
@@ -1100,17 +1377,63 @@ class _InlineRequestList extends StatelessWidget {
   final ValueChanged<ContactRequestRecord> onWithdraw;
 
   @override
+  State<_InlineRequestList> createState() => _InlineRequestListState();
+}
+
+class _InlineRequestListState extends State<_InlineRequestList> {
+  final Set<String> _autoRepairRequestIds = <String>{};
+
+  @override
+  void didUpdateWidget(covariant _InlineRequestList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final visibleRequestIds = widget.requests
+        .map((request) => request.id)
+        .toSet();
+    _autoRepairRequestIds.removeWhere(
+      (requestId) => !visibleRequestIds.contains(requestId),
+    );
+  }
+
+  void _scheduleAcceptedRequestRepair() {
+    for (final request in widget.requests) {
+      final shouldRepair =
+          request.isAccepted &&
+          !request.hasLinkedChat &&
+          !widget.busyRequestIds.contains(request.id) &&
+          !_autoRepairRequestIds.contains(request.id);
+
+      if (!shouldRepair) {
+        continue;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _autoRepairRequestIds.contains(request.id)) {
+          return;
+        }
+
+        setState(() {
+          _autoRepairRequestIds.add(request.id);
+        });
+        widget.onAccept(request);
+      });
+      return;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    _scheduleAcceptedRequestRepair();
+
     return Column(
       children: [
-        for (final request in requests) ...[
+        for (final request in widget.requests) ...[
           _InlineRequestTile(
             request: request,
-            isIncoming: isIncoming,
-            isBusy: busyRequestIds.contains(request.id),
-            onAccept: () => onAccept(request),
-            onDecline: () => onDecline(request),
-            onWithdraw: () => onWithdraw(request),
+            isIncoming: widget.isIncoming,
+            isBusy: widget.busyRequestIds.contains(request.id),
+            onAccept: () => widget.onAccept(request),
+            onDecline: () => widget.onDecline(request),
+            onWithdraw: () => widget.onWithdraw(request),
           ),
           const SizedBox(height: 10),
         ],
@@ -1228,127 +1551,218 @@ class _InlineRequestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profilePhotoUrl = request.profilePhotoUrl(isIncoming: isIncoming);
+    final canActOnRequest = request.isPending;
+    final statusLabel = request.isAccepted && !request.hasLinkedChat
+        ? 'Angenommen'
+        : request.statusLabel;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-      ),
-      child: Row(
-        children: [
-          _UserAvatarPlaceholder(size: 46, imageUrl: profilePhotoUrl),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: Colors.white.withValues(alpha: 0.02),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _brand,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 16,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        _model,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _color,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.58),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      _plate,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                if (isIncoming) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _incomingMessage,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                isIncoming
-                    ? Row(
+                _UserAvatarPlaceholder(size: 50, imageUrl: profilePhotoUrl),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
                           Expanded(
-                            child: _InlineRequestButton(
-                              label: 'Annehmen',
-                              icon: Icons.check_rounded,
-                              isBusy: isBusy,
-                              isPrimary: true,
-                              onPressed: onAccept,
+                            child: Text(
+                              _brand,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: CaRismaDesignTokens.textPrimary,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16.5,
+                                  ),
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Expanded(
-                            child: _InlineRequestButton(
-                              label: 'Ablehnen',
-                              icon: Icons.close_rounded,
-                              isBusy: isBusy,
-                              isPrimary: false,
-                              onPressed: onDecline,
+                          Flexible(
+                            child: Text(
+                              _model,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: CaRismaDesignTokens.textSecondary
+                                        .withValues(alpha: 0.72),
+                                    fontWeight: FontWeight.w900,
+                                  ),
                             ),
                           ),
                         ],
-                      )
-                    : Align(
-                        alignment: Alignment.centerRight,
-                        child: _InlineRequestButton(
-                          label: 'Zurückziehen',
-                          icon: Icons.undo_rounded,
-                          isBusy: isBusy,
-                          isPrimary: false,
-                          onPressed: onWithdraw,
-                        ),
                       ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _color,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: CaRismaDesignTokens.textSecondary
+                                        .withValues(alpha: 0.58),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _plate,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: CaRismaDesignTokens.textPrimary
+                                      .withValues(alpha: 0.85),
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                        ],
+                      ),
+                      if (isIncoming) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          _incomingMessage,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: CaRismaDesignTokens.textSecondary
+                                    .withValues(alpha: 0.85),
+                                fontWeight: FontWeight.w700,
+                                height: 1.25,
+                              ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      if (canActOnRequest)
+                        isIncoming
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: _InlineRequestButton(
+                                      label: 'Annehmen',
+                                      icon: Icons.check_rounded,
+                                      isBusy: isBusy,
+                                      isPrimary: true,
+                                      onPressed: onAccept,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _InlineRequestButton(
+                                      label: 'Ablehnen',
+                                      icon: Icons.close_rounded,
+                                      isBusy: isBusy,
+                                      isPrimary: false,
+                                      onPressed: onDecline,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Align(
+                                alignment: Alignment.centerRight,
+                                child: _InlineRequestButton(
+                                  label: 'Zurückziehen',
+                                  icon: Icons.undo_rounded,
+                                  isBusy: isBusy,
+                                  isPrimary: false,
+                                  onPressed: onWithdraw,
+                                ),
+                              )
+                      else
+                        Row(
+                          children: [
+                            _InlineRequestStatusPill(
+                              label: statusLabel,
+                              icon: Icons.info_outline_rounded,
+                            ),
+                            if (request.isAccepted &&
+                                request.hasLinkedChat) ...[
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _InlineRequestButton(
+                                  label: 'Chat öffnen',
+                                  icon: Icons.forum_rounded,
+                                  isBusy: isBusy,
+                                  isPrimary: true,
+                                  onPressed: onAccept,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineRequestStatusPill extends StatelessWidget {
+  const _InlineRequestStatusPill({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withValues(alpha: 0.06),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.9),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: CaRismaDesignTokens.textSecondary.withValues(alpha: 0.86),
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -1401,9 +1815,9 @@ class _InlineRequestButton extends StatelessWidget {
       return FilledButton(
         onPressed: isBusy ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: _carmaBlue,
+          backgroundColor: _carismaBlue,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: _carmaBlue.withValues(alpha: 0.32),
+          disabledBackgroundColor: _carismaBlue.withValues(alpha: 0.32),
           disabledForegroundColor: Colors.white.withValues(alpha: 0.62),
           minimumSize: const Size(0, 44),
           shape: shape,

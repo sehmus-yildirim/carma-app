@@ -22,7 +22,11 @@ class UserProfile {
     this.photoUrl,
     this.profilePhotoLocalPath,
     this.documentLocalPaths = const {},
+    this.documentRemoteUrls = const {},
     this.verificationStatus = 'unverified',
+    this.verificationSubmittedAt,
+    this.verificationReviewedAt,
+    this.verificationRejectionReason,
     this.createdAt,
     this.updatedAt,
   });
@@ -47,7 +51,11 @@ class UserProfile {
   final String? photoUrl;
   final String? profilePhotoLocalPath;
   final Map<String, String?> documentLocalPaths;
+  final Map<String, String?> documentRemoteUrls;
   final String verificationStatus;
+  final DateTime? verificationSubmittedAt;
+  final DateTime? verificationReviewedAt;
+  final String? verificationRejectionReason;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -89,7 +97,16 @@ class UserProfile {
       photoUrl: data['photoUrl'] as String?,
       profilePhotoLocalPath: data['profilePhotoLocalPath'] as String?,
       documentLocalPaths: _stringMapFromValue(data['documentLocalPaths']),
+      documentRemoteUrls: _stringMapFromValue(data['documentRemoteUrls']),
       verificationStatus: data['verificationStatus'] as String? ?? 'unverified',
+      verificationSubmittedAt: _dateTimeFromTimestamp(
+        data['verificationSubmittedAt'],
+      ),
+      verificationReviewedAt: _dateTimeFromTimestamp(
+        data['verificationReviewedAt'],
+      ),
+      verificationRejectionReason:
+          data['verificationRejectionReason'] as String?,
       createdAt: _dateTimeFromTimestamp(data['createdAt']),
       updatedAt: _dateTimeFromTimestamp(data['updatedAt']),
     );
@@ -103,21 +120,29 @@ class UserProfile {
       'lastName': lastName.trim(),
       'displayName': displayName.trim(),
       'country': country.trim(),
-      'countryCode': countryCode?.trim(),
-      'plateRegion': plateRegion?.trim().toUpperCase(),
-      'plateLetters': plateLetters?.trim().toUpperCase(),
-      'plateNumbers': plateNumbers?.trim().toUpperCase(),
-      'vehicleBrand': vehicleBrand?.trim(),
-      'vehicleModel': vehicleModel?.trim(),
-      'vehicleColor': vehicleColor?.trim(),
+      'countryCode': _trimmedUpperOrNull(countryCode),
+      'plateRegion': _trimmedUpperOrNull(plateRegion),
+      'plateLetters': _trimmedUpperOrNull(plateLetters),
+      'plateNumbers': _trimmedUpperOrNull(plateNumbers),
+      'vehicleBrand': _trimmedOrNull(vehicleBrand),
+      'vehicleModel': _trimmedOrNull(vehicleModel),
+      'vehicleColor': _trimmedOrNull(vehicleColor),
       'allowContactRequests': allowContactRequests,
       'allowAnonymousReports': allowAnonymousReports,
-      'phoneNumber': phoneNumber?.trim(),
+      'phoneNumber': _trimmedOrNull(phoneNumber),
       'birthDate': birthDate == null ? null : Timestamp.fromDate(birthDate!),
       'photoUrl': photoUrl,
       'profilePhotoLocalPath': profilePhotoLocalPath,
       'documentLocalPaths': documentLocalPaths,
+      'documentRemoteUrls': documentRemoteUrls,
       'verificationStatus': verificationStatus,
+      'verificationSubmittedAt': verificationSubmittedAt == null
+          ? null
+          : Timestamp.fromDate(verificationSubmittedAt!),
+      'verificationReviewedAt': verificationReviewedAt == null
+          ? null
+          : Timestamp.fromDate(verificationReviewedAt!),
+      'verificationRejectionReason': verificationRejectionReason?.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -143,7 +168,11 @@ class UserProfile {
     String? photoUrl,
     String? profilePhotoLocalPath,
     Map<String, String?>? documentLocalPaths,
+    Map<String, String?>? documentRemoteUrls,
     String? verificationStatus,
+    DateTime? verificationSubmittedAt,
+    DateTime? verificationReviewedAt,
+    String? verificationRejectionReason,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -170,7 +199,14 @@ class UserProfile {
       profilePhotoLocalPath:
           profilePhotoLocalPath ?? this.profilePhotoLocalPath,
       documentLocalPaths: documentLocalPaths ?? this.documentLocalPaths,
+      documentRemoteUrls: documentRemoteUrls ?? this.documentRemoteUrls,
       verificationStatus: verificationStatus ?? this.verificationStatus,
+      verificationSubmittedAt:
+          verificationSubmittedAt ?? this.verificationSubmittedAt,
+      verificationReviewedAt:
+          verificationReviewedAt ?? this.verificationReviewedAt,
+      verificationRejectionReason:
+          verificationRejectionReason ?? this.verificationRejectionReason,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -182,6 +218,16 @@ class UserProfile {
     }
 
     return null;
+  }
+
+  static String? _trimmedOrNull(String? value) {
+    final trimmed = value?.trim();
+
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _trimmedUpperOrNull(String? value) {
+    return _trimmedOrNull(value)?.toUpperCase();
   }
 
   static Map<String, String?> _stringMapFromValue(dynamic value) {

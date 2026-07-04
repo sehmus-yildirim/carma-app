@@ -1,5 +1,27 @@
 part of '../chats_screen.dart';
 
+String _storyReplyErrorMessage(Object error) {
+  final errorText = '$error';
+
+  if (errorText.contains('expired_story')) {
+    return 'Diese Story ist abgelaufen.';
+  }
+
+  if (errorText.contains('story_not_visible')) {
+    return 'Diese Story ist nicht mehr sichtbar.';
+  }
+
+  if (errorText.contains('story_reply_too_long')) {
+    return 'Antwort ist zu lang.';
+  }
+
+  if (errorText.contains('No visible chat')) {
+    return 'Zu dieser Story gibt es keinen aktiven Chat mehr.';
+  }
+
+  return 'Antwort konnte nicht gesendet werden.';
+}
+
 class _LocalChatMessage {
   const _LocalChatMessage({
     required this.text,
@@ -164,7 +186,7 @@ class _ContactPayload {
         .toList();
 
     if (lines.isEmpty ||
-        (lines.first != 'Kontakt' && lines.first != 'Carma Kontakt')) {
+        (lines.first != 'Kontakt' && lines.first != 'CaRisma Kontakt')) {
       return null;
     }
 
@@ -178,6 +200,18 @@ class _ContactPayload {
 
       if (line.startsWith('Telefon:')) {
         phoneNumber = line.substring('Telefon:'.length).trim();
+      }
+
+      if (line.startsWith('Telefonnummer:')) {
+        phoneNumber = line.substring('Telefonnummer:'.length).trim();
+      }
+
+      if (line.startsWith('Rufnummer:')) {
+        phoneNumber = line.substring('Rufnummer:'.length).trim();
+      }
+
+      if (line.startsWith('Kontakt:')) {
+        phoneNumber = line.substring('Kontakt:'.length).trim();
       }
     }
 

@@ -4,29 +4,34 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../shared/config/carma_app_config.dart';
+import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/domain/app_feature_gate.dart';
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/firebase/carisma_firestore_schema.dart';
+import '../../../shared/models/carisma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_country_selector_card.dart';
-import '../../../shared/widgets/carma_message_card.dart';
-import '../../../shared/widgets/carma_page_header.dart';
-import '../../../shared/widgets/carma_plate_input_card.dart';
-import '../../../shared/widgets/carma_primary_button.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_blue_icon_box.dart';
+import '../../../shared/widgets/carisma_country_selector_card.dart';
+import '../../../shared/widgets/carisma_message_card.dart';
+import '../../../shared/widgets/carisma_page_header.dart';
+import '../../../shared/widgets/carisma_plate_input_card.dart';
+import '../../../shared/widgets/carisma_primary_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../auth/data/search_credit_repository.dart';
+import '../../plate_search/data/plate_speech_bridge.dart';
+import '../../profile/data/plate_repository.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../profile/data/user_profile.dart' as firestore_profile;
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
-
-const Color _carmaBlue = Color(0xFF139CFF);
-const Color _carmaBlueLight = Color(0xFF63D5FF);
-const Color _carmaBlueDark = Color(0xFF0A76FF);
+import '../../../shared/plate/plate_speech_parser.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.userState});
+  const DashboardScreen({super.key, required this.userState, this.onOpenChats});
 
   final AppUserState userState;
+  final VoidCallback? onOpenChats;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -36,6 +41,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final PlateSearchService _plateSearchService = PlateSearchService();
   final SearchCreditRepository _searchCreditRepository =
       SearchCreditRepository();
+  final ProfileRepository _profileRepository = ProfileRepository();
+  final PlateRepository _plateRepository = PlateRepository();
+  final PlateSpeechBridge _plateSpeechBridge = PlateSpeechBridge();
 
   final TextEditingController _regionController = TextEditingController();
   final TextEditingController _lettersController = TextEditingController();
@@ -51,6 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Position? _position;
   PlateSearchResult? _result;
+  PlateContactRequestState? _requestState;
 
   late SearchCredit _searchCredit;
 
@@ -58,6 +67,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoadingSearchCredit = true;
   bool _isSearching = false;
   bool _isRequestingContact = false;
+  bool _isListeningToPlateSpeech = false;
 
   String? _locationError;
   String? _creditError;
@@ -105,8 +115,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  CarmaPlate get _currentPlate {
-    return CarmaPlate(
+  CaRismaPlate get _currentPlate {
+    return CaRismaPlate(
       countryCode: _countryCode,
       region: _regionController.text.trim(),
       letters: _lettersController.text.trim(),
@@ -209,14 +219,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .watchSearchCredit(userId: userId)
         .listen(
           (searchCredit) {
+            if (searchCredit == null) {
+              _searchCreditRepository.createSearchCreditIfMissing(
+                userId: userId,
+              );
+            }
+
             if (!mounted) {
               return;
             }
 
             setState(() {
-              if (searchCredit != null) {
-                _searchCredit = searchCredit;
-              }
+              _searchCredit =
+                  searchCredit ?? SearchCredit.freeDefault(userId: userId);
 
               _isLoadingSearchCredit = false;
               _creditError = null;
@@ -238,8 +253,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _clearResultMessages() {
     _result = null;
+    _requestState = null;
     _errorMessage = null;
     _successMessage = null;
+  }
+
+  void _clearResultMessagesAfterInputChange() {
+    if (_result == null &&
+        _requestState == null &&
+        _errorMessage == null &&
+        _successMessage == null) {
+      return;
+    }
+
+    setState(_clearResultMessages);
   }
 
   void _changeCountry(String countryCode) {
@@ -256,6 +283,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     _regionFocusNode.requestFocus();
+  }
+
+  Future<void> _syncOwnPlateLocation(Position position) async {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      return;
+    }
+
+    try {
+      final profile = await _profileRepository.getProfile(userId);
+
+      if (profile == null || !_hasRegisteredPlate(profile)) {
+        return;
+      }
+
+      await _plateRepository.registerPlateForProfile(
+        profile,
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+    } catch (_) {
+      // Standort-Sync soll die Suche nicht blockieren.
+    }
+  }
+
+  bool _hasRegisteredPlate(firestore_profile.UserProfile profile) {
+    return (profile.countryCode ?? profile.country).trim().isNotEmpty &&
+        (profile.plateRegion ?? '').trim().isNotEmpty &&
+        (profile.plateNumbers ?? '').trim().isNotEmpty;
   }
 
   Future<void> _loadLocation() async {
@@ -275,7 +332,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _position = null;
           _locationError =
-              'Standortdienste sind deaktiviert. Bitte aktiviere GPS auf deinem GerÃƒÂ¤t.';
+              'Standortdienste sind deaktiviert. Bitte aktiviere GPS auf deinem Ger\u00e4t.';
           _isLoadingLocation = false;
         });
         return;
@@ -295,7 +352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _position = null;
           _locationError =
-              'Standortberechtigung wurde verweigert. Die Suche ist ohne Standort nicht mÃƒÂ¶glich.';
+              'Standortberechtigung wurde verweigert. Die Suche ist ohne Standort nicht m\u00f6glich.';
           _isLoadingLocation = false;
         });
         return;
@@ -330,6 +387,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _locationError = null;
         _isLoadingLocation = false;
       });
+
+      unawaited(_syncOwnPlateLocation(position));
     } on TimeoutException {
       if (!mounted) {
         return;
@@ -338,7 +397,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _position = null;
         _locationError =
-            'Standort lÃƒÂ¤dt zu lange. Bitte prÃƒÂ¼fe GPS oder setze im Emulator einen Standort.';
+            'Standort l\u00e4dt zu lange. Bitte pr\u00fcfe GPS oder setze im Emulator einen Standort.';
         _isLoadingLocation = false;
       });
     } catch (_) {
@@ -363,7 +422,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _errorMessage =
             gateDecision.reason ??
-            'Die Kennzeichen-Suche ist aktuell nicht verfÃƒÂ¼gbar.';
+            'Die Kennzeichen-Suche ist aktuell nicht verf\u00fcgbar.';
         _successMessage = null;
       });
       return;
@@ -371,7 +430,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (!_hasPlateInput) {
       setState(() {
-        _errorMessage = 'Bitte gib ein vollstÃƒÂ¤ndiges Kennzeichen ein.';
+        _errorMessage = 'Bitte gib ein vollst\u00e4ndiges Kennzeichen ein.';
         _successMessage = null;
       });
       return;
@@ -389,7 +448,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _errorMessage =
             _locationError ??
-            'Bitte aktiviere den Standort, damit die Suche in deiner NÃƒÂ¤he mÃƒÂ¶glich ist.';
+            'Bitte aktiviere den Standort, damit die Suche in deiner N\u00e4he m\u00f6glich ist.';
         _successMessage = null;
       });
       return;
@@ -412,8 +471,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         plate: _plateValue,
         latitude: position.latitude,
         longitude: position.longitude,
-        radiusKm: CarmaAppConfig.defaultSearchRadiusKm,
+        radiusKm: CaRismaAppConfig.defaultSearchRadiusKm,
       );
+      final requestState =
+          result.found && result.targetUid != null && result.plateKey != null
+          ? await _plateSearchService.loadExistingRequestState(
+              targetUid: result.targetUid!,
+              plateKey: result.plateKey!,
+            )
+          : null;
 
       if (!mounted) {
         return;
@@ -421,11 +487,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       setState(() {
         _result = result;
-
-        if (result.found) {
-          _searchCredit = _searchCredit.consume();
-        }
-
+        _requestState = requestState;
         _isSearching = false;
       });
     } catch (error) {
@@ -440,6 +502,122 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _startPlateVoiceInput() async {
+    if (_isListeningToPlateSpeech || _isSearching || _isRequestingContact) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isListeningToPlateSpeech = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final speechResult = await _plateSpeechBridge.recognizePlateSpeech();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (speechResult == null || speechResult.transcript.trim().isEmpty) {
+        setState(() {
+          _isListeningToPlateSpeech = false;
+        });
+        return;
+      }
+
+      _applyPlateSpeech(speechResult.transcript);
+
+      setState(() {
+        _isListeningToPlateSpeech = false;
+        _successMessage = 'Kennzeichen aus Sprache \u00fcbernommen.';
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isListeningToPlateSpeech = false;
+        _errorMessage = 'Spracheingabe konnte nicht gestartet werden.';
+      });
+    }
+  }
+
+  void _applyPlateSpeech(String transcript) {
+    final parsed = parseSpokenPlateInput(
+      countryCode: _countryCode,
+      transcript: transcript,
+      currentRegion: _regionController.text,
+      currentLetters: _lettersController.text,
+      currentNumbers: _numbersController.text,
+    );
+
+    if (!parsed.hasAnyValue) {
+      return;
+    }
+
+    _regionController.value = _regionController.value.copyWith(
+      text: parsed.region,
+      selection: TextSelection.collapsed(offset: parsed.region.length),
+    );
+    _lettersController.value = _lettersController.value.copyWith(
+      text: parsed.letters,
+      selection: TextSelection.collapsed(offset: parsed.letters.length),
+    );
+    _numbersController.value = _numbersController.value.copyWith(
+      text: parsed.numbers,
+      selection: TextSelection.collapsed(offset: parsed.numbers.length),
+    );
+
+    _clearResultMessages();
+
+    if (parsed.region.length < _regionMaxLength) {
+      _regionFocusNode.requestFocus();
+      return;
+    }
+
+    if (_countryCode == 'AT') {
+      if (parsed.numbers.length < _numbersMaxLength) {
+        _numbersFocusNode.requestFocus();
+        return;
+      }
+
+      if (parsed.letters.length < _lettersMaxLength) {
+        _lettersFocusNode.requestFocus();
+        return;
+      }
+
+      _lettersFocusNode.unfocus();
+      return;
+    }
+
+    if (_countryCode == 'CH') {
+      if (parsed.numbers.length < _numbersMaxLength) {
+        _numbersFocusNode.requestFocus();
+        return;
+      }
+
+      _numbersFocusNode.unfocus();
+      return;
+    }
+
+    if (parsed.letters.length < _lettersMaxLength) {
+      _lettersFocusNode.requestFocus();
+      return;
+    }
+
+    if (parsed.numbers.length < _numbersMaxLength) {
+      _numbersFocusNode.requestFocus();
+      return;
+    }
+
+    _numbersFocusNode.unfocus();
+  }
+
   Future<void> _requestContact() async {
     final gateDecision = _contactGateDecision;
 
@@ -447,7 +625,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _errorMessage =
             gateDecision.reason ??
-            'Kontaktanfragen sind aktuell nicht verfÃƒÂ¼gbar.';
+            'Kontaktanfragen sind aktuell nicht verf\u00fcgbar.';
         _successMessage = null;
       });
       return;
@@ -459,6 +637,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
+    final existingRequestState = _requestState;
+
+    if (existingRequestState?.canOpenChat == true) {
+      setState(() {
+        _errorMessage = null;
+        _successMessage =
+            'F\u00fcr dieses Kennzeichen gibt es bereits einen aktiven Chat. Du wirst jetzt weitergeleitet.';
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        widget.onOpenChats?.call();
+      });
+      return;
+    }
+
+    if (existingRequestState?.isOpen == true) {
+      setState(() {
+        _errorMessage = null;
+        _successMessage = existingRequestState!.isAccepted
+            ? 'F\u00fcr dieses Kennzeichen wurde die Anfrage bereits angenommen.'
+            : 'F\u00fcr dieses Kennzeichen l\u00e4uft bereits eine Anfrage.';
+      });
+      return;
+    }
+
     setState(() {
       _isRequestingContact = true;
       _errorMessage = null;
@@ -466,7 +673,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      await _plateSearchService.requestPlateContact(
+      await _searchCreditRepository.createSearchCreditIfMissing(
+        userId: _effectiveUserId,
+      );
+      final requestId = await _plateSearchService.requestPlateContact(
         targetUid: result.targetUid!,
         plateKey: result.plateKey!,
         receiverDisplayName: result.displayName,
@@ -483,19 +693,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       setState(() {
+        _searchCredit = _searchCredit.consume();
+        _requestState = PlateContactRequestState(
+          status: FirestoreContactRequestStatus.pending,
+          chatId: 'request_$requestId',
+        );
         _successMessage =
-            'Kontaktanfrage wurde gesendet. Sobald sie angenommen wird, erscheint der Chat im Chat-Bereich.';
+            'Kontaktanfrage wurde gesendet. Du wirst jetzt zum Chat-Bereich weitergeleitet.';
         _isRequestingContact = false;
       });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        widget.onOpenChats?.call();
+      });
     } catch (error) {
+      final requestState = error.toString().contains('already-exists')
+          ? await _plateSearchService.loadExistingRequestState(
+              targetUid: result.targetUid!,
+              plateKey: result.plateKey!,
+            )
+          : _requestState;
+
       if (!mounted) {
         return;
       }
 
+      final hasLinkedAcceptedRequest = requestState?.canOpenChat == true;
+
       setState(() {
-        _errorMessage = _mapFirebaseError(error);
+        _requestState = requestState;
+        _errorMessage = hasLinkedAcceptedRequest
+            ? null
+            : requestState?.isAccepted == true
+            ? 'F\u00fcr dieses Kennzeichen wurde die Anfrage bereits angenommen.'
+            : _mapFirebaseError(error);
+        _successMessage = hasLinkedAcceptedRequest
+            ? 'F\u00fcr dieses Kennzeichen gibt es bereits einen aktiven Chat. Du wirst jetzt weitergeleitet.'
+            : null;
         _isRequestingContact = false;
       });
+
+      if (hasLinkedAcceptedRequest) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+
+          widget.onOpenChats?.call();
+        });
+      }
     }
   }
 
@@ -503,15 +753,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final raw = error.toString();
 
     if (raw.contains('resource-exhausted')) {
-      return 'Du hast keine kostenlosen Anfragen oder Credits mehr verfÃƒÂ¼gbar.';
+      return 'Du hast keine kostenlosen Anfragen oder Credits mehr verf\u00fcgbar.';
     }
 
     if (raw.contains('unauthenticated')) {
-      return 'Bitte melde dich an, um Kennzeichen suchen zu kÃƒÂ¶nnen.';
+      return 'Bitte melde dich an, um Kennzeichen suchen zu k\u00f6nnen.';
     }
 
     if (raw.contains('invalid-argument')) {
-      return 'Bitte prÃƒÂ¼fe deine Eingaben.';
+      return 'Bitte pr\u00fcfe deine Eingaben.';
     }
 
     if (raw.contains('permission-denied')) {
@@ -519,14 +769,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     if (raw.contains('already-exists')) {
-      return 'FÃƒÂ¼r diesen Treffer existiert bereits eine Anfrage.';
+      return 'F\u00fcr diesen Treffer existiert bereits eine Anfrage.';
     }
 
-    return 'Die Suche ist aktuell noch nicht vollstÃƒÂ¤ndig verbunden. Das Backend richten wir spÃƒÂ¤ter ein.';
+    if (raw.contains('failed-precondition')) {
+      return 'Die Anfrage konnte nicht vorbereitet werden. Bitte lade die Seite neu und versuche es erneut.';
+    }
+
+    if (raw.contains('unavailable') ||
+        raw.contains('deadline-exceeded') ||
+        raw.contains('network')) {
+      return 'Die Verbindung ist gerade nicht verfügbar. Bitte prüfe dein Netzwerk und versuche es erneut.';
+    }
+
+    return 'Die Aktion konnte nicht abgeschlossen werden. Bitte versuche es erneut.';
   }
 
   void _handleRegionChanged(String value) {
-    _clearResultMessages();
+    _clearResultMessagesAfterInputChange();
 
     if (value.length >= _regionMaxLength) {
       if (_countryCode == 'CH') {
@@ -544,7 +804,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _handleLettersChanged(String value) {
-    _clearResultMessages();
+    _clearResultMessagesAfterInputChange();
 
     if (value.length >= _lettersMaxLength) {
       if (_countryCode == 'AT') {
@@ -557,7 +817,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _handleNumbersChanged(String value) {
-    _clearResultMessages();
+    _clearResultMessagesAfterInputChange();
 
     if (_countryCode == 'AT') {
       if (value.length >= _numbersMaxLength) {
@@ -576,8 +836,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return _PlateSearchResultCard(
         result: _result!,
         fallbackDisplayPlate: _displayPlate,
+        requestState: _requestState,
         isRequestingContact: _isRequestingContact,
         onRequestContact: _requestContact,
+        onOpenChats: widget.onOpenChats,
       );
     }
 
@@ -587,8 +849,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final displayName =
+        FirebaseAuth.instance.currentUser?.displayName?.trim() ?? '';
+    final firstName = displayName.isNotEmpty
+        ? displayName.split(' ').first
+        : '';
+    final titleText = firstName.isNotEmpty
+        ? 'Jemanden gesehen, $firstName?'
+        : 'Jemanden gesehen?';
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -602,13 +872,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CarmaPageHeader(
+                    const CaRismaPageHeader(
                       icon: Icons.directions_car_filled_rounded,
                       title: 'Suchen',
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     Text(
-                      'Fahrzeughalter geschÃƒÂ¼tzt kontaktieren',
+                      titleText,
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: Colors.white,
@@ -617,9 +887,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             height: 1.12,
                           ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
-                      'Gib ein Kennzeichen ein, um eine geschÃƒÂ¼tzte Kontaktanfrage vorzubereiten.',
+                      'Dann gib hier das Kennzeichen ein.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withValues(alpha: 0.78),
                         fontWeight: FontWeight.w800,
@@ -627,25 +897,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 10),
                     _SearchCreditCard(
                       searchCredit: _searchCredit,
                       isLoading: _isLoadingSearchCredit,
                     ),
                     if (_creditError != null) ...[
-                      const SizedBox(height: 12),
-                      CarmaMessageCard(
+                      const SizedBox(height: 8),
+                      CaRismaMessageCard(
                         icon: Icons.cloud_off_rounded,
                         message: _creditError!,
                       ),
                     ],
-                    const SizedBox(height: 14),
-                    CarmaCountrySelectorCard(
+                    const SizedBox(height: 10),
+                    CaRismaCountrySelectorCard(
                       selectedCountryCode: _countryCode,
                       onChanged: _changeCountry,
                     ),
-                    const SizedBox(height: 12),
-                    CarmaPlateInputCard(
+                    const SizedBox(height: 10),
+                    CaRismaPlateInputCard(
                       countryCode: _countryCode,
                       regionController: _regionController,
                       lettersController: _lettersController,
@@ -656,44 +926,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onRegionChanged: _handleRegionChanged,
                       onLettersChanged: _handleLettersChanged,
                       onNumbersChanged: _handleNumbersChanged,
+                      onUseVoiceInput: _startPlateVoiceInput,
+                      isVoiceInputLoading: _isListeningToPlateSpeech,
                     ),
-                    const SizedBox(height: 12),
-                    _SearchButtonCard(
-                      isEnabled: _canAttemptSearch,
-                      isLoading: _isSearching,
-                      onPressed: _searchPlate,
-                    ),
+                    if (_result == null) ...[
+                      const SizedBox(height: 10),
+                      _SearchButtonCard(
+                        isEnabled: _canAttemptSearch,
+                        isLoading: _isSearching,
+                        onPressed: _searchPlate,
+                      ),
+                    ],
                     if (_isLoadingLocation) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       const _LocationLoadingCard(),
                     ],
                     if (_locationError != null) ...[
-                      const SizedBox(height: 12),
-                      CarmaMessageCard(
+                      const SizedBox(height: 8),
+                      CaRismaMessageCard(
                         icon: Icons.location_off_rounded,
                         message: _locationError!,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       _RetryLocationButton(
                         isLoading: _isLoadingLocation,
                         onPressed: _loadLocation,
                       ),
                     ],
                     if (_errorMessage != null) ...[
-                      const SizedBox(height: 12),
-                      CarmaMessageCard(
+                      const SizedBox(height: 8),
+                      CaRismaMessageCard(
                         icon: Icons.error_outline_rounded,
                         message: _errorMessage!,
                       ),
                     ],
                     if (_successMessage != null) ...[
-                      const SizedBox(height: 12),
-                      CarmaMessageCard(
+                      const SizedBox(height: 8),
+                      CaRismaMessageCard(
                         icon: Icons.check_circle_outline_rounded,
                         message: _successMessage!,
                       ),
                     ],
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
                       child: _buildResultArea(),
@@ -718,32 +992,26 @@ class _LocationLoadingCard extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
-              ),
-            ),
-            child: const Icon(
-              Icons.my_location_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
+          const CaRismaBlueIconBox(
+            icon: Icons.my_location_rounded,
+            size: 42,
+            iconSize: 22,
           ),
           const SizedBox(width: 13),
           Expanded(
-            child: Text(
-              'Standort wird geladen...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
-                fontWeight: FontWeight.w800,
-                height: 1.3,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Standort wird geladen...',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w800,
+                    height: 1.3,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -763,9 +1031,9 @@ class _RetryLocationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CarmaPrimaryButton(
+    return CaRismaPrimaryButton(
       label: 'Standort erneut laden',
-      loadingLabel: 'Standort lÃƒÂ¤dt...',
+      loadingLabel: 'Standort l\u00e4dt...',
       icon: Icons.refresh_rounded,
       iconSize: 25,
       fontSize: 17,
@@ -785,36 +1053,36 @@ class _SearchCreditCard extends StatelessWidget {
   final SearchCredit searchCredit;
   final bool isLoading;
 
-  String get _title {
+  String get _headline {
     if (isLoading) {
-      return 'Anfragen werden geladen';
+      return 'Anfragen werden geladen...';
+    }
+
+    if (searchCredit.isUnlimited) {
+      return 'Unbegrenzte monatliche Anfragen';
+    }
+
+    return '${searchCredit.freeRemainingThisMonth} von ${searchCredit.freeMonthlyLimit} monatliche Anfragen';
+  }
+
+  String get _subline {
+    if (isLoading) {
+      return 'Wir pr\u00fcfen dein Kontingent.';
     }
 
     if (searchCredit.isExhausted) {
-      return 'Keine Anfragen verfÃƒÂ¼gbar';
+      return 'Keine verf\u00fcgbare Suche mehr';
     }
 
     if (searchCredit.hasFreeRemaining) {
-      return 'Monatliche Anfragen';
-    }
-
-    return 'Credits verfÃƒÂ¼gbar';
-  }
-
-  String get _description {
-    if (isLoading) {
-      return 'Dein aktueller Credit-Stand wird aus Firestore geladen.';
-    }
-
-    if (searchCredit.hasFreeRemaining) {
-      return '${searchCredit.freeRemainingThisMonth} von ${searchCredit.freeMonthlyLimit} kostenlosen Anfragen in diesem Monat verfÃƒÂ¼gbar.';
+      return 'Die n\u00e4chste Suche ist kostenlos.';
     }
 
     if (searchCredit.hasPaidRemaining) {
-      return '${searchCredit.availablePaidCredits} Credits verfÃƒÂ¼gbar. Jede verwertbare Anfrage verbraucht 1 Credit.';
+      return 'Die n\u00e4chste Suche nutzt einen Credit.';
     }
 
-    return 'Deine kostenlosen Anfragen sind aufgebraucht. Credits kaufen wird spÃƒÂ¤ter freigeschaltet.';
+    return 'Keine verf\u00fcgbare Suche mehr';
   }
 
   IconData get _icon {
@@ -835,44 +1103,60 @@ class _SearchCreditCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
+    final badgeColor = isLoading
+        ? const Color(0xFF6F7A8A)
+        : searchCredit.isExhausted
+        ? const Color(0xFFFF4D4F)
+        : searchCredit.hasFreeRemaining
+        ? const Color(0xFF22C55E)
+        : const Color(0xFFFBBF24);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.02),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
-              ),
-            ),
-            child: Icon(_icon, color: Colors.white, size: 23),
-          ),
-          const SizedBox(width: 13),
+          Icon(_icon, color: CaRismaDesignTokens.bluePrimary, size: 16),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
+                  _headline,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 2),
                 Text(
-                  _description,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.70),
+                  _subline,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.58),
                     fontWeight: FontWeight.w700,
-                    height: 1.3,
+                    fontSize: 11.5,
                   ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: badgeColor,
+              boxShadow: [
+                BoxShadow(
+                  color: badgeColor.withValues(alpha: 0.50),
+                  blurRadius: 6,
                 ),
               ],
             ),
@@ -896,9 +1180,9 @@ class _SearchButtonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CarmaPrimaryButton(
-      label: 'Anfrage prÃƒÂ¼fen',
-      loadingLabel: 'PrÃƒÂ¼fung lÃƒÂ¤uft...',
+    return CaRismaPrimaryButton(
+      label: 'Anfrage pr\u00fcfen',
+      loadingLabel: 'Pr\u00fcfung l\u00e4uft...',
       icon: Icons.search_rounded,
       iconSize: 29,
       fontSize: 19.5,
@@ -909,45 +1193,105 @@ class _SearchButtonCard extends StatelessWidget {
   }
 }
 
+class _SearchUserAvatar extends StatelessWidget {
+  const _SearchUserAvatar({required this.size, required this.imageUrl});
+
+  final double size;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = size * 0.30;
+    final url = imageUrl?.trim();
+    final hasImage = url != null && url.isNotEmpty;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        color: CaRismaDesignTokens.surface2,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.60),
+            blurRadius: 12,
+            offset: const Offset(4, 4),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.015),
+            blurRadius: 8,
+            offset: const Offset(-4, -4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius - 1),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: hasImage
+              ? Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Icon(
+                    Icons.person_rounded,
+                    color: CaRismaDesignTokens.bluePrimary,
+                    size: size * 0.56,
+                  ),
+                )
+              : Icon(
+                  Icons.person_rounded,
+                  color: CaRismaDesignTokens.bluePrimary,
+                  size: size * 0.56,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PlateSearchResultCard extends StatelessWidget {
   const _PlateSearchResultCard({
     required this.result,
     required this.fallbackDisplayPlate,
+    required this.requestState,
     required this.isRequestingContact,
     required this.onRequestContact,
+    this.onOpenChats,
   });
 
   final PlateSearchResult result;
   final String fallbackDisplayPlate;
+  final PlateContactRequestState? requestState;
   final bool isRequestingContact;
   final VoidCallback onRequestContact;
+  final VoidCallback? onOpenChats;
 
   @override
   Widget build(BuildContext context) {
     if (!result.found) {
       return GlassCard(
         key: const ValueKey('no_result'),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: const LinearGradient(
-                  colors: [_carmaBlueDark, _carmaBlueLight],
-                ),
-              ),
-              child: const Icon(Icons.search_off_rounded, color: Colors.white),
+            const CaRismaBlueIconBox(
+              icon: Icons.search_off_rounded,
+              size: 44,
+              iconSize: 22,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Kein Nutzer in deiner NÃƒÂ¤he gefunden. DafÃƒÂ¼r wurde keine Anfrage verbraucht.',
+                'Kein Nutzer in deiner N\u00e4he gefunden. Daf\u00fcr wurde keine Anfrage verbraucht.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
+                  fontSize: 15,
                 ),
               ),
             ),
@@ -958,53 +1302,74 @@ class _PlateSearchResultCard extends StatelessWidget {
 
     return GlassCard(
       key: const ValueKey('result'),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [_carmaBlueDark, _carmaBlue, _carmaBlueLight],
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.24),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 16),
+              _SearchUserAvatar(size: 48, imageUrl: result.profilePhotoUrl),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  result.vehicleTitle,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      result.vehicleTitle,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Nutzer in deiner N\u00e4he',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.56),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           _ResultInfoRow(
             label: 'Kennzeichen',
             value: fallbackDisplayPlate.isEmpty ? '-' : fallbackDisplayPlate,
           ),
-          const SizedBox(height: 20),
+          if (result.distanceKm != null) ...[
+            const SizedBox(height: 8),
+            _ResultInfoRow(
+              label: 'Entfernung',
+              value: '${result.distanceKm!.toStringAsFixed(1)} km',
+            ),
+          ],
+          if (requestState != null) ...[
+            const SizedBox(height: 12),
+            _ExistingRequestInfo(requestState: requestState!),
+          ],
+          const SizedBox(height: 12),
           _RequestContactButton(
+            label: requestState?.canOpenChat == true
+                ? 'Zu Chats'
+                : requestState?.isAccepted == true
+                ? 'Bereits angenommen'
+                : requestState?.isPending == true
+                ? 'Anfrage l\u00e4uft'
+                : 'Kontakt anfragen',
+            icon: requestState?.canOpenChat == true
+                ? Icons.chat_bubble_rounded
+                : Icons.mail_outline_rounded,
+            isEnabled: requestState == null || requestState!.canOpenChat,
             isLoading: isRequestingContact,
-            onPressed: onRequestContact,
+            onPressed: requestState?.canOpenChat == true
+                ? (onOpenChats ?? () {})
+                : onRequestContact,
           ),
         ],
       ),
@@ -1014,47 +1379,72 @@ class _PlateSearchResultCard extends StatelessWidget {
 
 class _RequestContactButton extends StatelessWidget {
   const _RequestContactButton({
+    required this.label,
+    required this.icon,
+    required this.isEnabled,
     required this.isLoading,
     required this.onPressed,
   });
 
+  final String label;
+  final IconData icon;
+  final bool isEnabled;
   final bool isLoading;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isLoading ? null : onPressed,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.92),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isLoading
-                    ? Icons.hourglass_top_rounded
-                    : Icons.mail_outline_rounded,
-                color: Colors.black.withValues(alpha: 0.80),
+    return CaRismaPrimaryButton(
+      label: label,
+      loadingLabel: 'Anfrage l\u00e4uft...',
+      icon: icon,
+      isEnabled: isEnabled,
+      isLoading: isLoading,
+      onPressed: onPressed,
+    );
+  }
+}
+
+class _ExistingRequestInfo extends StatelessWidget {
+  const _ExistingRequestInfo({required this.requestState});
+
+  final PlateContactRequestState requestState;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = requestState.canOpenChat
+        ? 'F\u00fcr dieses Kennzeichen gibt es bereits einen aktiven Chat.'
+        : requestState.isAccepted
+        ? 'Diese Anfrage wurde bereits angenommen.'
+        : 'F\u00fcr dieses Kennzeichen l\u00e4uft bereits eine Anfrage.';
+
+    final icon = requestState.canOpenChat || requestState.isAccepted
+        ? Icons.check_circle_outline_rounded
+        : Icons.schedule_rounded;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.04),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w800,
+                fontSize: 12.5,
               ),
-              const SizedBox(width: 10),
-              Text(
-                isLoading ? 'Anfrage lÃƒÂ¤uft...' : 'Kontakt anfragen',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.black.withValues(alpha: 0.84),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

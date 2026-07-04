@@ -52,7 +52,7 @@ class ResolvedLocationPlace {
 }
 
 class ChatNativeBridge {
-  static const MethodChannel _channel = MethodChannel('carma/chat_tools');
+  static const MethodChannel _channel = MethodChannel('carisma/chat_tools');
   static const Map<String, String> _documentContentTypesByExtension = {
     'txt': 'text/plain',
     'md': 'text/markdown',
@@ -62,8 +62,7 @@ class ChatNativeBridge {
     'docx':
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'xls': 'application/vnd.ms-excel',
-    'xlsx':
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'ppt': 'application/vnd.ms-powerpoint',
     'pptx':
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -222,6 +221,18 @@ class ChatNativeBridge {
     required String contentType,
   }) async {
     await _channel.invokeMethod<void>('saveImageToGallery', <String, Object>{
+      'url': url,
+      'fileName': fileName,
+      'contentType': contentType,
+    });
+  }
+
+  Future<void> saveVideoToGallery({
+    required String url,
+    required String fileName,
+    required String contentType,
+  }) async {
+    await _channel.invokeMethod<void>('saveVideoToGallery', <String, Object>{
       'url': url,
       'fileName': fileName,
       'contentType': contentType,

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../shared/firebase/carma_firestore_paths.dart';
+import '../../../shared/firebase/carisma_firestore_paths.dart';
 import '../../../shared/models/legal_consent.dart';
 
 class LegalConsentRepository {
@@ -12,7 +12,9 @@ class LegalConsentRepository {
   CollectionReference<Map<String, dynamic>> _legalConsentCollection(
     String userId,
   ) {
-    return _firestore.collection(CarmaFirestorePaths.userLegalConsents(userId));
+    return _firestore.collection(
+      CaRismaFirestorePaths.userLegalConsents(userId),
+    );
   }
 
   Future<void> saveRegistrationConsents({

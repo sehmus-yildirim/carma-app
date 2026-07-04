@@ -45,6 +45,8 @@ class _ActiveChatsScreen extends StatelessWidget {
                       title: chat.displayNameFor(currentUserId),
                       subtitle:
                           '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
+                      vehicleLabel: chat.vehicleModelLabel,
+                      plateLabel: _formatChatPlateLabel(chat.displayPlate),
                       isFavorite: chat.isFavoriteFor(currentUserId),
                       isPinned: chat.isPinnedFor(currentUserId),
                       isMuted: chat.isMutedFor(currentUserId),
@@ -81,13 +83,15 @@ class _ActiveChatsScreen extends StatelessWidget {
           headerTitle: 'Aktive Chats',
           child: hasLocalActiveChat
               ? _ActiveChatListTile(
-                  title: 'Carma Nutzer',
+                  title: 'CaRisma Nutzer',
                   subtitle: messages.isNotEmpty
                       ? 'Letzte Nachricht: ${messages.last.text}'
                       : 'BMW 1er',
                   trailing: const _ChatOverflowMenu(
-                    title: 'Carma Nutzer',
+                    title: 'CaRisma Nutzer',
                     subtitle: 'BMW 1er - HH-HY 4747',
+                    vehicleLabel: 'BMW 1er',
+                    plateLabel: 'HH-HY 4747',
                     popAfterStatusAction: false,
                   ),
                   onTap: () {
@@ -124,7 +128,7 @@ class _SubPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -134,7 +138,7 @@ class _SubPageScaffold extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CarmaSubPageHeader(
+                CaRismaSubPageHeader(
                   icon: icon,
                   title: headerTitle,
                   onBack: () => Navigator.of(context).pop(),
@@ -200,58 +204,121 @@ class _ActiveChatListTile extends StatelessWidget {
         ),
     ];
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
-          child: Row(
-            children: [
-              _UserAvatarPlaceholder(size: 48, imageUrl: imageUrl),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
-                          ),
-                        ),
-                        if (hasStateIcons) ...[
-                          const SizedBox(width: 8),
-                          ...stateIcons,
-                        ],
-                      ],
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: isUnread
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.02),
+              border: Border.all(
+                color: isUnread
+                    ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.45)
+                    : Colors.white.withValues(alpha: 0.06),
+                width: isUnread ? 1.4 : 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.015),
+                  blurRadius: 10,
+                  offset: const Offset(-4, -4),
+                ),
+                if (isUnread)
+                  BoxShadow(
+                    color: CaRismaDesignTokens.bluePrimary.withValues(
+                      alpha: 0.12,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.58),
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: onTap,
+                        borderRadius: BorderRadius.circular(18),
+                        child: Row(
+                          children: [
+                            _UserAvatarPlaceholder(
+                              size: 50,
+                              imageUrl: imageUrl,
+                            ),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: CaRismaDesignTokens
+                                                    .textPrimary,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 16,
+                                              ),
+                                        ),
+                                      ),
+                                      if (hasStateIcons) ...[
+                                        const SizedBox(width: 8),
+                                        ...stateIcons,
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: CaRismaDesignTokens
+                                              .textSecondary
+                                              .withValues(alpha: 0.78),
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.2,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                    if (trailing != null) ...[
+                      const SizedBox(width: 6),
+                      trailing!,
+                    ],
                   ],
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 6), trailing!],
-            ],
+            ),
           ),
         ),
       ),
@@ -295,39 +362,61 @@ class _EmptyListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.08),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white.withValues(alpha: 0.58),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.white.withValues(alpha: 0.62),
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            color: Colors.white.withValues(alpha: 0.02),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
-            ),
+            ],
           ),
-        ],
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: CaRismaDesignTokens.blueGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _carismaBlue.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary.withValues(
+                      alpha: 0.82,
+                    ),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -341,22 +430,37 @@ class _UserAvatarPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = size * 0.30;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_carmaBlueDark, _carmaBlueLight],
+        borderRadius: BorderRadius.circular(radius),
+        color: CaRismaDesignTokens.surface2,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+          width: 1.0,
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.60),
+            blurRadius: 12,
+            offset: const Offset(4, 4),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.015),
+            blurRadius: 8,
+            offset: const Offset(-4, -4),
+          ),
+        ],
       ),
-      child: _AvatarCircle(
-        size: size,
-        imageUrl: imageUrl,
-        iconSize: size * 0.56,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius - 1),
+        child: _AvatarCircle(
+          size: size,
+          imageUrl: imageUrl,
+          iconSize: size * 0.56,
+        ),
       ),
     );
   }
@@ -380,19 +484,17 @@ class _AvatarCircle extends StatelessWidget {
     final url = imageUrl?.trim();
     final hasImage = url != null && url.isNotEmpty;
 
-    return ClipOval(
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: hasImage
-            ? Image.network(
-                url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    _AvatarFallbackIcon(size: iconSize, label: fallbackLabel),
-              )
-            : _AvatarFallbackIcon(size: iconSize, label: fallbackLabel),
-      ),
+    return SizedBox(
+      width: size,
+      height: size,
+      child: hasImage
+          ? Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  _AvatarFallbackIcon(size: iconSize, label: fallbackLabel),
+            )
+          : _AvatarFallbackIcon(size: iconSize, label: fallbackLabel),
     );
   }
 }
@@ -411,12 +513,16 @@ class _AvatarFallbackIcon extends StatelessWidget {
       color: Colors.transparent,
       child: Center(
         child: initials.isEmpty
-            ? Icon(Icons.person_rounded, color: Colors.white, size: size)
+            ? Icon(
+                Icons.person_rounded,
+                color: CaRismaDesignTokens.bluePrimary,
+                size: size,
+              )
             : Text(
                 initials,
                 maxLines: 1,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.bluePrimary,
                   fontSize: size * 0.72,
                   fontWeight: FontWeight.w900,
                   height: 1,

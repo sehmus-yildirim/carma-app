@@ -1,16 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/carma_background.dart';
+import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/glass_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../legal/presentation/privacy_policy_screen.dart';
 import '../../legal/presentation/terms_screen.dart';
 import '../data/auth_service.dart';
 
-const Color _carmaWhite = Colors.white;
-const Color _carmaMutedWhite = Color(0xCCFFFFFF);
-const Color _carmaHint = Color(0x99FFFFFF);
+const Color _carismaWhite = Colors.white;
+const Color _carismaMutedWhite = Color(0xCCFFFFFF);
+const Color _carismaHint = Color(0x99FFFFFF);
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -69,7 +69,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_isRegisterMode && !_acceptedLegal) {
       setState(() {
         _errorMessage =
-        'Bitte akzeptiere die AGB und die Datenschutzerklärung.';
+            'Bitte akzeptiere die AGB und die Datenschutzerklärung.';
       });
       return;
     }
@@ -89,9 +89,7 @@ class _AuthScreenState extends State<AuthScreen> {
         if (!mounted) return;
 
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Konto erfolgreich erstellt.'),
-          ),
+          const SnackBar(content: Text('Konto erfolgreich erstellt.')),
         );
       } else {
         await _authService.signInWithEmailAndPassword(
@@ -102,9 +100,7 @@ class _AuthScreenState extends State<AuthScreen> {
         if (!mounted) return;
 
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Erfolgreich eingeloggt.'),
-          ),
+          const SnackBar(content: Text('Erfolgreich eingeloggt.')),
         );
       }
     } on FirebaseAuthException catch (error) {
@@ -181,8 +177,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage =
-        'Der Reset-Link konnte gerade nicht gesendet werden.';
+        _errorMessage = 'Der Reset-Link konnte gerade nicht gesendet werden.';
       });
     } finally {
       if (mounted) {
@@ -209,9 +204,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
 
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Google-Anmeldung erfolgreich.'),
-        ),
+        const SnackBar(content: Text('Google-Anmeldung erfolgreich.')),
       );
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
@@ -223,8 +216,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage =
-        'Google Login konnte gerade nicht durchgeführt werden.';
+        _errorMessage = 'Google Login konnte gerade nicht durchgeführt werden.';
       });
     } finally {
       if (mounted) {
@@ -254,18 +246,14 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _openTermsScreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const TermsScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const TermsScreen()));
   }
 
   void _openPrivacyScreen() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const PrivacyPolicyScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const PrivacyPolicyScreen()),
     );
   }
 
@@ -312,12 +300,12 @@ class _AuthScreenState extends State<AuthScreen> {
     final buttonHeight = compactHeight ? 48.0 : 52.0;
 
     final cardTitle = _isRegisterMode ? 'Konto erstellen' : 'Anmelden';
-    final primaryButtonText =
-    _isRegisterMode ? 'Registrieren' : 'Einloggen';
-    final switchText =
-    _isRegisterMode ? 'Ich habe schon ein Konto' : 'Konto erstellen';
+    final primaryButtonText = _isRegisterMode ? 'Registrieren' : 'Einloggen';
+    final switchText = _isRegisterMode
+        ? 'Ich habe schon ein Konto'
+        : 'Konto erstellen';
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -343,7 +331,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _CarmaLogoMark(size: logoSize),
+                          _CaRismaLogoMark(size: logoSize),
                           const SizedBox(height: 10),
                           _GlassTitle(fontSize: titleSize),
                           const SizedBox(height: 7),
@@ -351,7 +339,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             'Finde die Person hinter dem Kennzeichen.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: _carmaMutedWhite,
+                              color: _carismaMutedWhite,
                               fontSize: subtitleSize,
                               fontWeight: FontWeight.w600,
                               height: 1.3,
@@ -370,7 +358,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 Text(
                                   cardTitle,
                                   style: const TextStyle(
-                                    color: _carmaWhite,
+                                    color: _carismaWhite,
                                     fontSize: 23,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: -0.3,
@@ -396,16 +384,16 @@ class _AuthScreenState extends State<AuthScreen> {
                                     onPressed: _isLoading
                                         ? null
                                         : () {
-                                      setState(() {
-                                        _obscurePassword =
-                                        !_obscurePassword;
-                                      });
-                                    },
+                                            setState(() {
+                                              _obscurePassword =
+                                                  !_obscurePassword;
+                                            });
+                                          },
                                     icon: Icon(
                                       _obscurePassword
                                           ? Icons.visibility_outlined
                                           : Icons.visibility_off_outlined,
-                                      color: _carmaMutedWhite,
+                                      color: _carismaMutedWhite,
                                     ),
                                   ),
                                 ),
@@ -445,7 +433,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                               ? null
                                               : _resetPassword,
                                           style: TextButton.styleFrom(
-                                            foregroundColor: _carmaMutedWhite,
+                                            foregroundColor: _carismaMutedWhite,
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 0,
                                               vertical: 5,
@@ -470,7 +458,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                               ? null
                                               : _toggleMode,
                                           style: TextButton.styleFrom(
-                                            foregroundColor: _carmaWhite,
+                                            foregroundColor: _carismaWhite,
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 0,
                                               vertical: 5,
@@ -501,13 +489,14 @@ class _AuthScreenState extends State<AuthScreen> {
                                   icon: const Text(
                                     'G',
                                     style: TextStyle(
-                                      color: _carmaWhite,
+                                      color: _carismaWhite,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w900,
                                     ),
                                   ),
-                                  onPressed:
-                                  _isLoading ? null : _signInWithGoogle,
+                                  onPressed: _isLoading
+                                      ? null
+                                      : _signInWithGoogle,
                                 ),
                                 SizedBox(height: inputGap),
                                 GlassSecondaryButton(
@@ -515,11 +504,10 @@ class _AuthScreenState extends State<AuthScreen> {
                                   label: 'Mit Apple fortfahren',
                                   icon: const Icon(
                                     Icons.apple,
-                                    color: _carmaWhite,
+                                    color: _carismaWhite,
                                     size: 22,
                                   ),
-                                  onPressed:
-                                  _isLoading ? null : _showAppleInfo,
+                                  onPressed: _isLoading ? null : _showAppleInfo,
                                 ),
                               ],
                             ),
@@ -554,8 +542,8 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
-class _CarmaLogoMark extends StatelessWidget {
-  const _CarmaLogoMark({required this.size});
+class _CaRismaLogoMark extends StatelessWidget {
+  const _CaRismaLogoMark({required this.size});
 
   final double size;
 
@@ -606,15 +594,11 @@ class _GlassTitle extends StatelessWidget {
         return const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            Color(0xFFDDEBFF),
-            Colors.white,
-          ],
+          colors: [Colors.white, Color(0xFFDDEBFF), Colors.white],
         ).createShader(bounds);
       },
       child: Text(
-        'Carma',
+        'CaRisma',
         textAlign: TextAlign.center,
         style: TextStyle(
           color: Colors.white,
@@ -668,14 +652,12 @@ class _LegalAcceptanceBox extends StatelessWidget {
             value: accepted,
             onChanged: enabled
                 ? (value) {
-              onChanged(value ?? false);
-            }
+                    onChanged(value ?? false);
+                  }
                 : null,
-            activeColor: _carmaWhite,
+            activeColor: _carismaWhite,
             checkColor: Colors.black,
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.45),
-            ),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.45)),
           ),
           Expanded(
             child: Padding(
@@ -685,18 +667,12 @@ class _LegalAcceptanceBox extends StatelessWidget {
                 children: [
                   const Text(
                     'Ich akzeptiere die ',
-                    style: TextStyle(
-                      color: _carmaMutedWhite,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: _carismaMutedWhite, fontSize: 13),
                   ),
                   _InlineLink(label: 'AGB', onTap: onTermsTap),
                   const Text(
                     ' und die ',
-                    style: TextStyle(
-                      color: _carmaMutedWhite,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: _carismaMutedWhite, fontSize: 13),
                   ),
                   _InlineLink(
                     label: 'Datenschutzerklärung',
@@ -704,10 +680,7 @@ class _LegalAcceptanceBox extends StatelessWidget {
                   ),
                   const Text(
                     '.',
-                    style: TextStyle(
-                      color: _carmaMutedWhite,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: _carismaMutedWhite, fontSize: 13),
                   ),
                 ],
               ),
@@ -720,10 +693,7 @@ class _LegalAcceptanceBox extends StatelessWidget {
 }
 
 class _InlineLink extends StatelessWidget {
-  const _InlineLink({
-    required this.label,
-    required this.onTap,
-  });
+  const _InlineLink({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -735,11 +705,11 @@ class _InlineLink extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          color: _carmaWhite,
+          color: _carismaWhite,
           fontSize: 13,
           fontWeight: FontWeight.w900,
           decoration: TextDecoration.underline,
-          decorationColor: _carmaWhite,
+          decorationColor: _carismaWhite,
         ),
       ),
     );
@@ -754,10 +724,7 @@ class _ErrorBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFFF4D4F).withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
@@ -813,7 +780,7 @@ class _GlassTextField extends StatelessWidget {
         textInputAction: textInputAction,
         onSubmitted: onSubmitted,
         style: const TextStyle(
-          color: _carmaWhite,
+          color: _carismaWhite,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
@@ -821,7 +788,7 @@ class _GlassTextField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: const TextStyle(
-            color: _carmaHint,
+            color: _carismaHint,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -838,10 +805,7 @@ class _GlassTextField extends StatelessWidget {
 }
 
 class _BottomLink extends StatelessWidget {
-  const _BottomLink({
-    required this.label,
-    required this.onTap,
-  });
+  const _BottomLink({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -853,11 +817,11 @@ class _BottomLink extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          color: _carmaMutedWhite,
+          color: _carismaMutedWhite,
           fontSize: 14,
           fontWeight: FontWeight.w700,
           decoration: TextDecoration.underline,
-          decorationColor: _carmaMutedWhite,
+          decorationColor: _carismaMutedWhite,
         ),
       ),
     );

@@ -103,6 +103,52 @@ class _ChatMessageBubble extends StatelessWidget {
     _showSnackBar(context, 'Rufnummer wurde kopiert.');
   }
 
+  String _clipboardTextForMessage() {
+    final location = message.locationPayload;
+    if (location != null) {
+      return 'Standort: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}';
+    }
+
+    final contact = message.contactPayload;
+    if (contact != null) {
+      final phoneNumber = contact.phoneNumber.trim();
+      return phoneNumber.isEmpty ? contact.name.trim() : phoneNumber;
+    }
+
+    final imageUrl = message.imageUrl?.trim() ?? '';
+    if (message.isImage && imageUrl.isNotEmpty) {
+      return imageUrl;
+    }
+
+    final fileUrl = message.fileUrl?.trim() ?? '';
+    if (message.isDocument) {
+      final fileName = message.fileName?.trim() ?? '';
+      if (fileName.isEmpty) {
+        return fileUrl;
+      }
+
+      return fileUrl.isEmpty ? fileName : '$fileName\n$fileUrl';
+    }
+
+    if (message.isAudio) {
+      return fileUrl.isEmpty ? 'Sprachnachricht' : 'Sprachnachricht\n$fileUrl';
+    }
+
+    return message.text.trim();
+  }
+
+  void _copyMessageText(BuildContext context, String successMessage) {
+    final clipboardText = _clipboardTextForMessage().trim();
+
+    if (clipboardText.isEmpty) {
+      _showSnackBar(context, 'Diese Nachricht kann nicht kopiert werden.');
+      return;
+    }
+
+    Clipboard.setData(ClipboardData(text: clipboardText));
+    _showSnackBar(context, successMessage);
+  }
+
   bool _isNetworkImage(String value) {
     return value.startsWith('http://') || value.startsWith('https://');
   }
@@ -147,24 +193,32 @@ class _ChatMessageBubble extends StatelessWidget {
       builder: (context) {
         return Dialog.fullscreen(
           backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 5,
-                child: Center(child: _buildRawImage(imageUrl)),
-              ),
-              Positioned(
-                top: 22,
-                right: 18,
-                child: IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                  color: Colors.white,
-                  tooltip: 'Schlie\u00DFen',
-                ),
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 5,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      child: _buildRawImage(imageUrl, fit: BoxFit.contain),
+                    ),
+                  ),
+                  Positioned(
+                    top: 22,
+                    right: 18,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      color: Colors.white,
+                      tooltip: 'Schließen',
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
@@ -180,12 +234,15 @@ class _ChatMessageBubble extends StatelessWidget {
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF075493), Color(0xFF052B55)],
-          ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+          gradient: CaRismaDesignTokens.blueGradient,
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          boxShadow: [
+            BoxShadow(
+              color: _carismaBlue.withValues(alpha: 0.20),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -230,7 +287,7 @@ class _ChatMessageBubble extends StatelessWidget {
                   Text(
                     'In Karten öffnen',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _carmaBlueLight,
+                      color: _carismaBlueLight,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -244,61 +301,75 @@ class _ChatMessageBubble extends StatelessWidget {
   }
 
   Widget _buildContactCard(BuildContext context, _ContactPayload contact) {
-    return Container(
-      width: 250,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.08),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_carmaBlue, _carmaBlueLight],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _copyContactPhoneNumber(context, contact),
+      child: Container(
+        width: 250,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_carismaBlue, _carismaBlueLight],
+                ),
+              ),
+              child: const Icon(
+                Icons.person_rounded,
+                color: Colors.white,
+                size: 25,
               ),
             ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: Colors.white,
-              size: 25,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  contact.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    contact.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  contact.phoneNumber,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.74),
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(height: 4),
+                  Text(
+                    contact.phoneNumber,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 7),
+                  Text(
+                    'Rufnummer kopieren',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: _carismaBlueLight,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -334,8 +405,8 @@ class _ChatMessageBubble extends StatelessWidget {
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: Colors.white.withValues(alpha: 0.08),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+          color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
@@ -401,8 +472,8 @@ class _ChatMessageBubble extends StatelessWidget {
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: Colors.white.withValues(alpha: 0.08),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+          color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
@@ -439,7 +510,9 @@ class _ChatMessageBubble extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    durationLabel,
+                    isAudioPlaying
+                        ? 'Wird abgespielt • $durationLabel'
+                        : durationLabel,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -534,7 +607,7 @@ class _ChatMessageBubble extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _carmaBlue.withValues(alpha: 0.34),
+            _carismaBlue.withValues(alpha: 0.34),
             Colors.white.withValues(alpha: 0.08),
           ],
         ),
@@ -548,7 +621,7 @@ class _ChatMessageBubble extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _carmaBlue.withValues(alpha: 0.86),
+              color: _carismaBlue.withValues(alpha: 0.86),
             ),
             child: const Icon(
               Icons.auto_awesome_rounded,
@@ -605,7 +678,7 @@ class _ChatMessageBubble extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _carmaBlue.withValues(alpha: 0.30),
+            _carismaBlue.withValues(alpha: 0.30),
             Colors.white.withValues(alpha: 0.08),
           ],
         ),
@@ -666,7 +739,7 @@ class _ChatMessageBubble extends StatelessWidget {
   Future<void> _showMessageActions(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.surface1,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -721,9 +794,8 @@ class _ChatMessageBubble extends StatelessWidget {
                     icon: Icons.forward_rounded,
                     label: 'Weiterleiten',
                     onTap: () {
-                      Clipboard.setData(ClipboardData(text: message.text));
                       Navigator.of(sheetContext).pop();
-                      _showSnackBar(
+                      _copyMessageText(
                         context,
                         'Nachricht wurde zum Weiterleiten kopiert.',
                       );
@@ -733,9 +805,8 @@ class _ChatMessageBubble extends StatelessWidget {
                     icon: Icons.copy_rounded,
                     label: 'Kopieren',
                     onTap: () {
-                      Clipboard.setData(ClipboardData(text: message.text));
                       Navigator.of(sheetContext).pop();
-                      _showSnackBar(context, 'Nachricht wurde kopiert.');
+                      _copyMessageText(context, 'Nachricht wurde kopiert.');
                     },
                   ),
                   _MessageActionTile(
@@ -750,15 +821,16 @@ class _ChatMessageBubble extends StatelessWidget {
                       onStarMessage(message);
                     },
                   ),
-                  _MessageActionTile(
-                    icon: Icons.delete_outline_rounded,
-                    label: 'L\u00F6schen',
-                    isDestructive: true,
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      onDeleteMessage(message);
-                    },
-                  ),
+                  if (message.isMine)
+                    _MessageActionTile(
+                      icon: Icons.delete_outline_rounded,
+                      label: 'Löschen',
+                      isDestructive: true,
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        onDeleteMessage(message);
+                      },
+                    ),
                 ],
               ),
             ),
@@ -827,12 +899,21 @@ class _ChatMessageBubble extends StatelessWidget {
                     ],
                   )
                 : null,
-            color: message.isMine ? null : Colors.white.withValues(alpha: 0.09),
+            color: message.isMine
+                ? null
+                : CaRismaDesignTokens.surface2.withValues(alpha: 0.86),
             border: Border.all(
               color: message.isMine
                   ? _myMessageBorder
-                  : Colors.white.withValues(alpha: 0.10),
+                  : Colors.white.withValues(alpha: 0.08),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1072,8 +1153,8 @@ class _TypingIndicatorBubble extends StatelessWidget {
             bottomLeft: Radius.circular(5),
             bottomRight: Radius.circular(20),
           ),
-          color: Colors.white.withValues(alpha: 0.09),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+          color: CaRismaDesignTokens.surface2.withValues(alpha: 0.86),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1160,7 +1241,7 @@ class _ChatEmptySpace extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 18),
-          CarmaBlueIconBox(
+          CaRismaBlueIconBox(
             icon: Icons.chat_bubble_outline_rounded,
             size: 60,
             iconSize: 30,
@@ -1207,7 +1288,7 @@ class _ReplyPreview extends StatelessWidget {
               width: 3,
               height: 38,
               decoration: BoxDecoration(
-                color: _carmaBlueLight,
+                color: _carismaBlueLight,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -1219,7 +1300,7 @@ class _ReplyPreview extends StatelessWidget {
                   Text(
                     label,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _carmaBlueLight,
+                      color: _carismaBlueLight,
                       fontWeight: FontWeight.w900,
                     ),
                   ),

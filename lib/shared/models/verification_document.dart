@@ -43,9 +43,9 @@ class VerificationDocument {
       VerificationDocumentType.driverLicenseFront => 'Führerschein Vorderseite',
       VerificationDocumentType.driverLicenseBack => 'Führerschein Rückseite',
       VerificationDocumentType.vehicleRegistrationFront =>
-      'Fahrzeugschein Vorderseite',
+        'Fahrzeugschein Vorderseite',
       VerificationDocumentType.vehicleRegistrationBack =>
-      'Fahrzeugschein Rückseite',
+        'Fahrzeugschein Rückseite',
     };
   }
 
@@ -108,14 +108,14 @@ class VerificationDocument {
 
   static VerificationDocumentType _documentTypeFromName(String? name) {
     return VerificationDocumentType.values.firstWhere(
-          (type) => type.name == name,
+      (type) => type.name == name,
       orElse: () => VerificationDocumentType.idFront,
     );
   }
 
   static VerificationDocumentStatus _documentStatusFromName(String? name) {
     return VerificationDocumentStatus.values.firstWhere(
-          (status) => status.name == name,
+      (status) => status.name == name,
       orElse: () => VerificationDocumentStatus.missing,
     );
   }

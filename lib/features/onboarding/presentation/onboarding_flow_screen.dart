@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_blue_icon_box.dart';
-import '../../../shared/widgets/carma_message_card.dart';
-import '../../../shared/widgets/carma_primary_button.dart';
-import '../../../shared/widgets/carma_secondary_button.dart';
-import '../../../shared/widgets/carma_sub_page_header.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_blue_icon_box.dart';
+import '../../../shared/widgets/carisma_message_card.dart';
+import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_secondary_button.dart';
+import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 
 class OnboardingFlowScreen extends StatefulWidget {
   const OnboardingFlowScreen({
@@ -64,7 +65,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
 
   String get _title {
     return switch (_currentStep) {
-      0 => 'Willkommen bei Carma',
+      0 => 'Willkommen bei CaRisma',
       1 => 'Profil vorbereiten',
       2 => 'Fahrzeug hinzufügen',
       3 => 'Verifizierung verstehen',
@@ -86,7 +87,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -94,13 +95,8 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
             builder: (context, constraints) {
               return SingleChildScrollView(
                 keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  18,
-                  20,
-                  28 + keyboardInset,
-                ),
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minHeight: constraints.maxHeight - 46,
@@ -108,7 +104,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CarmaSubPageHeader(
+                      CaRismaSubPageHeader(
                         icon: _icon,
                         title: _title,
                         onBack: _goBack,
@@ -145,8 +141,8 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                       ),
                       const SizedBox(height: 18),
                       const Spacer(),
-                      CarmaPrimaryButton(
-                        label: _isLastStep ? 'Carma starten' : 'Weiter',
+                      CaRismaPrimaryButton(
+                        label: _isLastStep ? 'CaRisma starten' : 'Weiter',
                         icon: _isLastStep
                             ? Icons.check_circle_outline_rounded
                             : Icons.arrow_forward_rounded,
@@ -154,7 +150,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                       ),
                       if (_currentStep > 0) ...[
                         const SizedBox(height: 12),
-                        CarmaSecondaryButton(
+                        CaRismaSecondaryButton(
                           label: 'Zurück',
                           icon: Icons.arrow_back_rounded,
                           borderRadius: 24,
@@ -223,7 +219,7 @@ class _ProgressCard extends StatelessWidget {
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.10),
               valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF63D5FF),
+                CaRismaDesignTokens.blueBright,
               ),
             ),
           ),
@@ -234,10 +230,7 @@ class _ProgressCard extends StatelessWidget {
 }
 
 class _OnboardingStepContent extends StatelessWidget {
-  const _OnboardingStepContent({
-    super.key,
-    required this.step,
-  });
+  const _OnboardingStepContent({super.key, required this.step});
 
   final int step;
 
@@ -264,7 +257,7 @@ class _IntroStep extends StatelessWidget {
           icon: Icons.shield_rounded,
           title: 'Sicher kommunizieren rund ums Fahrzeug.',
           description:
-          'Carma hilft dir, Kennzeichen zu suchen, Kontaktanfragen zu verwalten und sachliche Hinweise zu senden — ohne deine privaten Daten unnötig offenzulegen.',
+              'CaRisma hilft dir, Kennzeichen zu suchen, Kontaktanfragen zu verwalten und sachliche Hinweise zu senden — ohne deine privaten Daten unnötig offenzulegen.',
           points: [
             _HeroInfoPoint(
               icon: Icons.search_rounded,
@@ -281,10 +274,10 @@ class _IntroStep extends StatelessWidget {
           ],
         ),
         SizedBox(height: 12),
-        CarmaMessageCard(
+        CaRismaMessageCard(
           icon: Icons.info_outline_rounded,
           message:
-          'Aktuell ist dieser Flow lokal. Firebase, echte Konten und Speicherung verbinden wir später.',
+              'Aktuell ist dieser Flow lokal. Firebase, echte Konten und Speicherung verbinden wir später.',
         ),
       ],
     );
@@ -300,7 +293,7 @@ class _ProfileStep extends StatelessWidget {
       icon: Icons.person_rounded,
       title: 'Dein Profil bleibt kontrolliert sichtbar.',
       description:
-      'Für die spätere Verifizierung werden echte Basisdaten vorbereitet. Nach außen erscheint nur ein geschützter Anzeigename.',
+          'Für die spätere Verifizierung werden echte Basisdaten vorbereitet. Nach außen erscheint nur ein geschützter Anzeigename.',
       points: [
         _HeroInfoPoint(
           icon: Icons.badge_outlined,
@@ -328,7 +321,7 @@ class _VehicleStep extends StatelessWidget {
       icon: Icons.directions_car_filled_rounded,
       title: 'Dein Fahrzeug wird eindeutig zugeordnet.',
       description:
-      'Damit Carma vertrauenswürdig bleibt, müssen Kennzeichen und Fahrzeugdaten später nachvollziehbar zum Fahrzeughalter passen.',
+          'Damit CaRisma vertrauenswürdig bleibt, müssen Kennzeichen und Fahrzeugdaten später nachvollziehbar zum Fahrzeughalter passen.',
       points: [
         _HeroInfoPoint(
           icon: Icons.pin_outlined,
@@ -358,7 +351,7 @@ class _VerificationStep extends StatelessWidget {
           icon: Icons.verified_user_rounded,
           title: 'Volle Nutzung nach Verifizierung.',
           description:
-          'Dokumente wie Ausweis, Führerschein und Fahrzeugschein werden später sicher hochgeladen und geprüft.',
+              'Dokumente wie Ausweis, Führerschein und Fahrzeugschein werden später sicher hochgeladen und geprüft.',
           points: [
             _HeroInfoPoint(
               icon: Icons.assignment_ind_outlined,
@@ -375,10 +368,10 @@ class _VerificationStep extends StatelessWidget {
           ],
         ),
         SizedBox(height: 12),
-        CarmaMessageCard(
+        CaRismaMessageCard(
           icon: Icons.lock_outline_rounded,
           message:
-          'Nach der Verifizierung werden Name, Fahrzeugdaten und Dokumente gesperrt. Sichtbarkeit und Profilbild bleiben weiterhin änderbar.',
+              'Nach der Verifizierung werden Name, Fahrzeugdaten und Dokumente gesperrt. Sichtbarkeit und Profilbild bleiben weiterhin änderbar.',
         ),
       ],
     );
@@ -405,11 +398,7 @@ class _HeroInfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CarmaBlueIconBox(
-            icon: icon,
-            size: 58,
-            iconSize: 30,
-          ),
+          CaRismaBlueIconBox(icon: icon, size: 58, iconSize: 30),
           const SizedBox(height: 18),
           Text(
             title,
@@ -450,19 +439,14 @@ class _HeroInfoCard extends StatelessWidget {
 }
 
 class _HeroInfoPoint {
-  const _HeroInfoPoint({
-    required this.icon,
-    required this.text,
-  });
+  const _HeroInfoPoint({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
 }
 
 class _HeroPointRow extends StatelessWidget {
-  const _HeroPointRow({
-    required this.point,
-  });
+  const _HeroPointRow({required this.point});
 
   final _HeroInfoPoint point;
 
@@ -473,18 +457,12 @@ class _HeroPointRow extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: Colors.white.withValues(alpha: 0.055),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            point.icon,
-            color: const Color(0xFF63D5FF),
-            size: 21,
-          ),
+          Icon(point.icon, color: CaRismaDesignTokens.blueBright, size: 21),
           const SizedBox(width: 11),
           Expanded(
             child: Text(

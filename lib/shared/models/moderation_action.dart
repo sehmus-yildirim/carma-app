@@ -227,14 +227,14 @@ class ModerationAction {
 
   static ModerationActionType _typeFromName(String? name) {
     return ModerationActionType.values.firstWhere(
-          (type) => type.name == name,
+      (type) => type.name == name,
       orElse: () => ModerationActionType.manualReview,
     );
   }
 
   static ModerationReason _reasonFromName(String? name) {
     return ModerationReason.values.firstWhere(
-          (reason) => reason.name == name,
+      (reason) => reason.name == name,
       orElse: () => ModerationReason.other,
     );
   }

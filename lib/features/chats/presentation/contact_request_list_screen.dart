@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/models/carma_models.dart';
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_blue_icon_box.dart';
-import '../../../shared/widgets/carma_sub_page_header.dart';
+import '../../../shared/models/carisma_models.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_blue_icon_box.dart';
+import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/chat_repository.dart';
 import '../data/contact_request_repository.dart';
@@ -183,7 +183,7 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -193,7 +193,7 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CarmaSubPageHeader(
+                CaRismaSubPageHeader(
                   icon: _isIncoming
                       ? Icons.move_to_inbox_rounded
                       : Icons.outbox_rounded,
@@ -292,7 +292,7 @@ class _RequestListCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CarmaBlueIconBox(
+          CaRismaBlueIconBox(
             icon: isIncoming
                 ? Icons.mark_email_unread_rounded
                 : Icons.schedule_send_rounded,
@@ -551,7 +551,7 @@ class _RequestEmptyCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       child: Column(
         children: [
-          CarmaBlueIconBox(
+          CaRismaBlueIconBox(
             icon: isIncoming
                 ? Icons.mark_email_unread_outlined
                 : Icons.schedule_send_outlined,

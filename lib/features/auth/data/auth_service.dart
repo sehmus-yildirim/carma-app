@@ -31,11 +31,14 @@ class AuthService {
     );
   }
 
-  Future<void> sendPasswordResetEmail({
-    required String email,
-  }) async {
+  Future<void> sendPasswordResetEmail({required String email}) async {
     await _firebaseAuth.setLanguageCode('de');
     await _firebaseAuth.sendPasswordResetEmail(email: email);
+  }
+
+  Future<void> sendEmailVerification(User user) async {
+    await _firebaseAuth.setLanguageCode('de');
+    await user.sendEmailVerification();
   }
 
   Future<UserCredential> signInWithGoogle() async {
@@ -51,7 +54,7 @@ class AuthService {
     }
 
     final GoogleSignInAuthentication googleAuth =
-    await googleUser.authentication;
+        await googleUser.authentication;
 
     final OAuthCredential credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
@@ -65,7 +68,7 @@ class AuthService {
     throw FirebaseAuthException(
       code: 'apple-not-configured',
       message:
-      'Apple Login wird vorbereitet und später mit dem iOS-Setup aktiviert.',
+          'Apple Login wird vorbereitet und später mit dem iOS-Setup aktiviert.',
     );
   }
 

@@ -1,5 +1,5 @@
 import '../../../shared/legal/legal_versions.dart';
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/models/carisma_models.dart';
 
 class RegistrationLegalConsentBuilder {
   const RegistrationLegalConsentBuilder._();

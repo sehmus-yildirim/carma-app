@@ -1,15 +1,16 @@
+import 'dart:ui' as ui;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/models/carisma_models.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../chats/data/chat_repository.dart';
 import '../../chats/presentation/chats_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../reports/data/report_repository.dart';
 import '../../reports/presentation/report_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import 'dashboard_screen.dart';
-
-const Color _navAccentBlue = Color(0xFF139CFF);
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.userState, required this.onLogout});
@@ -23,10 +24,21 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
+  final ReportRepository _reportRepository = ReportRepository();
+
+  late final Stream<int> _openChatCountStream;
+  late final Stream<int> _unreadReportCountStream;
 
   int _selectedIndex = 0;
 
-  Stream<int> _watchUnreadChatCount() {
+  @override
+  void initState() {
+    super.initState();
+    _openChatCountStream = _watchOpenChatCount();
+    _unreadReportCountStream = _watchUnreadReportCount();
+  }
+
+  Stream<int> _watchOpenChatCount() {
     final userId =
         FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
     final trimmedUserId = userId.trim();
@@ -36,8 +48,28 @@ class _AppShellState extends State<AppShell> {
     }
 
     return _chatRepository.watchChats(userId: trimmedUserId).map((chats) {
-      return chats.where((chat) => chat.hasUnreadFor(trimmedUserId)).length;
+      return chats
+          .where((chat) => chat.isVisibleInActiveListFor(trimmedUserId))
+          .length;
     });
+  }
+
+  Stream<int> _watchUnreadReportCount() {
+    final userId =
+        FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty) {
+      return Stream<int>.value(0);
+    }
+
+    return _reportRepository
+        .watchReportNotifications(userId: trimmedUserId)
+        .map((notifications) {
+          return notifications
+              .where((notification) => notification.isUnread)
+              .length;
+        });
   }
 
   void _onTabSelected(int index) {
@@ -55,7 +87,10 @@ class _AppShellState extends State<AppShell> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     final screens = [
-      DashboardScreen(userState: widget.userState),
+      DashboardScreen(
+        userState: widget.userState,
+        onOpenChats: () => _onTabSelected(1),
+      ),
       ChatsScreen(userState: widget.userState),
       ReportScreen(userState: widget.userState),
       ProfileScreen(userState: widget.userState),
@@ -67,17 +102,24 @@ class _AppShellState extends State<AppShell> {
       backgroundColor: Colors.transparent,
       body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: StreamBuilder<int>(
-        stream: _watchUnreadChatCount(),
+        stream: _openChatCountStream,
         initialData: 0,
-        builder: (context, snapshot) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: _GlassBottomNavigationBar(
-              selectedIndex: _selectedIndex,
-              onTabSelected: _onTabSelected,
-              bottomInset: bottomInset,
-              unreadChatCount: snapshot.data ?? 0,
-            ),
+        builder: (context, chatSnapshot) {
+          return StreamBuilder<int>(
+            stream: _unreadReportCountStream,
+            initialData: 0,
+            builder: (context, reportSnapshot) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _GlassBottomNavigationBar(
+                  selectedIndex: _selectedIndex,
+                  onTabSelected: _onTabSelected,
+                  bottomInset: bottomInset,
+                  openChatCount: chatSnapshot.data ?? 0,
+                  unreadReportCount: reportSnapshot.data ?? 0,
+                ),
+              );
+            },
           );
         },
       ),
@@ -90,13 +132,15 @@ class _GlassBottomNavigationBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onTabSelected,
     required this.bottomInset,
-    required this.unreadChatCount,
+    required this.openChatCount,
+    required this.unreadReportCount,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
   final double bottomInset;
-  final int unreadChatCount;
+  final int openChatCount;
+  final int unreadReportCount;
 
   static const List<_NavigationItem> _items = [
     _NavigationItem(
@@ -131,78 +175,66 @@ class _GlassBottomNavigationBar extends StatelessWidget {
     final safeBottom = bottomInset == 0 ? 8.0 : bottomInset;
 
     return Container(
-      height: 76 + safeBottom,
+      height: 84 + safeBottom,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusNav),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.42),
-            blurRadius: 34,
-            offset: const Offset(0, 18),
-          ),
-          BoxShadow(
-            color: _navAccentBlue.withValues(alpha: 0.12),
+            color: Colors.black.withValues(alpha: 0.65),
             blurRadius: 28,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: Colors.white.withValues(alpha: 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 0),
+            color: Colors.white.withValues(alpha: 0.02),
+            blurRadius: 14,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.18),
-                Colors.white.withValues(alpha: 0.10),
-                _navAccentBlue.withValues(alpha: 0.10),
-                Colors.white.withValues(alpha: 0.05),
-              ],
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 1.1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Container(
-                  height: 1,
-                  color: Colors.white.withValues(alpha: 0.22),
-                ),
+        borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusNav),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                CaRismaDesignTokens.radiusNav,
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
-                  child: Row(
-                    children: List.generate(_items.length, (index) {
-                      final item = _items[index];
-                      final isSelected = selectedIndex == index;
+              color: CaRismaDesignTokens.backgroundTop.withValues(alpha: 0.96),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.04),
+                width: 1.0,
+              ),
+            ),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 7, 8, 0),
+                    child: Row(
+                      children: List.generate(_items.length, (index) {
+                        final item = _items[index];
+                        final isSelected = selectedIndex == index;
 
-                      return Expanded(
-                        child: _GlassNavigationButton(
-                          item: item,
-                          isSelected: isSelected,
-                          badgeCount: index == 1 ? unreadChatCount : 0,
-                          onTap: () => onTabSelected(index),
-                        ),
-                      );
-                    }),
+                        return Expanded(
+                          child: _GlassNavigationButton(
+                            item: item,
+                            isSelected: isSelected,
+                            badgeCount: switch (index) {
+                              1 => openChatCount,
+                              2 => unreadReportCount,
+                              _ => 0,
+                            },
+                            onTap: () => onTabSelected(index),
+                          ),
+                        );
+                      }),
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: safeBottom),
-            ],
+                SizedBox(height: safeBottom),
+              ],
+            ),
           ),
         ),
       ),
@@ -231,47 +263,58 @@ class _GlassNavigationButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        splashColor: Colors.white.withValues(alpha: 0.06),
-        highlightColor: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        splashFactory: NoSplash.splashFactory,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: isSelected
-                  ? const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF0C7FFF), Color(0xFF4FD2FF)],
-                    )
-                  : null,
-              color: isSelected ? null : Colors.white.withValues(alpha: 0.02),
-              border: Border.all(
-                color: isSelected
-                    ? Colors.white.withValues(alpha: 0.24)
-                    : Colors.transparent,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: _navAccentBlue.withValues(alpha: 0.30),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Stack(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                width: 44,
+                height: 38,
+                decoration: isSelected
+                    ? BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        color: CaRismaDesignTokens.surface2,
+                        border: Border.all(
+                          color: CaRismaDesignTokens.bluePrimary,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.50),
+                            blurRadius: 10,
+                            offset: const Offset(3, 3),
+                          ),
+                          BoxShadow(
+                            color: CaRismaDesignTokens.bluePrimary.withValues(
+                              alpha: 0.30,
+                            ),
+                            blurRadius: 10,
+                            offset: const Offset(-1, -1),
+                          ),
+                        ],
+                      )
+                    : null,
+                alignment: Alignment.center,
+                child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Icon(icon, color: Colors.white, size: isSelected ? 22 : 21),
+                    Icon(
+                      icon,
+                      color: isSelected
+                          ? CaRismaDesignTokens.bluePrimary
+                          : CaRismaDesignTokens.textMuted,
+                      size: 22,
+                    ),
                     if (badgeCount > 0)
                       Positioned(
                         right: -10,
@@ -280,26 +323,23 @@ class _GlassNavigationButton extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    item.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isSelected ? 11.2 : 11,
-                      fontWeight: isSelected
-                          ? FontWeight.w800
-                          : FontWeight.w700,
-                      letterSpacing: 0,
-                      height: 1,
-                    ),
-                  ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected
+                      ? Colors.white
+                      : CaRismaDesignTokens.textMuted.withValues(alpha: 0.85),
+                  fontSize: 10.5,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                  letterSpacing: 0,
+                  height: 1,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

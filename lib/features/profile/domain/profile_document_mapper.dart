@@ -1,4 +1,4 @@
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/models/carisma_models.dart';
 
 class ProfileDocumentMapper {
   const ProfileDocumentMapper._();
@@ -9,9 +9,9 @@ class ProfileDocumentMapper {
     'Führerschein Vorderseite': VerificationDocumentType.driverLicenseFront,
     'Führerschein Rückseite': VerificationDocumentType.driverLicenseBack,
     'Fahrzeugschein Vorderseite':
-    VerificationDocumentType.vehicleRegistrationFront,
+        VerificationDocumentType.vehicleRegistrationFront,
     'Fahrzeugschein Rückseite':
-    VerificationDocumentType.vehicleRegistrationBack,
+        VerificationDocumentType.vehicleRegistrationBack,
   };
 
   static VerificationDocumentType? typeForTitle(String title) {
@@ -22,19 +22,18 @@ class ProfileDocumentMapper {
     return switch (type) {
       VerificationDocumentType.idFront => 'Ausweis Vorderseite',
       VerificationDocumentType.idBack => 'Ausweis Rückseite',
-      VerificationDocumentType.driverLicenseFront =>
-      'Führerschein Vorderseite',
+      VerificationDocumentType.driverLicenseFront => 'Führerschein Vorderseite',
       VerificationDocumentType.driverLicenseBack => 'Führerschein Rückseite',
       VerificationDocumentType.vehicleRegistrationFront =>
-      'Fahrzeugschein Vorderseite',
+        'Fahrzeugschein Vorderseite',
       VerificationDocumentType.vehicleRegistrationBack =>
-      'Fahrzeugschein Rückseite',
+        'Fahrzeugschein Rückseite',
     };
   }
 
   static Map<VerificationDocumentType, String?> toDocumentLocalPaths(
-      Map<String, String?> documentPathsByTitle,
-      ) {
+    Map<String, String?> documentPathsByTitle,
+  ) {
     return {
       for (final type in VerificationDocumentType.values)
         type: documentPathsByTitle[titleForType(type)],
@@ -64,11 +63,13 @@ class ProfileDocumentMapper {
     }).toList();
   }
 
-  static bool areAllDocumentsUploaded(Map<String, String?> documentPathsByTitle) {
+  static bool areAllDocumentsUploaded(
+    Map<String, String?> documentPathsByTitle,
+  ) {
     final documentLocalPaths = toDocumentLocalPaths(documentPathsByTitle);
 
     return VerificationDocumentType.values.every(
-          (type) => documentLocalPaths[type]?.trim().isNotEmpty == true,
+      (type) => documentLocalPaths[type]?.trim().isNotEmpty == true,
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../shared/firebase/carma_firestore_paths.dart';
+import '../../../shared/firebase/carisma_firestore_paths.dart';
 import '../../../shared/models/search_credit.dart';
 
 class SearchCreditRepository {
@@ -10,7 +10,7 @@ class SearchCreditRepository {
   final FirebaseFirestore _firestore;
 
   DocumentReference<Map<String, dynamic>> _searchCreditDocument(String userId) {
-    return _firestore.doc(CarmaFirestorePaths.userSearchCredit(userId));
+    return _firestore.doc(CaRismaFirestorePaths.userSearchCredit(userId));
   }
 
   Future<void> createSearchCreditIfMissing({required String userId}) async {
@@ -60,5 +60,14 @@ class SearchCreditRepository {
 
       return SearchCredit.fromMap(data).normalizeForCurrentMonth();
     });
+  }
+
+  Future<void> saveSearchCredit(SearchCredit searchCredit) async {
+    final normalized = searchCredit.normalizeForCurrentMonth();
+
+    await _searchCreditDocument(normalized.userId).set({
+      ...normalized.toMap(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

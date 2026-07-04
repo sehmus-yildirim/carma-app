@@ -148,10 +148,7 @@ class AccountStatus {
     );
   }
 
-  AccountStatus restrict({
-    required String reason,
-    DateTime? until,
-  }) {
+  AccountStatus restrict({required String reason, DateTime? until}) {
     return copyWith(
       state: AccountState.restricted,
       updatedAt: DateTime.now(),
@@ -160,10 +157,7 @@ class AccountStatus {
     );
   }
 
-  AccountStatus suspend({
-    required String reason,
-    DateTime? until,
-  }) {
+  AccountStatus suspend({required String reason, DateTime? until}) {
     return copyWith(
       state: AccountState.suspended,
       updatedAt: DateTime.now(),
@@ -172,9 +166,7 @@ class AccountStatus {
     );
   }
 
-  AccountStatus markDeleted({
-    String? reason,
-  }) {
+  AccountStatus markDeleted({String? reason}) {
     return copyWith(
       state: AccountState.deleted,
       updatedAt: DateTime.now(),
@@ -227,7 +219,7 @@ class AccountStatus {
 
   static AccountState _stateFromName(String? name) {
     return AccountState.values.firstWhere(
-          (state) => state.name == name,
+      (state) => state.name == name,
       orElse: () => AccountState.registered,
     );
   }

@@ -1,12 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/carma_background.dart';
-import '../../../shared/widgets/carma_message_card.dart';
-import '../../../shared/widgets/carma_primary_button.dart';
-import '../../../shared/widgets/carma_secondary_button.dart';
-import '../../../shared/widgets/carma_social_auth_button.dart';
+import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_message_card.dart';
+import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_secondary_button.dart';
+import '../../../shared/widgets/carisma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../legal/presentation/privacy_policy_screen.dart';
+import '../../legal/presentation/terms_screen.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
 import '../data/legal_consent_repository.dart';
@@ -14,8 +16,7 @@ import '../data/user_profile_repository.dart';
 import '../data/search_credit_repository.dart';
 import '../domain/registration_legal_consent_builder.dart';
 
-const Color _carmaBlueLight = Color(0xFF63D5FF);
-const String _carmaLogoAsset = 'assets/images/carma_logo.png';
+const String _carismaLogoAsset = 'assets/images/carisma_logo.png';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
@@ -56,22 +57,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _errorMessage;
   String? _successMessage;
 
-  bool get _hasEmail {
-    return _emailController.text.trim().isNotEmpty;
-  }
-
-  bool get _hasPassword {
-    return _passwordController.text.trim().isNotEmpty;
-  }
-
-  bool get _hasRepeatPassword {
-    return _repeatPasswordController.text.trim().isNotEmpty;
-  }
+  bool get _hasValidEmail => _isValidEmail(_emailController.text);
+  bool get _hasValidPassword => _passwordController.text.length >= 6;
+  bool get _passwordsMatch =>
+      _passwordController.text == _repeatPasswordController.text;
 
   bool get _canSubmit {
-    return _hasEmail &&
-        _hasPassword &&
-        _hasRepeatPassword &&
+    return _hasValidEmail &&
+        _hasValidPassword &&
+        _passwordsMatch &&
         _acceptedLegal &&
         _acceptedResponsibleUse &&
         !_isLoading;
@@ -132,6 +126,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submitRegister() async {
+    if (_isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     final email = _emailController.text.trim();
@@ -174,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_acceptedResponsibleUse) {
       setState(() {
         _errorMessage =
-            'Bitte bestätige, dass du Carma verantwortungsvoll und nicht für Notfälle nutzt.';
+            'Bitte bestätige, dass du CaRisma verantwortungsvoll und nicht für Notfälle nutzt.';
         _successMessage = null;
       });
       return;
@@ -201,6 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
 
+      final verificationMessage = await _sendVerificationEmailIfNeeded(user);
       await _prepareFirestoreUser(user);
       final consentCount = await _saveRegistrationConsents(user);
 
@@ -210,8 +209,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       setState(() {
         _successMessage =
-            'Konto erstellt. $consentCount Zustimmungen wurden gespeichert.';
+            'Konto erstellt. $consentCount Zustimmungen wurden gespeichert.'
+            '$verificationMessage';
       });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_successMessage!)));
 
       widget.onRegisterSuccess?.call();
     } on FirebaseAuthException catch (error) {
@@ -252,6 +256,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submitGoogleRegister() async {
+    if (_isLoading) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     if (!_acceptedLegal || !_acceptedResponsibleUse) {
@@ -291,6 +299,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _successMessage =
             'Google-Registrierung erfolgreich. $consentCount Zustimmungen wurden gespeichert.';
       });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_successMessage!)));
 
       widget.onRegisterSuccess?.call();
     } on FirebaseAuthException catch (error) {
@@ -352,6 +364,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<String> _sendVerificationEmailIfNeeded(User user) async {
+    final email = user.email?.trim() ?? '';
+
+    if (email.isEmpty || user.emailVerified) {
+      return '';
+    }
+
+    try {
+      await _authService.sendEmailVerification(user);
+      return ' Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir gesendet haben.';
+    } on FirebaseAuthException catch (error) {
+      return ' Die Bestätigungs-E-Mail konnte gerade nicht gesendet werden: ${_mapEmailVerificationError(error)}';
+    } catch (_) {
+      return ' Die Bestätigungs-E-Mail konnte gerade nicht gesendet werden.';
+    }
+  }
+
+  String _mapEmailVerificationError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'too-many-requests':
+        return 'Bitte versuche es später erneut.';
+      case 'network-request-failed':
+        return 'Bitte prüfe deine Internetverbindung.';
+      default:
+        return 'Bitte versuche es später erneut.';
+    }
+  }
+
   String _mapFirebaseError(FirebaseException error) {
     switch (error.code) {
       case 'permission-denied':
@@ -377,14 +417,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ).showSnackBar(const SnackBar(content: Text('Login ist vorbereitet.')));
   }
 
-  void _showAppleAuthComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Apple Registrierung wird später mit dem iOS-Setup aktiviert.',
-        ),
-      ),
-    );
+  void _openTermsScreen() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const TermsScreen()));
+  }
+
+  void _openPrivacyPolicyScreen() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()));
   }
 
   void _goBack() {
@@ -401,7 +443,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final canPop = widget.onBack != null || Navigator.of(context).canPop();
 
-    return CarmaBackground(
+    return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
@@ -503,23 +545,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       _successMessage = null;
                     });
                   },
+                  onTermsPressed: _openTermsScreen,
+                  onPrivacyPressed: _openPrivacyPolicyScreen,
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 14),
-                  CarmaMessageCard(
+                  CaRismaMessageCard(
                     icon: Icons.error_outline_rounded,
                     message: _errorMessage!,
                   ),
                 ],
                 if (_successMessage != null) ...[
                   const SizedBox(height: 14),
-                  CarmaMessageCard(
+                  CaRismaMessageCard(
                     icon: Icons.check_circle_outline_rounded,
                     message: _successMessage!,
                   ),
                 ],
                 const SizedBox(height: 18),
-                CarmaPrimaryButton(
+                CaRismaPrimaryButton(
                   label: 'Konto erstellen',
                   loadingLabel: 'Wird erstellt...',
                   icon: Icons.person_add_alt_1_rounded,
@@ -528,10 +572,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: _submitRegister,
                 ),
                 const SizedBox(height: 16),
-                const CarmaAuthDivider(),
+                const CaRismaAuthDivider(),
                 const SizedBox(height: 16),
-                CarmaSocialAuthButton(
-                  provider: CarmaSocialAuthProvider.google,
+                CaRismaSocialAuthButton(
+                  provider: CaRismaSocialAuthProvider.google,
                   onPressed: () {
                     if (_isLoading) {
                       return;
@@ -540,19 +584,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _submitGoogleRegister();
                   },
                 ),
-                const SizedBox(height: 10),
-                CarmaSocialAuthButton(
-                  provider: CarmaSocialAuthProvider.apple,
-                  onPressed: () {
-                    if (_isLoading) {
-                      return;
-                    }
-
-                    _showAppleAuthComingSoon();
-                  },
-                ),
                 const SizedBox(height: 12),
-                CarmaSecondaryButton(
+                CaRismaSecondaryButton(
                   label: 'Schon ein Konto? Einloggen',
                   icon: Icons.login_rounded,
                   borderRadius: 24,
@@ -585,7 +618,7 @@ class _RegisterBrandHeader extends StatelessWidget {
     return Column(
       children: [
         Image.asset(
-          _carmaLogoAsset,
+          _carismaLogoAsset,
           height: 96,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
@@ -606,7 +639,7 @@ class _RegisterBrandHeader extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Carma',
+          'CaRisma',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
             color: Colors.white,
@@ -653,12 +686,16 @@ class _RegistrationLegalCard extends StatelessWidget {
     required this.acceptedResponsibleUse,
     required this.onLegalChanged,
     required this.onResponsibleUseChanged,
+    required this.onTermsPressed,
+    required this.onPrivacyPressed,
   });
 
   final bool acceptedLegal;
   final bool acceptedResponsibleUse;
   final ValueChanged<bool> onLegalChanged;
   final ValueChanged<bool> onResponsibleUseChanged;
+  final VoidCallback onTermsPressed;
+  final VoidCallback onPrivacyPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -670,14 +707,16 @@ class _RegistrationLegalCard extends StatelessWidget {
             value: acceptedLegal,
             onChanged: onLegalChanged,
             text:
-                'Ich akzeptiere die AGB und Datenschutzhinweise von Carma. Mir ist bewusst, dass meine Angaben später für Konto, Profil, Fahrzeug, Verifizierung und Missbrauchsschutz verarbeitet werden.',
+                'Ich akzeptiere die AGB und Datenschutzhinweise von CaRisma. Mir ist bewusst, dass meine Angaben später für Konto, Profil, Fahrzeug, Verifizierung und Missbrauchsschutz verarbeitet werden.',
+            onTermsPressed: onTermsPressed,
+            onPrivacyPressed: onPrivacyPressed,
           ),
           const SizedBox(height: 10),
           _ConsentRow(
             value: acceptedResponsibleUse,
             onChanged: onResponsibleUseChanged,
             text:
-                'Ich nutze Carma nur verantwortungsvoll. Carma ist keine Notfall-, Polizei- oder Abschlepp-App. Missbrauch, falsche Meldungen, Belästigung oder falsche Fahrzeugdaten können zur Sperrung führen.',
+                'Ich nutze CaRisma nur verantwortungsvoll. CaRisma ist keine Notfall-, Polizei- oder Abschlepp-App. Missbrauch, falsche Meldungen, Belästigung oder falsche Fahrzeugdaten können zur Sperrung führen.',
           ),
         ],
       ),
@@ -690,11 +729,15 @@ class _ConsentRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.text,
+    this.onTermsPressed,
+    this.onPrivacyPressed,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
   final String text;
+  final VoidCallback? onTermsPressed;
+  final VoidCallback? onPrivacyPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -717,14 +760,12 @@ class _ConsentRow extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.76),
-                fontWeight: FontWeight.w700,
-                height: 1.34,
-              ),
-            ),
+            child: onTermsPressed == null || onPrivacyPressed == null
+                ? Text(text, style: _consentTextStyle(context))
+                : _LegalConsentText(
+                    onTermsPressed: onTermsPressed!,
+                    onPrivacyPressed: onPrivacyPressed!,
+                  ),
           ),
         ),
       ],
@@ -734,8 +775,76 @@ class _ConsentRow extends StatelessWidget {
   bool get _isEnabled => true;
 }
 
-class CarmaAuthDivider extends StatelessWidget {
-  const CarmaAuthDivider({super.key});
+TextStyle? _consentTextStyle(BuildContext context) {
+  return Theme.of(context).textTheme.bodyMedium?.copyWith(
+    color: Colors.white.withValues(alpha: 0.76),
+    fontWeight: FontWeight.w700,
+    height: 1.34,
+  );
+}
+
+class _LegalConsentText extends StatelessWidget {
+  const _LegalConsentText({
+    required this.onTermsPressed,
+    required this.onPrivacyPressed,
+  });
+
+  final VoidCallback onTermsPressed;
+  final VoidCallback onPrivacyPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _consentTextStyle(context);
+
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('Ich akzeptiere die ', style: style),
+        _InlineLegalLink(label: 'AGB', onTap: onTermsPressed),
+        Text(' und ', style: style),
+        _InlineLegalLink(
+          label: 'Datenschutzerklärung',
+          onTap: onPrivacyPressed,
+        ),
+        Text(
+          ' von CaRisma. Mir ist bewusst, dass meine Angaben später für Konto, Profil, Fahrzeug, Verifizierung und Missbrauchsschutz verarbeitet werden.',
+          style: style,
+        ),
+      ],
+    );
+  }
+}
+
+class _InlineLegalLink extends StatelessWidget {
+  const _InlineLegalLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: const Color(0xFF63D5FF),
+            fontWeight: FontWeight.w900,
+            decoration: TextDecoration.underline,
+            decorationColor: const Color(0xFF63D5FF),
+            height: 1.34,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CaRismaAuthDivider extends StatelessWidget {
+  const CaRismaAuthDivider({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -799,35 +908,10 @@ class _AuthTextField extends StatelessWidget {
       onSubmitted: onSubmitted,
       autocorrect: false,
       enableSuggestions: !obscureText,
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.w800,
-      ),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.50),
-          fontWeight: FontWeight.w700,
-        ),
-        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
+        prefixIcon: Icon(icon),
         suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.08),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 17,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(
-            color: _carmaBlueLight.withValues(alpha: 0.90),
-            width: 1.4,
-          ),
-        ),
       ),
     );
   }

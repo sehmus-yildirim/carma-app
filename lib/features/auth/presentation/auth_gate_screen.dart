@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../shared/models/carma_models.dart';
+import '../../../shared/models/carisma_models.dart';
 import '../../home/presentation/app_shell.dart';
 import '../../onboarding/presentation/onboarding_flow_screen.dart';
 import '../data/auth_service.dart';

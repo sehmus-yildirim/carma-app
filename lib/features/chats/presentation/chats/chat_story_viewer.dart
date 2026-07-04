@@ -21,7 +21,7 @@ class _StoryViewerDialog extends StatefulWidget {
   final Future<void> Function(ChatStoryRecord story) onDeleteStory;
   final Future<void> Function(ChatStoryRecord story) onOpenSticker;
   final Future<void> Function(ChatStoryRecord story, String text) onReplyStory;
-  final Future<void> Function(ChatStoryRecord story, int optionIndex)
+  final Future<bool> Function(ChatStoryRecord story, int optionIndex)
   onVoteStoryPoll;
 
   @override
@@ -33,19 +33,30 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   late final AnimationController _progressController;
   final TextEditingController _replyController = TextEditingController();
   final FocusNode _replyFocusNode = FocusNode();
+  Timer? _expirationTimer;
+  late final List<ChatStoryRecord> _stories;
   late int _storyIndex;
   Duration? _storyDuration;
   bool _isStoryPaused = false;
   bool _isLocallyMuted = false;
   bool _isSendingReply = false;
-  int? _busyPollOptionIndex;
   String? _localMuteStoryId;
   double _verticalDragOffset = 0;
-  final Map<String, int> _localPollVoteByStoryId = <String, int>{};
 
-  ChatStoryRecord get _story => widget.stories[_storyIndex];
+  ChatStoryRecord get _story => _stories[_storyIndex];
 
-  bool get _isOwnStory => _story.ownerUserId == widget.currentUserId;
+  String get _currentUserId => widget.currentUserId.trim();
+
+  bool get _isOwnStory => _story.ownerUserId.trim() == _currentUserId;
+
+  bool _canCurrentUserViewStory(ChatStoryRecord story) {
+    if (_currentUserId.isEmpty) {
+      return false;
+    }
+
+    return story.ownerUserId.trim() == _currentUserId ||
+        story.viewerUserIds.any((userId) => userId.trim() == _currentUserId);
+  }
 
   bool _effectiveStoryVideoMuted(ChatStoryRecord story) {
     return story.videoIsMuted ||
@@ -55,7 +66,15 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   @override
   void initState() {
     super.initState();
-    final initialIndex = widget.stories.indexWhere(
+    _stories = widget.stories
+        .where(
+          (story) =>
+              !story.isExpired &&
+              story.hasRenderableMedia &&
+              _canCurrentUserViewStory(story),
+        )
+        .toList(growable: false);
+    final initialIndex = _stories.indexWhere(
       (story) => story.id == widget.initialStoryId,
     );
     _storyIndex = initialIndex < 0 ? 0 : initialIndex;
@@ -65,14 +84,23 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
           ..forward();
     _replyFocusNode.addListener(_handleReplyFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        widget.onStoryVisible(_story);
+      if (!mounted) {
+        return;
       }
+
+      if (_stories.isEmpty) {
+        Navigator.of(context).maybePop();
+        return;
+      }
+
+      widget.onStoryVisible(_story);
+      _scheduleStoryExpirationTimer();
     });
   }
 
   @override
   void dispose() {
+    _expirationTimer?.cancel();
     _replyFocusNode
       ..removeListener(_handleReplyFocusChanged)
       ..dispose();
@@ -133,6 +161,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       ..duration = _defaultStoryDuration
       ..reset()
       ..forward();
+    _scheduleStoryExpirationTimer();
   }
 
   void _updateStoryDuration(Duration duration) {
@@ -156,32 +185,98 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       ..forward(from: 0);
   }
 
-  void _showPreviousStory() {
-    if (_storyIndex <= 0) {
-      _restartProgress();
-      return;
+  bool _isPlayableStory(ChatStoryRecord story) {
+    return !story.isExpired &&
+        story.hasRenderableMedia &&
+        _canCurrentUserViewStory(story);
+  }
+
+  int? _previousPlayableStoryIndex() {
+    for (var index = _storyIndex - 1; index >= 0; index--) {
+      if (_isPlayableStory(_stories[index])) {
+        return index;
+      }
     }
 
+    return null;
+  }
+
+  int? _nextPlayableStoryIndex() {
+    for (var index = _storyIndex + 1; index < _stories.length; index++) {
+      if (_isPlayableStory(_stories[index])) {
+        return index;
+      }
+    }
+
+    return null;
+  }
+
+  void _showStoryAt(int index) {
     setState(() {
-      _storyIndex -= 1;
+      _storyIndex = index;
     });
     _replyController.clear();
     widget.onStoryVisible(_story);
     _restartProgress();
   }
 
+  void _showPreviousStory() {
+    final previousIndex = _previousPlayableStoryIndex();
+
+    if (previousIndex == null) {
+      _restartProgress();
+      return;
+    }
+
+    _showStoryAt(previousIndex);
+  }
+
   void _showNextStory() {
-    if (_storyIndex >= widget.stories.length - 1) {
+    final nextIndex = _nextPlayableStoryIndex();
+
+    if (nextIndex == null) {
       Navigator.of(context).maybePop();
       return;
     }
 
-    setState(() {
-      _storyIndex += 1;
-    });
-    _replyController.clear();
-    widget.onStoryVisible(_story);
-    _restartProgress();
+    _showStoryAt(nextIndex);
+  }
+
+  void _scheduleStoryExpirationTimer() {
+    _expirationTimer?.cancel();
+    _expirationTimer = null;
+
+    if (!mounted || _stories.isEmpty) {
+      return;
+    }
+
+    final remaining = _story.expiresAt.difference(DateTime.now());
+
+    if (remaining <= Duration.zero) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _handleCurrentStoryExpired();
+        }
+      });
+      return;
+    }
+
+    _expirationTimer = Timer(remaining, _handleCurrentStoryExpired);
+  }
+
+  void _handleCurrentStoryExpired() {
+    if (!mounted || _stories.isEmpty) {
+      return;
+    }
+
+    final nextIndex = _nextPlayableStoryIndex();
+
+    if (nextIndex == null) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+
+    _showStoryAt(nextIndex);
   }
 
   void _handleTapUp(TapUpDetails details, Size size) {
@@ -268,69 +363,19 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   Future<void> _pauseForAction(
     Future<void> Function(ChatStoryRecord story) action,
   ) async {
+    if (_story.isExpired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Diese Story ist abgelaufen.')),
+      );
+      return;
+    }
+
     _pauseStory();
     try {
       await action(_story);
     } finally {
       if (mounted) {
         _resumeStory();
-      }
-    }
-  }
-
-  Map<String, int> _effectivePollVoteBy(ChatStoryRecord story) {
-    final localVote = _localPollVoteByStoryId[story.id];
-
-    if (localVote == null) {
-      return story.pollVoteBy;
-    }
-
-    return <String, int>{...story.pollVoteBy, widget.currentUserId: localVote};
-  }
-
-  Future<void> _handlePollVote(int optionIndex) async {
-    final story = _story;
-
-    if (_isOwnStory ||
-        story.stickerType != 'poll' ||
-        _busyPollOptionIndex != null) {
-      return;
-    }
-
-    setState(() {
-      _busyPollOptionIndex = optionIndex;
-    });
-    _pauseStory();
-
-    try {
-      await widget.onVoteStoryPoll(story, optionIndex);
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _localPollVoteByStoryId[story.id] = optionIndex;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Umfrage-Stimme konnte nicht gespeichert werden.'),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busyPollOptionIndex = null;
-        });
-
-        if (!_replyFocusNode.hasFocus) {
-          _resumeStory();
-        }
       }
     }
   }
@@ -356,6 +401,13 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       return;
     }
 
+    if (_story.isExpired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Diese Story ist abgelaufen.')),
+      );
+      return;
+    }
+
     setState(() {
       _isSendingReply = true;
     });
@@ -378,14 +430,14 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
           context,
         ).showSnackBar(const SnackBar(content: Text('Antwort gesendet.')));
       }
-    } catch (_) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Antwort konnte nicht gesendet werden.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_storyReplyErrorMessage(error))));
     } finally {
       if (mounted) {
         setState(() {
@@ -401,6 +453,10 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
 
   @override
   Widget build(BuildContext context) {
+    if (_stories.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final story = _story;
     final storyText = story.text.trim();
     final storyStickerLabel = story.stickerLabel.trim();
@@ -420,6 +476,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       (story.stickerAlignmentY * 2) - 1,
     );
     final fontFamily = _storyFontFamily(story.textFontFamily);
+    final textAlign = _storyTextAlign(story.textAlign);
     final isVideoMuted = _effectiveStoryVideoMuted(story);
 
     return Dialog.fullscreen(
@@ -451,13 +508,24 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                         image: NetworkImage(story.imageUrl),
                         filterType: story.filterType,
                         fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) {
+                            return child;
+                          }
+
+                          return const _StoryMediaStatus(
+                            icon: Icons.image_rounded,
+                            title: 'Story wird geladen',
+                            message: 'Das Bild wird vorbereitet.',
+                            isLoading: true,
+                          );
+                        },
                         errorBuilder: (_, _, _) {
-                          return const Center(
-                            child: Icon(
-                              Icons.broken_image_rounded,
-                              color: Colors.white54,
-                              size: 48,
-                            ),
+                          return const _StoryMediaStatus(
+                            icon: Icons.broken_image_rounded,
+                            title: 'Bild nicht verfügbar',
+                            message:
+                                'Die Story konnte gerade nicht geladen werden.',
                           );
                         },
                       ),
@@ -489,7 +557,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                     padding: const EdgeInsets.symmetric(horizontal: 28),
                     child: Text(
                       storyText,
-                      textAlign: TextAlign.center,
+                      textAlign: textAlign,
                       maxLines: 5,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -524,24 +592,14 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
               Positioned.fill(
                 child: Align(
                   alignment: stickerAlignment,
-                  child: story.stickerType == 'poll'
-                      ? _StoryPollSticker(
-                          question: storyStickerLabel,
-                          payload: story.stickerPayload,
-                          voteBy: _effectivePollVoteBy(story),
-                          currentUserId: widget.currentUserId,
-                          isOwnStory: _isOwnStory,
-                          busyOptionIndex: _busyPollOptionIndex,
-                          onVote: _handlePollVote,
-                        )
-                      : GestureDetector(
-                          onTap: () => _pauseForAction(widget.onOpenSticker),
-                          child: _StoryStickerChip(
-                            type: story.stickerType,
-                            label: storyStickerLabel,
-                            payload: story.stickerPayload,
-                          ),
-                        ),
+                  child: GestureDetector(
+                    onTap: () => _pauseForAction(widget.onOpenSticker),
+                    child: _StoryStickerChip(
+                      type: story.stickerType,
+                      label: storyStickerLabel,
+                      payload: story.stickerPayload,
+                    ),
+                  ),
                 ),
               ),
             SafeArea(
@@ -605,6 +663,12 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                             ),
                           ),
                           if (_isOwnStory)
+                            _StoryViewerSeenMiniChip(
+                              count: seenCount,
+                              onTap: () =>
+                                  _pauseForAction(widget.onShowViewers),
+                            ),
+                          if (_isOwnStory)
                             _StoryViewerActionButton(
                               onPressed: () =>
                                   _pauseForAction(widget.onDeleteStory),
@@ -630,11 +694,11 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
               child: SafeArea(
                 child: Row(
                   children: [
-                    for (var index = 0; index < widget.stories.length; index++)
+                    for (var index = 0; index < _stories.length; index++)
                       Expanded(
                         child: Padding(
                           padding: EdgeInsets.only(
-                            right: index == widget.stories.length - 1 ? 0 : 4,
+                            right: index == _stories.length - 1 ? 0 : 4,
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(999),
@@ -767,62 +831,81 @@ class _StoryReplyComposer extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  minLines: 1,
-                  maxLines: 3,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => onSend(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'Auf Story antworten',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.56),
-                      fontWeight: FontWeight.w700,
+          child: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, textValue, _) {
+              final canSend = textValue.text.trim().isNotEmpty && !isSending;
+
+              return Row(
+                children: [
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      readOnly: isSending,
+                      minLines: 1,
+                      maxLines: 3,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) {
+                        if (canSend) {
+                          onSend();
+                        }
+                      },
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'Auf Story antworten',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.56),
+                          fontWeight: FontWeight.w700,
+                        ),
+                        border: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                        ),
+                      ),
                     ),
-                    border: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 42,
-                height: 42,
-                child: IconButton.filled(
-                  onPressed: isSending ? null : onSend,
-                  icon: isSending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    backgroundColor: _carmaBlue,
-                    disabledBackgroundColor: _carmaBlue.withValues(alpha: 0.42),
-                    foregroundColor: Colors.white,
-                    shape: const CircleBorder(),
-                    padding: EdgeInsets.zero,
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 42,
+                    height: 42,
+                    child: IconButton.filled(
+                      onPressed: canSend ? onSend : null,
+                      icon: isSending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded, size: 20),
+                      style: IconButton.styleFrom(
+                        backgroundColor: _carismaBlue,
+                        disabledBackgroundColor: Colors.white.withValues(
+                          alpha: 0.12,
+                        ),
+                        disabledForegroundColor: Colors.white.withValues(
+                          alpha: 0.34,
+                        ),
+                        foregroundColor: Colors.white,
+                        shape: const CircleBorder(),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -924,265 +1007,6 @@ class _StoryQuickReactionButton extends StatelessWidget {
   }
 }
 
-class _StoryPollSticker extends StatelessWidget {
-  const _StoryPollSticker({
-    required this.question,
-    required this.payload,
-    required this.voteBy,
-    required this.currentUserId,
-    required this.isOwnStory,
-    required this.busyOptionIndex,
-    required this.onVote,
-  });
-
-  final String question;
-  final String payload;
-  final Map<String, int> voteBy;
-  final String currentUserId;
-  final bool isOwnStory;
-  final int? busyOptionIndex;
-  final ValueChanged<int> onVote;
-
-  @override
-  Widget build(BuildContext context) {
-    final options = payload
-        .split('\n')
-        .map((option) => option.trim())
-        .where((option) => option.isNotEmpty)
-        .take(2)
-        .toList(growable: false);
-    final effectiveOptions = options.length == 2
-        ? options
-        : const <String>['Ja', 'Nein'];
-    final validVotes = voteBy.values
-        .where((optionIndex) => optionIndex == 0 || optionIndex == 1)
-        .toList(growable: false);
-    final totalVotes = validVotes.length;
-    final selectedOption = voteBy[currentUserId];
-    final hasVoted = selectedOption != null;
-    final voteHint = isOwnStory
-        ? (totalVotes == 1 ? '1 Stimme' : '$totalVotes Stimmen')
-        : hasVoted
-        ? (totalVotes == 1
-              ? 'Abgestimmt · 1 Stimme'
-              : 'Abgestimmt · $totalVotes Stimmen')
-        : 'Tippe zum Abstimmen';
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 320),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF0B223B).withValues(alpha: 0.88),
-                  const Color(0xFF123F68).withValues(alpha: 0.74),
-                ],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-              boxShadow: [
-                BoxShadow(
-                  color: _carmaBlue.withValues(alpha: 0.2),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _carmaBlue.withValues(alpha: 0.9),
-                      ),
-                      child: const Icon(
-                        Icons.poll_rounded,
-                        color: Colors.white,
-                        size: 19,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        question,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              height: 1.05,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                for (var index = 0; index < effectiveOptions.length; index++)
-                  Padding(
-                    padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
-                    child: _StoryPollOptionButton(
-                      label: effectiveOptions[index],
-                      optionIndex: index,
-                      voteCount: validVotes
-                          .where((vote) => vote == index)
-                          .length,
-                      totalVotes: totalVotes,
-                      isSelected: selectedOption == index,
-                      showResults: isOwnStory || hasVoted,
-                      isBusy: busyOptionIndex == index,
-                      isDisabled:
-                          busyOptionIndex != null || isOwnStory || hasVoted,
-                      onTap: () => onVote(index),
-                    ),
-                  ),
-                const SizedBox(height: 10),
-                Text(
-                  voteHint,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.66),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StoryPollOptionButton extends StatelessWidget {
-  const _StoryPollOptionButton({
-    required this.label,
-    required this.optionIndex,
-    required this.voteCount,
-    required this.totalVotes,
-    required this.isSelected,
-    required this.showResults,
-    required this.isBusy,
-    required this.isDisabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final int optionIndex;
-  final int voteCount;
-  final int totalVotes;
-  final bool isSelected;
-  final bool showResults;
-  final bool isBusy;
-  final bool isDisabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = totalVotes <= 0 ? 0.0 : voteCount / totalVotes;
-    final percent = (progress * 100).round();
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: isDisabled ? null : onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.1),
-            border: Border.all(
-              color: isSelected
-                  ? _carmaBlue.withValues(alpha: 0.88)
-                  : Colors.white.withValues(alpha: 0.14),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(17),
-            child: Stack(
-              children: [
-                if (showResults)
-                  FractionallySizedBox(
-                    widthFactor: progress.clamp(0.0, 1.0),
-                    heightFactor: 1,
-                    alignment: Alignment.centerLeft,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: _carmaBlue.withValues(alpha: 0.34),
-                      ),
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    children: [
-                      if (isSelected) ...[
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 7),
-                      ],
-                      Expanded(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      if (isBusy)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white,
-                          ),
-                        )
-                      else if (showResults)
-                        Text(
-                          '$percent%',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _StoryVideoSoundPill extends StatelessWidget {
   const _StoryVideoSoundPill({
     required this.isMuted,
@@ -1249,6 +1073,63 @@ class _StoryVideoSoundPill extends StatelessWidget {
   }
 }
 
+class _StoryViewerSeenMiniChip extends StatelessWidget {
+  const _StoryViewerSeenMiniChip({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, right: 2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(999),
+              child: Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: _carismaBlue.withValues(alpha: 0.24),
+                  border: Border.all(
+                    color: _carismaBlueLight.withValues(alpha: 0.24),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.visibility_rounded,
+                      color: Colors.white,
+                      size: 17,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StorySeenButton extends StatelessWidget {
   const _StorySeenButton({required this.count, required this.onPressed});
 
@@ -1257,6 +1138,13 @@ class _StorySeenButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final title = count == 0 ? 'Aufrufe' : 'Gesehen';
+    final subtitle = count == 0
+        ? 'noch keine'
+        : count == 1
+        ? '1 Aufruf'
+        : '$count Aufrufe';
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: BackdropFilter(
@@ -1296,7 +1184,7 @@ class _StorySeenButton extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      color: _carmaBlue.withValues(alpha: 0.86),
+                      color: _carismaBlue.withValues(alpha: 0.86),
                     ),
                     child: Text(
                       '$count',
@@ -1312,8 +1200,8 @@ class _StorySeenButton extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Aufrufe',
+                      Text(
+                        title,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -1322,7 +1210,7 @@ class _StorySeenButton extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'hochziehen',
+                        subtitle,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.58),
                           fontSize: 10,
@@ -1363,6 +1251,7 @@ class _StoryViewerVideo extends StatefulWidget {
 
 class _StoryViewerVideoState extends State<_StoryViewerVideo> {
   VideoPlayerController? _controller;
+  bool _hasLoadError = false;
 
   @override
   void initState() {
@@ -1376,6 +1265,7 @@ class _StoryViewerVideoState extends State<_StoryViewerVideo> {
     if (oldWidget.videoUrl != widget.videoUrl) {
       _controller?.dispose();
       _controller = null;
+      _hasLoadError = false;
       _initializeVideo();
       return;
     }
@@ -1399,11 +1289,17 @@ class _StoryViewerVideoState extends State<_StoryViewerVideo> {
     final url = widget.videoUrl.trim();
 
     if (url.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _hasLoadError = true;
+        });
+      }
       return;
     }
 
     final controller = VideoPlayerController.networkUrl(Uri.parse(url));
     _controller = controller;
+    _hasLoadError = false;
 
     try {
       await controller.initialize();
@@ -1419,7 +1315,9 @@ class _StoryViewerVideoState extends State<_StoryViewerVideo> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() {});
+        setState(() {
+          _hasLoadError = true;
+        });
       }
     }
   }
@@ -1443,12 +1341,20 @@ class _StoryViewerVideoState extends State<_StoryViewerVideo> {
   Widget build(BuildContext context) {
     final controller = _controller;
 
+    if (_hasLoadError) {
+      return const _StoryMediaStatus(
+        icon: Icons.videocam_off_rounded,
+        title: 'Video nicht verfügbar',
+        message: 'Die Story konnte gerade nicht abgespielt werden.',
+      );
+    }
+
     if (controller == null || !controller.value.isInitialized) {
-      return const ColoredBox(
-        color: Colors.black,
-        child: Center(
-          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-        ),
+      return const _StoryMediaStatus(
+        icon: Icons.play_circle_rounded,
+        title: 'Story wird geladen',
+        message: 'Das Video wird vorbereitet.',
+        isLoading: true,
       );
     }
 
@@ -1460,6 +1366,105 @@ class _StoryViewerVideoState extends State<_StoryViewerVideo> {
           width: controller.value.size.width,
           height: controller.value.size.height,
           child: VideoPlayer(controller),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryMediaStatus extends StatelessWidget {
+  const _StoryMediaStatus({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.isLoading = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              width: 270,
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF101827).withValues(alpha: 0.88),
+                    const Color(0xFF071120).withValues(alpha: 0.72),
+                  ],
+                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 54,
+                    height: 54,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (isLoading)
+                          const SizedBox(
+                            width: 54,
+                            height: 54,
+                            child: CircularProgressIndicator(
+                              color: _carismaBlueLight,
+                              strokeWidth: 2.4,
+                            ),
+                          ),
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _carismaBlue.withValues(alpha: 0.88),
+                          ),
+                          child: Icon(icon, color: Colors.white, size: 24),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      height: 1.08,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.62),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.24,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -1514,6 +1519,14 @@ String? _storyFontFamily(String value) {
     'casual' => 'casual',
     'cursive' => 'cursive',
     _ => null,
+  };
+}
+
+TextAlign _storyTextAlign(String value) {
+  return switch (value.trim()) {
+    'left' => TextAlign.left,
+    'right' => TextAlign.right,
+    _ => TextAlign.center,
   };
 }
 

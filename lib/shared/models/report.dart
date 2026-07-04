@@ -1,4 +1,4 @@
-import 'carma_plate.dart';
+import 'carisma_plate.dart';
 
 enum ReportType {
   parkingIssue,
@@ -41,7 +41,7 @@ class Report {
   final String id;
   final String senderUserId;
   final String? targetUserId;
-  final CarmaPlate targetPlate;
+  final CaRismaPlate targetPlate;
   final ReportType type;
   final ReportStatus status;
   final String message;
@@ -102,7 +102,7 @@ class Report {
     String? id,
     String? senderUserId,
     String? targetUserId,
-    CarmaPlate? targetPlate,
+    CaRismaPlate? targetPlate,
     ReportType? type,
     ReportStatus? status,
     String? message,
@@ -160,13 +160,13 @@ class Report {
       senderUserId: map['senderUserId'] as String? ?? '',
       targetUserId: map['targetUserId'] as String?,
       targetPlate: rawPlate is Map<String, dynamic>
-          ? CarmaPlate.fromMap(rawPlate)
-          : const CarmaPlate(
-        countryCode: 'DE',
-        region: '',
-        letters: '',
-        numbers: '',
-      ),
+          ? CaRismaPlate.fromMap(rawPlate)
+          : const CaRismaPlate(
+              countryCode: 'DE',
+              region: '',
+              letters: '',
+              numbers: '',
+            ),
       type: _reportTypeFromName(map['type'] as String?),
       status: _reportStatusFromName(map['status'] as String?),
       message: map['message'] as String? ?? '',
@@ -182,14 +182,14 @@ class Report {
 
   static ReportType _reportTypeFromName(String? name) {
     return ReportType.values.firstWhere(
-          (type) => type.name == name,
+      (type) => type.name == name,
       orElse: () => ReportType.other,
     );
   }
 
   static ReportStatus _reportStatusFromName(String? name) {
     return ReportStatus.values.firstWhere(
-          (status) => status.name == name,
+      (status) => status.name == name,
       orElse: () => ReportStatus.draft,
     );
   }

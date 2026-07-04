@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'features/auth/presentation/auth_flow_screen.dart';
 
 void main() {
-  runApp(const CarmaAuthPreviewApp());
+  runApp(const CaRismaAuthPreviewApp());
 }
 
-class CarmaAuthPreviewApp extends StatelessWidget {
-  const CarmaAuthPreviewApp({super.key});
+class CaRismaAuthPreviewApp extends StatelessWidget {
+  const CaRismaAuthPreviewApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Carma Auth Preview',
+      title: 'CaRisma Auth Preview',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

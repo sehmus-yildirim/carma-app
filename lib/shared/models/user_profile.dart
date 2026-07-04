@@ -1,17 +1,9 @@
 import 'vehicle.dart';
 import 'verification_document.dart';
 
-enum UserProfileVisibility {
-  visible,
-  hidden,
-}
+enum UserProfileVisibility { visible, hidden }
 
-enum UserVerificationStatus {
-  notSubmitted,
-  pending,
-  verified,
-  rejected,
-}
+enum UserVerificationStatus { notSubmitted, pending, verified, rejected }
 
 class UserProfile {
   const UserProfile({
@@ -49,7 +41,7 @@ class UserProfile {
     final normalizedLastName = lastName.trim();
 
     if (normalizedFirstName.isEmpty && normalizedLastName.isEmpty) {
-      return 'Carma Nutzer';
+      return 'CaRisma Nutzer';
     }
 
     if (normalizedFirstName.isEmpty) {
@@ -133,11 +125,11 @@ class UserProfile {
       vehicles: vehicles ?? this.vehicles,
       documents: documents ?? this.documents,
       profilePhotoLocalPath:
-      profilePhotoLocalPath ?? this.profilePhotoLocalPath,
+          profilePhotoLocalPath ?? this.profilePhotoLocalPath,
       profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
       allowContactRequests: allowContactRequests ?? this.allowContactRequests,
       allowAnonymousReports:
-      allowAnonymousReports ?? this.allowAnonymousReports,
+          allowAnonymousReports ?? this.allowAnonymousReports,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -171,19 +163,20 @@ class UserProfile {
       firstName: map['firstName'] as String? ?? '',
       lastName: map['lastName'] as String? ?? '',
       visibility: _visibilityFromName(map['visibility'] as String?),
-      verificationStatus:
-      _verificationStatusFromName(map['verificationStatus'] as String?),
+      verificationStatus: _verificationStatusFromName(
+        map['verificationStatus'] as String?,
+      ),
       vehicles: rawVehicles is List
           ? rawVehicles
-          .whereType<Map<String, dynamic>>()
-          .map(Vehicle.fromMap)
-          .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(Vehicle.fromMap)
+                .toList()
           : const [],
       documents: rawDocuments is List
           ? rawDocuments
-          .whereType<Map<String, dynamic>>()
-          .map(VerificationDocument.fromMap)
-          .toList()
+                .whereType<Map<String, dynamic>>()
+                .map(VerificationDocument.fromMap)
+                .toList()
           : const [],
       profilePhotoLocalPath: map['profilePhotoLocalPath'] as String?,
       profilePhotoUrl: map['profilePhotoUrl'] as String?,
@@ -196,14 +189,14 @@ class UserProfile {
 
   static UserProfileVisibility _visibilityFromName(String? name) {
     return UserProfileVisibility.values.firstWhere(
-          (visibility) => visibility.name == name,
+      (visibility) => visibility.name == name,
       orElse: () => UserProfileVisibility.visible,
     );
   }
 
   static UserVerificationStatus _verificationStatusFromName(String? name) {
     return UserVerificationStatus.values.firstWhere(
-          (status) => status.name == name,
+      (status) => status.name == name,
       orElse: () => UserVerificationStatus.notSubmitted,
     );
   }
