@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
@@ -328,7 +329,7 @@ class _RequestListCard extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
-                    color: Colors.white.withValues(alpha: 0.07),
+                    color: CaRismaDesignTokens.controlSurface,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.12),
                     ),

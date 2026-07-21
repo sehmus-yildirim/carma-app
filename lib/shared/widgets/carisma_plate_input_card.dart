@@ -22,6 +22,7 @@ class CaRismaPlateInputCard extends StatelessWidget {
     this.isLocked = false,
     this.onUseVoiceInput,
     this.isVoiceInputLoading = false,
+    this.embedded = false,
   });
 
   final String countryCode;
@@ -41,6 +42,7 @@ class CaRismaPlateInputCard extends StatelessWidget {
   final bool isLocked;
   final VoidCallback? onUseVoiceInput;
   final bool isVoiceInputLoading;
+  final bool embedded;
 
   PlateCountryConfig get _config {
     return plateConfigForCountry(countryCode);
@@ -139,28 +141,32 @@ class CaRismaPlateInputCard extends StatelessWidget {
       ]);
     }
 
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: fields),
+        if (onUseVoiceInput != null) ...[
+          const SizedBox(height: 17),
+          SizedBox(
+            width: double.infinity,
+            child: _VoiceInputButton(
+              isLoading: isVoiceInputLoading,
+              onPressed: isLocked ? null : onUseVoiceInput,
+            ),
+          ),
+        ],
+      ],
+    );
+
     return Opacity(
       opacity: isLocked ? 0.56 : 1,
-      child: GlassCard(
-        padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
-        radius: 24,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: fields),
-            if (onUseVoiceInput != null) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: _VoiceInputButton(
-                  isLoading: isVoiceInputLoading,
-                  onPressed: isLocked ? null : onUseVoiceInput,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+      child: embedded
+          ? content
+          : GlassCard(
+              padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+              radius: 24,
+              child: content,
+            ),
     );
   }
 }
@@ -177,52 +183,73 @@ class _VoiceInputButton extends StatelessWidget {
 
     return InkWell(
       onTap: isEnabled ? onPressed : null,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        height: 70,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: CaRismaDesignTokens.bluePrimary.withValues(
-            alpha: isEnabled ? 0.18 : 0.08,
-          ),
+          borderRadius: BorderRadius.circular(18),
+          color: CaRismaDesignTokens.controlSurface,
           border: Border.all(
             color: isEnabled
-                ? CaRismaDesignTokens.blueBright.withValues(alpha: 0.34)
+                ? CaRismaDesignTokens.blueBright.withValues(alpha: 0.30)
                 : Colors.white.withValues(alpha: 0.06),
           ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
           children: [
-            if (isLoading)
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.1,
-                  color: CaRismaDesignTokens.blueBright,
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: CaRismaDesignTokens.bluePrimary.withValues(
+                  alpha: isEnabled ? 0.20 : 0.08,
                 ),
-              )
-            else
-              Icon(
-                Icons.mic_rounded,
-                size: 18,
-                color: isEnabled
-                    ? CaRismaDesignTokens.blueBright
-                    : Colors.white.withValues(alpha: 0.45),
               ),
-            const SizedBox(width: 8),
-            Text(
-              isLoading ? 'H\\u00f6rt zu...' : 'Kennzeichen sprechen',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isEnabled
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.45),
-                fontWeight: FontWeight.w800,
+              child: isLoading
+                  ? const SizedBox(
+                      width: 19,
+                      height: 19,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.1,
+                        color: CaRismaDesignTokens.blueBright,
+                      ),
+                    )
+                  : Icon(
+                      Icons.mic_rounded,
+                      size: 23,
+                      color: isEnabled
+                          ? CaRismaDesignTokens.blueBright
+                          : Colors.white.withValues(alpha: 0.45),
+                    ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Text(
+                isLoading ? 'Hört zu...' : 'Kennzeichen sprechen',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: isEnabled
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.45),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
+            Icon(
+              Icons.graphic_eq_rounded,
+              color: isEnabled
+                  ? CaRismaDesignTokens.blueBright.withValues(alpha: 0.72)
+                  : Colors.white.withValues(alpha: 0.22),
+              size: 25,
+            ),
+            const SizedBox(width: 4),
           ],
         ),
       ),
@@ -290,7 +317,7 @@ class _PlateInputField extends StatelessWidget {
           decoration: InputDecoration(
             counterText: '',
             filled: true,
-            fillColor: CaRismaDesignTokens.surface1.withValues(alpha: 0.92),
+            fillColor: CaRismaDesignTokens.controlSurface,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 8,
               vertical: 19,

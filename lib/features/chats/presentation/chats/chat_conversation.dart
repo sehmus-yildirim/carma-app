@@ -9,6 +9,7 @@ class _ChatConversationScreen extends StatefulWidget {
     this.vehicleModel = 'BMW 1er',
     this.vehicleColor = 'Schwarz',
     this.displayPlate,
+    this.profileUserId,
     this.isOnline = false,
   });
 
@@ -19,6 +20,7 @@ class _ChatConversationScreen extends StatefulWidget {
   final String vehicleModel;
   final String vehicleColor;
   final String? displayPlate;
+  final String? profileUserId;
   final bool isOnline;
 
   @override
@@ -28,6 +30,7 @@ class _ChatConversationScreen extends StatefulWidget {
 
 class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   static const int _maxDocumentSizeBytes = 25 * 1024 * 1024;
+  static const int _maxVoiceMemoDurationMs = 10 * 60 * 1000;
   static const Set<String> _allowedDocumentContentTypes = {
     'application/pdf',
     'application/msword',
@@ -269,11 +272,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   String _friendlyChatErrorMessage(Object error) {
-    if (error is StateError) {
-      return error.message;
-    }
-
-    return error.toString();
+    return _friendlyChatUiError(error);
   }
 
   void _watchCurrentChatStatus() {
@@ -1321,6 +1320,20 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return;
     }
 
+    if (voiceMemo.durationMs < 0 ||
+        voiceMemo.durationMs > _maxVoiceMemoDurationMs) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sprachmemos dürfen maximal 10 Minuten lang sein.'),
+        ),
+      );
+      return;
+    }
+
     String? uploadedPath;
 
     setState(() {
@@ -1594,6 +1607,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   Future<void> _handleShareContact() async {
+    if (_isSendingMessage) {
+      return;
+    }
+
     try {
       final contact = await _nativeBridge.pickPhoneContact();
 
@@ -1601,13 +1618,23 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         return;
       }
 
-      final phoneNumber = contact.phoneNumber.trim();
+      final phoneNumber = contact.phoneNumber
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
 
       if (phoneNumber.isEmpty) {
         throw StateError('Dieser Kontakt hat keine Telefonnummer.');
       }
 
+      if (phoneNumber.length > 40) {
+        throw StateError('Die Telefonnummer ist zu lang.');
+      }
+
       final contactName = contact.name.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+      if (contactName.length > 80) {
+        throw StateError('Der Kontaktname ist zu lang.');
+      }
 
       await _sendAttachmentTextMessage(
         'Kontakt\nName: ${contactName.isEmpty ? 'Kontakt' : contactName}\nTelefon: $phoneNumber',
@@ -2063,6 +2090,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       _isSendingMessage = true;
     });
 
+    _LocalChatMessage? optimisticMessage;
+
     try {
       final currentUserId = await _requireSendableCurrentChat(
         unauthenticatedMessage:
@@ -2071,6 +2100,22 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       _forceScrollToBottomOnNextMessages = true;
       _rememberOutgoingReadReceiptBaseline();
+
+      optimisticMessage = _LocalChatMessage(
+        text: message,
+        isMine: true,
+        replyToText: replyTarget?.text,
+        timeLabel: 'Jetzt',
+        createdAt: DateTime.now(),
+        isReadByOther: false,
+      );
+
+      if (mounted) {
+        setState(() {
+          _messages = [..._messages, optimisticMessage!];
+        });
+        _scheduleScrollToBottom(force: true);
+      }
 
       await _chatRepository.sendTextMessage(
         chatId: chatId,
@@ -2098,6 +2143,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       setState(() {
         _isSendingMessage = false;
+        _messages = _messages
+            .where((message) => !identical(message, optimisticMessage))
+            .toList();
       });
       _forceScrollToBottomOnNextMessages = false;
 
@@ -2116,6 +2164,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final chatSendDisabledMessage = _chatSendDisabledMessage;
     final isChatComposerEnabled = chatSendDisabledMessage == null;
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+    final currentChat = _currentChatRecord;
 
     if (keyboardInset > _lastKeyboardInset) {
       _scheduleScrollToBottomAfterKeyboard();
@@ -2142,6 +2192,15 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                   onBack: () => Navigator.of(context).pop(),
                   onOpenProfile: _showChatProfileSheet,
                   chatId: widget.chatId,
+                  isFavorite:
+                      currentChat?.isFavoriteFor(currentUserId) ?? false,
+                  isPinned: currentChat?.isPinnedFor(currentUserId) ?? false,
+                  isMuted: currentChat?.isMutedFor(currentUserId) ?? false,
+                  isUnread: currentChat?.hasUnreadFor(currentUserId) ?? false,
+                  isArchived:
+                      currentChat?.isArchivedFor(currentUserId) ?? false,
+                  isBlocked: currentChat?.status == ChatStatus.blocked,
+                  canUnblock: currentChat?.isBlockedBy(currentUserId) ?? false,
                 ),
               ),
               const SizedBox(height: 14),
@@ -2217,9 +2276,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   Future<void> _showChatProfileSheet() async {
-    await showModalBottomSheet<void>(
+    final shouldOpenPublicProfile = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
@@ -2233,9 +2292,49 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           isOnline: _isOtherUserOnline,
           messages: _messages,
           onReplyMessage: _handleReplyMessage,
+          onOpenPublicProfile: widget.profileUserId?.trim().isNotEmpty == true
+              ? () => Navigator.of(context).pop(true)
+              : null,
         );
       },
     );
+
+    final profileUserId = widget.profileUserId?.trim() ?? '';
+    if (!mounted || shouldOpenPublicProfile != true || profileUserId.isEmpty) {
+      return;
+    }
+
+    final chatId = widget.chatId?.trim() ?? '';
+    if (chatId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Das Profil kann nur aus einem aktiven Chat geöffnet werden.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await ProfileConnectionRepository().ensureForAcceptedChat(chatId: chatId);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Der Profilzugriff konnte nicht bestätigt werden. Bitte versuche es erneut.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    await Navigator.of(
+      context,
+    ).push(buildSocialProfileRoute(profileUserId: profileUserId));
   }
 }
 
@@ -2329,6 +2428,13 @@ class _CompactChatInfoCard extends StatelessWidget {
     required this.onBack,
     required this.onOpenProfile,
     this.chatId,
+    this.isFavorite = false,
+    this.isPinned = false,
+    this.isMuted = false,
+    this.isUnread = false,
+    this.isArchived = false,
+    this.isBlocked = false,
+    this.canUnblock = false,
   });
 
   final String displayName;
@@ -2340,6 +2446,13 @@ class _CompactChatInfoCard extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onOpenProfile;
   final String? chatId;
+  final bool isFavorite;
+  final bool isPinned;
+  final bool isMuted;
+  final bool isUnread;
+  final bool isArchived;
+  final bool isBlocked;
+  final bool canUnblock;
   @override
   Widget build(BuildContext context) {
     final vehicleModelLabel = vehicleModel.trim().isEmpty
@@ -2411,6 +2524,8 @@ class _CompactChatInfoCard extends StatelessWidget {
               child: InkWell(
                 onTap: onOpenProfile,
                 borderRadius: BorderRadius.circular(16),
+                splashFactory: NoSplash.splashFactory,
+                overlayColor: const WidgetStatePropertyAll(Colors.transparent),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Column(
@@ -2457,6 +2572,13 @@ class _CompactChatInfoCard extends StatelessWidget {
               subtitle: '$vehicleModelLabel - $plateLabel',
               vehicleLabel: vehicleModelLabel,
               plateLabel: plateLabel,
+              isFavorite: isFavorite,
+              isPinned: isPinned,
+              isMuted: isMuted,
+              isUnread: isUnread,
+              isArchived: isArchived,
+              isBlocked: isBlocked,
+              canUnblock: canUnblock,
             ),
           ],
         ),
@@ -2519,6 +2641,7 @@ class _ChatProfileSheet extends StatelessWidget {
     this.isOnline = false,
     required this.messages,
     required this.onReplyMessage,
+    this.onOpenPublicProfile,
   });
 
   final String displayName;
@@ -2528,6 +2651,7 @@ class _ChatProfileSheet extends StatelessWidget {
   final bool isOnline;
   final List<_LocalChatMessage> messages;
   final ValueChanged<_LocalChatMessage> onReplyMessage;
+  final VoidCallback? onOpenPublicProfile;
 
   List<_LocalChatMessage> get _mediaMessages {
     return messages.where((message) => message.isImage).toList();
@@ -2571,7 +2695,7 @@ class _ChatProfileSheet extends StatelessWidget {
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
@@ -2594,7 +2718,7 @@ class _ChatProfileSheet extends StatelessWidget {
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
@@ -2617,7 +2741,7 @@ class _ChatProfileSheet extends StatelessWidget {
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
@@ -2763,7 +2887,7 @@ class _ChatProfileSheet extends StatelessWidget {
   }) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -2900,6 +3024,16 @@ class _ChatProfileSheet extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (onOpenPublicProfile != null) ...[
+                  const SizedBox(height: 14),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: onOpenPublicProfile,
+                      icon: const Icon(Icons.person_outline_rounded),
+                      label: const Text('Öffentliches Profil ansehen'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -3400,7 +3534,7 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
   Future<void> _showItemActions(BuildContext context, int index) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -3599,7 +3733,7 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
   Future<void> _showItemActions(BuildContext context, int index) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

@@ -99,6 +99,1038 @@ service cloud.firestore {
         ]);
     }
 
+    function isNullableStringWithMax(value, maxLength) {
+      return value == null || (value is string && value.size() <= maxLength);
+    }
+
+    function isValidPublicProfileWrite(userId) {
+      return isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'photoUrl',
+          'publicBio',
+          'publicRegion',
+          'showVehicleOnPublicProfile',
+          'showPlateOnPublicProfile',
+          'isPrivateProfile',
+          'profileAccessEnabled',
+          'followersVisibility',
+          'followingVisibility',
+          'primaryVehicleId',
+          'vehicleBrand',
+          'vehicleModel',
+          'countryCode',
+          'plateRegion',
+          'plateLetters',
+          'plateNumbers',
+          'updatedAt',
+        ])
+        && request.resource.data.uid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && isNullableStringWithMax(request.resource.data.photoUrl, 1000)
+        && isNullableStringWithMax(request.resource.data.publicBio, 220)
+        && isNullableStringWithMax(request.resource.data.publicRegion, 120)
+        && request.resource.data.showVehicleOnPublicProfile is bool
+        && request.resource.data.showPlateOnPublicProfile is bool
+        && request.resource.data.isPrivateProfile is bool
+        && request.resource.data.profileAccessEnabled is bool
+        && request.resource.data.followersVisibility in [
+          'contacts',
+          'followers',
+          'onlyMe',
+        ]
+        && request.resource.data.followingVisibility in [
+          'contacts',
+          'followers',
+          'onlyMe',
+        ]
+        && isNullableStringWithMax(request.resource.data.primaryVehicleId, 160)
+        && isNullableStringWithMax(request.resource.data.vehicleBrand, 120)
+        && isNullableStringWithMax(request.resource.data.vehicleModel, 120)
+        && isNullableStringWithMax(request.resource.data.countryCode, 10)
+        && isNullableStringWithMax(request.resource.data.plateRegion, 10)
+        && isNullableStringWithMax(request.resource.data.plateLetters, 10)
+        && isNullableStringWithMax(request.resource.data.plateNumbers, 10)
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidVehicleStatus(status) {
+      return status in [
+        'active',
+        'modification',
+        'repair',
+        'seasonal',
+        'deregistered',
+        'sold',
+        'noLongerOwned',
+        'archived',
+      ];
+    }
+
+    function isValidVehicleDocument(userId, vehicleId, allowPrivate) {
+      return request.resource.data.keys().hasOnly([
+          'vehicleId',
+          'ownerUserId',
+          'brand',
+          'model',
+          'series',
+          'color',
+          'countryCode',
+          'plateRegion',
+          'plateLetters',
+          'plateNumbers',
+          'isPrimary',
+          'isVerified',
+          'status',
+          'visibility',
+          'showPlate',
+          'year',
+          'firstRegistration',
+          'bodyStyle',
+          'engineDescription',
+          'displacementCcm',
+          'horsepower',
+          'kilowatts',
+          'fuelType',
+          'transmission',
+          'drivetrain',
+          'equipment',
+          'hsn',
+          'tsn',
+          'vin',
+          'ownedSince',
+          'mileage',
+          'heroImageUrl',
+          'heroImagePath',
+          'heroImageStatus',
+          'heroSourceHash',
+          'heroPromptVersion',
+          'heroProvider',
+          'heroError',
+          'heroRequestedAt',
+          'heroGeneratedAt',
+          'heroRequestWindowStartedAt',
+          'heroRequestCount',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.vehicleId == vehicleId
+        && request.resource.data.ownerUserId == userId
+        && request.resource.data.brand is string
+        && request.resource.data.brand.size() > 0
+        && request.resource.data.brand.size() <= 120
+        && request.resource.data.model is string
+        && request.resource.data.model.size() > 0
+        && request.resource.data.model.size() <= 120
+        && isNullableStringWithMax(request.resource.data.series, 120)
+        && isNullableStringWithMax(request.resource.data.color, 80)
+        && request.resource.data.countryCode in ['DE', 'AT', 'CH']
+        && request.resource.data.showPlate is bool
+        && (
+          (
+            allowPrivate
+            && request.resource.data.plateRegion is string
+            && request.resource.data.plateRegion.size() > 0
+            && request.resource.data.plateRegion.size() <= 3
+            && request.resource.data.plateLetters is string
+            && (
+              (
+                request.resource.data.countryCode == 'CH'
+                && request.resource.data.plateLetters.size() == 0
+              )
+              || (
+                request.resource.data.countryCode != 'CH'
+                && request.resource.data.plateLetters.size() > 0
+                && request.resource.data.plateLetters.size() <= 2
+              )
+            )
+            && request.resource.data.plateNumbers is string
+            && request.resource.data.plateNumbers.size() > 0
+            && request.resource.data.plateNumbers.size() <= 6
+          )
+          || (
+            !allowPrivate
+            && (
+              (
+                request.resource.data.showPlate == false
+                && request.resource.data.plateRegion == null
+                && request.resource.data.plateLetters == null
+                && request.resource.data.plateNumbers == null
+              )
+              || (
+                request.resource.data.showPlate == true
+                && request.resource.data.plateRegion is string
+                && request.resource.data.plateRegion.size() > 0
+                && request.resource.data.plateRegion.size() <= 3
+                && request.resource.data.plateLetters is string
+                && (
+                  (
+                    request.resource.data.countryCode == 'CH'
+                    && request.resource.data.plateLetters.size() == 0
+                  )
+                  || (
+                    request.resource.data.countryCode != 'CH'
+                    && request.resource.data.plateLetters.size() > 0
+                    && request.resource.data.plateLetters.size() <= 2
+                  )
+                )
+                && request.resource.data.plateNumbers is string
+                && request.resource.data.plateNumbers.size() > 0
+                && request.resource.data.plateNumbers.size() <= 6
+              )
+            )
+          )
+        )
+        && request.resource.data.isPrimary is bool
+        && request.resource.data.isVerified is bool
+        && isValidVehicleStatus(request.resource.data.status)
+        && request.resource.data.visibility in ['contacts', 'onlyMe']
+        && (allowPrivate || request.resource.data.visibility == 'contacts')
+        && (allowPrivate || request.resource.data.status != 'archived')
+        && (
+          request.resource.data.year == null
+          || (
+            request.resource.data.year is int
+            && request.resource.data.year >= 1886
+            && request.resource.data.year <= 2100
+          )
+        )
+        && (
+          request.resource.data.firstRegistration == null
+          || request.resource.data.firstRegistration is timestamp
+        )
+        && isNullableStringWithMax(request.resource.data.bodyStyle, 80)
+        && isNullableStringWithMax(request.resource.data.engineDescription, 160)
+        && (
+          request.resource.data.displacementCcm == null
+          || (
+            request.resource.data.displacementCcm is int
+            && request.resource.data.displacementCcm >= 0
+            && request.resource.data.displacementCcm <= 20000
+          )
+        )
+        && (
+          request.resource.data.horsepower == null
+          || (
+            request.resource.data.horsepower is int
+            && request.resource.data.horsepower >= 0
+            && request.resource.data.horsepower <= 5000
+          )
+        )
+        && (
+          request.resource.data.kilowatts == null
+          || (
+            request.resource.data.kilowatts is int
+            && request.resource.data.kilowatts >= 0
+            && request.resource.data.kilowatts <= 4000
+          )
+        )
+        && isNullableStringWithMax(request.resource.data.fuelType, 80)
+        && isNullableStringWithMax(request.resource.data.transmission, 80)
+        && isNullableStringWithMax(request.resource.data.drivetrain, 80)
+        && request.resource.data.equipment is list
+        && request.resource.data.equipment.size() <= 40
+        && (
+          allowPrivate
+          || (
+            request.resource.data.get('hsn', null) == null
+            && request.resource.data.get('tsn', null) == null
+            && request.resource.data.get('vin', null) == null
+          )
+        )
+        && isNullableStringWithMax(request.resource.data.get('hsn', null), 8)
+        && isNullableStringWithMax(request.resource.data.get('tsn', null), 8)
+        && isNullableStringWithMax(request.resource.data.get('vin', null), 40)
+        && (
+          request.resource.data.ownedSince == null
+          || request.resource.data.ownedSince is timestamp
+        )
+        && (
+          request.resource.data.mileage == null
+          || (
+            request.resource.data.mileage is int
+            && request.resource.data.mileage >= 0
+          )
+        )
+        && isNullableStringWithMax(
+          request.resource.data.get('heroImageUrl', null),
+          1000
+        )
+        && isNullableStringWithMax(
+          request.resource.data.get('heroImagePath', null),
+          500
+        )
+        && (
+          request.resource.data.get('heroImageStatus', null) == null
+          || request.resource.data.get('heroImageStatus', null) in [
+            'notGenerated',
+            'queued',
+            'generating',
+            'ready',
+            'failed',
+            'regenerationRequired',
+          ]
+        )
+        && isNullableStringWithMax(
+          request.resource.data.get('heroSourceHash', null),
+          160
+        )
+        && (
+          request.resource.data.get('heroPromptVersion', null) == null
+          || request.resource.data.get('heroPromptVersion', null) is int
+        )
+        && isNullableStringWithMax(
+          request.resource.data.get('heroProvider', null),
+          80
+        )
+        && isNullableStringWithMax(
+          request.resource.data.get('heroError', null),
+          500
+        )
+        && (
+          request.resource.data.get('heroRequestedAt', null) == null
+          || request.resource.data.heroRequestedAt is timestamp
+        )
+        && (
+          request.resource.data.get('heroGeneratedAt', null) == null
+          || request.resource.data.heroGeneratedAt is timestamp
+        )
+        && (
+          request.resource.data.get('heroRequestWindowStartedAt', null) == null
+          || request.resource.data.heroRequestWindowStartedAt is timestamp
+        )
+        && (
+          request.resource.data.get('heroRequestCount', null) == null
+          || (
+            request.resource.data.heroRequestCount is int
+            && request.resource.data.heroRequestCount >= 0
+            && request.resource.data.heroRequestCount <= 100
+          )
+        )
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function vehicleClientFieldsOnly() {
+      return changedOnly([
+        'brand',
+        'model',
+        'series',
+        'color',
+        'countryCode',
+        'plateRegion',
+        'plateLetters',
+        'plateNumbers',
+        'isPrimary',
+        'isVerified',
+        'status',
+        'visibility',
+        'showPlate',
+        'year',
+        'firstRegistration',
+        'bodyStyle',
+        'engineDescription',
+        'displacementCcm',
+        'horsepower',
+        'kilowatts',
+        'fuelType',
+        'transmission',
+        'drivetrain',
+        'equipment',
+        'hsn',
+        'tsn',
+        'vin',
+        'ownedSince',
+        'mileage',
+        'updatedAt',
+      ]);
+    }
+
+    function isValidVehicleModification(
+      userId,
+      vehicleId,
+      modificationId,
+      allowPrivate
+    ) {
+      return exists(
+          /databases/$(database)/documents/users/$(userId)/vehicles/$(vehicleId)
+        )
+        && request.resource.data.keys().hasOnly([
+          'modificationId',
+          'ownerUserId',
+          'vehicleId',
+          'title',
+          'category',
+          'manufacturer',
+          'product',
+          'description',
+          'modifiedAt',
+          'workshop',
+          'costCents',
+          'powerChangeHp',
+          'isRegistered',
+          'documentPaths',
+          'visibility',
+          'isDeleted',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.modificationId == modificationId
+        && request.resource.data.ownerUserId == userId
+        && request.resource.data.vehicleId == vehicleId
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.category in [
+          'wheels',
+          'tires',
+          'suspension',
+          'brakes',
+          'engine',
+          'software',
+          'exhaust',
+          'lighting',
+          'body',
+          'wrap',
+          'interior',
+          'soundSystem',
+          'other',
+        ]
+        && isNullableStringWithMax(request.resource.data.manufacturer, 120)
+        && isNullableStringWithMax(request.resource.data.product, 120)
+        && isNullableStringWithMax(request.resource.data.description, 600)
+        && (
+          request.resource.data.modifiedAt == null
+          || request.resource.data.modifiedAt is timestamp
+        )
+        && (
+          request.resource.data.powerChangeHp == null
+          || (
+            request.resource.data.powerChangeHp is int
+            && request.resource.data.powerChangeHp >= -5000
+            && request.resource.data.powerChangeHp <= 5000
+          )
+        )
+        && request.resource.data.isRegistered is bool
+        && request.resource.data.visibility in ['contacts', 'onlyMe']
+        && (allowPrivate || request.resource.data.visibility == 'contacts')
+        && request.resource.data.isDeleted is bool
+        && (allowPrivate || request.resource.data.isDeleted == false)
+        && (
+          allowPrivate
+          || (
+            request.resource.data.get('workshop', null) == null
+            && request.resource.data.get('costCents', null) == null
+            && request.resource.data.get('documentPaths', null) == null
+          )
+        )
+        && isNullableStringWithMax(
+          request.resource.data.get('workshop', null),
+          160
+        )
+        && (
+          request.resource.data.get('costCents', null) == null
+          || (
+            request.resource.data.get('costCents', null) is int
+            && request.resource.data.get('costCents', null) >= 0
+          )
+        )
+        && (
+          request.resource.data.get('documentPaths', null) == null
+          || (
+            request.resource.data.get('documentPaths', null) is list
+            && request.resource.data.get('documentPaths', null).size() <= 10
+          )
+        )
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidVehicleGalleryMedia(
+      userId,
+      vehicleId,
+      mediaId,
+      allowPrivate
+    ) {
+      return exists(
+          /databases/$(database)/documents/users/$(userId)/vehicles/$(vehicleId)
+        )
+        && request.resource.data.keys().hasOnly([
+          'mediaId',
+          'ownerUserId',
+          'vehicleId',
+          'mediaUrl',
+          'mediaPath',
+          'mediaType',
+          'category',
+          'caption',
+          'isMain',
+          'visibility',
+          'isDeleted',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.mediaId == mediaId
+        && request.resource.data.ownerUserId == userId
+        && request.resource.data.vehicleId == vehicleId
+        && request.resource.data.mediaUrl is string
+        && request.resource.data.mediaUrl.size() > 0
+        && request.resource.data.mediaUrl.size() <= 1200
+        && request.resource.data.mediaPath
+          == 'vehicle_gallery/' + userId + '/' + vehicleId + '/' + mediaId
+        && request.resource.data.mediaType in ['image', 'video']
+        && request.resource.data.category in [
+          'exterior',
+          'interior',
+          'engineBay',
+          'details',
+          'modifications',
+          'beforeAfter',
+          'documentation',
+        ]
+        && isNullableStringWithMax(request.resource.data.caption, 300)
+        && request.resource.data.isMain is bool
+        && request.resource.data.visibility in ['contacts', 'onlyMe']
+        && (allowPrivate || request.resource.data.visibility == 'contacts')
+        && request.resource.data.isDeleted is bool
+        && (allowPrivate || request.resource.data.isDeleted == false)
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidVehicleTimelineEntry(
+      userId,
+      vehicleId,
+      entryId,
+      allowPrivate
+    ) {
+      return existsAfter(
+          /databases/$(database)/documents/users/$(userId)/vehicles/$(vehicleId)
+        )
+        && request.resource.data.keys().hasOnly([
+          'entryId',
+          'ownerUserId',
+          'vehicleId',
+          'type',
+          'title',
+          'description',
+          'eventDate',
+          'mediaUrls',
+          'linkedPostId',
+          'linkedModificationId',
+          'isAutomaticallyCreated',
+          'visibility',
+          'isDeleted',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.entryId == entryId
+        && request.resource.data.ownerUserId == userId
+        && request.resource.data.vehicleId == vehicleId
+        && request.resource.data.type in [
+          'vehicleCreated',
+          'vehicleAcquired',
+          'registered',
+          'modificationAdded',
+          'maintenance',
+          'repair',
+          'wheelsInstalled',
+          'mileageMilestone',
+          'trip',
+          'meet',
+          'seasonStart',
+          'seasonEnd',
+          'sold',
+          'archived',
+          'statusChanged',
+          'custom',
+        ]
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && isNullableStringWithMax(request.resource.data.description, 600)
+        && request.resource.data.eventDate is timestamp
+        && request.resource.data.mediaUrls is list
+        && request.resource.data.mediaUrls.size() <= 10
+        && isNullableStringWithMax(request.resource.data.linkedPostId, 160)
+        && isNullableStringWithMax(
+          request.resource.data.linkedModificationId,
+          160
+        )
+        && request.resource.data.isAutomaticallyCreated is bool
+        && request.resource.data.visibility in ['contacts', 'onlyMe']
+        && (allowPrivate || request.resource.data.visibility == 'contacts')
+        && request.resource.data.isDeleted is bool
+        && (allowPrivate || request.resource.data.isDeleted == false)
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidVehicleEncounterCreate(encounterId) {
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'encounterId',
+          'initiatorUserId',
+          'recipientUserId',
+          'initiatorVehicleId',
+          'recipientVehicleId',
+          'initiatorVehicleLabel',
+          'recipientVehicleLabel',
+          'participantUserIds',
+          'initiatorPhotoUrl',
+          'recipientPhotoUrl',
+          'type',
+          'status',
+          'locationLabel',
+          'encounterDate',
+          'linkedPostId',
+          'confirmedAt',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.encounterId == encounterId
+        && request.resource.data.initiatorUserId == request.auth.uid
+        && request.resource.data.recipientUserId is string
+        && request.resource.data.recipientUserId != request.auth.uid
+        && request.resource.data.initiatorVehicleId is string
+        && request.resource.data.initiatorVehicleId.size() > 0
+        && request.resource.data.initiatorVehicleId.size() <= 160
+        && request.resource.data.recipientVehicleId is string
+        && request.resource.data.recipientVehicleId.size() > 0
+        && request.resource.data.recipientVehicleId.size() <= 160
+        && encounterId in [
+          request.resource.data.initiatorUserId + '_' + request.resource.data.initiatorVehicleId + '__' + request.resource.data.recipientUserId + '_' + request.resource.data.recipientVehicleId,
+          request.resource.data.recipientUserId + '_' + request.resource.data.recipientVehicleId + '__' + request.resource.data.initiatorUserId + '_' + request.resource.data.initiatorVehicleId,
+        ]
+        && request.resource.data.participantUserIds is list
+        && request.resource.data.participantUserIds.size() == 2
+        && request.resource.data.participantUserIds.hasAll([
+          request.resource.data.initiatorUserId,
+          request.resource.data.recipientUserId,
+        ])
+        && request.resource.data.initiatorVehicleLabel is string
+        && request.resource.data.initiatorVehicleLabel.size() > 0
+        && request.resource.data.initiatorVehicleLabel.size() <= 240
+        && request.resource.data.recipientVehicleLabel is string
+        && request.resource.data.recipientVehicleLabel.size() > 0
+        && request.resource.data.recipientVehicleLabel.size() <= 240
+        && isNullableStringWithMax(request.resource.data.initiatorPhotoUrl, 1000)
+        && isNullableStringWithMax(request.resource.data.recipientPhotoUrl, 1000)
+        && request.resource.data.type in [
+          'spotted',
+          'meet',
+          'trip',
+          'event',
+          'other',
+        ]
+        && request.resource.data.status == 'requested'
+        && isNullableStringWithMax(request.resource.data.locationLabel, 120)
+        && request.resource.data.encounterDate is timestamp
+        && isNullableStringWithMax(request.resource.data.linkedPostId, 160)
+        && request.resource.data.confirmedAt == null
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && hasActiveProfileConnection(request.resource.data.recipientUserId)
+        && exists(
+          /databases/$(database)/documents/public_profiles/$(request.auth.uid)/vehicles/$(request.resource.data.initiatorVehicleId)
+        )
+        && exists(
+          /databases/$(database)/documents/public_profiles/$(request.resource.data.recipientUserId)/vehicles/$(request.resource.data.recipientVehicleId)
+        );
+    }
+
+    function isValidVehicleEncounterUpdate() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.participantUserIds
+        && (
+          (
+            request.auth.uid == resource.data.recipientUserId
+            && resource.data.status == 'requested'
+            && request.resource.data.status == 'confirmed'
+            && request.resource.data.confirmedAt is timestamp
+            && request.resource.data.updatedAt is timestamp
+            && changedOnly(['status', 'confirmedAt', 'updatedAt'])
+          )
+          || (
+            request.auth.uid == resource.data.recipientUserId
+            && resource.data.status == 'requested'
+            && request.resource.data.status == 'declined'
+            && request.resource.data.updatedAt is timestamp
+            && changedOnly(['status', 'updatedAt'])
+          )
+          || (
+            resource.data.status == 'confirmed'
+            && request.resource.data.status == 'removed'
+            && request.resource.data.updatedAt is timestamp
+            && changedOnly(['status', 'updatedAt'])
+          )
+        );
+    }
+
+    function isValidPublicVehicleEncounter(
+      userId,
+      vehicleId,
+      encounterId
+    ) {
+      let encounter = getAfter(
+        /databases/$(database)/documents/vehicle_encounters/$(encounterId)
+      );
+      return request.resource.data.keys().hasOnly([
+          'encounterId',
+          'initiatorUserId',
+          'recipientUserId',
+          'initiatorVehicleId',
+          'recipientVehicleId',
+          'initiatorVehicleLabel',
+          'recipientVehicleLabel',
+          'participantUserIds',
+          'initiatorPhotoUrl',
+          'recipientPhotoUrl',
+          'type',
+          'status',
+          'locationLabel',
+          'encounterDate',
+          'linkedPostId',
+          'confirmedAt',
+          'createdAt',
+          'updatedAt',
+        ])
+        && encounter.data.status == 'confirmed'
+        && request.auth.uid in encounter.data.participantUserIds
+        && (
+          (
+            userId == encounter.data.initiatorUserId
+            && vehicleId == encounter.data.initiatorVehicleId
+          )
+          || (
+            userId == encounter.data.recipientUserId
+            && vehicleId == encounter.data.recipientVehicleId
+          )
+        )
+        && request.resource.data.encounterId == encounterId
+        && request.resource.data.initiatorUserId
+          == encounter.data.initiatorUserId
+        && request.resource.data.recipientUserId
+          == encounter.data.recipientUserId
+        && request.resource.data.initiatorVehicleId
+          == encounter.data.initiatorVehicleId
+        && request.resource.data.recipientVehicleId
+          == encounter.data.recipientVehicleId
+        && request.resource.data.participantUserIds
+          == encounter.data.participantUserIds
+        && request.resource.data.initiatorVehicleLabel
+          == encounter.data.initiatorVehicleLabel
+        && request.resource.data.recipientVehicleLabel
+          == encounter.data.recipientVehicleLabel
+        && request.resource.data.initiatorPhotoUrl
+          == encounter.data.initiatorPhotoUrl
+        && request.resource.data.recipientPhotoUrl
+          == encounter.data.recipientPhotoUrl
+        && request.resource.data.type == encounter.data.type
+        && request.resource.data.status == 'confirmed'
+        && request.resource.data.locationLabel == encounter.data.locationLabel
+        && request.resource.data.encounterDate == encounter.data.encounterDate
+        && request.resource.data.linkedPostId == encounter.data.linkedPostId
+        && request.resource.data.confirmedAt is timestamp
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function canDeletePublicVehicleEncounter(encounterId) {
+      let encounter = getAfter(
+        /databases/$(database)/documents/vehicle_encounters/$(encounterId)
+      );
+      return isSignedIn()
+        && request.auth.uid in encounter.data.participantUserIds
+        && encounter.data.status == 'removed';
+    }
+
+    function profileAllowsAccess(userId) {
+      return exists(
+          /databases/$(database)/documents/public_profiles/$(userId)
+        )
+        && get(
+          /databases/$(database)/documents/public_profiles/$(userId)
+        ).data.profileAccessEnabled == true;
+    }
+
+    function isActiveProfileConnectionData(connectionData, targetUserId) {
+      return isSignedIn()
+        && targetUserId != request.auth.uid
+        && connectionData.status == 'active'
+        && connectionData.participants is list
+        && connectionData.participants.size() == 2
+        && connectionData.participants.hasAll([
+          request.auth.uid,
+          targetUserId,
+        ])
+        && connectionData.requestId is string
+        && connectionData.chatId is string
+        && exists(
+          /databases/$(database)/documents/contact_requests/$(connectionData.requestId)
+        )
+        && get(
+          /databases/$(database)/documents/contact_requests/$(connectionData.requestId)
+        ).data.status == 'accepted'
+        && exists(
+          /databases/$(database)/documents/chats/$(connectionData.chatId)
+        )
+        && get(
+          /databases/$(database)/documents/chats/$(connectionData.chatId)
+        ).data.requestId == connectionData.requestId
+        && get(
+          /databases/$(database)/documents/chats/$(connectionData.chatId)
+        ).data.participants.hasAll([request.auth.uid, targetUserId])
+        && isOpenChatStatus(
+          get(
+            /databases/$(database)/documents/chats/$(connectionData.chatId)
+          ).data.status
+        )
+        && get(
+          /databases/$(database)/documents/chats/$(connectionData.chatId)
+        ).data.get('deletedBy', {})[request.auth.uid] != true
+        && get(
+          /databases/$(database)/documents/chats/$(connectionData.chatId)
+        ).data.get('deletedBy', {})[targetUserId] != true;
+    }
+
+    function hasActiveProfileConnectionById(connectionId, targetUserId) {
+      return exists(
+          /databases/$(database)/documents/profile_connections/$(connectionId)
+        )
+        && isActiveProfileConnectionData(
+          get(
+            /databases/$(database)/documents/profile_connections/$(connectionId)
+          ).data,
+          targetUserId
+        );
+    }
+
+    function hasActiveProfileConnection(targetUserId) {
+      return isOwner(targetUserId)
+        || (
+          isSignedIn()
+          && (
+            hasActiveProfileConnectionById(
+              request.auth.uid + '_' + targetUserId,
+              targetUserId
+            )
+            || hasActiveProfileConnectionById(
+              targetUserId + '_' + request.auth.uid,
+              targetUserId
+            )
+          )
+        );
+    }
+
+    function isValidProfileConnectionWrite(connectionId) {
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'connectionId',
+          'userAId',
+          'userBId',
+          'participants',
+          'requestId',
+          'chatId',
+          'status',
+          'createdAt',
+          'updatedAt',
+        ])
+        && request.resource.data.connectionId == connectionId
+        && request.resource.data.userAId is string
+        && request.resource.data.userBId is string
+        && request.resource.data.userAId != request.resource.data.userBId
+        && connectionId in [
+          request.resource.data.userAId + '_' + request.resource.data.userBId,
+          request.resource.data.userBId + '_' + request.resource.data.userAId,
+        ]
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.participants.hasAll([
+          request.resource.data.userAId,
+          request.resource.data.userBId,
+        ])
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.status == 'active'
+        && request.resource.data.requestId is string
+        && request.resource.data.chatId is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && exists(
+          /databases/$(database)/documents/contact_requests/$(request.resource.data.requestId)
+        )
+        && get(
+          /databases/$(database)/documents/contact_requests/$(request.resource.data.requestId)
+        ).data.status == 'accepted'
+        && get(
+          /databases/$(database)/documents/contact_requests/$(request.resource.data.requestId)
+        ).data.senderUserId in request.resource.data.participants
+        && get(
+          /databases/$(database)/documents/contact_requests/$(request.resource.data.requestId)
+        ).data.receiverUserId in request.resource.data.participants
+        && exists(
+          /databases/$(database)/documents/chats/$(request.resource.data.chatId)
+        )
+        && get(
+          /databases/$(database)/documents/chats/$(request.resource.data.chatId)
+        ).data.requestId == request.resource.data.requestId
+        && get(
+          /databases/$(database)/documents/chats/$(request.resource.data.chatId)
+        ).data.participants.hasAll(request.resource.data.participants)
+        && isOpenChatStatus(
+          get(
+            /databases/$(database)/documents/chats/$(request.resource.data.chatId)
+          ).data.status
+        );
+    }
+
+    function followRelationshipId(followerUserId, followedUserId) {
+      return followerUserId + '_' + followedUserId;
+    }
+
+    function isFollowing(followerUserId, followedUserId) {
+      let relationshipId = followRelationshipId(
+        followerUserId,
+        followedUserId
+      );
+      return exists(
+          /databases/$(database)/documents/follow_relationships/$(relationshipId)
+        )
+        && get(
+          /databases/$(database)/documents/follow_relationships/$(relationshipId)
+        ).data.status == 'following';
+    }
+
+    function canSeeProfileList(profileUserId, visibility) {
+      return request.auth.uid == profileUserId
+        || (
+          visibility == 'contacts'
+          && hasActiveProfileConnection(profileUserId)
+        )
+        || (
+          visibility == 'followers'
+          && hasActiveProfileConnection(profileUserId)
+          && isFollowing(request.auth.uid, profileUserId)
+        );
+    }
+
+    function canReadFollowRelationship(relationshipData) {
+      return isSignedIn()
+        && (
+          request.auth.uid == relationshipData.followerUserId
+          || request.auth.uid == relationshipData.followedUserId
+          || (
+            profileAllowsAccess(relationshipData.followedUserId)
+            && canSeeProfileList(
+              relationshipData.followedUserId,
+              get(
+                /databases/$(database)/documents/public_profiles/$(relationshipData.followedUserId)
+              ).data.followersVisibility
+            )
+          )
+          || (
+            profileAllowsAccess(relationshipData.followerUserId)
+            && canSeeProfileList(
+              relationshipData.followerUserId,
+              get(
+                /databases/$(database)/documents/public_profiles/$(relationshipData.followerUserId)
+              ).data.followingVisibility
+            )
+          )
+        );
+    }
+
+    function isValidFollowRelationshipCreate(relationshipId) {
+      let followerProfile = get(
+        /databases/$(database)/documents/public_profiles/$(request.resource.data.followerUserId)
+      );
+      let targetProfile = get(
+        /databases/$(database)/documents/public_profiles/$(request.resource.data.followedUserId)
+      );
+      return isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'relationshipId',
+          'followerUserId',
+          'followedUserId',
+          'followerDisplayName',
+          'followedDisplayName',
+          'followerPhotoUrl',
+          'followedPhotoUrl',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'acceptedAt',
+        ])
+        && request.resource.data.relationshipId == relationshipId
+        && request.resource.data.followerUserId == request.auth.uid
+        && request.resource.data.followedUserId is string
+        && request.resource.data.followedUserId != request.auth.uid
+        && request.resource.data.followerDisplayName
+          == followerProfile.data.displayName
+        && request.resource.data.followedDisplayName
+          == targetProfile.data.displayName
+        && request.resource.data.followerDisplayName is string
+        && request.resource.data.followerDisplayName.size() > 0
+        && request.resource.data.followerDisplayName.size() <= 80
+        && request.resource.data.followedDisplayName is string
+        && request.resource.data.followedDisplayName.size() > 0
+        && request.resource.data.followedDisplayName.size() <= 80
+        && request.resource.data.followerPhotoUrl
+          == followerProfile.data.get('photoUrl', null)
+        && request.resource.data.followedPhotoUrl
+          == targetProfile.data.get('photoUrl', null)
+        && isNullableStringWithMax(
+          request.resource.data.followerPhotoUrl,
+          1000
+        )
+        && isNullableStringWithMax(
+          request.resource.data.followedPhotoUrl,
+          1000
+        )
+        && relationshipId == followRelationshipId(
+          request.resource.data.followerUserId,
+          request.resource.data.followedUserId
+        )
+        && profileAllowsAccess(request.resource.data.followedUserId)
+        && hasActiveProfileConnection(request.resource.data.followedUserId)
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && (
+          (
+            targetProfile.data.isPrivateProfile == true
+            && request.resource.data.status == 'requested'
+            && request.resource.data.acceptedAt == null
+          )
+          || (
+            targetProfile.data.isPrivateProfile == false
+            && request.resource.data.status == 'following'
+            && request.resource.data.acceptedAt is timestamp
+          )
+        );
+    }
+
+    function isValidFollowRequestAccept() {
+      return isSignedIn()
+        && request.auth.uid == resource.data.followedUserId
+        && resource.data.status == 'requested'
+        && request.resource.data.status == 'following'
+        && request.resource.data.acceptedAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && changedOnly(['status', 'acceptedAt', 'updatedAt'])
+        && hasActiveProfileConnection(resource.data.followerUserId);
+    }
+
+    function isValidFollowRelationshipDelete() {
+      return isSignedIn()
+        && (
+          request.auth.uid == resource.data.followerUserId
+          || request.auth.uid == resource.data.followedUserId
+        );
+    }
+
     function contactRequestDocumentId() {
       return request.auth.uid + '_' + request.resource.data.plateKey;
     }
@@ -194,6 +1226,8 @@ service cloud.firestore {
           contactRequestData.senderUserId,
           contactRequestData.receiverUserId,
         ])
+        && request.resource.data.status == 'active'
+        && request.resource.data.isDeleted == false
         && (
           contactRequestData.receiverUserId == request.auth.uid ||
           contactRequestData.senderUserId == request.auth.uid
@@ -348,11 +1382,6 @@ service cloud.firestore {
             && request.resource.data.rejectionReason.size() <= 600
           )
         );
-    }
-
-    function isChatParticipant(chatId) {
-      return isSignedIn()
-        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
     }
 
     function isUndeletedChatParticipant(chatData) {
@@ -536,12 +1565,10 @@ service cloud.firestore {
       return isSignedIn()
         && isOpenUndeletedChatParticipant(resource.data)
         && changedOnly([
-          'status',
           'archivedBy',
           'archivedUpdatedAtBy',
           'updatedAt',
         ])
-        && request.resource.data.status == 'active'
         && request.resource.data.archivedBy is map
         && request.resource.data.archivedBy[request.auth.uid] is bool
         && request.resource.data.archivedUpdatedAtBy is map
@@ -555,14 +1582,10 @@ service cloud.firestore {
       return isSignedIn()
         && isOpenUndeletedChatParticipant(resource.data)
         && changedOnly([
-          'status',
-          'isDeleted',
           'deletedBy',
           'deletedUpdatedAtBy',
           'updatedAt',
         ])
-        && request.resource.data.status == 'active'
-        && request.resource.data.isDeleted == false
         && request.resource.data.deletedBy is map
         && request.resource.data.deletedBy[request.auth.uid] == true
         && request.resource.data.deletedUpdatedAtBy is map
@@ -626,6 +1649,7 @@ service cloud.firestore {
 
     function isValidTextMessageCreate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
+      let chatAfter = getAfter(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
         && hasOnlyMessageCreateFields([
@@ -649,7 +1673,14 @@ service cloud.firestore {
         && hasValidOptionalReplyFields()
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.updatedAt == request.resource.data.createdAt
+        && request.resource.data.isDeleted == false
+        && chatAfter.data.lastMessage == request.resource.data.text
+        && chatAfter.data.lastMessageAt == request.resource.data.createdAt
+        && chatAfter.data.updatedAt == request.resource.data.updatedAt
+        && chatAfter.data.lastReadAtBy[request.auth.uid]
+          == request.resource.data.createdAt
+        && chatAfter.data.manualUnreadBy[request.auth.uid] == false;
     }
 
     function isValidLocationMessageCreate(chatId) {
@@ -714,10 +1745,11 @@ service cloud.firestore {
         && request.resource.data.isDeleted == false;
     }
 
-    function isValidImageMessageCreate(chatId) {
+    function isValidImageMessageCreate(chatId, messageId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
+        && messageId.matches('^[A-Za-z0-9_-]{1,120}$')
         && hasOnlyMessageCreateFields([
           'chatId',
           'senderUserId',
@@ -740,16 +1772,21 @@ service cloud.firestore {
         && request.resource.data.imageUrl.size() > 0
         && request.resource.data.imagePath is string
         && request.resource.data.imagePath.size() > 0
-        && isOwnChatImagePath(chatId, request.resource.data.imagePath)
+        && isOwnChatImagePath(
+          chatId,
+          messageId,
+          request.resource.data.imagePath
+        )
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.isDeleted == false;
     }
 
-    function isValidDocumentMessageCreate(chatId) {
+    function isValidDocumentMessageCreate(chatId, messageId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
+        && messageId.matches('^[A-Za-z0-9_-]{1,120}$')
         && hasOnlyMessageCreateFields([
           'chatId',
           'senderUserId',
@@ -775,7 +1812,11 @@ service cloud.firestore {
         && request.resource.data.fileUrl.size() > 0
         && request.resource.data.filePath is string
         && request.resource.data.filePath.size() > 0
-        && isOwnChatDocumentPath(chatId, request.resource.data.filePath)
+        && isOwnChatDocumentPath(
+          chatId,
+          messageId,
+          request.resource.data.filePath
+        )
         && request.resource.data.fileName is string
         && request.resource.data.fileName.size() > 0
         && request.resource.data.fileName.size() <= 160
@@ -806,10 +1847,11 @@ service cloud.firestore {
         || contentType == 'application/rtf';
     }
 
-    function isValidAudioMessageCreate(chatId) {
+    function isValidAudioMessageCreate(chatId, messageId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
       return isSignedIn()
+        && messageId.matches('^[A-Za-z0-9_-]{1,120}$')
         && hasOnlyMessageCreateFields([
           'chatId',
           'senderUserId',
@@ -834,7 +1876,11 @@ service cloud.firestore {
         && request.resource.data.fileUrl.size() > 0
         && request.resource.data.filePath is string
         && request.resource.data.filePath.size() > 0
-        && isOwnChatVoiceMemoPath(chatId, request.resource.data.filePath)
+        && isOwnChatVoiceMemoPath(
+          chatId,
+          messageId,
+          request.resource.data.filePath
+        )
         && request.resource.data.fileName is string
         && request.resource.data.fileName.size() > 0
         && request.resource.data.fileName.size() <= 160
@@ -903,10 +1949,20 @@ service cloud.firestore {
         && changedOnlyNestedMapKey('reactionUpdatedAtBy', request.auth.uid);
     }
 
-    function isValidChatReportCreate() {
+    function isValidChatReportCreate(reportId) {
       let chat = get(/databases/$(database)/documents/chats/$(request.resource.data.chatId));
 
       return isSignedIn()
+        && reportId == 'chat_' + request.resource.data.chatId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'type',
+          'chatId',
+          'reporterUserId',
+          'reason',
+          'status',
+          'createdAt',
+          'updatedAt',
+        ])
         && request.resource.data.type == 'chat'
         && request.resource.data.chatId is string
         && request.resource.data.reporterUserId == request.auth.uid
@@ -1197,33 +2253,38 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
-    function isOwnChatImagePath(chatId, path) {
+    function isOwnChatImagePath(chatId, messageId, path) {
+      return path == 'chat_images/' + chatId + '/' + request.auth.uid
+        + '/' + messageId + '.jpg';
+    }
+
+    function isOwnChatDocumentPath(chatId, messageId, path) {
       return path.matches(
-        '^chat_images/' + chatId + '/' + request.auth.uid + '/[^/]+$'
+        '^chat_documents/' + chatId + '/' + request.auth.uid + '/'
+          + messageId + '_[^/]+$'
       );
     }
 
-    function isOwnChatDocumentPath(chatId, path) {
+    function isOwnChatVoiceMemoPath(chatId, messageId, path) {
       return path.matches(
-        '^chat_documents/' + chatId + '/' + request.auth.uid + '/[^/]+$'
-      );
-    }
-
-    function isOwnChatVoiceMemoPath(chatId, path) {
-      return path.matches(
-        '^chat_voice_memos/' + chatId + '/' + request.auth.uid + '/[^/]+$'
+        '^chat_voice_memos/' + chatId + '/' + request.auth.uid + '/'
+          + messageId + '_[^/]+\\.m4a$'
       );
     }
 
     function isOwnStoryImagePath(path) {
       return path.matches(
         '^chat_stories/' + request.auth.uid + '/[0-9]{12,24}\\.jpg$'
+      ) || path.matches(
+        '^chat_stories/' + request.auth.uid + '/[0-9]{12,24}/media\\.jpg$'
       );
     }
 
     function isOwnStoryVideoPath(path) {
       return path.matches(
         '^chat_stories/' + request.auth.uid + '/[0-9]{12,24}\\.mp4$'
+      ) || path.matches(
+        '^chat_stories/' + request.auth.uid + '/[0-9]{12,24}/media\\.mp4$'
       );
     }
 
@@ -1345,13 +2406,17 @@ service cloud.firestore {
         'createdAt',
         'updatedAt',
         'expiresAt',
+        'isActive',
       ]);
     }
 
     function isValidStoryOwnerWrite(storyId) {
       return isSignedIn()
         && hasOnlyStoryOwnerWriteFields()
-        && storyId == request.auth.uid
+        && (
+          storyId == request.auth.uid
+          || storyId.matches('^[0-9]{12,24}$')
+        )
         && request.resource.data.ownerUserId == request.auth.uid
         && request.resource.data.ownerDisplayName is string
         && request.resource.data.ownerDisplayName.size() > 0
@@ -1447,6 +2512,7 @@ service cloud.firestore {
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.expiresAt is timestamp
+        && request.resource.data.isActive is bool
         && request.resource.data.expiresAt > request.resource.data.createdAt
         && request.resource.data.expiresAt <=
           request.resource.data.createdAt + duration.value(24, 'h');
@@ -1496,6 +2562,155 @@ service cloud.firestore {
         && changedOnlyNestedMapKey('viewerPhotoUrlBy', request.auth.uid);
     }
 
+    match /public_profiles/{userId} {
+      allow read: if isOwner(userId)
+        || (
+          hasActiveProfileConnection(userId)
+          && resource.data.profileAccessEnabled == true
+        );
+      allow create, update: if isValidPublicProfileWrite(userId);
+      allow delete: if false;
+
+      match /vehicles/{vehicleId} {
+        allow read: if isOwner(userId)
+          || (
+            hasActiveProfileConnection(userId)
+            && profileAllowsAccess(userId)
+          );
+        allow create: if isOwner(userId)
+          && isValidVehicleDocument(userId, vehicleId, false)
+          && !('heroImageUrl' in request.resource.data)
+          && !('heroImagePath' in request.resource.data)
+          && !('heroImageStatus' in request.resource.data)
+          && !('heroSourceHash' in request.resource.data)
+          && !('heroPromptVersion' in request.resource.data)
+          && !('heroProvider' in request.resource.data)
+          && !('heroError' in request.resource.data)
+          && !('heroRequestedAt' in request.resource.data)
+          && !('heroGeneratedAt' in request.resource.data)
+          && !('heroRequestWindowStartedAt' in request.resource.data)
+          && !('heroRequestCount' in request.resource.data);
+        allow update: if isOwner(userId)
+          && isValidVehicleDocument(userId, vehicleId, false)
+          && vehicleClientFieldsOnly();
+        allow delete: if isOwner(userId);
+
+        match /modifications/{modificationId} {
+          allow read: if isOwner(userId)
+            || (
+              exists(
+                /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+              )
+              &&
+              hasActiveProfileConnection(userId)
+              && profileAllowsAccess(userId)
+            );
+          allow create, update: if isOwner(userId)
+            && exists(
+              /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+            )
+            && isValidVehicleModification(
+              userId,
+              vehicleId,
+              modificationId,
+              false
+            );
+          allow delete: if isOwner(userId);
+        }
+
+        match /gallery/{mediaId} {
+          allow read: if isOwner(userId)
+            || (
+              exists(
+                /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+              )
+              &&
+              hasActiveProfileConnection(userId)
+              && profileAllowsAccess(userId)
+            );
+          allow create, update: if isOwner(userId)
+            && exists(
+              /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+            )
+            && isValidVehicleGalleryMedia(
+              userId,
+              vehicleId,
+              mediaId,
+              false
+            );
+          allow delete: if isOwner(userId);
+        }
+
+        match /timeline/{entryId} {
+          allow read: if isOwner(userId)
+            || (
+              exists(
+                /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+              )
+              &&
+              hasActiveProfileConnection(userId)
+              && profileAllowsAccess(userId)
+            );
+          allow create, update: if isOwner(userId)
+            && existsAfter(
+              /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+            )
+            && isValidVehicleTimelineEntry(
+              userId,
+              vehicleId,
+              entryId,
+              false
+            );
+          allow delete: if isOwner(userId);
+        }
+
+        match /encounters/{encounterId} {
+          allow read: if isOwner(userId)
+            || (
+              exists(
+                /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+              )
+              && hasActiveProfileConnection(userId)
+              && profileAllowsAccess(userId)
+            );
+          allow create, update: if isSignedIn()
+            && existsAfter(
+              /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
+            )
+            && isValidPublicVehicleEncounter(
+              userId,
+              vehicleId,
+              encounterId
+            );
+          allow delete: if canDeletePublicVehicleEncounter(encounterId);
+        }
+      }
+    }
+
+    match /profile_connections/{connectionId} {
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.participants;
+      allow create: if isValidProfileConnectionWrite(connectionId);
+      allow update: if isValidProfileConnectionWrite(connectionId)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+    }
+
+    match /vehicle_encounters/{encounterId} {
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.participantUserIds;
+      allow create: if isValidVehicleEncounterCreate(encounterId);
+      allow update: if isValidVehicleEncounterUpdate();
+      allow delete: if false;
+    }
+
+    match /follow_relationships/{relationshipId} {
+      allow read: if canReadFollowRelationship(resource.data);
+      allow create: if isValidFollowRelationshipCreate(relationshipId);
+      allow update: if isValidFollowRequestAccept();
+      allow delete: if isValidFollowRelationshipDelete();
+    }
+
     match /users/{userId} {
       allow read, create, update: if isOwner(userId);
       allow delete: if false;
@@ -1506,6 +2721,63 @@ service cloud.firestore {
         allow update: if isValidOwnerProfileWrite(userId, profileId)
           || isValidAdminProfileReviewUpdate();
         allow delete: if false;
+      }
+
+      match /vehicles/{vehicleId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId)
+          && isValidVehicleDocument(userId, vehicleId, true)
+          && !('heroImageUrl' in request.resource.data)
+          && !('heroImagePath' in request.resource.data)
+          && !('heroImageStatus' in request.resource.data)
+          && !('heroSourceHash' in request.resource.data)
+          && !('heroPromptVersion' in request.resource.data)
+          && !('heroProvider' in request.resource.data)
+          && !('heroError' in request.resource.data)
+          && !('heroRequestedAt' in request.resource.data)
+          && !('heroGeneratedAt' in request.resource.data)
+          && !('heroRequestWindowStartedAt' in request.resource.data)
+          && !('heroRequestCount' in request.resource.data);
+        allow update: if isOwner(userId)
+          && isValidVehicleDocument(userId, vehicleId, true)
+          && vehicleClientFieldsOnly();
+        allow delete: if false;
+
+        match /modifications/{modificationId} {
+          allow read: if isOwner(userId) || isAdmin();
+          allow create, update: if isOwner(userId)
+            && isValidVehicleModification(
+              userId,
+              vehicleId,
+              modificationId,
+              true
+            );
+          allow delete: if false;
+        }
+
+        match /gallery/{mediaId} {
+          allow read: if isOwner(userId) || isAdmin();
+          allow create, update: if isOwner(userId)
+            && isValidVehicleGalleryMedia(
+              userId,
+              vehicleId,
+              mediaId,
+              true
+            );
+          allow delete: if false;
+        }
+
+        match /timeline/{entryId} {
+          allow read: if isOwner(userId) || isAdmin();
+          allow create, update: if isOwner(userId)
+            && isValidVehicleTimelineEntry(
+              userId,
+              vehicleId,
+              entryId,
+              true
+            );
+          allow delete: if false;
+        }
       }
 
       match /search_credits/{creditId} {
@@ -1529,6 +2801,66 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      match /social_posts/{postId} {
+        allow read: if isOwner(userId)
+          || (
+            hasActiveProfileConnection(userId)
+            && profileAllowsAccess(userId)
+            && resource.data.visibility == 'public'
+            && resource.data.isDeleted == false
+          );
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'postId',
+            'ownerUserId',
+            'imageUrl',
+            'imagePath',
+            'caption',
+            'vehicleLabel',
+            'locationLabel',
+            'section',
+            'visibility',
+            'createdAt',
+            'updatedAt',
+            'isDeleted'
+          ])
+          && request.resource.data.postId == postId
+          && request.resource.data.ownerUserId == userId
+          && request.resource.data.imageUrl is string
+          && request.resource.data.imageUrl.size() > 0
+          && request.resource.data.imageUrl.size() <= 1000
+          && request.resource.data.imagePath
+            == 'profile_posts/' + userId + '/' + postId + '/image.jpg'
+          && request.resource.data.section in ['posts', 'vehicle']
+          && request.resource.data.visibility == 'public'
+          && (
+            request.resource.data.caption == null ||
+            (
+              request.resource.data.caption is string
+              && request.resource.data.caption.size() <= 220
+            )
+          )
+          && (
+            request.resource.data.vehicleLabel == null ||
+            (
+              request.resource.data.vehicleLabel is string
+              && request.resource.data.vehicleLabel.size() <= 120
+            )
+          )
+          && (
+            request.resource.data.locationLabel == null ||
+            (
+              request.resource.data.locationLabel is string
+              && request.resource.data.locationLabel.size() <= 120
+            )
+          )
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.isDeleted == false;
+        allow update: if false;
+        allow delete: if isOwner(userId);
+      }
+
       match /moderation_actions/{actionId} {
         allow read: if isOwner(userId);
         allow create, update, delete: if false;
@@ -1536,14 +2868,14 @@ service cloud.firestore {
 
       match /report_notifications/{reportId} {
         allow read: if isOwner(userId);
-        allow create: if isValidPlateHintReportNotificationCreate(userId, reportId);
+        allow create: if false;
         allow update: if isValidReportNotificationReadUpdate(userId);
         allow delete: if false;
       }
 
       match /sent_report_notifications/{reportId} {
         allow read: if isOwner(userId);
-        allow create: if isValidPlateHintSentReportNotificationCreate(userId, reportId);
+        allow create: if false;
         allow update, delete: if false;
       }
     }
@@ -1592,7 +2924,7 @@ service cloud.firestore {
 
     match /chats/{chatId} {
       allow read: if isSignedIn()
-        && isUndeletedChatParticipant(resource.data);
+        && request.auth.uid in resource.data.participants;
 
       allow create: if request.resource.data.requestId is string
         && isValidChatCreateForRequest(chatId, request.resource.data.requestId);
@@ -1619,9 +2951,9 @@ service cloud.firestore {
         allow create: if isValidTextMessageCreate(chatId)
           || isValidLocationMessageCreate(chatId)
           || isValidContactMessageCreate(chatId)
-          || isValidImageMessageCreate(chatId)
-          || isValidDocumentMessageCreate(chatId)
-          || isValidAudioMessageCreate(chatId);
+          || isValidImageMessageCreate(chatId, messageId)
+          || isValidDocumentMessageCreate(chatId, messageId)
+          || isValidAudioMessageCreate(chatId, messageId);
 
         allow update: if isValidMessageStarUpdate(chatId)
           || isValidMessageDeleteUpdate(chatId)
@@ -1633,27 +2965,39 @@ service cloud.firestore {
 
     match /chat_stories/{storyId} {
       allow read: if isSignedIn()
-        && request.auth.uid in resource.data.viewerUserIds
         && (
           request.auth.uid == resource.data.ownerUserId ||
-          resource.data.expiresAt > request.time
+          (
+            request.auth.uid in resource.data.viewerUserIds
+            && resource.data.isActive == true
+          )
         );
 
-      allow create: if isValidStoryOwnerWrite(storyId);
+      allow create: if isValidStoryOwnerWrite(storyId)
+        && request.resource.data.isActive == true;
 
-      allow update: if isValidStoryOwnerWrite(storyId)
+      allow update: if (
+          resource.data.ownerUserId == request.auth.uid
+          && isValidStoryOwnerWrite(storyId)
+          && request.resource.data.isActive == resource.data.isActive
+        )
         || isValidStoryViewUpdate()
         || isValidStoryViewerPhotoUpdate();
 
       allow delete: if isSignedIn()
-        && storyId == request.auth.uid;
+        && resource.data.ownerUserId == request.auth.uid;
     }
 
     match /reports/{reportId} {
-      allow read, update, delete: if false;
+      allow get: if isSignedIn()
+        && reportId.matches('^chat_.+_' + request.auth.uid + '$');
+      allow list, update, delete: if false;
 
-      allow create: if isValidChatReportCreate()
-        || isValidPlateHintReportCreate(reportId);
+      allow create: if isValidChatReportCreate(reportId);
+    }
+
+    match /report_rate_limits/{userId} {
+      allow read, write: if false;
     }
 
     match /verification_requests/{requestId} {

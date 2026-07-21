@@ -57,24 +57,152 @@ service firebase.storage {
         );
     }
 
+    function storyDocumentById(storyId) {
+      return firestore.get(
+        /databases/(default)/documents/chat_stories/$(storyId)
+      ).data;
+    }
+
+    function storyExistsById(storyId) {
+      return firestore.exists(
+        /databases/(default)/documents/chat_stories/$(storyId)
+      );
+    }
+
+    function storyMediaPathById(userId, storyId, fileName) {
+      return 'chat_stories/' + userId + '/' + storyId + '/' + fileName;
+    }
+
+    function canReadStoryMediaById(userId, storyId, fileName) {
+      return request.auth != null
+        && storyExistsById(storyId)
+        && storyDocumentById(storyId).ownerUserId == userId
+        && (
+          storyDocumentById(storyId).imagePath
+            == storyMediaPathById(userId, storyId, fileName)
+          || storyDocumentById(storyId).videoPath
+            == storyMediaPathById(userId, storyId, fileName)
+        )
+        && (
+          request.auth.uid == userId
+          || (
+            request.auth.uid in storyDocumentById(storyId).viewerUserIds
+            && storyDocumentById(storyId).expiresAt > request.time
+          )
+        );
+    }
+
+    function canReadPublicProfilePost(userId, postId, fileName) {
+      let postPath = /databases/(default)/documents/users/$(userId)/social_posts/$(postId);
+      return request.auth != null
+        && hasActiveProfileConnection(userId)
+        && firestore.exists(
+          /databases/(default)/documents/public_profiles/$(userId)
+        )
+        && firestore.get(
+          /databases/(default)/documents/public_profiles/$(userId)
+        ).data.profileAccessEnabled == true
+        && firestore.exists(postPath)
+        && firestore.get(postPath).data.visibility == 'public'
+        && firestore.get(postPath).data.isDeleted == false
+        && firestore.get(postPath).data.imagePath
+          == 'profile_posts/' + userId + '/' + postId + '/' + fileName;
+    }
+
+    function hasActiveProfileConnectionById(connectionId, targetUserId) {
+      let connectionPath = /databases/(default)/documents/profile_connections/$(connectionId);
+      return firestore.exists(connectionPath)
+        && firestore.get(connectionPath).data.status == 'active'
+        && firestore.get(connectionPath).data.participants.size() == 2
+        && firestore.get(connectionPath).data.participants.hasAll([
+          request.auth.uid,
+          targetUserId,
+        ])
+        && firestore.exists(
+          /databases/(default)/documents/chats/$(firestore.get(connectionPath).data.chatId)
+        )
+        && firestore.get(
+          /databases/(default)/documents/chats/$(firestore.get(connectionPath).data.chatId)
+        ).data.status in ['active', 'archived']
+        && firestore.get(
+          /databases/(default)/documents/chats/$(firestore.get(connectionPath).data.chatId)
+        ).data.get('deletedBy', {})[request.auth.uid] != true
+        && firestore.get(
+          /databases/(default)/documents/chats/$(firestore.get(connectionPath).data.chatId)
+        ).data.get('deletedBy', {})[targetUserId] != true;
+    }
+
+    function hasActiveProfileConnection(targetUserId) {
+      return request.auth != null
+        && (
+          request.auth.uid == targetUserId
+          || hasActiveProfileConnectionById(
+            request.auth.uid + '_' + targetUserId,
+            targetUserId
+          )
+          || hasActiveProfileConnectionById(
+            targetUserId + '_' + request.auth.uid,
+            targetUserId
+          )
+        );
+    }
+
+    function canReadVehicleGalleryImage(userId, vehicleId, fileName) {
+      let mediaPath = /databases/(default)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)/gallery/$(fileName);
+      return request.auth != null
+        && hasActiveProfileConnection(userId)
+        && firestore.exists(
+          /databases/(default)/documents/public_profiles/$(userId)
+        )
+        && firestore.get(
+          /databases/(default)/documents/public_profiles/$(userId)
+        ).data.profileAccessEnabled == true
+        && firestore.exists(mediaPath)
+        && firestore.get(mediaPath).data.visibility == 'contacts'
+        && firestore.get(mediaPath).data.isDeleted == false
+        && firestore.get(mediaPath).data.mediaPath
+          == 'vehicle_gallery/' + userId + '/' + vehicleId + '/' + fileName;
+    }
+
+    function canReadVehicleHeroImage(userId, vehicleId, fileName) {
+      let vehiclePath = /databases/(default)/documents/public_profiles/$(userId)/vehicles/$(vehicleId);
+      return request.auth != null
+        && hasActiveProfileConnection(userId)
+        && firestore.exists(
+          /databases/(default)/documents/public_profiles/$(userId)
+        )
+        && firestore.get(
+          /databases/(default)/documents/public_profiles/$(userId)
+        ).data.profileAccessEnabled == true
+        && firestore.exists(vehiclePath)
+        && firestore.get(vehiclePath).data.heroImageStatus == 'ready'
+        && firestore.get(vehiclePath).data.heroImagePath
+          == 'vehicle_heroes/' + userId + '/' + vehicleId + '/' + fileName;
+    }
+
     function isValidChatImageUpload(fileName) {
-      return fileName.matches('^[^/]+\\.jpg$')
+      return fileName.matches('^[A-Za-z0-9_-]{1,120}\\.jpg$')
         && request.resource.size > 0
-        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.size <= 10 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg';
     }
 
     function isValidChatVoiceMemoUpload(fileName) {
-      return fileName.matches('^[^/]+\\.m4a$')
+      return fileName.matches(
+        '^[A-Za-z0-9_-]{1,120}_[^/]{1,140}\\.m4a$'
+      )
         && request.resource.size > 0
-        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.size <= 15 * 1024 * 1024
         && request.resource.contentType == 'audio/mp4';
     }
 
     function isValidChatDocumentUpload(fileName) {
-      return fileName.matches('^[^/]{1,180}$')
+      return fileName.matches(
+        '^[A-Za-z0-9_-]{1,120}_[^/]{1,159}$'
+      )
+        && fileName.size() <= 180
         && request.resource.size > 0
-        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.size <= 25 * 1024 * 1024
         && (
           request.resource.contentType.matches('text/.*')
           || request.resource.contentType == 'application/pdf'
@@ -103,6 +231,20 @@ service firebase.storage {
         && request.resource.contentType == 'video/mp4';
     }
 
+    function isValidStoryItemImageUpload(fileName) {
+      return fileName == 'media.jpg'
+        && request.resource.size > 0
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function isValidStoryItemVideoUpload(fileName) {
+      return fileName == 'media.mp4'
+        && request.resource.size > 0
+        && request.resource.size < 80 * 1024 * 1024
+        && request.resource.contentType == 'video/mp4';
+    }
+
     function isValidReportImageUpload(fileName) {
       return fileName == 'evidence.jpg'
         && request.resource.size > 0
@@ -115,6 +257,28 @@ service firebase.storage {
         && request.resource.size > 0
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType == 'image/jpeg';
+    }
+
+    function isValidProfilePostImageUpload(fileName) {
+      return fileName == 'image.jpg'
+        && request.resource.size > 0
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+    }
+
+    function isValidVehicleGalleryMediaUpload(fileName) {
+      return fileName.matches('^[A-Za-z0-9_-]{1,160}$')
+        && request.resource.size > 0
+        && (
+          (
+            request.resource.size < 10 * 1024 * 1024
+            && request.resource.contentType == 'image/jpeg'
+          )
+          || (
+            request.resource.size < 80 * 1024 * 1024
+            && request.resource.contentType == 'video/mp4'
+          )
+        );
     }
 
     function isValidProfileDocumentUpload(documentType, fileName) {
@@ -205,6 +369,23 @@ service firebase.storage {
         && request.auth.uid == userId;
     }
 
+    match /chat_stories/{userId}/{storyId}/{fileName} {
+      allow read: if request.auth != null
+        && (
+          request.auth.uid == userId
+          || canReadStoryMediaById(userId, storyId, fileName)
+        );
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && storyId.matches('^[0-9]{12,24}$')
+        && (
+          isValidStoryItemImageUpload(fileName)
+          || isValidStoryItemVideoUpload(fileName)
+        );
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
     match /report_images/{reportId}/{userId}/{fileName} {
       allow read: if reportNotificationAllowsImageRead(reportId, userId, fileName)
         || sentReportNotificationAllowsImageRead(reportId, userId, fileName);
@@ -222,6 +403,41 @@ service firebase.storage {
         && isValidProfilePhotoUpload(fileName);
       allow delete: if request.auth != null
         && request.auth.uid == userId;
+    }
+
+    match /profile_posts/{userId}/{postId}/{fileName} {
+      allow read: if request.auth != null
+        && (
+          request.auth.uid == userId
+          || canReadPublicProfilePost(userId, postId, fileName)
+        );
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && isValidProfilePostImageUpload(fileName);
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    match /vehicle_gallery/{userId}/{vehicleId}/{fileName} {
+      allow read: if request.auth != null
+        && (
+          request.auth.uid == userId
+          || canReadVehicleGalleryImage(userId, vehicleId, fileName)
+        );
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && isValidVehicleGalleryMediaUpload(fileName);
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    match /vehicle_heroes/{userId}/{vehicleId}/{fileName} {
+      allow read: if request.auth != null
+        && (
+          request.auth.uid == userId
+          || canReadVehicleHeroImage(userId, vehicleId, fileName)
+        );
+      allow write: if false;
     }
 
     match /profile_documents/{userId}/{documentType}/{fileName} {

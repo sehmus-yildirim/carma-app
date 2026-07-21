@@ -5,12 +5,14 @@ import 'package:flutter/services.dart';
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/legal/legal_versions.dart';
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
-import '../../../shared/widgets/carisma_page_header.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/carisma_switch_row.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../chats/data/chat_repository.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../data/notification_settings_repository.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -57,13 +59,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF101827),
+          backgroundColor: CaRismaDesignTokens.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
           title: Row(
             children: [
-              Icon(icon, color: const Color(0xFF63D5FF)),
+              Icon(icon, color: CaRismaDesignTokens.bluePrimary),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -96,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text(
                 'Kopieren',
                 style: TextStyle(
-                  color: Color(0xFF63D5FF),
+                  color: CaRismaDesignTokens.bluePrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -106,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text(
                 'Schließen',
                 style: TextStyle(
-                  color: Color(0xFF63D5FF),
+                  color: CaRismaDesignTokens.bluePrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -131,13 +133,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF101827),
+          backgroundColor: CaRismaDesignTokens.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
           title: Row(
             children: [
-              Icon(icon, color: const Color(0xFF63D5FF)),
+              Icon(icon, color: CaRismaDesignTokens.bluePrimary),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -155,7 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             autofocus: true,
             maxLines: 5,
             minLines: 3,
-            cursorColor: const Color(0xFF63D5FF),
+            cursorColor: CaRismaDesignTokens.bluePrimary,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -167,7 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 fontWeight: FontWeight.w700,
               ),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.06),
+              fillColor: CaRismaDesignTokens.controlSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
                 borderSide: BorderSide(
@@ -182,7 +184,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
-                borderSide: const BorderSide(color: Color(0xFF63D5FF)),
+                borderSide: const BorderSide(
+                  color: CaRismaDesignTokens.bluePrimary,
+                ),
               ),
             ),
           ),
@@ -216,7 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text(
                 'Kopieren',
                 style: TextStyle(
-                  color: Color(0xFF63D5FF),
+                  color: CaRismaDesignTokens.bluePrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -288,12 +292,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       case 'Blockierte Nutzer':
       case 'Nutzer blockieren':
-        _showSettingsInfo(
-          title: 'Blockierte Nutzer',
-          icon: Icons.block_rounded,
-          body:
-              'Blockierte Nutzer und Kennzeichen werden hier gesammelt verwaltet, sobald die Blockierliste serverseitig angebunden ist.\n\n'
-              'Blockieren selbst erfolgt direkt im jeweiligen Chat oder Kontaktkontext.',
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const _BlockedChatsSettingsScreen(),
+          ),
         );
         return;
       case 'Einwilligungen verwalten':
@@ -501,7 +503,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF101827),
+          backgroundColor: CaRismaDesignTokens.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -561,7 +563,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF101827),
+          backgroundColor: CaRismaDesignTokens.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -591,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: const Text(
                   'Bestätigen',
                   style: TextStyle(
-                    color: Color(0xFF63D5FF),
+                    color: CaRismaDesignTokens.bluePrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -613,7 +615,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text(
                 'Kopieren',
                 style: TextStyle(
-                  color: Color(0xFF63D5FF),
+                  color: CaRismaDesignTokens.bluePrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -623,7 +625,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text(
                 'Schließen',
                 style: TextStyle(
-                  color: Color(0xFF63D5FF),
+                  color: CaRismaDesignTokens.bluePrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -878,6 +880,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _openProfileManagement() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(userState: widget.userState),
+      ),
+    );
+  }
+
   void _openPrivacy() {
     _openDetailPage(
       icon: Icons.privacy_tip_rounded,
@@ -1058,29 +1068,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(20, 18, 20, 112 + keyboardInset),
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 84 + keyboardInset),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 112,
+                  minHeight: constraints.maxHeight - 84,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CaRismaPageHeader(
-                      icon: Icons.settings_rounded,
-                      title: 'Einstellungen',
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Verwalte Konto, Datenschutz, Sicherheit und App-Informationen.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16.5,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
                     _SettingsGroupCard(
                       title: 'Konto',
                       icon: Icons.person_outline_rounded,
@@ -1091,6 +1086,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           description:
                               'Login, Passwort, Abmeldung und Konto löschen.',
                           onTap: _openAccountSecurity,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _SettingsGroupCard(
+                      title: 'Profil & Verifizierung',
+                      icon: Icons.verified_user_outlined,
+                      children: [
+                        _SettingsRow(
+                          icon: Icons.person_rounded,
+                          title: 'Persönliche Daten',
+                          description:
+                              'Name, Profilbild und persönliche Angaben bearbeiten.',
+                          onTap: _openProfileManagement,
+                        ),
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.upload_file_rounded,
+                          title: 'Dokumente hochladen',
+                          description:
+                              'Ausweis, Führerschein und Fahrzeugschein einreichen.',
+                          onTap: _openProfileManagement,
+                        ),
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.directions_car_rounded,
+                          title: 'Fahrzeuge & Kennzeichen',
+                          description:
+                              'Fahrzeug, Kennzeichen und Sichtbarkeit verwalten.',
+                          onTap: _openProfileManagement,
                         ),
                       ],
                     ),
@@ -1211,6 +1236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 18),
                     const _AppVersionCard(),
                   ],
                 ),
@@ -1251,12 +1277,15 @@ class _SettingsGroupCard extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFF1E7BFF), Color(0xFF0B5EF5)],
+                    colors: [
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
+                    ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(icon, color: const Color(0xFF1E7BFF), size: 18),
+              Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 18),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -1301,7 +1330,7 @@ class _SettingsRow extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: Colors.white.withValues(alpha: 0.06),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
           ),
           child: Row(
@@ -1382,11 +1411,16 @@ class _AppVersionCard extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF0B5EF5), Color(0xFF1E7BFF)],
+                    colors: [
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
+                    ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0xFF1E7BFF).withValues(alpha: 0.30),
+                      color: CaRismaDesignTokens.bluePrimary.withValues(
+                        alpha: 0.30,
+                      ),
                       blurRadius: 10,
                       offset: Offset(0, 4),
                     ),
@@ -1416,6 +1450,335 @@ class _AppVersionCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedChatsSettingsScreen extends StatefulWidget {
+  const _BlockedChatsSettingsScreen();
+
+  @override
+  State<_BlockedChatsSettingsScreen> createState() =>
+      _BlockedChatsSettingsScreenState();
+}
+
+class _BlockedChatsSettingsScreenState
+    extends State<_BlockedChatsSettingsScreen> {
+  final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
+  final Set<String> _busyChatIds = <String>{};
+
+  String get _currentUserId => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  Future<void> _unblock(ChatRecord chat) async {
+    final userId = _currentUserId.trim();
+
+    if (userId.isEmpty || _busyChatIds.contains(chat.id)) return;
+
+    final shouldUnblock = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: CaRismaDesignTokens.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          'Kontakt entblocken?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        content: Text(
+          '${chat.displayNameFor(userId)} kann dir danach wieder Nachrichten senden.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.76),
+            fontWeight: FontWeight.w700,
+            height: 1.35,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Entblocken'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldUnblock != true || !mounted) return;
+
+    setState(() => _busyChatIds.add(chat.id));
+
+    try {
+      await _chatRepository.unblockChat(chatId: chat.id, userId: userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Der Kontakt wurde entblockt.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Der Kontakt konnte nicht entblockt werden. Bitte versuche es erneut.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _busyChatIds.remove(chat.id));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userId = _currentUserId.trim();
+    final stream = userId.isEmpty
+        ? Stream<List<ChatRecord>>.value(const <ChatRecord>[])
+        : _chatRepository.watchBlockedChats(userId: userId);
+
+    return CaRismaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                child: CaRismaSubPageHeader(
+                  icon: Icons.block_rounded,
+                  title: 'Blockierte Nutzer',
+                  onBack: () => Navigator.of(context).pop(),
+                ),
+              ),
+              Expanded(
+                child: StreamBuilder<List<ChatRecord>>(
+                  stream: stream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: CaRismaDesignTokens.bluePrimary,
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return const _BlockedChatsEmptyState(
+                        icon: Icons.cloud_off_rounded,
+                        title:
+                            'Blockierte Kontakte konnten nicht geladen werden',
+                        description:
+                            'Bitte prüfe deine Verbindung und versuche es erneut.',
+                      );
+                    }
+
+                    final blockedChats = snapshot.data ?? const <ChatRecord>[];
+
+                    if (blockedChats.isEmpty) {
+                      return const _BlockedChatsEmptyState(
+                        icon: Icons.person_outline_rounded,
+                        title: 'Keine blockierten Nutzer',
+                        description:
+                            'Blockierte Kontakte werden hier angezeigt.',
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                      itemCount: blockedChats.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final chat = blockedChats[index];
+                        final imageUrl =
+                            chat.profilePhotoUrlFor(userId)?.trim() ?? '';
+                        final details = <String>[
+                          chat.vehicleModelLabel.trim(),
+                          chat.displayPlate?.trim() ?? '',
+                        ].where((value) => value.isNotEmpty).join(' · ');
+                        final isBusy = _busyChatIds.contains(chat.id);
+
+                        return GlassCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+                              _BlockedChatAvatar(
+                                imageUrl: imageUrl,
+                                label: chat.displayNameFor(userId),
+                              ),
+                              const SizedBox(width: 13),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      chat.displayNameFor(userId),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    if (details.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        details,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.62,
+                                          ),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              OutlinedButton(
+                                onPressed: isBusy ? null : () => _unblock(chat),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor:
+                                      CaRismaDesignTokens.bluePrimary,
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                ),
+                                child: isBusy
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color:
+                                              CaRismaDesignTokens.bluePrimary,
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Entblocken',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedChatAvatar extends StatelessWidget {
+  const _BlockedChatAvatar({required this.imageUrl, required this.label});
+
+  final String imageUrl;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = label.trim().isEmpty
+        ? '?'
+        : label.trim().characters.first.toUpperCase();
+
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: imageUrl.isEmpty
+          ? Center(
+              child: Text(
+                fallback,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            )
+          : Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Center(
+                child: Text(
+                  fallback,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+class _BlockedChatsEmptyState extends StatelessWidget {
+  const _BlockedChatsEmptyState({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 38),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.62),
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1555,7 +1918,7 @@ class _LegalContentScreen extends StatelessWidget {
                     icon: const Icon(Icons.copy_rounded, size: 18),
                     label: const Text('Text kopieren'),
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF63D5FF),
+                      foregroundColor: CaRismaDesignTokens.bluePrimary,
                       textStyle: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),
@@ -1662,7 +2025,7 @@ class _LegalSectionBlock extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white.withValues(alpha: 0.06),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Column(
@@ -5137,7 +5500,7 @@ class _SettingsDetailTile extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: Colors.white.withValues(alpha: 0.06),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(
               color: item.isDestructive
                   ? const Color(0xFFFF8A8A).withValues(alpha: 0.24)

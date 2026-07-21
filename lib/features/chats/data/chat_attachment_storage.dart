@@ -61,6 +61,17 @@ class ChatAttachmentStorage {
   static const int _maxChatVoiceMemoBytes = 15 * 1024 * 1024;
   static const int _maxStoryImageBytes = 10 * 1024 * 1024;
   static const int _maxStoryVideoBytes = 80 * 1024 * 1024;
+  static const Set<String> _allowedChatDocumentContentTypes = {
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/rtf',
+    'application/octet-stream',
+  };
 
   final FirebaseStorage _storage;
 
@@ -70,15 +81,12 @@ class ChatAttachmentStorage {
     required String messageId,
     required File file,
   }) async {
-    final trimmedChatId = chatId.trim();
-    final trimmedUserId = userId.trim();
-    final trimmedMessageId = messageId.trim();
-
-    if (trimmedChatId.isEmpty ||
-        trimmedUserId.isEmpty ||
-        trimmedMessageId.isEmpty) {
-      throw ArgumentError('Chat, user and message IDs must not be empty.');
-    }
+    final trimmedChatId = _requireStoragePathSegment(chatId, 'Chat-ID');
+    final trimmedUserId = _requireStoragePathSegment(userId, 'Nutzer-ID');
+    final trimmedMessageId = _requireStoragePathSegment(
+      messageId,
+      'Nachrichten-ID',
+    );
 
     await _ensureUploadFits(
       file: file,
@@ -92,12 +100,13 @@ class ChatAttachmentStorage {
     final reference = _storage.ref(path);
     final metadata = SettableMetadata(contentType: 'image/jpeg');
 
-    await reference.putFile(file, metadata);
-
-    return ChatImageUploadResult(
-      path: path,
-      url: await reference.getDownloadURL(),
+    final url = await _uploadChatFileAndResolveUrl(
+      reference: reference,
+      file: file,
+      metadata: metadata,
     );
+
+    return ChatImageUploadResult(path: path, url: url);
   }
 
   Future<ChatImageUploadResult> uploadChatStoryImage({
@@ -109,7 +118,7 @@ class ChatAttachmentStorage {
     final trimmedStoryId = storyId.trim();
 
     if (trimmedUserId.isEmpty || !_isSafeStoryId(trimmedStoryId)) {
-      throw ArgumentError('User and story IDs must not be empty.');
+      throw ArgumentError('Nutzer- oder Story-ID ist ungültig.');
     }
 
     await _ensureUploadFits(
@@ -119,7 +128,7 @@ class ChatAttachmentStorage {
       tooLargeMessage: 'Story-Foto ist zu groß. Maximal 10 MB.',
     );
 
-    final path = 'chat_stories/$trimmedUserId/$trimmedStoryId.jpg';
+    final path = 'chat_stories/$trimmedUserId/$trimmedStoryId/media.jpg';
     final reference = _storage.ref(path);
     final metadata = SettableMetadata(contentType: 'image/jpeg');
 
@@ -140,7 +149,7 @@ class ChatAttachmentStorage {
     final trimmedStoryId = storyId.trim();
 
     if (trimmedUserId.isEmpty || !_isSafeStoryId(trimmedStoryId)) {
-      throw ArgumentError('User and story IDs must not be empty.');
+      throw ArgumentError('Nutzer- oder Story-ID ist ungültig.');
     }
 
     await _ensureUploadFits(
@@ -150,7 +159,7 @@ class ChatAttachmentStorage {
       tooLargeMessage: 'Story-Video ist zu groß. Maximal 80 MB.',
     );
 
-    final path = 'chat_stories/$trimmedUserId/$trimmedStoryId.mp4';
+    final path = 'chat_stories/$trimmedUserId/$trimmedStoryId/media.mp4';
     final reference = _storage.ref(path);
     final metadata = SettableMetadata(contentType: 'video/mp4');
 
@@ -163,9 +172,9 @@ class ChatAttachmentStorage {
     final trimmedPath = path.trim();
 
     if (!RegExp(
-      r'^chat_stories/[^/]+/[0-9]{12,24}\.(jpg|mp4)$',
+      r'^chat_stories/[^/]+/(?:[0-9]{12,24}\.(?:jpg|mp4)|[0-9]{12,24}/media\.(?:jpg|mp4))$',
     ).hasMatch(trimmedPath)) {
-      throw ArgumentError('Story media path is invalid.');
+      throw ArgumentError('Der Story-Medienpfad ist ungültig.');
     }
 
     return _storage.ref(trimmedPath).getDownloadURL();
@@ -179,9 +188,9 @@ class ChatAttachmentStorage {
     }
 
     if (!RegExp(
-      r'^chat_stories/[^/]+/[0-9]{12,24}\.(jpg|mp4)$',
+      r'^chat_stories/[^/]+/(?:[0-9]{12,24}\.(?:jpg|mp4)|[0-9]{12,24}/media\.(?:jpg|mp4))$',
     ).hasMatch(trimmedPath)) {
-      throw ArgumentError('Story media path is invalid.');
+      throw ArgumentError('Der Story-Medienpfad ist ungültig.');
     }
 
     await _storage.ref(trimmedPath).delete();
@@ -211,29 +220,39 @@ class ChatAttachmentStorage {
     required String fileName,
     String? contentType,
   }) async {
-    final trimmedChatId = chatId.trim();
-    final trimmedUserId = userId.trim();
-    final trimmedMessageId = messageId.trim();
+    final trimmedChatId = _requireStoragePathSegment(chatId, 'Chat-ID');
+    final trimmedUserId = _requireStoragePathSegment(userId, 'Nutzer-ID');
+    final trimmedMessageId = _requireStoragePathSegment(
+      messageId,
+      'Nachrichten-ID',
+    );
     final trimmedFileName = fileName.trim();
     final effectiveContentType = _normalizedContentType(
       contentType,
       fallback: 'application/octet-stream',
     );
 
-    if (trimmedChatId.isEmpty ||
-        trimmedUserId.isEmpty ||
-        trimmedMessageId.isEmpty ||
-        trimmedFileName.isEmpty) {
-      throw ArgumentError('Chat, user, message and file names are required.');
+    if (trimmedFileName.isEmpty) {
+      throw ArgumentError('Der Dateiname darf nicht leer sein.');
+    }
+
+    if (trimmedFileName.length > 160) {
+      throw ArgumentError('Der Dateiname ist zu lang.');
+    }
+
+    if (!_isAllowedChatDocumentContentType(effectiveContentType)) {
+      throw const ChatAttachmentStorageException(
+        'Dieser Dokumenttyp wird nicht unterstützt.',
+      );
     }
 
     final fileSizeBytes = await file.length();
 
     if (fileSizeBytes <= 0) {
-      throw ArgumentError('Document file must not be empty.');
+      throw const ChatAttachmentStorageException('Das Dokument ist leer.');
     }
 
-    if (fileSizeBytes >= _maxChatDocumentBytes) {
+    if (fileSizeBytes > _maxChatDocumentBytes) {
       throw const ChatAttachmentStorageException(
         'Dokument ist zu groß. Maximal 25 MB.',
       );
@@ -254,11 +273,15 @@ class ChatAttachmentStorage {
     final reference = _storage.ref(path);
     final metadata = SettableMetadata(contentType: effectiveContentType);
 
-    await reference.putFile(file, metadata);
+    final url = await _uploadChatFileAndResolveUrl(
+      reference: reference,
+      file: file,
+      metadata: metadata,
+    );
 
     return ChatDocumentUploadResult(
       path: path,
-      url: await reference.getDownloadURL(),
+      url: url,
       fileName: trimmedFileName,
       fileSizeBytes: fileSizeBytes,
       contentType: effectiveContentType,
@@ -273,27 +296,24 @@ class ChatAttachmentStorage {
     required String fileName,
     String? contentType,
   }) async {
-    final trimmedChatId = chatId.trim();
-    final trimmedUserId = userId.trim();
-    final trimmedMessageId = messageId.trim();
+    final trimmedChatId = _requireStoragePathSegment(chatId, 'Chat-ID');
+    final trimmedUserId = _requireStoragePathSegment(userId, 'Nutzer-ID');
+    final trimmedMessageId = _requireStoragePathSegment(
+      messageId,
+      'Nachrichten-ID',
+    );
     final trimmedFileName = fileName.trim().isEmpty
         ? 'Sprachmemo.m4a'
         : fileName.trim();
     final effectiveContentType = 'audio/mp4';
 
-    if (trimmedChatId.isEmpty ||
-        trimmedUserId.isEmpty ||
-        trimmedMessageId.isEmpty) {
-      throw ArgumentError('Chat, user and message IDs are required.');
-    }
-
     final fileSizeBytes = await file.length();
 
     if (fileSizeBytes <= 0) {
-      throw ArgumentError('Voice memo file must not be empty.');
+      throw const ChatAttachmentStorageException('Die Sprachmemo ist leer.');
     }
 
-    if (fileSizeBytes >= _maxChatVoiceMemoBytes) {
+    if (fileSizeBytes > _maxChatVoiceMemoBytes) {
       throw const ChatAttachmentStorageException(
         'Sprachmemo ist zu groß. Maximal 15 MB.',
       );
@@ -305,11 +325,15 @@ class ChatAttachmentStorage {
     final reference = _storage.ref(path);
     final metadata = SettableMetadata(contentType: effectiveContentType);
 
-    await reference.putFile(file, metadata);
+    final url = await _uploadChatFileAndResolveUrl(
+      reference: reference,
+      file: file,
+      metadata: metadata,
+    );
 
     return ChatVoiceMemoUploadResult(
       path: path,
-      url: await reference.getDownloadURL(),
+      url: url,
       fileName: safeFileName,
       fileSizeBytes: fileSizeBytes,
       contentType: effectiveContentType,
@@ -328,9 +352,47 @@ class ChatAttachmentStorage {
       throw ChatAttachmentStorageException(emptyMessage);
     }
 
-    if (fileSizeBytes >= maxBytes) {
+    if (fileSizeBytes > maxBytes) {
       throw ChatAttachmentStorageException(tooLargeMessage);
     }
+  }
+
+  Future<String> _uploadChatFileAndResolveUrl({
+    required Reference reference,
+    required File file,
+    required SettableMetadata metadata,
+  }) async {
+    await reference.putFile(file, metadata);
+
+    try {
+      return await reference.getDownloadURL();
+    } catch (error) {
+      try {
+        await reference.delete();
+      } catch (cleanupError) {
+        throw ChatAttachmentStorageException(
+          'Der Upload konnte nicht abgeschlossen und die Datei nicht '
+          'bereinigt werden: $cleanupError',
+        );
+      }
+
+      rethrow;
+    }
+  }
+
+  String _requireStoragePathSegment(String value, String label) {
+    final trimmedValue = value.trim();
+
+    if (!RegExp(r'^[A-Za-z0-9_-]{1,120}$').hasMatch(trimmedValue)) {
+      throw ArgumentError('$label ist ungültig.');
+    }
+
+    return trimmedValue;
+  }
+
+  bool _isAllowedChatDocumentContentType(String contentType) {
+    return contentType.startsWith('text/') ||
+        _allowedChatDocumentContentTypes.contains(contentType);
   }
 
   String _safeStorageFileName(

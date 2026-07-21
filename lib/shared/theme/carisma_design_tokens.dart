@@ -3,20 +3,21 @@ import 'package:flutter/material.dart';
 class CaRismaDesignTokens {
   const CaRismaDesignTokens._();
 
-  static const Color background = Color(0xFF090A0C);
-  static const Color backgroundTop = Color(0xFF0F1014);
-  static const Color backgroundMid = Color(0xFF0C0D10);
-  static const Color surface1 = Color(0xFF101115);
-  static const Color surface2 = Color(0xFF14161C);
+  static const Color background = Color(0xFF0A0D12);
+  static const Color backgroundTop = Color(0xFF0A0D12);
+  static const Color backgroundMid = Color(0xFF0A0D12);
+  static const Color surface1 = Color(0xFF121419);
   static const Color card = Color(0xFF121419);
-  static const Color cardHighlight = Color(0xFF181A22);
+  static const Color surface2 = card;
+  static const Color cardHighlight = card;
+  static const Color controlSurface = Color(0xFF121419);
   static const Color border = Color(0x0AFFFFFF);
   static const Color textPrimary = Color(0xFFF4F7FB);
   static const Color textSecondary = Color(0xFFAAB3C2);
   static const Color textMuted = Color(0xFF6F7A8A);
-  static const Color bluePrimary = Color(0xFF1E7BFF);
-  static const Color blueBright = Color(0xFF28A8FF);
-  static const Color blueDark = Color(0xFF063264);
+  static const Color bluePrimary = Color(0xFF1A5CBA);
+  static const Color blueBright = bluePrimary;
+  static const Color blueDark = bluePrimary;
   static const Color danger = Color(0xFFFF4D4F);
   static const Color success = Color(0xFF22C55E);
 
@@ -27,9 +28,10 @@ class CaRismaDesignTokens {
   static const double radiusNav = 34;
 
   static const LinearGradient screenGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [backgroundTop, backgroundMid, background],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0A0D12), Color(0xFF0A0D12), Color(0xFF0A0D12)],
+    stops: [0, 0.52, 1],
   );
 
   static const LinearGradient blueGradient = LinearGradient(
@@ -41,18 +43,14 @@ class CaRismaDesignTokens {
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [cardHighlight, card, surface2],
+    colors: [card, card, card],
   );
 
   static LinearGradient surfaceGradient({double highlightAlpha = 1}) {
-    return LinearGradient(
+    return const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [
-        cardHighlight.withValues(alpha: highlightAlpha),
-        card,
-        surface1,
-      ],
+      colors: [card, card, card],
     );
   }
 

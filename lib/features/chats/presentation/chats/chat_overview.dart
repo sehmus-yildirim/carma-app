@@ -67,7 +67,7 @@ class _ChatsSegmentedControl extends StatelessWidget {
           padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
-            color: Colors.white.withValues(alpha: 0.02),
+            color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
@@ -124,6 +124,8 @@ class _SegmentButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
@@ -136,9 +138,9 @@ class _SegmentButton extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF1260E8),
-                      Color(0xFF1E7BFF),
-                      Color(0xFF28A8FF),
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
                     ],
                   )
                 : null,
@@ -236,7 +238,7 @@ class _ChatSearchField extends StatelessWidget {
               },
             ),
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.02),
+            fillColor: CaRismaDesignTokens.controlSurface,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 18,
@@ -271,7 +273,6 @@ class _ChatsOverview extends StatelessWidget {
   const _ChatsOverview({
     required this.chats,
     required this.archivedChats,
-    required this.blockedChats,
     required this.stories,
     required this.currentUserPhotoUrl,
     required this.isAddingOwnStory,
@@ -280,9 +281,11 @@ class _ChatsOverview extends StatelessWidget {
     required this.localMessages,
     required this.searchQuery,
     required this.selectedListView,
+    required this.showArchiveShortcut,
     required this.matchesChat,
-    required this.onListViewChanged,
-    required this.onHorizontalSwipe,
+    required this.onOpenArchived,
+    required this.onShowMessages,
+    required this.onHideArchiveShortcut,
     required this.onOpenChat,
     required this.onOpenLocalChat,
     required this.onAddOwnStory,
@@ -291,7 +294,6 @@ class _ChatsOverview extends StatelessWidget {
 
   final List<ChatRecord> chats;
   final List<ChatRecord> archivedChats;
-  final List<ChatRecord> blockedChats;
   final List<ChatStoryRecord> stories;
   final String currentUserPhotoUrl;
   final bool isAddingOwnStory;
@@ -300,9 +302,11 @@ class _ChatsOverview extends StatelessWidget {
   final List<_LocalChatMessage> localMessages;
   final String searchQuery;
   final _ChatListView selectedListView;
+  final bool showArchiveShortcut;
   final bool Function(ChatRecord chat) matchesChat;
-  final ValueChanged<_ChatListView> onListViewChanged;
-  final GestureDragEndCallback onHorizontalSwipe;
+  final VoidCallback onOpenArchived;
+  final VoidCallback onShowMessages;
+  final VoidCallback onHideArchiveShortcut;
   final ValueChanged<ChatRecord> onOpenChat;
   final VoidCallback onOpenLocalChat;
   final ValueChanged<List<ChatRecord>> onAddOwnStory;
@@ -315,14 +319,11 @@ class _ChatsOverview extends StatelessWidget {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
     final visibleChats = chats.where(matchesChat).toList();
     final visibleArchivedChats = archivedChats.where(matchesChat).toList();
-    final visibleBlockedChats = blockedChats.where(matchesChat).toList();
     final hasSearchQuery = searchQuery.trim().isNotEmpty;
     final isArchivedView = selectedListView == _ChatListView.archived;
-    final isBlockedView = selectedListView == _ChatListView.blocked;
     final selectedChats = switch (selectedListView) {
       _ChatListView.messages => visibleChats,
       _ChatListView.archived => visibleArchivedChats,
-      _ChatListView.blocked => visibleBlockedChats,
     };
     final showLocalChat =
         selectedListView == _ChatListView.messages &&
@@ -336,7 +337,16 @@ class _ChatsOverview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (!isKeyboardOpen) ...[
+        if (selectedListView == _ChatListView.messages &&
+            showArchiveShortcut) ...[
+          _ArchivedChatsReveal(
+            archivedCount: archivedChats.length,
+            onOpen: onOpenArchived,
+            onCollapse: onHideArchiveShortcut,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (!isKeyboardOpen && selectedListView == _ChatListView.messages) ...[
           _ChatStoriesStrip(
             chats: [...visibleChats, ...visibleArchivedChats],
             stories: stories,
@@ -347,107 +357,196 @@ class _ChatsOverview extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-        _InlineTextTabs<_ChatListView>(
-          selectedValue: selectedListView,
-          isCompact: isKeyboardOpen,
-          items: const [
-            _InlineTextTabItem(
-              value: _ChatListView.messages,
-              label: 'Nachrichten',
-            ),
-            _InlineTextTabItem(
-              value: _ChatListView.archived,
-              label: 'Archiviert',
-            ),
-            _InlineTextTabItem(
-              value: _ChatListView.blocked,
-              label: 'Blockiert',
-            ),
-          ],
-          onChanged: onListViewChanged,
-        ),
-        SizedBox(height: isKeyboardOpen ? 6 : 12),
-        GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragEnd: onHorizontalSwipe,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        if (isArchivedView) ...[
+          _ArchivedChatsHeader(onBack: onShowMessages),
+          SizedBox(height: isKeyboardOpen ? 8 : 14),
+        ],
+        if (isLoading)
+          const _InlineLoadingRow(label: 'Chats werden geladen...')
+        else if (selectedChats.isEmpty && !showLocalChat)
+          _EmptyListCard(
+            icon: isArchivedView
+                ? Icons.archive_outlined
+                : Icons.chat_bubble_outline_rounded,
+            title: hasSearchQuery
+                ? 'Keine Treffer'
+                : isArchivedView
+                ? 'Keine archivierten Chats'
+                : 'Keine Chats',
+          )
+        else
+          Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (isLoading)
-                const _InlineLoadingRow(label: 'Chats werden geladen...')
-              else if (selectedChats.isEmpty && !showLocalChat)
-                _EmptyListCard(
-                  icon: isBlockedView
-                      ? Icons.block_rounded
-                      : isArchivedView
-                      ? Icons.archive_outlined
-                      : Icons.chat_bubble_outline_rounded,
-                  title: hasSearchQuery
-                      ? 'Keine Treffer'
-                      : isBlockedView
-                      ? 'Keine blockierten Chats'
-                      : isArchivedView
-                      ? 'Keine archivierten Chats'
-                      : 'Keine Chats',
-                )
-              else
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final chat in selectedChats) ...[
-                      _ActiveChatListTile(
-                        title: chat.displayNameFor(currentUserId),
-                        imageUrl: chat.profilePhotoUrlFor(currentUserId),
-                        subtitle: chat.lastMessage?.trim().isNotEmpty == true
-                            ? chat.lastMessage!.trim()
-                            : chat.vehicleTitle,
-                        isFavorite: chat.isFavoriteFor(currentUserId),
-                        isPinned: chat.isPinnedFor(currentUserId),
-                        isMuted: chat.isMutedFor(currentUserId),
-                        isUnread: chat.hasUnreadFor(currentUserId),
-                        trailing: _ChatOverflowMenu(
-                          chatId: chat.id,
-                          title: chat.displayNameFor(currentUserId),
-                          subtitle:
-                              '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
-                          vehicleLabel: chat.vehicleModelLabel,
-                          plateLabel: _formatChatPlateLabel(chat.displayPlate),
-                          isFavorite: chat.isFavoriteFor(currentUserId),
-                          isPinned: chat.isPinnedFor(currentUserId),
-                          isMuted: chat.isMutedFor(currentUserId),
-                          isUnread: chat.hasUnreadFor(currentUserId),
-                          isBlocked: isBlockedView,
-                          isArchived: isArchivedView,
-                          popAfterStatusAction: false,
-                        ),
-                        onTap: isBlockedView ? () {} : () => onOpenChat(chat),
-                      ),
-                      const SizedBox(height: 6),
-                    ],
-                    if (showLocalChat) ...[
-                      _ActiveChatListTile(
-                        title: 'CaRisma Nutzer',
-                        subtitle: localMessages.isNotEmpty
-                            ? localMessages.last.text
-                            : 'BMW 1er',
-                        trailing: const _ChatOverflowMenu(
-                          title: 'CaRisma Nutzer',
-                          subtitle: 'BMW 1er - HH-HY 4747',
-                          vehicleLabel: 'BMW 1er',
-                          plateLabel: 'HH-HY 4747',
-                          popAfterStatusAction: false,
-                        ),
-                        onTap: onOpenLocalChat,
-                      ),
-                      const SizedBox(height: 6),
-                    ],
-                  ],
+              for (final chat in selectedChats) ...[
+                _ActiveChatListTile(
+                  title: chat.displayNameFor(currentUserId),
+                  imageUrl: chat.profilePhotoUrlFor(currentUserId),
+                  subtitle: chat.lastMessage?.trim().isNotEmpty == true
+                      ? chat.lastMessage!.trim()
+                      : chat.vehicleTitle,
+                  isFavorite: chat.isFavoriteFor(currentUserId),
+                  isPinned: chat.isPinnedFor(currentUserId),
+                  isMuted: chat.isMutedFor(currentUserId),
+                  isUnread: chat.hasUnreadFor(currentUserId),
+                  trailing: _ChatOverflowMenu(
+                    chatId: chat.id,
+                    title: chat.displayNameFor(currentUserId),
+                    subtitle:
+                        '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
+                    vehicleLabel: chat.vehicleModelLabel,
+                    plateLabel: _formatChatPlateLabel(chat.displayPlate),
+                    isFavorite: chat.isFavoriteFor(currentUserId),
+                    isPinned: chat.isPinnedFor(currentUserId),
+                    isMuted: chat.isMutedFor(currentUserId),
+                    isUnread: chat.hasUnreadFor(currentUserId),
+                    isArchived: isArchivedView,
+                    popAfterStatusAction: false,
+                  ),
+                  onTap: () => onOpenChat(chat),
                 ),
+                const SizedBox(height: 6),
+              ],
+              if (showLocalChat) ...[
+                _ActiveChatListTile(
+                  title: 'CaRisma Nutzer',
+                  subtitle: localMessages.isNotEmpty
+                      ? localMessages.last.text
+                      : 'BMW 1er',
+                  trailing: const _ChatOverflowMenu(
+                    title: 'CaRisma Nutzer',
+                    subtitle: 'BMW 1er - HH-HY 4747',
+                    vehicleLabel: 'BMW 1er',
+                    plateLabel: 'HH-HY 4747',
+                    popAfterStatusAction: false,
+                  ),
+                  onTap: onOpenLocalChat,
+                ),
+                const SizedBox(height: 6),
+              ],
             ],
           ),
-        ),
       ],
+    );
+  }
+}
+
+class _ArchivedChatsReveal extends StatelessWidget {
+  const _ArchivedChatsReveal({
+    required this.archivedCount,
+    required this.onOpen,
+    required this.onCollapse,
+  });
+
+  final int archivedCount;
+  final VoidCallback onOpen;
+  final VoidCallback onCollapse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: CaRismaDesignTokens.card,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onOpen,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.archive_outlined,
+                      color: _carismaBlueLight,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Archiviert',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    if (archivedCount > 0)
+                      Text(
+                        '$archivedCount',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.62),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.white.withValues(alpha: 0.62),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onCollapse,
+            child: SizedBox(
+              width: 48,
+              height: 54,
+              child: Icon(
+                Icons.keyboard_arrow_up_rounded,
+                color: Colors.white.withValues(alpha: 0.66),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArchivedChatsHeader extends StatelessWidget {
+  const _ArchivedChatsHeader({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onBack,
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          children: [
+            const Icon(
+              Icons.arrow_back_rounded,
+              color: _carismaBlueLight,
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Archivierte Chats',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -457,9 +556,7 @@ class _RequestsOverview extends StatelessWidget {
     required this.incomingStream,
     required this.outgoingStream,
     required this.busyRequestIds,
-    required this.searchQuery,
     required this.selectedListView,
-    required this.matchesRequest,
     required this.onListViewChanged,
     required this.onHorizontalSwipe,
     required this.onAccept,
@@ -471,9 +568,7 @@ class _RequestsOverview extends StatelessWidget {
   final Stream<List<ContactRequestRecord>> incomingStream;
   final Stream<List<ContactRequestRecord>> outgoingStream;
   final Set<String> busyRequestIds;
-  final String searchQuery;
   final _RequestListView selectedListView;
-  final bool Function(ContactRequestRecord request) matchesRequest;
   final ValueChanged<_RequestListView> onListViewChanged;
   final GestureDragEndCallback onHorizontalSwipe;
   final ValueChanged<ContactRequestRecord> onAccept;
@@ -489,26 +584,26 @@ class _RequestsOverview extends StatelessWidget {
           stream: outgoingStream,
           builder: (context, outgoingSnapshot) {
             final incoming =
-                (incomingSnapshot.data ?? const <ContactRequestRecord>[])
-                    .where(matchesRequest)
-                    .toList();
+                incomingSnapshot.data ?? const <ContactRequestRecord>[];
             final outgoing =
-                (outgoingSnapshot.data ?? const <ContactRequestRecord>[])
-                    .where(matchesRequest)
-                    .toList();
+                outgoingSnapshot.data ?? const <ContactRequestRecord>[];
             final isLoading =
                 incomingSnapshot.connectionState == ConnectionState.waiting ||
                 outgoingSnapshot.connectionState == ConnectionState.waiting;
             final error = incomingSnapshot.error ?? outgoingSnapshot.error;
 
             if (error != null) {
-              return _InlineErrorCard(message: error.toString());
+              return _InlineErrorCard(
+                message: _friendlyChatUiError(
+                  error,
+                  fallback: 'Kontaktanfragen konnten nicht geladen werden.',
+                ),
+              );
             }
 
             final isIncomingView =
                 selectedListView == _RequestListView.incoming;
             final selectedRequests = isIncomingView ? incoming : outgoing;
-            final hasSearchQuery = searchQuery.trim().isNotEmpty;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -550,9 +645,7 @@ class _RequestsOverview extends StatelessWidget {
                               icon: isIncomingView
                                   ? Icons.mark_email_unread_outlined
                                   : Icons.schedule_send_outlined,
-                              title: hasSearchQuery
-                                  ? 'Keine Treffer'
-                                  : isIncomingView
+                              title: isIncomingView
                                   ? 'Keine eingehenden Anfragen'
                                   : 'Keine gesendeten Anfragen',
                             )
@@ -611,7 +704,7 @@ class _InlineTextTabs<T> extends StatelessWidget {
           padding: EdgeInsets.all(isCompact ? 5 : 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            color: Colors.white.withValues(alpha: 0.015),
+            color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
@@ -666,6 +759,8 @@ class _InlineTextTab<T> extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(19),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
@@ -812,52 +907,56 @@ class _ChatStoriesStrip extends StatelessWidget {
         }
       }
     }
-    ChatStoryRecord? ownStory;
-
-    for (final story in stories) {
-      if (story.ownerUserId.trim() != trimmedCurrentUserId ||
-          story.isExpired ||
-          !story.hasRenderableMedia) {
-        continue;
-      }
-
-      if (ownStory == null || story.createdAt.isAfter(ownStory.createdAt)) {
-        ownStory = story;
-      }
-    }
-
-    final otherStories =
+    final ownStories =
         stories
             .where(
               (story) =>
-                  story.ownerUserId.trim() != trimmedCurrentUserId &&
+                  story.ownerUserId.trim() == trimmedCurrentUserId &&
                   !story.isExpired &&
-                  story.hasRenderableMedia &&
-                  visibleOwnerIds.contains(story.ownerUserId.trim()),
+                  story.hasRenderableMedia,
             )
             .toList()
-          ..sort((a, b) {
-            final aViewed = a.viewedAtBy.containsKey(currentUserId);
-            final bViewed = b.viewedAtBy.containsKey(currentUserId);
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final ownStory = ownStories.isEmpty ? null : ownStories.last;
 
-            if (aViewed != bViewed) {
-              return aViewed ? 1 : -1;
-            }
+    final groupedStories = <String, List<ChatStoryRecord>>{};
+    for (final story in stories) {
+      final ownerUserId = story.ownerUserId.trim();
+      if (ownerUserId == trimmedCurrentUserId ||
+          story.isExpired ||
+          !story.hasRenderableMedia ||
+          !visibleOwnerIds.contains(ownerUserId)) {
+        continue;
+      }
+      groupedStories.putIfAbsent(ownerUserId, () => []).add(story);
+    }
+    for (final ownerStories in groupedStories.values) {
+      ownerStories.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    }
 
-            return b.createdAt.compareTo(a.createdAt);
-          });
-    final visibleStories = otherStories.take(12).toList();
+    final visibleStoryGroups = groupedStories.values.toList()
+      ..sort((a, b) {
+        final aHasUnviewed = a.any(
+          (story) => !story.viewedAtBy.containsKey(trimmedCurrentUserId),
+        );
+        final bHasUnviewed = b.any(
+          (story) => !story.viewedAtBy.containsKey(trimmedCurrentUserId),
+        );
+        if (aHasUnviewed != bHasUnviewed) return aHasUnviewed ? -1 : 1;
+        return b.last.createdAt.compareTo(a.last.createdAt);
+      });
+    final visibleGroups = visibleStoryGroups.take(12).toList(growable: false);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          height: 128,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          height: 132,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            color: Colors.white.withValues(alpha: 0.015),
+            color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
@@ -869,7 +968,7 @@ class _ChatStoriesStrip extends StatelessWidget {
           ),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: visibleStories.length + 1,
+            itemCount: visibleGroups.length + 1,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               if (index == 0) {
@@ -877,54 +976,65 @@ class _ChatStoriesStrip extends StatelessWidget {
                 final ownBubbleImageUrl = ownProfilePhotoUrl?.isNotEmpty == true
                     ? ownProfilePhotoUrl
                     : currentOwnStory?.imageUrl;
-                final ownStoryViewCount =
-                    currentOwnStory?.viewedAtBy.keys
-                        .where(
-                          (viewerId) =>
-                              viewerId.trim() !=
-                              currentOwnStory.ownerUserId.trim(),
-                        )
-                        .length ??
-                    0;
+                final ownStoryViewCount = ownStories
+                    .expand((story) => story.viewedAtBy.keys)
+                    .where(
+                      (viewerId) => viewerId.trim() != trimmedCurrentUserId,
+                    )
+                    .toSet()
+                    .length;
 
-                return _StoryBubble(
-                  label: 'Deine Story',
-                  imageUrl: ownBubbleImageUrl,
-                  isVideo: currentOwnStory?.isVideo ?? false,
-                  isOwnStory: true,
-                  hasStory: currentOwnStory != null,
-                  isViewed: true,
-                  createdAt: currentOwnStory?.createdAt,
-                  expiresAt: currentOwnStory?.expiresAt,
-                  viewCount: ownStoryViewCount,
-                  isBusy: isAddingOwnStory,
-                  onTap: isAddingOwnStory
-                      ? () {}
-                      : currentOwnStory == null
-                      ? onAddOwnStory
-                      : () => onOpenStory(currentOwnStory, <ChatStoryRecord>[
-                          currentOwnStory,
-                        ]),
-                  onAddTap: isAddingOwnStory ? null : onAddOwnStory,
+                return Align(
+                  alignment: Alignment.center,
+                  child: _StoryBubble(
+                    label: 'Deine Story',
+                    imageUrl: ownBubbleImageUrl,
+                    isVideo: currentOwnStory?.isVideo ?? false,
+                    isOwnStory: true,
+                    hasStory: currentOwnStory != null,
+                    isViewed: true,
+                    createdAt: currentOwnStory?.createdAt,
+                    viewCount: ownStoryViewCount,
+                    isBusy: isAddingOwnStory,
+                    onTap: isAddingOwnStory
+                        ? () {}
+                        : currentOwnStory == null
+                        ? onAddOwnStory
+                        : () => onOpenStory(currentOwnStory, ownStories),
+                    onAddTap: isAddingOwnStory ? null : onAddOwnStory,
+                  ),
                 );
               }
 
-              final story = visibleStories[index - 1];
+              final ownerStories = visibleGroups[index - 1];
+              final firstUnviewed = ownerStories
+                  .cast<ChatStoryRecord?>()
+                  .firstWhere(
+                    (story) =>
+                        story != null &&
+                        !story.viewedAtBy.containsKey(trimmedCurrentUserId),
+                    orElse: () => null,
+                  );
+              final story = firstUnviewed ?? ownerStories.last;
               final storyImageUrl =
                   story.ownerPhotoUrl?.trim().isNotEmpty == true
                   ? story.ownerPhotoUrl
                   : story.imageUrl;
-              return _StoryBubble(
-                label: story.ownerDisplayName,
-                imageUrl: storyImageUrl,
-                isVideo: story.isVideo,
-                hasStory: true,
-                isViewed: story.viewedAtBy.keys.any(
-                  (viewerId) => viewerId.trim() == trimmedCurrentUserId,
+              return Align(
+                alignment: Alignment.center,
+                child: _StoryBubble(
+                  label: story.ownerDisplayName,
+                  imageUrl: storyImageUrl,
+                  isVideo: story.isVideo,
+                  hasStory: true,
+                  isViewed: ownerStories.every(
+                    (item) => item.viewedAtBy.keys.any(
+                      (viewerId) => viewerId.trim() == trimmedCurrentUserId,
+                    ),
+                  ),
+                  createdAt: story.createdAt,
+                  onTap: () => onOpenStory(story, ownerStories),
                 ),
-                createdAt: story.createdAt,
-                expiresAt: story.expiresAt,
-                onTap: () => onOpenStory(story, visibleStories),
               );
             },
           ),
@@ -943,7 +1053,6 @@ class _StoryBubble extends StatelessWidget {
     this.hasStory = false,
     this.isViewed = false,
     this.createdAt,
-    this.expiresAt,
     this.viewCount = 0,
     this.isBusy = false,
     required this.onTap,
@@ -957,7 +1066,6 @@ class _StoryBubble extends StatelessWidget {
   final bool hasStory;
   final bool isViewed;
   final DateTime? createdAt;
-  final DateTime? expiresAt;
   final int viewCount;
   final bool isBusy;
   final VoidCallback onTap;
@@ -968,16 +1076,7 @@ class _StoryBubble extends StatelessWidget {
     final viewCountLabel = viewCount > 99 ? '99+' : '$viewCount';
     final isNewStory = hasStory && !isViewed && !isOwnStory;
     final ageLabel = _storyBubbleAgeLabel(createdAt);
-    final remainingLabel = _storyBubbleRemainingLabel(expiresAt);
-    final statusLabel = isOwnStory
-        ? isBusy
-              ? 'Lädt'
-              : hasStory
-              ? remainingLabel == null
-                    ? 'Aktiv'
-                    : 'Noch $remainingLabel'
-              : 'Hinzufügen'
-        : isNewStory
+    final statusLabel = isNewStory
         ? ageLabel == null
               ? 'Neu'
               : 'Neu · $ageLabel'
@@ -1000,7 +1099,7 @@ class _StoryBubble extends StatelessWidget {
         : null;
 
     return SizedBox(
-      width: 84,
+      width: 94,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
@@ -1010,8 +1109,8 @@ class _StoryBubble extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 68,
-                  height: 68,
+                  width: 78,
+                  height: 78,
                   padding: const EdgeInsets.all(2.5),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -1053,49 +1152,56 @@ class _StoryBubble extends StatelessWidget {
                         : hasStory && imageUrl?.trim().isNotEmpty == true
                         ? Image.network(
                             imageUrl!.trim(),
-                            width: 63,
-                            height: 63,
+                            width: 72,
+                            height: 72,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => isVideo
                                 ? const _StoryVideoBubblePlaceholder()
                                 : _AvatarCircle(
-                                    size: 63,
+                                    size: 72,
                                     imageUrl: null,
-                                    iconSize: 34,
+                                    iconSize: 38,
                                     fallbackLabel: label,
                                   ),
                           )
                         : hasStory && isVideo
                         ? const _StoryVideoBubblePlaceholder()
                         : _AvatarCircle(
-                            size: 63,
+                            size: 72,
                             imageUrl: imageUrl,
-                            iconSize: 34,
+                            iconSize: 38,
                             fallbackLabel: label,
                           ),
                   ),
                 ),
                 if (isOwnStory)
                   Positioned(
-                    right: -2,
-                    bottom: -1,
+                    right: -12,
+                    bottom: -11,
                     child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: onAddTap,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _carismaBlue,
-                          border: Border.all(
-                            color: const Color(0xFF101827),
-                            width: 3,
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _carismaBlue,
+                              border: Border.all(
+                                color: const Color(0xFF101827),
+                                width: 3,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.add_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.add_rounded,
-                          color: Colors.white,
-                          size: 16,
                         ),
                       ),
                     ),
@@ -1130,29 +1236,6 @@ class _StoryBubble extends StatelessWidget {
                             height: 1,
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                if (hasStory && isVideo)
-                  Positioned(
-                    left: isOwnStory ? 1 : null,
-                    right: isOwnStory ? null : 1,
-                    bottom: 1,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.black.withValues(alpha: 0.58),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 17,
                       ),
                     ),
                   ),
@@ -1219,21 +1302,23 @@ class _StoryBubble extends StatelessWidget {
                 height: 1.05,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              statusLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: isNewStory
-                    ? _carismaBlueLight
-                    : Colors.white.withValues(alpha: 0.58),
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                height: 1,
+            if (!isOwnStory) ...[
+              const SizedBox(height: 2),
+              Text(
+                statusLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: isNewStory
+                      ? _carismaBlueLight
+                      : Colors.white.withValues(alpha: 0.58),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -1261,28 +1346,6 @@ String? _storyBubbleAgeLabel(DateTime? createdAt) {
   }
 
   return '${difference.inDays}T';
-}
-
-String? _storyBubbleRemainingLabel(DateTime? expiresAt) {
-  if (expiresAt == null) {
-    return null;
-  }
-
-  final difference = expiresAt.difference(DateTime.now());
-
-  if (difference.isNegative) {
-    return null;
-  }
-
-  if (difference.inHours >= 1) {
-    return '${difference.inHours}h';
-  }
-
-  if (difference.inMinutes >= 1) {
-    return '${difference.inMinutes}m';
-  }
-
-  return '<1m';
 }
 
 class _StoryVideoBubblePlaceholder extends StatelessWidget {
@@ -1566,7 +1629,7 @@ class _InlineRequestTile extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              color: Colors.white.withValues(alpha: 0.02),
+              color: CaRismaDesignTokens.card,
               border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               boxShadow: [
                 BoxShadow(
@@ -1634,16 +1697,19 @@ class _InlineRequestTile extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Text(
-                            _plate,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: CaRismaDesignTokens.textPrimary
-                                      .withValues(alpha: 0.85),
-                                  fontWeight: FontWeight.w900,
-                                ),
+                          Flexible(
+                            child: Text(
+                              _plate,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: CaRismaDesignTokens.textPrimary
+                                        .withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
                           ),
                         ],
                       ),
@@ -1699,26 +1765,54 @@ class _InlineRequestTile extends StatelessWidget {
                                 ),
                               )
                       else
-                        Row(
-                          children: [
-                            _InlineRequestStatusPill(
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final canOpenChat =
+                                request.isAccepted && request.hasLinkedChat;
+                            final useColumn =
+                                canOpenChat && constraints.maxWidth < 270;
+                            final status = _InlineRequestStatusPill(
                               label: statusLabel,
                               icon: Icons.info_outline_rounded,
-                            ),
-                            if (request.isAccepted &&
-                                request.hasLinkedChat) ...[
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _InlineRequestButton(
-                                  label: 'Chat öffnen',
-                                  icon: Icons.forum_rounded,
-                                  isBusy: isBusy,
-                                  isPrimary: true,
-                                  onPressed: onAccept,
-                                ),
-                              ),
-                            ],
-                          ],
+                            );
+
+                            if (!canOpenChat) {
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: status,
+                              );
+                            }
+
+                            final openChatButton = _InlineRequestButton(
+                              label: 'Chat öffnen',
+                              icon: Icons.forum_rounded,
+                              isBusy: isBusy,
+                              isPrimary: true,
+                              onPressed: onAccept,
+                            );
+
+                            if (useColumn) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: status,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  openChatButton,
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Flexible(child: status),
+                                const SizedBox(width: 10),
+                                Expanded(child: openChatButton),
+                              ],
+                            );
+                          },
                         ),
                     ],
                   ),
@@ -1744,7 +1838,7 @@ class _InlineRequestStatusPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.06),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
@@ -1756,13 +1850,17 @@ class _InlineRequestStatusPill extends StatelessWidget {
             size: 18,
           ),
           const SizedBox(width: 8),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: CaRismaDesignTokens.textSecondary.withValues(alpha: 0.86),
-              fontWeight: FontWeight.w800,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: CaRismaDesignTokens.textSecondary.withValues(
+                  alpha: 0.86,
+                ),
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -1799,8 +1897,8 @@ class _InlineRequestButton extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         else
-          Icon(icon, size: 18),
-        const SizedBox(width: 8),
+          Icon(icon, size: 17),
+        const SizedBox(width: 6),
         Flexible(
           child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
@@ -1820,6 +1918,7 @@ class _InlineRequestButton extends StatelessWidget {
           disabledBackgroundColor: _carismaBlue.withValues(alpha: 0.32),
           disabledForegroundColor: Colors.white.withValues(alpha: 0.62),
           minimumSize: const Size(0, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           shape: shape,
         ),
         child: child,
@@ -1832,6 +1931,7 @@ class _InlineRequestButton extends StatelessWidget {
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white.withValues(alpha: 0.42),
         minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         shape: shape,
         side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
       ),

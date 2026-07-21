@@ -556,7 +556,7 @@ class _TopBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.08),
+      color: CaRismaDesignTokens.controlSurface,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,

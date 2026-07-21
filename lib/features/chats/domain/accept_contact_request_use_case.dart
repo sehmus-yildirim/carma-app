@@ -1,13 +1,19 @@
 import 'package:firebase_core/firebase_core.dart';
 
+import '../../profile/data/profile_connection_repository.dart';
 import '../data/chat_repository.dart';
 import '../data/contact_request_repository.dart';
 
 class AcceptContactRequestResult {
-  const AcceptContactRequestResult({required this.request, required this.chat});
+  const AcceptContactRequestResult({
+    required this.request,
+    required this.chat,
+    this.profileConnectionSynced = true,
+  });
 
   final ContactRequestRecord request;
   final ChatRecord chat;
+  final bool profileConnectionSynced;
 }
 
 class AcceptContactRequestFailure implements Exception {
@@ -30,32 +36,42 @@ class AcceptContactRequestFailure implements Exception {
 }
 
 class AcceptContactRequestUseCase {
-  const AcceptContactRequestUseCase({
+  AcceptContactRequestUseCase({
     required ContactRequestRepository contactRequestRepository,
     required ChatRepository chatRepository,
+    ProfileConnectionRepository? profileConnectionRepository,
   }) : _contactRequestRepository = contactRequestRepository,
-       _chatRepository = chatRepository;
+       _chatRepository = chatRepository,
+       _profileConnectionRepository =
+           profileConnectionRepository ?? ProfileConnectionRepository();
 
   final ContactRequestRepository _contactRequestRepository;
   final ChatRepository _chatRepository;
+  final ProfileConnectionRepository _profileConnectionRepository;
 
   Future<AcceptContactRequestResult> call({
     required ContactRequestRecord request,
   }) async {
     final chatId = 'request_${request.id.trim()}';
 
-    if (request.isAccepted && request.hasLinkedChat) {
+    if (request.isAccepted && request.chatId?.trim() == chatId) {
       final chat = await _loadOrCreateChat(
         request: request,
         chatId: request.chatId!,
         failureStage: 'open-linked-chat',
       );
 
-      return AcceptContactRequestResult(request: request, chat: chat);
+      return _completeWithProfileConnection(
+        AcceptContactRequestResult(request: request, chat: chat),
+      );
     }
 
-    if (request.isAccepted && !request.hasLinkedChat) {
-      return _createAndLinkAcceptedRequest(request: request, chatId: chatId);
+    if (request.isAccepted) {
+      final result = await _createAndLinkAcceptedRequest(
+        request: request,
+        chatId: chatId,
+      );
+      return _completeWithProfileConnection(result);
     }
 
     if (!request.isPending) {
@@ -74,13 +90,39 @@ class AcceptContactRequestUseCase {
         failureStage: 'accept-request',
       );
 
-      return AcceptContactRequestResult(request: acceptedRequest, chat: chat);
+      return _completeWithProfileConnection(
+        AcceptContactRequestResult(request: acceptedRequest, chat: chat),
+      );
     } on AcceptContactRequestFailure catch (error) {
       if (!_isPermissionDenied(error.cause)) {
         rethrow;
       }
 
-      return _acceptFirstAndCreateChat(request: request, chatId: chatId);
+      final result = await _acceptFirstAndCreateChat(
+        request: request,
+        chatId: chatId,
+      );
+      return _completeWithProfileConnection(result);
+    }
+  }
+
+  Future<AcceptContactRequestResult> _completeWithProfileConnection(
+    AcceptContactRequestResult result,
+  ) async {
+    try {
+      await _profileConnectionRepository.ensureAcceptedConnection(
+        request: result.request,
+        chat: result.chat,
+      );
+      return result;
+    } catch (_) {
+      // The request and chat are already committed. Keep that successful core
+      // flow usable and surface the optional profile sync separately in the UI.
+      return AcceptContactRequestResult(
+        request: result.request,
+        chat: result.chat,
+        profileConnectionSynced: false,
+      );
     }
   }
 

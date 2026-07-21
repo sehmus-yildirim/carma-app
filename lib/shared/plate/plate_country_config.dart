@@ -36,7 +36,7 @@ const PlateCountryConfig germanPlateConfig = PlateCountryConfig(
 
 const PlateCountryConfig austrianPlateConfig = PlateCountryConfig(
   countryCode: 'AT',
-  countryLabel: '\u00d6sterreich',
+  countryLabel: 'Österreich',
   regionLabel: 'Bezirk',
   regionMaxLength: 2,
   lettersMaxLength: 2,

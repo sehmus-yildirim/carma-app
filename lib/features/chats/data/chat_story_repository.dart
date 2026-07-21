@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 final RegExp _storyStoragePathPattern = RegExp(
-  r'^chat_stories/([^/]+)/[0-9]{12,24}\.(jpg|mp4)$',
+  r'^chat_stories/([^/]+)/(?:[0-9]{12,24}\.(?:jpg|mp4)|[0-9]{12,24}/media\.(?:jpg|mp4))$',
 );
 
 class ChatStoryRecord {
@@ -124,6 +124,32 @@ class ChatStoryRepository {
     return _firestore.collection('chat_stories');
   }
 
+  Stream<List<ChatStoryRecord>> watchOwnerStories({
+    required String ownerUserId,
+  }) {
+    final trimmedOwnerUserId = ownerUserId.trim();
+
+    if (trimmedOwnerUserId.isEmpty) {
+      return Stream<List<ChatStoryRecord>>.value(const <ChatStoryRecord>[]);
+    }
+
+    return _storiesCollection
+        .where('ownerUserId', isEqualTo: trimmedOwnerUserId)
+        .snapshots()
+        .map((snapshot) {
+          final stories =
+              snapshot.docs
+                  .map(_storyFromSnapshot)
+                  .where(
+                    (story) => !story.isExpired && story.hasRenderableMedia,
+                  )
+                  .toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          return stories;
+        });
+  }
+
   Stream<List<ChatStoryRecord>> watchVisibleStories({required String userId}) {
     final trimmedUserId = userId.trim();
 
@@ -131,11 +157,9 @@ class ChatStoryRepository {
       return Stream<List<ChatStoryRecord>>.value(const <ChatStoryRecord>[]);
     }
 
-    final now = DateTime.now();
-
     return _storiesCollection
         .where('viewerUserIds', arrayContains: trimmedUserId)
-        .where('expiresAt', isGreaterThan: Timestamp.fromDate(now))
+        .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
           final stories =
@@ -169,6 +193,7 @@ class ChatStoryRepository {
   }
 
   Future<void> setOwnImageStory({
+    required String storyId,
     required String ownerUserId,
     required String ownerDisplayName,
     String? ownerPhotoUrl,
@@ -195,6 +220,7 @@ class ChatStoryRepository {
     double stickerAlignmentX = 0.5,
     double stickerAlignmentY = 0.76,
   }) async {
+    final trimmedStoryId = storyId.trim();
     final trimmedOwnerUserId = ownerUserId.trim();
     final trimmedOwnerDisplayName = ownerDisplayName.trim();
     final trimmedOwnerPhotoUrl = ownerPhotoUrl?.trim() ?? '';
@@ -233,22 +259,18 @@ class ChatStoryRepository {
           .take(199),
     ];
 
-    if (trimmedOwnerUserId.isEmpty ||
+    if (!RegExp(r'^[0-9]{12,24}$').hasMatch(trimmedStoryId) ||
+        trimmedOwnerUserId.isEmpty ||
         trimmedOwnerDisplayName.isEmpty ||
         (trimmedMediaType == 'image' &&
             (trimmedImageUrl.isEmpty || trimmedImagePath.isEmpty)) ||
         (trimmedMediaType == 'video' &&
             (trimmedVideoUrl.isEmpty || trimmedVideoPath.isEmpty))) {
-      throw ArgumentError('Story owner and image data must not be empty.');
+      throw ArgumentError('Die Story-Daten sind unvollständig oder ungültig.');
     }
 
     final now = DateTime.now();
-    final storyReference = _storiesCollection.doc(trimmedOwnerUserId);
-    final previousStorySnapshot = await storyReference.get();
-    final previousImagePath =
-        (previousStorySnapshot.data()?['imagePath'] as String? ?? '').trim();
-    final previousVideoPath =
-        (previousStorySnapshot.data()?['videoPath'] as String? ?? '').trim();
+    final storyReference = _storiesCollection.doc(trimmedStoryId);
 
     await storyReference.set({
       'ownerUserId': trimmedOwnerUserId,
@@ -291,45 +313,36 @@ class ChatStoryRepository {
       'createdAt': Timestamp.fromDate(now),
       'updatedAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(now.add(const Duration(hours: 24))),
+      'isActive': true,
     });
-
-    if (previousImagePath.isNotEmpty && previousImagePath != trimmedImagePath) {
-      try {
-        await _deleteStorageObjectIfExists(
-          ownerUserId: trimmedOwnerUserId,
-          path: previousImagePath,
-        );
-      } catch (_) {
-        // Old story media cleanup must not make a successfully saved story fail.
-      }
-    }
-
-    if (previousVideoPath.isNotEmpty && previousVideoPath != trimmedVideoPath) {
-      try {
-        await _deleteStorageObjectIfExists(
-          ownerUserId: trimmedOwnerUserId,
-          path: previousVideoPath,
-        );
-      } catch (_) {
-        // Old story media cleanup must not make a successfully saved story fail.
-      }
-    }
   }
 
   Future<void> updateOwnStoryMediaUrl({
+    required String storyId,
     required String ownerUserId,
     required String mediaType,
     required String url,
   }) async {
+    final trimmedStoryId = storyId.trim();
     final trimmedOwnerUserId = ownerUserId.trim();
     final trimmedUrl = url.trim();
     final isVideo = mediaType.trim() == 'video';
 
-    if (trimmedOwnerUserId.isEmpty || trimmedUrl.isEmpty) {
+    if (trimmedStoryId.isEmpty ||
+        trimmedOwnerUserId.isEmpty ||
+        trimmedUrl.isEmpty) {
       return;
     }
 
-    await _storiesCollection.doc(trimmedOwnerUserId).update({
+    final storyReference = _storiesCollection.doc(trimmedStoryId);
+    final snapshot = await storyReference.get();
+    if (!snapshot.exists ||
+        (snapshot.data()?['ownerUserId'] as String? ?? '').trim() !=
+            trimmedOwnerUserId) {
+      return;
+    }
+
+    await storyReference.update({
       if (isVideo) 'videoUrl': trimmedUrl else 'imageUrl': trimmedUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -390,17 +403,27 @@ class ChatStoryRepository {
     return false;
   }
 
-  Future<void> deleteOwnStory({required String ownerUserId}) async {
+  Future<void> deleteOwnStory({
+    required String storyId,
+    required String ownerUserId,
+  }) async {
+    final trimmedStoryId = storyId.trim();
     final trimmedOwnerUserId = ownerUserId.trim();
 
-    if (trimmedOwnerUserId.isEmpty) {
+    if (trimmedStoryId.isEmpty || trimmedOwnerUserId.isEmpty) {
       return;
     }
 
-    final storyReference = _storiesCollection.doc(trimmedOwnerUserId);
+    final storyReference = _storiesCollection.doc(trimmedStoryId);
     final storySnapshot = await storyReference.get();
 
     if (!storySnapshot.exists) {
+      return;
+    }
+
+    final storedOwnerUserId =
+        (storySnapshot.data()?['ownerUserId'] as String? ?? '').trim();
+    if (storedOwnerUserId != trimmedOwnerUserId) {
       return;
     }
 
@@ -428,21 +451,15 @@ class ChatStoryRepository {
       return;
     }
 
-    final storySnapshot = await _storiesCollection
-        .doc(trimmedOwnerUserId)
+    final storySnapshots = await _storiesCollection
+        .where('ownerUserId', isEqualTo: trimmedOwnerUserId)
         .get();
 
-    if (!storySnapshot.exists) {
-      return;
+    for (final storySnapshot in storySnapshots.docs) {
+      final story = _storyFromSnapshot(storySnapshot);
+      if (!story.isExpired) continue;
+      await deleteOwnStory(storyId: story.id, ownerUserId: trimmedOwnerUserId);
     }
-
-    final story = _storyFromSnapshot(storySnapshot);
-
-    if (!story.isExpired) {
-      return;
-    }
-
-    await deleteOwnStory(ownerUserId: trimmedOwnerUserId);
   }
 
   Future<void> _deleteStorageObjectIfExists({

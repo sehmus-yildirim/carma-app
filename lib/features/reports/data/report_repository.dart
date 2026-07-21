@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/firebase/carisma_firestore_paths.dart';
 import '../../../shared/firebase/carisma_firestore_schema.dart';
 import '../../../shared/plate/german_plate_region_codes.dart';
@@ -14,13 +16,20 @@ class ReportRepository {
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
+    FirebaseFunctions? functions,
   }) : _auth = auth ?? FirebaseAuth.instance,
        _firestore = firestore ?? FirebaseFirestore.instance,
-       _storage = storage ?? FirebaseStorage.instance;
+       _storage = storage ?? FirebaseStorage.instance,
+       _functions =
+           functions ??
+           FirebaseFunctions.instanceFor(
+             region: CaRismaAppConfig.firebaseRegion,
+           );
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
+  final FirebaseFunctions _functions;
 
   Stream<List<ReportNotificationRecord>> watchReportNotifications({
     required String userId,
@@ -148,46 +157,6 @@ class ReportRepository {
       );
     }
 
-    final plateSnapshot = await _firestore
-        .doc(CaRismaFirestorePaths.plate(countryCode, plateKey))
-        .get();
-    final plateData = plateSnapshot.data();
-
-    if (plateData == null ||
-        plateData['isActive'] != true ||
-        plateData['isDeleted'] == true) {
-      throw FirebaseException(
-        plugin: 'carisma',
-        code: 'not-found',
-        message: 'Für dieses Kennzeichen wurde kein aktiver Nutzer gefunden.',
-      );
-    }
-
-    if (plateData['allowAnonymousReports'] != true) {
-      throw FirebaseException(
-        plugin: 'carisma',
-        code: 'permission-denied',
-        message: 'Dieser Nutzer nimmt aktuell keine anonymen Hinweise an.',
-      );
-    }
-
-    final targetUserId = (plateData['ownerUserId'] as String? ?? '').trim();
-    if (targetUserId.isEmpty) {
-      throw FirebaseException(
-        plugin: 'carisma',
-        code: 'not-found',
-        message: 'Für dieses Kennzeichen wurde kein aktiver Nutzer gefunden.',
-      );
-    }
-
-    if (targetUserId == reporter.uid) {
-      throw FirebaseException(
-        plugin: 'carisma',
-        code: 'invalid-argument',
-        message: 'Du kannst dir nicht selbst einen Hinweis senden.',
-      );
-    }
-
     final locationData = _validatedLocationData(draft);
     final reportDocument = _firestore
         .collection(CaRismaFirestoreCollections.reports)
@@ -201,113 +170,132 @@ class ReportRepository {
         reporterUserId: reporter.uid,
       );
       final imagePath = uploadedImageReference?.fullPath;
-      final now = FieldValue.serverTimestamp();
-      final expiresAt = Timestamp.fromDate(
-        DateTime.now().toUtc().add(const Duration(days: 1)),
-      );
-      final reportData = <String, Object?>{
+      final callable = _functions.httpsCallable('submitPlateHint');
+      final response = await _callSubmitPlateHint(callable, <String, Object?>{
         'reportId': reportDocument.id,
-        'type': 'plate_hint',
-        'reporterUserId': reporter.uid,
-        'targetUserId': targetUserId,
         'countryCode': countryCode,
-        'plateKey': plateKey,
         'plateRegion': plateRegion,
         'plateLetters': plateLetters,
         'plateNumbers': plateNumbers,
         'category': draft.category!.name,
-        'message': draft.normalizedMessage.substring(
-          0,
-          draft.normalizedMessage.length.clamp(0, 160),
-        ),
+        'message': _limitedText(draft.normalizedMessage, 160),
         ...locationData,
-        'status': FirestoreReportStatus.submitted,
-        'hasImage': imagePath != null,
         'imagePath': ?imagePath,
-        'anonymousToTarget': true,
-        'createdAt': now,
-        'updatedAt': now,
-        'expiresAt': expiresAt,
-        'isDeleted': false,
-      };
-      final targetNotificationDocument = _firestore.doc(
-        CaRismaFirestorePaths.userReportNotification(
-          targetUserId,
-          reportDocument.id,
-        ),
-      );
-      final targetNotificationData = <String, Object?>{
-        'reportId': reportDocument.id,
-        'type': 'plate_hint',
-        'targetUserId': targetUserId,
-        'countryCode': countryCode,
-        'plateKey': plateKey,
-        'plateRegion': plateRegion,
-        'plateLetters': plateLetters,
-        'plateNumbers': plateNumbers,
-        'category': draft.category!.name,
-        'message': draft.normalizedMessage.substring(
-          0,
-          draft.normalizedMessage.length.clamp(0, 160),
-        ),
-        ...locationData,
-        'status': FirestoreReportNotificationStatus.unread,
-        'hasImage': imagePath != null,
-        'imagePath': ?imagePath,
-        'anonymousToTarget': true,
-        'createdAt': now,
-        'updatedAt': now,
-        'expiresAt': expiresAt,
-        'isDeleted': false,
-      };
-      final senderHistoryDocument = _firestore.doc(
-        CaRismaFirestorePaths.userSentReportNotification(
-          reporter.uid,
-          reportDocument.id,
-        ),
-      );
-      final senderHistoryData = <String, Object?>{
-        'reportId': reportDocument.id,
-        'type': 'plate_hint',
-        'countryCode': countryCode,
-        'plateKey': plateKey,
-        'plateRegion': plateRegion,
-        'plateLetters': plateLetters,
-        'plateNumbers': plateNumbers,
-        'category': draft.category!.name,
-        'message': draft.normalizedMessage.substring(
-          0,
-          draft.normalizedMessage.length.clamp(0, 160),
-        ),
-        ...locationData,
-        'status': FirestoreReportStatus.submitted,
-        'hasImage': imagePath != null,
-        'imagePath': ?imagePath,
-        'anonymousToTarget': true,
-        'createdAt': now,
-        'updatedAt': now,
-        'expiresAt': expiresAt,
-        'isDeleted': false,
-      };
-
-      final batch = _firestore.batch();
-      batch.set(reportDocument, reportData);
-      batch.set(targetNotificationDocument, targetNotificationData);
-      batch.set(senderHistoryDocument, senderHistoryData);
-      await batch.commit();
-    } catch (_) {
-      if (uploadedImageReference != null) {
-        try {
-          await uploadedImageReference.delete();
-        } catch (_) {
-          // Der ursprüngliche Upload-/Firestore-Fehler bleibt maßgeblich.
+      });
+      final responseData = response.data;
+      if (responseData is Map) {
+        final returnedReportId = responseData['reportId'];
+        if (returnedReportId is String && returnedReportId.isNotEmpty) {
+          return returnedReportId;
         }
       }
-
+    } on FirebaseFunctionsException catch (error) {
+      await _deleteUncommittedEvidence(
+        uploadedImageReference,
+        reporter.uid,
+        reportDocument.id,
+      );
+      throw FirebaseException(
+        plugin: 'cloud_functions',
+        code: error.code,
+        message: _submissionErrorMessage(error),
+      );
+    } catch (_) {
+      await _deleteUncommittedEvidence(
+        uploadedImageReference,
+        reporter.uid,
+        reportDocument.id,
+      );
       rethrow;
     }
 
     return reportDocument.id;
+  }
+
+  Future<HttpsCallableResult<Object?>> _callSubmitPlateHint(
+    HttpsCallable callable,
+    Map<String, Object?> payload,
+  ) async {
+    for (var attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await callable.call<Object?>(payload);
+      } on FirebaseFunctionsException catch (error) {
+        if (attempt == 0 && _isRetryableFunctionsError(error.code)) {
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+          continue;
+        }
+        rethrow;
+      }
+    }
+    throw StateError('Der Hinweis konnte nicht gesendet werden.');
+  }
+
+  bool _isRetryableFunctionsError(String code) {
+    return const <String>{
+      'aborted',
+      'deadline-exceeded',
+      'internal',
+      'unavailable',
+    }.contains(code);
+  }
+
+  String _submissionErrorMessage(FirebaseFunctionsException error) {
+    final serverMessage = error.message?.trim() ?? '';
+    switch (error.code) {
+      case 'unauthenticated':
+        return 'Bitte melde dich neu an.';
+      case 'deadline-exceeded':
+      case 'unavailable':
+        return 'Der Server ist gerade nicht erreichbar. Bitte versuche es erneut.';
+      case 'invalid-argument':
+        return serverMessage.isNotEmpty
+            ? serverMessage
+            : 'Bitte prüfe deine Angaben.';
+      case 'not-found':
+        return serverMessage.isNotEmpty
+            ? serverMessage
+            : 'Für dieses Kennzeichen wurde kein aktiver Nutzer gefunden.';
+      case 'permission-denied':
+        return serverMessage.isNotEmpty
+            ? serverMessage
+            : 'Dieser Hinweis darf aktuell nicht gesendet werden.';
+      case 'already-exists':
+        return serverMessage.isNotEmpty
+            ? serverMessage
+            : 'Dieser Hinweis wurde bereits gesendet.';
+      case 'resource-exhausted':
+        return serverMessage.isNotEmpty
+            ? serverMessage
+            : 'Das Limit für Hinweise wurde erreicht.';
+      default:
+        return 'Der Hinweis konnte nicht gesendet werden. Bitte versuche es erneut.';
+    }
+  }
+
+  Future<void> _deleteUncommittedEvidence(
+    Reference? imageReference,
+    String reporterUserId,
+    String reportId,
+  ) async {
+    if (imageReference == null) {
+      return;
+    }
+
+    try {
+      final history = await _firestore
+          .doc(
+            CaRismaFirestorePaths.userSentReportNotification(
+              reporterUserId,
+              reportId,
+            ),
+          )
+          .get();
+      if (!history.exists) {
+        await imageReference.delete();
+      }
+    } catch (_) {
+      // Bei unklarem Serverstatus darf kein bereits verwendetes Foto wegfallen.
+    }
   }
 
   Future<Reference?> _uploadEvidenceImage({

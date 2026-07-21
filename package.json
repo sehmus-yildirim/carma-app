@@ -9,7 +9,8 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:rules:reports": "firebase emulators:exec --project carma-a84e4 --only firestore,storage \"node --test --test-concurrency=1 test/rules/report_rules.test.cjs test/rules/report_rate_limit.test.cjs test/rules/report_cleanup.test.cjs\""
   },
   "repository": {
     "type": "git",
@@ -25,5 +26,8 @@
   "homepage": "https://github.com/sehmus-yildirim/carma-app#readme",
   "dependencies": {
     "firebase-admin": "^14.1.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1"
   }
 }

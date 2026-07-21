@@ -1,0 +1,31 @@
+{
+  "germany": {
+    "registrationCodesTotal": 674,
+    "registrationCodesMapped": 674,
+    "municipalitiesTotal": 0,
+    "municipalitiesMapped": 0,
+    "stateAssets": 16,
+    "missingAssets": []
+  },
+  "austria": {
+    "registrationCodesTotal": 98,
+    "registrationCodesMapped": 98,
+    "municipalitiesTotal": 0,
+    "municipalitiesMapped": 0,
+    "stateAssets": 9,
+    "missingAssets": []
+  },
+  "switzerland": {
+    "cantonsTotal": 26,
+    "cantonsMapped": 26,
+    "municipalitiesTotal": 0,
+    "municipalitiesMapped": 0,
+    "cantonAssets": 26,
+    "missingAssets": []
+  },
+  "notes": [
+    "The current search has no municipality selector.",
+    "Coats and seals are project-owned stylized previews, not official security marks.",
+    "Unknown runtime inputs use a neutral country fallback."
+  ]
+}

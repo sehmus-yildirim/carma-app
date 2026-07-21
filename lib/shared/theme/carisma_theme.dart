@@ -100,7 +100,7 @@ class CaRismaTheme {
           foregroundColor: CaRismaDesignTokens.textPrimary,
           minimumSize: const Size.fromHeight(54),
           side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
-          backgroundColor: CaRismaDesignTokens.surface2.withValues(alpha: 0.72),
+          backgroundColor: CaRismaDesignTokens.controlSurface,
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
@@ -109,7 +109,7 @@ class CaRismaTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: CaRismaDesignTokens.surface1.withValues(alpha: 0.92),
+        fillColor: CaRismaDesignTokens.controlSurface,
         labelStyle: TextStyle(
           color: CaRismaDesignTokens.textSecondary.withValues(alpha: 0.86),
         ),
@@ -193,6 +193,11 @@ class CaRismaTheme {
           height: 1.4,
           fontSize: 14.5,
         ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: CaRismaDesignTokens.card,
+        modalBackgroundColor: CaRismaDesignTokens.card,
+        surfaceTintColor: Colors.transparent,
       ),
     );
   }

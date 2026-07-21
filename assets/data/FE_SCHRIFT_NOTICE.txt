@@ -1,0 +1,14 @@
+FE-Schrift vector outlines
+
+Source:
+https://commons.wikimedia.org/wiki/File:FE-Schrift.svg
+
+Original vector file:
+https://upload.wikimedia.org/wikipedia/commons/3/30/FE-Schrift.svg
+
+The Wikimedia Commons file page marks the depicted typeface vector as public
+domain (PD text / ineligible for copyright). The original file attribution is
+Liftarn; the vector is based on FE-Buchstaben.png.
+
+The asset is used by CaRisma only to render read-only registration plate
+previews. It is not used for editable UI text.

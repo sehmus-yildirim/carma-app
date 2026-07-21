@@ -2,7 +2,7 @@ part of '../chats_screen.dart';
 
 enum _ChatsView { chats, requests }
 
-enum _ChatListView { messages, archived, blocked }
+enum _ChatListView { messages, archived }
 
 enum _RequestListView { incoming, outgoing }
 
@@ -50,6 +50,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   String _searchQuery = '';
   String _streamUserId = '';
   bool _isAddingOwnStory = false;
+  bool _isArchiveShortcutVisible = false;
   final Set<String> _busyRequestIds = <String>{};
   List<ChatStoryRecord> _cachedStories = const <ChatStoryRecord>[];
   String _currentUserProfilePhotoUrl = '';
@@ -57,7 +58,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   late Stream<List<ChatRecord>> _chatStream;
   late Stream<List<ChatRecord>> _archivedChatStream;
-  late Stream<List<ChatRecord>> _blockedChatStream;
   late Stream<List<ChatStoryRecord>> _storyStream;
   late Stream<List<ContactRequestRecord>> _incomingRequestStream;
   late Stream<List<ContactRequestRecord>> _outgoingRequestStream;
@@ -149,16 +149,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
 
     return _chatRepository.watchArchivedChats(userId: userId);
-  }
-
-  Stream<List<ChatRecord>> _watchBlockedChats() {
-    final userId = _effectiveUserId.trim();
-
-    if (userId.isEmpty) {
-      return Stream<List<ChatRecord>>.value(const <ChatRecord>[]);
-    }
-
-    return _chatRepository.watchBlockedChats(userId: userId);
   }
 
   Stream<List<ChatStoryRecord>> _watchStories() {
@@ -253,19 +243,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
     );
   }
 
-  bool _matchesRequestSearch(ContactRequestRecord request) {
-    return _matchesSearch(
-      [
-        request.senderDisplayName,
-        request.receiverDisplayName,
-        request.displayPlate,
-        request.plateKey,
-        request.vehicleTitle,
-        request.message,
-      ].whereType<String>().join(' '),
-    );
-  }
-
   List<_LocalChatMessage> _buildLocalChatMessages() {
     return const [
       _LocalChatMessage(
@@ -297,41 +274,43 @@ class _ChatsScreenState extends State<ChatsScreen> {
     });
   }
 
-  void _selectChatListView(_ChatListView view) {
-    if (_selectedChatListView == view) {
-      return;
+  bool _handleChatScrollNotification(ScrollNotification notification) {
+    if (_selectedView != _ChatsView.chats ||
+        _selectedChatListView != _ChatListView.messages ||
+        _isArchiveShortcutVisible) {
+      return false;
     }
 
+    final pulledBeyondTop =
+        notification is ScrollUpdateNotification &&
+        notification.metrics.pixels < -18;
+    final overscrolledTop =
+        notification is OverscrollNotification && notification.overscroll < -8;
+
+    if (pulledBeyondTop || overscrolledTop) {
+      setState(() => _isArchiveShortcutVisible = true);
+    }
+
+    return false;
+  }
+
+  void _openArchivedChats() {
     setState(() {
-      _selectedChatListView = view;
+      _selectedChatListView = _ChatListView.archived;
+      _isArchiveShortcutVisible = false;
     });
   }
 
-  void _handleChatListSwipe(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
+  void _showMessageChats() {
+    setState(() {
+      _selectedChatListView = _ChatListView.messages;
+      _isArchiveShortcutVisible = false;
+    });
+  }
 
-    if (velocity.abs() < 260) {
-      return;
-    }
-
-    if (velocity < 0 && _selectedChatListView == _ChatListView.messages) {
-      _selectChatListView(_ChatListView.archived);
-      return;
-    }
-
-    if (velocity < 0 && _selectedChatListView == _ChatListView.archived) {
-      _selectChatListView(_ChatListView.blocked);
-      return;
-    }
-
-    if (velocity > 0 && _selectedChatListView == _ChatListView.archived) {
-      _selectChatListView(_ChatListView.messages);
-      return;
-    }
-
-    if (velocity > 0 && _selectedChatListView == _ChatListView.blocked) {
-      _selectChatListView(_ChatListView.archived);
-    }
+  void _hideArchiveShortcut() {
+    if (!_isArchiveShortcutVisible) return;
+    setState(() => _isArchiveShortcutVisible = false);
   }
 
   void _selectRequestListView(_RequestListView view) {
@@ -382,7 +361,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
     _chatStream = _watchChats();
     _archivedChatStream = _watchArchivedChats();
-    _blockedChatStream = _watchBlockedChats();
     _storyStream = _watchStories();
     _incomingRequestStream = _watchIncomingRequests();
     _outgoingRequestStream = _watchOutgoingRequests();
@@ -453,6 +431,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           vehicleModel: chat.vehicleModelLabel,
           vehicleColor: chat.vehicleColorLabel,
           displayPlate: chat.displayPlate,
+          profileUserId: chat.otherParticipantIdFor(currentUserId),
           isOnline: false,
         ),
       ),
@@ -601,6 +580,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           : 'CaRisma Nutzer';
 
       await _storyRepository.setOwnImageStory(
+        storyId: storyId,
         ownerUserId: currentUserId,
         ownerDisplayName: displayName,
         ownerPhotoUrl: profilePhotoUrl,
@@ -633,6 +613,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           path: upload.path,
         );
         await _storyRepository.updateOwnStoryMediaUrl(
+          storyId: storyId,
           ownerUserId: currentUserId,
           mediaType: draft.isVideo ? 'video' : 'image',
           url: downloadUrl,
@@ -644,7 +625,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
       uploadedStoryMedia = null;
 
-      final savedStory = await _storyRepository.getStoryById(currentUserId);
+      final savedStory = await _storyRepository.getStoryById(storyId);
 
       if (mounted) {
         setState(() {
@@ -652,9 +633,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           if (savedStory != null) {
             _cachedStories = <ChatStoryRecord>[
               savedStory,
-              ..._cachedStories.where(
-                (story) => story.ownerUserId.trim() != currentUserId,
-              ),
+              ..._cachedStories.where((story) => story.id != savedStory.id),
             ];
           }
         });
@@ -663,9 +642,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         if (savedStory != null) {
           _cachedStories = <ChatStoryRecord>[
             savedStory,
-            ..._cachedStories.where(
-              (story) => story.ownerUserId.trim() != currentUserId,
-            ),
+            ..._cachedStories.where((story) => story.id != savedStory.id),
           ];
         }
       }
@@ -974,7 +951,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
         onStoryVisible: _markStoryVisible,
         onShowViewers: (visibleStory) =>
             _showStoryViewers(context, visibleStory),
-        onDeleteStory: (_) => _confirmDeleteOwnStory(context),
+        onDeleteStory: (visibleStory) =>
+            _confirmDeleteOwnStory(context, visibleStory),
         onOpenSticker: _openStorySticker,
         onReplyStory: _sendStoryReply,
         onVoteStoryPoll: _voteStoryPoll,
@@ -1130,7 +1108,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -1161,14 +1139,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(22),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          _carismaBlue.withValues(alpha: 0.24),
-                          Colors.white.withValues(alpha: 0.06),
-                        ],
-                      ),
+                      color: CaRismaDesignTokens.card,
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.12),
                       ),
@@ -1180,7 +1151,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
                           height: 42,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _carismaBlue.withValues(alpha: 0.82),
+                            color: CaRismaDesignTokens.controlSurface,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
                           ),
                           child: const Icon(
                             Icons.visibility_rounded,
@@ -1223,7 +1197,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(999),
-                            color: Colors.white.withValues(alpha: 0.12),
+                            color: CaRismaDesignTokens.controlSurface,
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.12),
                             ),
@@ -1246,7 +1220,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        color: Colors.white.withValues(alpha: 0.06),
+                        color: CaRismaDesignTokens.controlSurface,
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.08),
                         ),
@@ -1298,7 +1272,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(20),
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: CaRismaDesignTokens.controlSurface,
                               border: Border.all(
                                 color: Colors.white.withValues(alpha: 0.08),
                               ),
@@ -1366,34 +1340,14 @@ class _ChatsScreenState extends State<ChatsScreen> {
     );
   }
 
-  Future<void> _confirmDeleteOwnStory(BuildContext dialogContext) async {
+  Future<void> _confirmDeleteOwnStory(
+    BuildContext dialogContext,
+    ChatStoryRecord story,
+  ) async {
     final shouldDelete = await showDialog<bool>(
       context: dialogContext,
       builder: (context) {
-        return _StoryDeleteDialog(
-          backgroundColor: const Color(0xFF101827),
-          title: const Text(
-            'Story löschen?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-          ),
-          content: Text(
-            'Deine aktuelle Story wird entfernt.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Abbrechen'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Löschen'),
-            ),
-          ],
-        );
+        return const _StoryDeleteDialog();
       },
     );
 
@@ -1408,7 +1362,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
 
     try {
-      await _storyRepository.deleteOwnStory(ownerUserId: currentUserId);
+      await _storyRepository.deleteOwnStory(
+        storyId: story.id,
+        ownerUserId: currentUserId,
+      );
     } catch (error) {
       if (!dialogContext.mounted) {
         return;
@@ -1944,9 +1901,16 @@ class _ChatsScreenState extends State<ChatsScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Die Anfrage konnte nicht bearbeitet werden.',
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -1978,7 +1942,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kontaktanfrage wurde angenommen.')),
+        SnackBar(
+          content: Text(
+            result.profileConnectionSynced
+                ? 'Kontaktanfrage wurde angenommen.'
+                : 'Kontaktanfrage wurde angenommen. Die Profilverknüpfung wird später synchronisiert.',
+          ),
+        ),
       );
       _refreshChatsAndRequests();
       try {
@@ -1991,7 +1961,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Anfrage angenommen, aber Chat konnte nicht geöffnet werden: $error',
+              'Anfrage angenommen, aber der Chat konnte nicht geöffnet werden: '
+              '${_friendlyChatUiError(error)}',
             ),
           ),
         );
@@ -2002,7 +1973,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_acceptRequestErrorMessage(request, error))),
+        SnackBar(content: Text(_acceptRequestErrorMessage(error))),
       );
     } finally {
       if (mounted) {
@@ -2013,31 +1984,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
   }
 
-  String _acceptRequestErrorMessage(
-    ContactRequestRecord request,
-    Object error,
-  ) {
-    final stage = error is AcceptContactRequestFailure ? error.stage : 'accept';
-    final cause = error is AcceptContactRequestFailure ? error.cause : error;
-
-    return [
-      'Annehmen fehlgeschlagen [$stage].',
-      'user=${_shortDebugValue(_effectiveUserId)}',
-      'receiver=${_shortDebugValue(request.receiverUserId)}',
-      'sender=${_shortDebugValue(request.senderUserId)}',
-      'request=${_shortDebugValue(request.id)}',
-      'error=$cause',
-    ].join(' ');
-  }
-
-  String _shortDebugValue(String value) {
-    final trimmed = value.trim();
-
-    if (trimmed.length <= 12) {
-      return trimmed.isEmpty ? '-' : trimmed;
-    }
-
-    return '${trimmed.substring(0, 6)}...${trimmed.substring(trimmed.length - 4)}';
+  String _acceptRequestErrorMessage(Object error) {
+    return _friendlyChatUiError(
+      error,
+      fallback: 'Die Kontaktanfrage konnte nicht angenommen werden.',
+    );
   }
 
   Future<void> _declineRequest(ContactRequestRecord request) {
@@ -2069,15 +2020,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20, 18, 20, keyboardInset),
+          padding: EdgeInsets.fromLTRB(20, 8, 20, keyboardInset),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CaRismaPageHeader(
-                icon: Icons.chat_bubble_rounded,
-                title: 'Chats',
-              ),
-              const SizedBox(height: 22),
               if (!chatGateDecision.isAllowed)
                 Expanded(
                   child: SingleChildScrollView(
@@ -2098,26 +2044,31 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       final chats = chatsSnapshot.data ?? const <ChatRecord>[];
                       final hasChats = chats.isNotEmpty;
 
-                      return SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _ChatsSegmentedControl(
-                              selectedView: _selectedView,
-                              onChanged: _selectView,
-                            ),
-                            const SizedBox(height: 14),
-                            if (_selectedView == _ChatsView.requests ||
-                                (_selectedView == _ChatsView.chats &&
-                                    hasChats)) ...[
-                              _ChatSearchField(controller: _searchController),
-                              const SizedBox(height: 16),
+                      return NotificationListener<ScrollNotification>(
+                        onNotification: _handleChatScrollNotification,
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(
+                            parent: AlwaysScrollableScrollPhysics(),
+                          ),
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _ChatsSegmentedControl(
+                                selectedView: _selectedView,
+                                onChanged: _selectView,
+                              ),
+                              const SizedBox(height: 14),
+                              if (_selectedView == _ChatsView.chats &&
+                                  hasChats) ...[
+                                _ChatSearchField(controller: _searchController),
+                                const SizedBox(height: 16),
+                              ],
+                              _buildChatsOrRequestsView(chats),
+                              const SizedBox(height: 112),
                             ],
-                            _buildChatsOrRequestsView(chats),
-                            const SizedBox(height: 112),
-                          ],
+                          ),
                         ),
                       );
                     },
@@ -2140,53 +2091,45 @@ class _ChatsScreenState extends State<ChatsScreen> {
           final isArchivedLoading =
               archivedSnapshot.connectionState == ConnectionState.waiting;
 
-          return StreamBuilder<List<ChatRecord>>(
-            stream: _blockedChatStream,
-            builder: (context, blockedSnapshot) {
-              final blockedChats = blockedSnapshot.data ?? const <ChatRecord>[];
-              final isBlockedLoading =
-                  blockedSnapshot.connectionState == ConnectionState.waiting;
+          return StreamBuilder<List<ChatStoryRecord>>(
+            stream: _storyStream,
+            initialData: _cachedStories,
+            builder: (context, storySnapshot) {
+              final storyData = storySnapshot.data;
+              if (storyData != null && !storySnapshot.hasError) {
+                _cachedStories = storyData;
+              }
 
-              return StreamBuilder<List<ChatStoryRecord>>(
-                stream: _storyStream,
-                initialData: _cachedStories,
-                builder: (context, storySnapshot) {
-                  final storyData = storySnapshot.data;
-                  if (storyData != null && !storySnapshot.hasError) {
-                    _cachedStories = storyData;
-                  }
+              final storyVisibleOwnerIds = _storyVisibleOwnerIdsFor(
+                chats: [...chats, ...archivedChats],
+                currentUserId: _effectiveUserId,
+              );
+              final stories = _visibleStoryRecords(
+                storyData ?? _cachedStories,
+                allowedOwnerIds: storyVisibleOwnerIds,
+                currentUserId: _effectiveUserId,
+              );
 
-                  final storyVisibleOwnerIds = _storyVisibleOwnerIdsFor(
-                    chats: [...chats, ...archivedChats],
-                    currentUserId: _effectiveUserId,
-                  );
-                  final stories = _visibleStoryRecords(
-                    storyData ?? _cachedStories,
-                    allowedOwnerIds: storyVisibleOwnerIds,
-                    currentUserId: _effectiveUserId,
-                  );
-
-                  return _ChatsOverview(
-                    chats: chats,
-                    archivedChats: archivedChats,
-                    blockedChats: blockedChats,
-                    stories: stories,
-                    currentUserPhotoUrl: _currentUserProfilePhotoUrl,
-                    isAddingOwnStory: _isAddingOwnStory,
-                    isLoading: isArchivedLoading || isBlockedLoading,
-                    hasLocalActiveChat: _hasActiveChat,
-                    localMessages: _chatMessages,
-                    searchQuery: _searchQuery,
-                    selectedListView: _selectedChatListView,
-                    matchesChat: _matchesChatSearch,
-                    onListViewChanged: _selectChatListView,
-                    onHorizontalSwipe: _handleChatListSwipe,
-                    onOpenChat: _openChat,
-                    onOpenLocalChat: _openLocalChat,
-                    onAddOwnStory: _addOwnStory,
-                    onOpenStory: _openStory,
-                  );
-                },
+              return _ChatsOverview(
+                chats: chats,
+                archivedChats: archivedChats,
+                stories: stories,
+                currentUserPhotoUrl: _currentUserProfilePhotoUrl,
+                isAddingOwnStory: _isAddingOwnStory,
+                isLoading: isArchivedLoading,
+                hasLocalActiveChat: _hasActiveChat,
+                localMessages: _chatMessages,
+                searchQuery: _searchQuery,
+                selectedListView: _selectedChatListView,
+                showArchiveShortcut: _isArchiveShortcutVisible,
+                matchesChat: _matchesChatSearch,
+                onOpenArchived: _openArchivedChats,
+                onShowMessages: _showMessageChats,
+                onHideArchiveShortcut: _hideArchiveShortcut,
+                onOpenChat: _openChat,
+                onOpenLocalChat: _openLocalChat,
+                onAddOwnStory: _addOwnStory,
+                onOpenStory: _openStory,
               );
             },
           );
@@ -2198,9 +2141,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         incomingStream: _incomingRequestStream,
         outgoingStream: _outgoingRequestStream,
         busyRequestIds: _busyRequestIds,
-        searchQuery: _searchQuery,
         selectedListView: _selectedRequestListView,
-        matchesRequest: _matchesRequestSearch,
         onListViewChanged: _selectRequestListView,
         onHorizontalSwipe: _handleRequestListSwipe,
         onAccept: _acceptRequest,
@@ -2212,12 +2153,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 }
 
 class _StoryDeleteDialog extends StatelessWidget {
-  const _StoryDeleteDialog({
-    Color? backgroundColor,
-    Widget? title,
-    Widget? content,
-    List<Widget>? actions,
-  });
+  const _StoryDeleteDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -2232,14 +2168,7 @@ class _StoryDeleteDialog extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF101827).withValues(alpha: 0.94),
-                  const Color(0xFF071120).withValues(alpha: 0.90),
-                ],
-              ),
+              color: CaRismaDesignTokens.card,
               border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
               boxShadow: [
                 BoxShadow(
@@ -2260,14 +2189,16 @@ class _StoryDeleteDialog extends StatelessWidget {
                       height: 46,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.redAccent.withValues(alpha: 0.16),
+                        color: CaRismaDesignTokens.controlSurface,
                         border: Border.all(
-                          color: Colors.redAccent.withValues(alpha: 0.28),
+                          color: CaRismaDesignTokens.bluePrimary.withValues(
+                            alpha: 0.42,
+                          ),
                         ),
                       ),
                       child: const Icon(
                         Icons.delete_outline_rounded,
-                        color: Colors.redAccent,
+                        color: CaRismaDesignTokens.bluePrimary,
                         size: 24,
                       ),
                     ),
@@ -2300,6 +2231,7 @@ class _StoryDeleteDialog extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(false),
                         style: OutlinedButton.styleFrom(
+                          backgroundColor: CaRismaDesignTokens.controlSurface,
                           foregroundColor: Colors.white,
                           side: BorderSide(
                             color: Colors.white.withValues(alpha: 0.16),
@@ -2409,15 +2341,7 @@ class _StoryStickerInfoSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF0B223B).withValues(alpha: 0.96),
-                    const Color(0xFF122C48).withValues(alpha: 0.94),
-                    Colors.black.withValues(alpha: 0.9),
-                  ],
-                ),
+                color: CaRismaDesignTokens.card,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
                 boxShadow: [
                   BoxShadow(
@@ -2449,16 +2373,15 @@ class _StoryStickerInfoSheet extends StatelessWidget {
                         height: 52,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [_carismaBlue, _carismaBlueLight],
+                          color: CaRismaDesignTokens.controlSurface,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: _carismaBlue.withValues(alpha: 0.34),
-                              blurRadius: 22,
-                              offset: const Offset(0, 10),
+                              color: Colors.black.withValues(alpha: 0.28),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
                             ),
                           ],
                         ),
@@ -2644,7 +2567,7 @@ class _StoryStickerInfoTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.08),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Row(

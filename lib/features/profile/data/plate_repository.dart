@@ -66,8 +66,6 @@ class PlateRepository {
       'allowContactRequests': profile.allowContactRequests,
       'allowAnonymousReports': profile.allowAnonymousReports,
       'verificationStatus': profile.verificationStatus,
-      'latitude': latitude,
-      'longitude': longitude,
       'isActive': true,
       'isDeleted': false,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -75,6 +73,8 @@ class PlateRepository {
     };
 
     if (latitude != null && longitude != null) {
+      plateData['latitude'] = latitude;
+      plateData['longitude'] = longitude;
       plateData['locationUpdatedAt'] = FieldValue.serverTimestamp();
     }
 
@@ -135,6 +135,37 @@ class PlateRepository {
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  Future<void> deactivatePlateForProfile(UserProfile profile) async {
+    final countryCode = (profile.countryCode ?? profile.country)
+        .trim()
+        .toUpperCase();
+    final plateValue = buildPlateValue(
+      countryCode: countryCode,
+      region: profile.plateRegion?.trim() ?? '',
+      letters: profile.plateLetters?.trim() ?? '',
+      numbers: profile.plateNumbers?.trim() ?? '',
+    );
+    final plateKey = normalizePlateValue(plateValue);
+
+    if (profile.uid.trim().isEmpty || countryCode.isEmpty || plateKey.isEmpty) {
+      return;
+    }
+
+    final document = _plateDocument(
+      countryCode: countryCode,
+      plateKey: plateKey,
+    );
+    final snapshot = await document.get();
+    if (!snapshot.exists || snapshot.data()?['ownerUserId'] != profile.uid) {
+      return;
+    }
+
+    await document.update({
+      'isActive': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   String _vehicleLabel(UserProfile profile) {

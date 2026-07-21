@@ -329,14 +329,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF101827).withValues(alpha: 0.94),
-                        const Color(0xFF071120).withValues(alpha: 0.88),
-                      ],
-                    ),
+                    color: CaRismaDesignTokens.card,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.12),
                     ),
@@ -647,7 +640,6 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
         _isStartingVideoRecording ||
         _isRecordingVideo ||
         _isStoppingVideoRecording;
-    final canTakePhoto = isCameraReady && !isCaptureBusy;
     final canPickMedia = !isCaptureBusy;
     final canSwitchCamera =
         isCameraReady && _cameras.length > 1 && !isCaptureBusy;
@@ -657,7 +649,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
             .clamp(0.0, 1.0);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: CaRismaDesignTokens.background,
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerUp: (_) => _requestStopVideoRecording(),
@@ -688,9 +680,11 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.42),
+                        CaRismaDesignTokens.backgroundTop.withValues(
+                          alpha: 0.56,
+                        ),
                         Colors.transparent,
-                        Colors.black.withValues(alpha: 0.50),
+                        CaRismaDesignTokens.background.withValues(alpha: 0.68),
                       ],
                       stops: const [0, 0.42, 1],
                     ),
@@ -700,68 +694,11 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
             ),
             Positioned(
               left: 14,
-              right: 14,
               top: viewPadding.top + 10,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 7, 14, 7),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF101827).withValues(alpha: 0.70),
-                          Colors.black.withValues(alpha: 0.34),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.14),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        _StoryEditorHeaderButton(
-                          icon: Icons.close_rounded,
-                          tooltip: 'Abbrechen',
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Story aufnehmen',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: canTakePhoto ? _takePhoto : null,
-                          icon: const Icon(Icons.photo_camera_rounded),
-                          color: canTakePhoto
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.36),
-                          tooltip: 'Foto aufnehmen',
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(
-                              alpha: canTakePhoto ? 0.10 : 0.05,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              child: _StoryEditorHeaderButton(
+                icon: Icons.close_rounded,
+                tooltip: 'Abbrechen',
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
             if (_isRecordingVideo)
@@ -776,71 +713,39 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
                 ),
               ),
             Positioned(
-              left: 14,
-              right: 14,
+              left: 20,
+              right: 20,
               bottom: viewPadding.bottom + 22,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(34),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(18, 13, 18, 14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(34),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF101827).withValues(alpha: 0.72),
-                          Colors.black.withValues(alpha: 0.40),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.14),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.28),
-                          blurRadius: 26,
-                          offset: const Offset(0, 14),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        _StoryCaptureSideAction(
-                          icon: Icons.photo_library_rounded,
-                          label: 'Aufnahmen',
-                          enabled: canPickMedia,
-                          onTap: _pickFromGallery,
-                        ),
-                        Listener(
-                          behavior: HitTestBehavior.opaque,
-                          onPointerDown: (_) => _handleCapturePointerDown(),
-                          onPointerUp: (_) => _handleCapturePointerUp(
-                            takePhotoOnShortPress: true,
-                          ),
-                          onPointerCancel: (_) => _handleCapturePointerUp(
-                            takePhotoOnShortPress: false,
-                          ),
-                          child: _StoryCaptureButton(
-                            isBusy: _isCapturing,
-                            isRecording: _isRecordingVideo,
-                            recordingProgress: recordingProgress,
-                          ),
-                        ),
-                        _StoryCaptureSideAction(
-                          icon: Icons.flip_camera_android_rounded,
-                          label: 'Kamera',
-                          enabled: canSwitchCamera,
-                          onTap: _switchCamera,
-                        ),
-                      ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _StoryCaptureSideAction(
+                    icon: Icons.photo_library_outlined,
+                    label: 'Aufnahmen',
+                    enabled: canPickMedia,
+                    onTap: _pickFromGallery,
+                  ),
+                  Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: (_) => _handleCapturePointerDown(),
+                    onPointerUp: (_) =>
+                        _handleCapturePointerUp(takePhotoOnShortPress: true),
+                    onPointerCancel: (_) =>
+                        _handleCapturePointerUp(takePhotoOnShortPress: false),
+                    child: _StoryCaptureButton(
+                      isBusy: _isCapturing,
+                      isRecording: _isRecordingVideo,
+                      recordingProgress: recordingProgress,
                     ),
                   ),
-                ),
+                  _StoryCaptureSideAction(
+                    icon: Icons.cameraswitch_rounded,
+                    label: 'Kamera wechseln',
+                    enabled: canSwitchCamera,
+                    onTap: _switchCamera,
+                  ),
+                ],
               ),
             ),
           ],
@@ -865,11 +770,7 @@ class _StoryCameraPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF060810), Color(0xFF101827), Color(0xFF02040A)],
-        ),
+        gradient: CaRismaDesignTokens.screenGradient,
       ),
       child: Center(
         child: isLoading
@@ -878,9 +779,11 @@ class _StoryCameraPlaceholder extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.black.withValues(alpha: 0.18),
+                  color: CaRismaDesignTokens.surface2.withValues(alpha: 0.78),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.10,
+                    ),
                   ),
                 ),
                 child: const Center(
@@ -900,10 +803,14 @@ class _StoryCameraPlaceholder extends StatelessWidget {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  color: Colors.black.withValues(alpha: 0.34),
+                  borderRadius: BorderRadius.circular(
+                    CaRismaDesignTokens.radiusCard,
+                  ),
+                  color: CaRismaDesignTokens.surface1.withValues(alpha: 0.88),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.12,
+                    ),
                   ),
                 ),
                 child: Row(
@@ -922,7 +829,7 @@ class _StoryCameraPlaceholder extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.78),
+                          color: CaRismaDesignTokens.textSecondary,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -959,8 +866,10 @@ class _StoryMediaPickerTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.07),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+            color: CaRismaDesignTokens.controlSurface,
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           child: Row(
             children: [
@@ -969,14 +878,10 @@ class _StoryMediaPickerTile extends StatelessWidget {
                 height: 38,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _carismaBlue.withValues(alpha: 0.82),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.22),
-                      blurRadius: 14,
-                      offset: const Offset(0, 7),
-                    ),
-                  ],
+                  color: CaRismaDesignTokens.controlSurface,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Icon(icon, color: Colors.white, size: 22),
               ),
@@ -990,7 +895,7 @@ class _StoryMediaPickerTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -1000,7 +905,7 @@ class _StoryMediaPickerTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.62),
+                        color: CaRismaDesignTokens.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1010,7 +915,7 @@ class _StoryMediaPickerTile extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.46),
+                color: CaRismaDesignTokens.textMuted,
               ),
             ],
           ),
@@ -1035,8 +940,10 @@ class _StoryRecordingIndicator extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            color: Colors.black.withValues(alpha: 0.42),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            color: CaRismaDesignTokens.surface1.withValues(alpha: 0.86),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1046,14 +953,14 @@ class _StoryRecordingIndicator extends StatelessWidget {
                 height: 9,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFFFF315A),
+                  color: CaRismaDesignTokens.danger,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 durationLabel,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0,
                 ),
@@ -1085,11 +992,13 @@ class _StoryFilterNamePill extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.black.withValues(alpha: 0.46),
-                _carismaBlueDark.withValues(alpha: 0.28),
+                CaRismaDesignTokens.surface1.withValues(alpha: 0.88),
+                CaRismaDesignTokens.blueDark.withValues(alpha: 0.54),
               ],
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.24),
@@ -1103,7 +1012,7 @@ class _StoryFilterNamePill extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontSize: 13,
               fontWeight: FontWeight.w900,
               letterSpacing: 0,
@@ -1129,9 +1038,9 @@ class _StoryVideoLengthWarning extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(999),
-              color: const Color(0xFFFF315A).withValues(alpha: 0.18),
+              color: CaRismaDesignTokens.danger.withValues(alpha: 0.18),
               border: Border.all(
-                color: const Color(0xFFFF7A90).withValues(alpha: 0.42),
+                color: CaRismaDesignTokens.danger.withValues(alpha: 0.46),
               ),
             ),
             child: const Row(
@@ -1173,30 +1082,32 @@ class _StoryCaptureButton extends StatelessWidget {
     final progress = recordingProgress.clamp(0.0, 1.0);
 
     return SizedBox(
-      width: 92,
-      height: 92,
+      width: 86,
+      height: 86,
       child: Stack(
         alignment: Alignment.center,
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 160),
-            width: 88,
-            height: 88,
-            padding: const EdgeInsets.all(6),
+            width: 82,
+            height: 82,
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.92),
-                width: 4,
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.92),
+                width: 3.5,
               ),
               color: isBusy || isRecording
-                  ? Colors.white.withValues(alpha: 0.22)
+                  ? CaRismaDesignTokens.textPrimary.withValues(alpha: 0.18)
                   : Colors.transparent,
               boxShadow: [
                 BoxShadow(
-                  color: _carismaBlue.withValues(alpha: 0.32),
-                  blurRadius: 26,
-                  offset: const Offset(0, 12),
+                  color:
+                      (isRecording ? CaRismaDesignTokens.danger : Colors.white)
+                          .withValues(alpha: 0.30),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.28),
@@ -1209,21 +1120,21 @@ class _StoryCaptureButton extends StatelessWidget {
               duration: const Duration(milliseconds: 160),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: isBusy || isRecording
+                gradient: isRecording
                     ? LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          _carismaBlue.withValues(alpha: 0.92),
-                          _myMessageBlueDark.withValues(alpha: 0.88),
+                          CaRismaDesignTokens.danger,
+                          CaRismaDesignTokens.danger.withValues(alpha: 0.78),
                         ],
                       )
                     : LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white,
-                          Colors.white.withValues(alpha: 0.82),
+                          CaRismaDesignTokens.controlSurface,
+                          CaRismaDesignTokens.controlSurface,
                         ],
                       ),
               ),
@@ -1234,32 +1145,32 @@ class _StoryCaptureButton extends StatelessWidget {
                         height: 24,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                         ),
                       ),
                     )
                   : Icon(
                       isRecording
                           ? Icons.stop_rounded
-                          : Icons.photo_camera_rounded,
-                      color: isRecording
-                          ? Colors.white
-                          : _myMessageBlueDark.withValues(alpha: 0.72),
+                          : Icons.camera_alt_rounded,
+                      color: CaRismaDesignTokens.textPrimary,
                       size: isRecording ? 34 : 28,
                     ),
             ),
           ),
           if (isRecording)
             SizedBox(
-              width: 92,
-              height: 92,
+              width: 86,
+              height: 86,
               child: CircularProgressIndicator(
                 value: progress,
                 strokeWidth: 4,
                 strokeCap: StrokeCap.round,
-                backgroundColor: Colors.white.withValues(alpha: 0.18),
+                backgroundColor: CaRismaDesignTokens.textPrimary.withValues(
+                  alpha: 0.16,
+                ),
                 valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFFFF315A),
+                  CaRismaDesignTokens.danger,
                 ),
               ),
             ),
@@ -1286,53 +1197,42 @@ class _StoryCaptureSideAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final opacity = enabled ? 1.0 : 0.42;
 
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: enabled ? 0.18 : 0.08),
-                  Colors.white.withValues(alpha: enabled ? 0.07 : 0.04),
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled ? onTap : null,
+          child: SizedBox(
+            width: 56,
+            height: 56,
+            child: Center(
+              child: Icon(
+                icon,
+                color:
+                    (enabled
+                            ? CaRismaDesignTokens.textPrimary
+                            : CaRismaDesignTokens.textMuted)
+                        .withValues(alpha: opacity),
+                size: 30,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.78),
+                    blurRadius: 12,
+                  ),
+                  if (enabled)
+                    Shadow(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                    ),
                 ],
               ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: enabled ? 0.20 : 0.09),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: enabled ? 0.26 : 0.12),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white.withValues(alpha: opacity),
-              size: 24,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: opacity),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1977,14 +1877,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(28),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF101827).withValues(alpha: 0.94),
-                            const Color(0xFF071120).withValues(alpha: 0.88),
-                          ],
-                        ),
+                        color: CaRismaDesignTokens.card,
                         border: Border.all(
                           color: Colors.white.withValues(alpha: 0.12),
                         ),
@@ -2245,14 +2138,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF101827).withValues(alpha: 0.95),
-                        const Color(0xFF071120).withValues(alpha: 0.9),
-                      ],
-                    ),
+                    color: CaRismaDesignTokens.card,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.12),
                     ),
@@ -2338,14 +2224,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF101827).withValues(alpha: 0.94),
-                        const Color(0xFF071120).withValues(alpha: 0.88),
-                      ],
-                    ),
+                    color: CaRismaDesignTokens.card,
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.12),
                     ),
@@ -2853,93 +2732,33 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
             ),
           if (!_isSaving)
             Positioned(
-              left: 12,
-              right: 12,
+              left: 14,
+              right: 14,
               top: viewPadding.top + 10,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF101827).withValues(alpha: 0.70),
-                          Colors.black.withValues(alpha: 0.34),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.14),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        if (!_isPublishing)
-                          _StoryEditorHeaderButton(
-                            icon: Icons.close_rounded,
-                            tooltip: 'Abbrechen',
-                            onPressed: _closeEditor,
-                          )
-                        else
-                          const SizedBox(width: 44, height: 44),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Story bearbeiten',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        TextButton(
-                          onPressed: canPublish ? _publish : null,
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: _carismaBlue,
-                            disabledBackgroundColor: _carismaBlue.withValues(
-                              alpha: _isVideoTooLong ? 0.24 : 0.54,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                          child: _isPublishing
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text(
-                                  'Teilen',
-                                  style: TextStyle(fontWeight: FontWeight.w900),
-                                ),
-                        ),
-                      ],
-                    ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!_isPublishing)
+                    _StoryEditorHeaderButton(
+                      icon: Icons.close_rounded,
+                      tooltip: 'Abbrechen',
+                      onPressed: _closeEditor,
+                    )
+                  else
+                    const SizedBox(width: 60, height: 60),
+                  const Spacer(),
+                  _StoryEditorPublishButton(
+                    isEnabled: canPublish,
+                    isBusy: _isPublishing,
+                    onPressed: _publish,
                   ),
-                ),
+                ],
               ),
             ),
           if (!_isSaving && !_isPublishing && !_isTextEditingEnabled)
             Positioned(
               right: 14,
-              top: viewPadding.top + 86,
+              top: viewPadding.top + 96,
               child: _StoryEditorActionRail(
                 isSaving: _isSaving,
                 isVideo: widget.isVideo,
@@ -3025,21 +2844,141 @@ class _StoryEditorHeaderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        color: Colors.white,
-        tooltip: tooltip,
-        style: IconButton.styleFrom(
-          backgroundColor: Colors.white.withValues(alpha: 0.10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: SizedBox(
+            width: 60,
+            height: 60,
+            child: Center(
+              child: _StoryGlassActionCircle(
+                size: 52,
+                child: Icon(
+                  icon,
+                  color: CaRismaDesignTokens.textPrimary,
+                  size: 29,
+                ),
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _StoryEditorPublishButton extends StatelessWidget {
+  const _StoryEditorPublishButton({
+    required this.isEnabled,
+    required this.isBusy,
+    required this.onPressed,
+  });
+
+  final bool isEnabled;
+  final bool isBusy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Story teilen',
+      child: Semantics(
+        button: true,
+        enabled: isEnabled && !isBusy,
+        label: 'Story teilen',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: isEnabled && !isBusy ? onPressed : null,
+          child: SizedBox(
+            width: 68,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _StoryGlassActionCircle(
+                  size: 54,
+                  isActive: isEnabled,
+                  child: isBusy
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Icon(
+                          Icons.send_rounded,
+                          color: isEnabled
+                              ? CaRismaDesignTokens.textPrimary
+                              : CaRismaDesignTokens.textMuted,
+                          size: 26,
+                        ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Teilen',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: isEnabled
+                        ? CaRismaDesignTokens.textPrimary
+                        : CaRismaDesignTokens.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryGlassActionCircle extends StatelessWidget {
+  const _StoryGlassActionCircle({
+    required this.size,
+    required this.child,
+    this.isActive = false,
+  });
+
+  final double size;
+  final Widget child;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isActive ? 0.82 : 0.42),
+          width: isActive ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.42),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+          if (isActive)
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.18),
+              blurRadius: 18,
+            ),
+        ],
+      ),
+      child: Center(child: child),
     );
   }
 }
@@ -3065,14 +3004,7 @@ class _StoryDiscardDialog extends StatelessWidget {
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF101827).withValues(alpha: 0.94),
-                  const Color(0xFF071120).withValues(alpha: 0.90),
-                ],
-              ),
+              color: CaRismaDesignTokens.card,
               border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
               boxShadow: [
                 BoxShadow(
@@ -3209,14 +3141,7 @@ class _StoryTextInputDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(28),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF101827).withValues(alpha: 0.94),
-                      const Color(0xFF071120).withValues(alpha: 0.90),
-                    ],
-                  ),
+                  color: CaRismaDesignTokens.card,
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.13),
                   ),
@@ -3239,9 +3164,9 @@ class _StoryTextInputDialog extends StatelessWidget {
                           height: 46,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: _carismaBlue.withValues(alpha: 0.18),
+                            color: CaRismaDesignTokens.controlSurface,
                             border: Border.all(
-                              color: _carismaBlueLight.withValues(alpha: 0.24),
+                              color: Colors.white.withValues(alpha: 0.5),
                             ),
                           ),
                           child: Icon(icon, color: Colors.white, size: 22),
@@ -3256,7 +3181,7 @@ class _StoryTextInputDialog extends StatelessWidget {
                         data: Theme.of(context).copyWith(
                           inputDecorationTheme: InputDecorationTheme(
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.08),
+                            fillColor: CaRismaDesignTokens.controlSurface,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14,
                               vertical: 12,
@@ -3338,92 +3263,66 @@ class _StoryEditorActionRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final selectedStickerType = stickerType.trim();
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(26),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight:
-                MediaQuery.sizeOf(context).height -
-                MediaQuery.paddingOf(context).top -
-                128,
-          ),
-          child: Container(
-            width: 78,
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF101827).withValues(alpha: 0.72),
-                  Colors.black.withValues(alpha: 0.38),
-                ],
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight:
+            MediaQuery.sizeOf(context).height -
+            MediaQuery.paddingOf(context).top -
+            128,
+      ),
+      child: SizedBox(
+        width: 72,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _StoryRailButton(
+                icon: Icons.text_fields_rounded,
+                label: 'Text',
+                isSelected: hasTextTool,
+                onTap: onAddText,
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.24),
-                  blurRadius: 22,
-                  offset: const Offset(0, 12),
+              const SizedBox(height: 8),
+              _StoryRailButton(
+                icon: Icons.directions_car_filled_rounded,
+                label: 'Fahrzeug',
+                isSelected: selectedStickerType == 'vehicle',
+                onTap: onAddVehicle,
+              ),
+              const SizedBox(height: 8),
+              _StoryRailButton(
+                icon: Icons.location_on_rounded,
+                label: 'Standort',
+                isSelected: selectedStickerType == 'location',
+                onTap: onAddLocation,
+              ),
+              const SizedBox(height: 8),
+              _StoryRailButton(
+                icon: Icons.auto_awesome_rounded,
+                label: 'Status',
+                isSelected: selectedStickerType == 'status',
+                onTap: onAddStatus,
+              ),
+              if (isVideo) ...[
+                const SizedBox(height: 8),
+                _StoryRailButton(
+                  icon: videoIsMuted
+                      ? Icons.volume_off_rounded
+                      : Icons.volume_up_rounded,
+                  label: videoIsMuted ? 'Stumm' : 'Audio',
+                  isSelected: videoIsMuted,
+                  onTap: onToggleVideoMuted,
                 ),
               ],
-            ),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.zero,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _StoryRailButton(
-                    icon: Icons.text_fields_rounded,
-                    label: 'Text',
-                    isSelected: hasTextTool,
-                    onTap: onAddText,
-                  ),
-                  const SizedBox(height: 8),
-                  _StoryRailButton(
-                    icon: Icons.directions_car_filled_rounded,
-                    label: 'Fahrzeug',
-                    isSelected: selectedStickerType == 'vehicle',
-                    onTap: onAddVehicle,
-                  ),
-                  const SizedBox(height: 8),
-                  _StoryRailButton(
-                    icon: Icons.location_on_rounded,
-                    label: 'Standort',
-                    isSelected: selectedStickerType == 'location',
-                    onTap: onAddLocation,
-                  ),
-                  const SizedBox(height: 8),
-                  _StoryRailButton(
-                    icon: Icons.bolt_rounded,
-                    label: 'Status',
-                    isSelected: selectedStickerType == 'status',
-                    onTap: onAddStatus,
-                  ),
-                  if (isVideo) ...[
-                    const SizedBox(height: 8),
-                    _StoryRailButton(
-                      icon: videoIsMuted
-                          ? Icons.volume_off_rounded
-                          : Icons.volume_up_rounded,
-                      label: videoIsMuted ? 'Stumm' : 'Audio',
-                      isSelected: videoIsMuted,
-                      onTap: onToggleVideoMuted,
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  _StoryRailButton(
-                    icon: Icons.download_rounded,
-                    label: 'Sichern',
-                    isBusy: isSaving,
-                    onTap: onSave,
-                  ),
-                ],
+              const SizedBox(height: 8),
+              _StoryRailButton(
+                icon: Icons.download_rounded,
+                label: 'Sichern',
+                isBusy: isSaving,
+                onTap: onSave,
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -3448,61 +3347,55 @@ class _StoryRailButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isBusy ? null : onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: isSelected
-                  ? const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_myMessageBlueDark, _carismaBlue],
-                    )
-                  : null,
-              color: isSelected ? null : Colors.white.withValues(alpha: 0.10),
-              border: Border.all(
-                color: isSelected
-                    ? _carismaBlueLight
-                    : Colors.white.withValues(alpha: 0.12),
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        enabled: !isBusy,
+        label: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: isBusy ? null : onTap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _StoryGlassActionCircle(
+                size: 52,
+                isActive: isSelected,
+                child: Center(
+                  child: isBusy
+                      ? const SizedBox(
+                          width: 19,
+                          height: 19,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.1,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Icon(icon, color: Colors.white, size: 26),
+                ),
               ),
-            ),
-            child: isBusy
-                ? const Center(
-                    child: SizedBox(
-                      width: 17,
-                      height: 17,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: 72,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: isSelected ? 1 : 0.94,
                     ),
-                  )
-                : Icon(icon, color: Colors.white, size: 22),
-          ),
-          const SizedBox(height: 4),
-          SizedBox(
-            width: 64,
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -3575,14 +3468,7 @@ class _StoryTextStyleBar extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF101827).withValues(alpha: 0.82),
-                Colors.black.withValues(alpha: 0.54),
-              ],
-            ),
+            color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
             boxShadow: [
               BoxShadow(
@@ -3749,7 +3635,7 @@ class _StoryLocationPlaceTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(11, 9, 10, 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.07),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
           ),
           child: Row(
@@ -3759,18 +3645,14 @@ class _StoryLocationPlaceTile extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _carismaBlue.withValues(alpha: 0.82),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.22),
-                      blurRadius: 14,
-                      offset: const Offset(0, 7),
-                    ),
-                  ],
+                  color: CaRismaDesignTokens.controlSurface,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: const Icon(
                   Icons.location_on_rounded,
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.bluePrimary,
                   size: 18,
                 ),
               ),
@@ -3836,7 +3718,7 @@ class _StoryStatusChoiceChip extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
-            color: Colors.white.withValues(alpha: 0.08),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
           child: Row(
@@ -3847,11 +3729,14 @@ class _StoryStatusChoiceChip extends StatelessWidget {
                 height: 28,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _carismaBlue.withValues(alpha: 0.86),
+                  color: CaRismaDesignTokens.controlSurface,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
                 ),
                 child: Icon(
                   _storyStatusStickerIcon(label),
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.bluePrimary,
                   size: 16,
                 ),
               ),
@@ -3889,7 +3774,7 @@ class _StoryVehicleStickerChoice extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: Colors.white.withValues(alpha: 0.07),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
           child: Row(
@@ -3899,23 +3784,16 @@ class _StoryVehicleStickerChoice extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      _carismaBlue.withValues(alpha: 0.92),
-                      const Color(0xFF62D2FF).withValues(alpha: 0.78),
-                    ],
+                  color: CaRismaDesignTokens.controlSurface,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.5),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.22),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
                 ),
-                child: Icon(option.icon, color: Colors.white, size: 22),
+                child: Icon(
+                  option.icon,
+                  color: CaRismaDesignTokens.bluePrimary,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -4112,7 +3990,7 @@ class _StoryStickerChip extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF0A76FF), Color(0xFF061628)],
+                colors: [CaRismaDesignTokens.bluePrimary, Color(0xFF061628)],
               ),
               border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
               boxShadow: [
@@ -4255,7 +4133,7 @@ class _StoryStickerChip extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF0A76FF).withValues(alpha: 0.94),
+                  CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.94),
                   const Color(0xFF061628).withValues(alpha: 0.86),
                 ],
               ),
@@ -4616,7 +4494,7 @@ class _StoryFontSelector extends StatelessWidget {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: selectedValue,
-          dropdownColor: const Color(0xFF101827),
+          dropdownColor: CaRismaDesignTokens.card,
           isExpanded: true,
           iconEnabledColor: Colors.white,
           style: const TextStyle(

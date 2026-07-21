@@ -213,9 +213,7 @@ class _ActiveChatListTile extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
-              color: isUnread
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : Colors.white.withValues(alpha: 0.02),
+              color: CaRismaDesignTokens.card,
               border: Border.all(
                 color: isUnread
                     ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.45)
@@ -253,6 +251,10 @@ class _ActiveChatListTile extends StatelessWidget {
                       child: InkWell(
                         onTap: onTap,
                         borderRadius: BorderRadius.circular(18),
+                        splashFactory: NoSplash.splashFactory,
+                        overlayColor: const WidgetStatePropertyAll(
+                          Colors.transparent,
+                        ),
                         child: Row(
                           children: [
                             _UserAvatarPlaceholder(
@@ -341,7 +343,7 @@ class _ChatStateIcon extends StatelessWidget {
         height: 26,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.09),
+          color: CaRismaDesignTokens.controlSurface,
           border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: Icon(
@@ -371,7 +373,7 @@ class _EmptyListCard extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: Colors.white.withValues(alpha: 0.02),
+            color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
             boxShadow: [
               BoxShadow(
@@ -571,12 +573,14 @@ class _RoundIconButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Ink(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.08),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
           child: Icon(icon, color: Colors.white, size: 22),

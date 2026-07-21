@@ -27,7 +27,11 @@ class CaRismaSectionTitle extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF0B5EF5), Color(0xFF1E7BFF), Color(0xFF28A8FF)],
+              colors: [
+                CaRismaDesignTokens.bluePrimary,
+                CaRismaDesignTokens.bluePrimary,
+                CaRismaDesignTokens.bluePrimary,
+              ],
             ),
             boxShadow: [
               BoxShadow(

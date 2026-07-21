@@ -11,6 +11,9 @@ class _StoryViewerDialog extends StatefulWidget {
     required this.onOpenSticker,
     required this.onReplyStory,
     required this.onVoteStoryPoll,
+    this.allowReplies = true,
+    this.allowOwnerActions = true,
+    this.enableStickerAction = true,
   });
 
   final List<ChatStoryRecord> stories;
@@ -23,6 +26,9 @@ class _StoryViewerDialog extends StatefulWidget {
   final Future<void> Function(ChatStoryRecord story, String text) onReplyStory;
   final Future<bool> Function(ChatStoryRecord story, int optionIndex)
   onVoteStoryPoll;
+  final bool allowReplies;
+  final bool allowOwnerActions;
+  final bool enableStickerAction;
 
   @override
   State<_StoryViewerDialog> createState() => _StoryViewerDialogState();
@@ -342,7 +348,9 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       return;
     }
 
-    if (_isOwnStory && (velocity < -260 || dragOffset < -56)) {
+    if (widget.allowOwnerActions &&
+        _isOwnStory &&
+        (velocity < -260 || dragOffset < -56)) {
       _pauseForAction(widget.onShowViewers);
     }
   }
@@ -592,14 +600,20 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
               Positioned.fill(
                 child: Align(
                   alignment: stickerAlignment,
-                  child: GestureDetector(
-                    onTap: () => _pauseForAction(widget.onOpenSticker),
-                    child: _StoryStickerChip(
-                      type: story.stickerType,
-                      label: storyStickerLabel,
-                      payload: story.stickerPayload,
-                    ),
-                  ),
+                  child: widget.enableStickerAction
+                      ? GestureDetector(
+                          onTap: () => _pauseForAction(widget.onOpenSticker),
+                          child: _StoryStickerChip(
+                            type: story.stickerType,
+                            label: storyStickerLabel,
+                            payload: story.stickerPayload,
+                          ),
+                        )
+                      : _StoryStickerChip(
+                          type: story.stickerType,
+                          label: storyStickerLabel,
+                          payload: story.stickerPayload,
+                        ),
                 ),
               ),
             SafeArea(
@@ -613,16 +627,9 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                       padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF101827).withValues(alpha: 0.66),
-                            Colors.black.withValues(alpha: 0.34),
-                          ],
-                        ),
+                        color: CaRismaDesignTokens.card,
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
+                          color: Colors.white.withValues(alpha: 0.34),
                         ),
                       ),
                       child: Row(
@@ -662,13 +669,13 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                               ],
                             ),
                           ),
-                          if (_isOwnStory)
+                          if (_isOwnStory && widget.allowOwnerActions)
                             _StoryViewerSeenMiniChip(
                               count: seenCount,
                               onTap: () =>
                                   _pauseForAction(widget.onShowViewers),
                             ),
-                          if (_isOwnStory)
+                          if (_isOwnStory && widget.allowOwnerActions)
                             _StoryViewerActionButton(
                               onPressed: () =>
                                   _pauseForAction(widget.onDeleteStory),
@@ -743,7 +750,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                   ),
                 ),
               ),
-            if (!_isOwnStory)
+            if (!_isOwnStory && widget.allowReplies)
               Positioned(
                 left: 16,
                 right: 16,
@@ -773,20 +780,6 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                           onSend: _sendStoryReply,
                         ),
                       ],
-                    ),
-                  ),
-                ),
-              ),
-            if (_isOwnStory)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 28,
-                child: SafeArea(
-                  child: Center(
-                    child: _StorySeenButton(
-                      count: seenCount,
-                      onPressed: () => _pauseForAction(widget.onShowViewers),
                     ),
                   ),
                 ),
@@ -1097,9 +1090,9 @@ class _StoryViewerSeenMiniChip extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
-                  color: _carismaBlue.withValues(alpha: 0.24),
+                  color: CaRismaDesignTokens.controlSurface,
                   border: Border.all(
-                    color: _carismaBlueLight.withValues(alpha: 0.24),
+                    color: Colors.white.withValues(alpha: 0.42),
                   ),
                 ),
                 child: Row(
@@ -1121,106 +1114,6 @@ class _StoryViewerSeenMiniChip extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StorySeenButton extends StatelessWidget {
-  const _StorySeenButton({required this.count, required this.onPressed});
-
-  final int count;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = count == 0 ? 'Aufrufe' : 'Gesehen';
-    final subtitle = count == 0
-        ? 'noch keine'
-        : count == 1
-        ? '1 Aufruf'
-        : '$count Aufrufe';
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFF101827).withValues(alpha: 0.76),
-                    Colors.black.withValues(alpha: 0.44),
-                  ],
-                ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.keyboard_arrow_up_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    height: 26,
-                    constraints: const BoxConstraints(minWidth: 26),
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      color: _carismaBlue.withValues(alpha: 0.86),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.58),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
           ),
@@ -1495,7 +1388,8 @@ class _StoryViewerActionButton extends StatelessWidget {
             color: Colors.white,
             tooltip: tooltip,
             style: IconButton.styleFrom(
-              backgroundColor: Colors.black.withValues(alpha: 0.28),
+              backgroundColor: CaRismaDesignTokens.controlSurface,
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.42)),
               shape: const CircleBorder(),
             ),
           ),
@@ -1551,19 +1445,20 @@ String _formatStoryHeaderTime(
     return 'Läuft noch $minutes Min.';
   }
 
-  final difference = now.difference(story.createdAt);
-
-  if (difference.inMinutes < 1) {
-    return 'Gerade eben';
-  }
-
-  if (difference.inHours < 1) {
-    return 'Vor ${difference.inMinutes} Min.';
-  }
-
-  if (difference.inDays < 1) {
-    return 'Vor ${difference.inHours} Std.';
-  }
-
-  return 'Vor ${difference.inDays} T.';
+  final createdAt = story.createdAt.toLocal();
+  final localNow = now.toLocal();
+  final today = DateTime(localNow.year, localNow.month, localNow.day);
+  final createdDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
+  final dayDifference = today.difference(createdDay).inDays;
+  final dayLabel = switch (dayDifference) {
+    0 => 'Heute',
+    1 => 'Gestern',
+    _ =>
+      '${createdAt.day.toString().padLeft(2, '0')}.'
+          '${createdAt.month.toString().padLeft(2, '0')}.'
+          '${createdAt.year}',
+  };
+  final hour = createdAt.hour.toString().padLeft(2, '0');
+  final minute = createdAt.minute.toString().padLeft(2, '0');
+  return '$dayLabel, $hour:$minute Uhr';
 }

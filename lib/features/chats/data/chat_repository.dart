@@ -7,6 +7,37 @@ enum ChatStatus { active, archived, blocked, deleted }
 
 enum ChatMessageType { text, image, document, audio, location, contact, system }
 
+const int _maxChatImageCaptionLength = 1000;
+const int _maxChatDocumentBytes = 25 * 1024 * 1024;
+const int _maxChatVoiceMemoBytes = 15 * 1024 * 1024;
+const int _maxChatVoiceMemoDurationMs = 10 * 60 * 1000;
+const Set<String> _allowedChatDocumentContentTypes = {
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/rtf',
+  'application/octet-stream',
+};
+
+String _requiredChatAttachmentId(String value, String label) {
+  final trimmedValue = value.trim();
+
+  if (!RegExp(r'^[A-Za-z0-9_-]{1,120}$').hasMatch(trimmedValue)) {
+    throw ArgumentError('$label ist ungültig.');
+  }
+
+  return trimmedValue;
+}
+
+bool _isAllowedChatDocumentContentType(String contentType) {
+  return contentType.startsWith('text/') ||
+      _allowedChatDocumentContentTypes.contains(contentType);
+}
+
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
@@ -204,6 +235,20 @@ class ChatRecord {
     final trimmed = candidate?.trim();
 
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String? otherParticipantIdFor(String currentUserId) {
+    final trimmedCurrentUserId = currentUserId.trim();
+
+    for (final participant in participants) {
+      final trimmedParticipant = participant.trim();
+      if (trimmedParticipant.isNotEmpty &&
+          trimmedParticipant != trimmedCurrentUserId) {
+        return trimmedParticipant;
+      }
+    }
+
+    return null;
   }
 
   String get vehicleTitle {
@@ -715,8 +760,8 @@ class FirestoreChatRepository implements ChatRepository {
             .toList()
           ..sort();
 
-    if (uniqueParticipants.length < 2) {
-      throw ArgumentError('A chat requires at least two participants.');
+    if (uniqueParticipants.length != 2) {
+      throw ArgumentError('A chat requires exactly two participants.');
     }
 
     final chatDocument = requestId == null || requestId.trim().isEmpty
@@ -762,8 +807,14 @@ class FirestoreChatRepository implements ChatRepository {
 
   @override
   Future<List<ChatMessageRecord>> loadMessages({required String chatId}) async {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
+      return const <ChatMessageRecord>[];
+    }
+
     final snapshot = await _messagesCollection(
-      chatId,
+      trimmedChatId,
     ).where('isDeleted', isEqualTo: false).get();
 
     final messages = snapshot.docs.map(_messageFromSnapshot).toList()
@@ -774,8 +825,14 @@ class FirestoreChatRepository implements ChatRepository {
 
   @override
   Stream<List<ChatMessageRecord>> watchMessages({required String chatId}) {
+    final trimmedChatId = chatId.trim();
+
+    if (trimmedChatId.isEmpty) {
+      return Stream<List<ChatMessageRecord>>.value(const <ChatMessageRecord>[]);
+    }
+
     return _messagesCollection(
-      chatId,
+      trimmedChatId,
     ).where('isDeleted', isEqualTo: false).snapshots().map((snapshot) {
       final messages = snapshot.docs.map(_messageFromSnapshot).toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -1068,7 +1125,13 @@ class FirestoreChatRepository implements ChatRepository {
     String? replyToMessageId,
     String? replyToText,
   }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedSenderUserId = senderUserId.trim();
     final trimmedText = text.trim();
+
+    if (trimmedChatId.isEmpty || trimmedSenderUserId.isEmpty) {
+      throw ArgumentError('Chat ID and sender user ID must not be empty.');
+    }
 
     if (trimmedText.isEmpty) {
       throw ArgumentError('Message text must not be empty.');
@@ -1078,35 +1141,62 @@ class FirestoreChatRepository implements ChatRepository {
       throw ArgumentError('Message text is too long.');
     }
 
-    final firestoreMessageType = switch (messageType) {
+    final effectiveMessageType = switch (messageType) {
+      ChatMessageType.location => ChatMessageType.location,
+      ChatMessageType.contact => ChatMessageType.contact,
+      _ => ChatMessageType.text,
+    };
+    final firestoreMessageType = switch (effectiveMessageType) {
       ChatMessageType.location => FirestoreMessageTypes.location,
       ChatMessageType.contact => FirestoreMessageTypes.contact,
       _ => FirestoreMessageTypes.text,
     };
-    final lastMessageText = switch (messageType) {
+    final lastMessageText = switch (effectiveMessageType) {
       ChatMessageType.location => 'Standort',
       ChatMessageType.contact => 'Kontakt',
       _ => trimmedText,
     };
 
     final now = DateTime.now();
-    final messageDocument = _messagesCollection(chatId).doc();
+    final timestamp = Timestamp.fromDate(now);
+    final messageDocument = _messagesCollection(trimmedChatId).doc();
 
     await _firestore.runTransaction((transaction) async {
-      final chatDocument = _chatsCollection.doc(chatId);
+      final chatDocument = _chatsCollection.doc(trimmedChatId);
       final chatSnapshot = await transaction.get(chatDocument);
       final chatData = chatSnapshot.data();
+
+      if (!chatSnapshot.exists || chatData == null) {
+        throw StateError('Chat not found: $trimmedChatId');
+      }
+
       final participantIds = _stringListFromValue(
-        chatData?['participants'],
+        chatData['participants'],
       ).where((participantId) => participantId.trim().isNotEmpty).toSet();
+      final status = chatData['status'];
+      final deletedBy = _boolMapFromValue(chatData['deletedBy']);
+
+      if (participantIds.length != 2 ||
+          !participantIds.contains(trimmedSenderUserId)) {
+        throw StateError('Sender is not a participant of this chat.');
+      }
+
+      if (status != FirestoreChatStatus.active &&
+          status != FirestoreChatStatus.archived) {
+        throw StateError('This chat is not open for new messages.');
+      }
+
+      if (deletedBy[trimmedSenderUserId] == true) {
+        throw StateError('This chat was deleted for the sender.');
+      }
 
       transaction.set(messageDocument, {
-        'chatId': chatId,
-        'senderUserId': senderUserId,
+        'chatId': trimmedChatId,
+        'senderUserId': trimmedSenderUserId,
         'type': firestoreMessageType,
         'text': trimmedText,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
         'isDeleted': false,
         'replyToMessageId': replyToMessageId,
         'replyToText': replyToText,
@@ -1114,10 +1204,10 @@ class FirestoreChatRepository implements ChatRepository {
 
       transaction.set(chatDocument, {
         'lastMessage': lastMessageText,
-        'lastMessageAt': Timestamp.fromDate(now),
-        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
-        'manualUnreadBy': {senderUserId: false},
-        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'lastMessageAt': timestamp,
+        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        'manualUnreadBy': {trimmedSenderUserId: false},
+        'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
           'archivedBy': {
             for (final participantId in participantIds) participantId: false,
@@ -1125,14 +1215,23 @@ class FirestoreChatRepository implements ChatRepository {
         if (participantIds.isNotEmpty)
           'archivedUpdatedAtBy': {
             for (final participantId in participantIds)
-              participantId: Timestamp.fromDate(now),
+              participantId: timestamp,
           },
-        'updatedAt': Timestamp.fromDate(now),
+        'updatedAt': timestamp,
       }, SetOptions(merge: true));
     });
 
-    final snapshot = await messageDocument.get();
-    return _messageFromSnapshot(snapshot);
+    return ChatMessageRecord(
+      id: messageDocument.id,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      type: effectiveMessageType,
+      text: trimmedText,
+      createdAt: now,
+      updatedAt: now,
+      replyToMessageId: replyToMessageId,
+      replyToText: replyToText,
+    );
   }
 
   @override
@@ -1144,49 +1243,73 @@ class FirestoreChatRepository implements ChatRepository {
     required String imagePath,
     String? caption,
   }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
     final trimmedImageUrl = imageUrl.trim();
     final trimmedImagePath = imagePath.trim();
     final trimmedCaption = caption?.trim() ?? '';
 
     if (trimmedImageUrl.isEmpty || trimmedImagePath.isEmpty) {
-      throw ArgumentError('Image URL and path must not be empty.');
+      throw ArgumentError('Foto-URL und Dateipfad dürfen nicht leer sein.');
     }
 
-    if (trimmedCaption.length >
-        FirestoreDocumentDefaults.maxChatMessageLength) {
-      throw ArgumentError('Image caption is too long.');
+    if (trimmedCaption.length > _maxChatImageCaptionLength) {
+      throw ArgumentError('Die Bildunterschrift ist zu lang.');
+    }
+
+    final expectedImagePath =
+        'chat_images/$trimmedChatId/$trimmedSenderUserId/'
+        '$trimmedMessageId.jpg';
+
+    if (trimmedImagePath != expectedImagePath) {
+      throw ArgumentError('Der Foto-Dateipfad passt nicht zur Nachricht.');
     }
 
     final now = DateTime.now();
-    final messageDocument = _messagesCollection(chatId).doc(messageId);
+    final timestamp = Timestamp.fromDate(now);
+    final messageDocument = _messagesCollection(
+      trimmedChatId,
+    ).doc(trimmedMessageId);
     final messageText = trimmedCaption.isEmpty ? 'Foto' : trimmedCaption;
 
     await _firestore.runTransaction((transaction) async {
-      final chatDocument = _chatsCollection.doc(chatId);
+      final chatDocument = _chatsCollection.doc(trimmedChatId);
       final chatSnapshot = await transaction.get(chatDocument);
-      final chatData = chatSnapshot.data();
-      final participantIds = _stringListFromValue(
-        chatData?['participants'],
-      ).where((participantId) => participantId.trim().isNotEmpty).toSet();
+      final messageSnapshot = await transaction.get(messageDocument);
+      final participantIds = _requireSendableAttachmentChat(
+        chatSnapshot: chatSnapshot,
+        senderUserId: trimmedSenderUserId,
+      );
+
+      if (messageSnapshot.exists) {
+        throw StateError('Diese Nachricht wurde bereits gesendet.');
+      }
 
       transaction.set(messageDocument, {
-        'chatId': chatId,
-        'senderUserId': senderUserId,
+        'chatId': trimmedChatId,
+        'senderUserId': trimmedSenderUserId,
         'type': FirestoreMessageTypes.image,
         'text': messageText,
         'imageUrl': trimmedImageUrl,
         'imagePath': trimmedImagePath,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
         'isDeleted': false,
       });
 
       transaction.set(chatDocument, {
         'lastMessage': messageText,
-        'lastMessageAt': Timestamp.fromDate(now),
-        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
-        'manualUnreadBy': {senderUserId: false},
-        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'lastMessageAt': timestamp,
+        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        'manualUnreadBy': {trimmedSenderUserId: false},
+        'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
           'archivedBy': {
             for (final participantId in participantIds) participantId: false,
@@ -1194,14 +1317,23 @@ class FirestoreChatRepository implements ChatRepository {
         if (participantIds.isNotEmpty)
           'archivedUpdatedAtBy': {
             for (final participantId in participantIds)
-              participantId: Timestamp.fromDate(now),
+              participantId: timestamp,
           },
-        'updatedAt': Timestamp.fromDate(now),
+        'updatedAt': timestamp,
       }, SetOptions(merge: true));
     });
 
-    final snapshot = await messageDocument.get();
-    return _messageFromSnapshot(snapshot);
+    return ChatMessageRecord(
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      type: ChatMessageType.image,
+      text: messageText,
+      imageUrl: trimmedImageUrl,
+      imagePath: trimmedImagePath,
+      createdAt: now,
+      updatedAt: now,
+    );
   }
 
   @override
@@ -1215,57 +1347,92 @@ class FirestoreChatRepository implements ChatRepository {
     required int fileSizeBytes,
     String? fileContentType,
   }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
     final trimmedFileUrl = fileUrl.trim();
     final trimmedFilePath = filePath.trim();
     final trimmedFileName = fileName.trim();
-    final trimmedContentType = fileContentType?.trim();
+    final trimmedContentType = fileContentType?.trim().toLowerCase() ?? '';
 
     if (trimmedFileUrl.isEmpty ||
         trimmedFilePath.isEmpty ||
         trimmedFileName.isEmpty) {
-      throw ArgumentError('Document URL, path and name must not be empty.');
+      throw ArgumentError(
+        'Dokument-URL, Dateipfad und Dateiname dürfen nicht leer sein.',
+      );
     }
 
-    if (fileSizeBytes <= 0) {
-      throw ArgumentError('Document size must be greater than zero.');
+    if (trimmedFileName.length > 160) {
+      throw ArgumentError('Der Dateiname ist zu lang.');
+    }
+
+    if (fileSizeBytes <= 0 || fileSizeBytes > _maxChatDocumentBytes) {
+      throw ArgumentError('Die Dokumentgröße ist ungültig.');
+    }
+
+    if (trimmedContentType.isEmpty ||
+        !_isAllowedChatDocumentContentType(trimmedContentType)) {
+      throw ArgumentError('Dieser Dokumenttyp wird nicht unterstützt.');
+    }
+
+    final expectedPathPrefix =
+        'chat_documents/$trimmedChatId/$trimmedSenderUserId/'
+        '${trimmedMessageId}_';
+
+    if (!trimmedFilePath.startsWith(expectedPathPrefix) ||
+        trimmedFilePath.length == expectedPathPrefix.length ||
+        trimmedFilePath.substring(expectedPathPrefix.length).contains('/')) {
+      throw ArgumentError('Der Dokumentpfad passt nicht zur Nachricht.');
     }
 
     final now = DateTime.now();
-    final messageDocument = _messagesCollection(chatId).doc(messageId);
+    final timestamp = Timestamp.fromDate(now);
+    final messageDocument = _messagesCollection(
+      trimmedChatId,
+    ).doc(trimmedMessageId);
     final messageText = 'Dokument: $trimmedFileName';
 
     await _firestore.runTransaction((transaction) async {
-      final chatDocument = _chatsCollection.doc(chatId);
+      final chatDocument = _chatsCollection.doc(trimmedChatId);
       final chatSnapshot = await transaction.get(chatDocument);
-      final chatData = chatSnapshot.data();
-      final participantIds = _stringListFromValue(
-        chatData?['participants'],
-      ).where((participantId) => participantId.trim().isNotEmpty).toSet();
+      final messageSnapshot = await transaction.get(messageDocument);
+      final participantIds = _requireSendableAttachmentChat(
+        chatSnapshot: chatSnapshot,
+        senderUserId: trimmedSenderUserId,
+      );
+
+      if (messageSnapshot.exists) {
+        throw StateError('Diese Nachricht wurde bereits gesendet.');
+      }
 
       transaction.set(messageDocument, {
-        'chatId': chatId,
-        'senderUserId': senderUserId,
+        'chatId': trimmedChatId,
+        'senderUserId': trimmedSenderUserId,
         'type': FirestoreMessageTypes.document,
         'text': messageText,
         'fileUrl': trimmedFileUrl,
         'filePath': trimmedFilePath,
         'fileName': trimmedFileName,
-        'fileContentType':
-            trimmedContentType == null || trimmedContentType.isEmpty
-            ? 'application/octet-stream'
-            : trimmedContentType,
+        'fileContentType': trimmedContentType,
         'fileSizeBytes': fileSizeBytes,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
         'isDeleted': false,
       });
 
       transaction.set(chatDocument, {
         'lastMessage': messageText,
-        'lastMessageAt': Timestamp.fromDate(now),
-        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
-        'manualUnreadBy': {senderUserId: false},
-        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'lastMessageAt': timestamp,
+        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        'manualUnreadBy': {trimmedSenderUserId: false},
+        'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
           'archivedBy': {
             for (final participantId in participantIds) participantId: false,
@@ -1273,14 +1440,26 @@ class FirestoreChatRepository implements ChatRepository {
         if (participantIds.isNotEmpty)
           'archivedUpdatedAtBy': {
             for (final participantId in participantIds)
-              participantId: Timestamp.fromDate(now),
+              participantId: timestamp,
           },
-        'updatedAt': Timestamp.fromDate(now),
+        'updatedAt': timestamp,
       }, SetOptions(merge: true));
     });
 
-    final snapshot = await messageDocument.get();
-    return _messageFromSnapshot(snapshot);
+    return ChatMessageRecord(
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      type: ChatMessageType.document,
+      text: messageText,
+      fileUrl: trimmedFileUrl,
+      filePath: trimmedFilePath,
+      fileName: trimmedFileName,
+      fileContentType: trimmedContentType,
+      fileSizeBytes: fileSizeBytes,
+      createdAt: now,
+      updatedAt: now,
+    );
   }
 
   @override
@@ -1295,62 +1474,97 @@ class FirestoreChatRepository implements ChatRepository {
     required int fileDurationMs,
     String? fileContentType,
   }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
     final trimmedFileUrl = fileUrl.trim();
     final trimmedFilePath = filePath.trim();
     final trimmedFileName = fileName.trim();
-    final trimmedContentType = fileContentType?.trim();
+    final trimmedContentType = fileContentType?.trim().toLowerCase() ?? '';
 
     if (trimmedFileUrl.isEmpty ||
         trimmedFilePath.isEmpty ||
         trimmedFileName.isEmpty) {
-      throw ArgumentError('Audio URL, path and name must not be empty.');
+      throw ArgumentError(
+        'Audio-URL, Dateipfad und Dateiname dürfen nicht leer sein.',
+      );
     }
 
-    if (fileSizeBytes <= 0) {
-      throw ArgumentError('Audio size must be greater than zero.');
+    if (trimmedFileName.length > 160) {
+      throw ArgumentError('Der Dateiname ist zu lang.');
     }
 
-    if (fileDurationMs < 0) {
-      throw ArgumentError('Audio duration must not be negative.');
+    if (fileSizeBytes <= 0 || fileSizeBytes > _maxChatVoiceMemoBytes) {
+      throw ArgumentError('Die Größe der Sprachmemo ist ungültig.');
+    }
+
+    if (fileDurationMs < 0 || fileDurationMs > _maxChatVoiceMemoDurationMs) {
+      throw ArgumentError('Die Dauer der Sprachmemo ist ungültig.');
+    }
+
+    if (trimmedContentType != 'audio/mp4') {
+      throw ArgumentError('Das Audioformat wird nicht unterstützt.');
+    }
+
+    final expectedPathPrefix =
+        'chat_voice_memos/$trimmedChatId/$trimmedSenderUserId/'
+        '${trimmedMessageId}_';
+
+    if (!trimmedFilePath.startsWith(expectedPathPrefix) ||
+        !trimmedFilePath.endsWith('.m4a') ||
+        trimmedFilePath.length == expectedPathPrefix.length + 4 ||
+        trimmedFilePath.substring(expectedPathPrefix.length).contains('/')) {
+      throw ArgumentError('Der Sprachmemo-Pfad passt nicht zur Nachricht.');
     }
 
     final now = DateTime.now();
-    final messageDocument = _messagesCollection(chatId).doc(messageId);
+    final timestamp = Timestamp.fromDate(now);
+    final messageDocument = _messagesCollection(
+      trimmedChatId,
+    ).doc(trimmedMessageId);
     const messageText = 'Sprachnachricht';
 
     await _firestore.runTransaction((transaction) async {
-      final chatDocument = _chatsCollection.doc(chatId);
+      final chatDocument = _chatsCollection.doc(trimmedChatId);
       final chatSnapshot = await transaction.get(chatDocument);
-      final chatData = chatSnapshot.data();
-      final participantIds = _stringListFromValue(
-        chatData?['participants'],
-      ).where((participantId) => participantId.trim().isNotEmpty).toSet();
+      final messageSnapshot = await transaction.get(messageDocument);
+      final participantIds = _requireSendableAttachmentChat(
+        chatSnapshot: chatSnapshot,
+        senderUserId: trimmedSenderUserId,
+      );
+
+      if (messageSnapshot.exists) {
+        throw StateError('Diese Nachricht wurde bereits gesendet.');
+      }
 
       transaction.set(messageDocument, {
-        'chatId': chatId,
-        'senderUserId': senderUserId,
+        'chatId': trimmedChatId,
+        'senderUserId': trimmedSenderUserId,
         'type': FirestoreMessageTypes.audio,
         'text': messageText,
         'fileUrl': trimmedFileUrl,
         'filePath': trimmedFilePath,
         'fileName': trimmedFileName,
-        'fileContentType':
-            trimmedContentType == null || trimmedContentType.isEmpty
-            ? 'audio/mp4'
-            : trimmedContentType,
+        'fileContentType': trimmedContentType,
         'fileSizeBytes': fileSizeBytes,
         'fileDurationMs': fileDurationMs,
-        'createdAt': Timestamp.fromDate(now),
-        'updatedAt': Timestamp.fromDate(now),
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
         'isDeleted': false,
       });
 
       transaction.set(chatDocument, {
         'lastMessage': messageText,
-        'lastMessageAt': Timestamp.fromDate(now),
-        'lastReadAtBy': {senderUserId: Timestamp.fromDate(now)},
-        'manualUnreadBy': {senderUserId: false},
-        'manualUnreadUpdatedAtBy': {senderUserId: Timestamp.fromDate(now)},
+        'lastMessageAt': timestamp,
+        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        'manualUnreadBy': {trimmedSenderUserId: false},
+        'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
           'archivedBy': {
             for (final participantId in participantIds) participantId: false,
@@ -1358,14 +1572,59 @@ class FirestoreChatRepository implements ChatRepository {
         if (participantIds.isNotEmpty)
           'archivedUpdatedAtBy': {
             for (final participantId in participantIds)
-              participantId: Timestamp.fromDate(now),
+              participantId: timestamp,
           },
-        'updatedAt': Timestamp.fromDate(now),
+        'updatedAt': timestamp,
       }, SetOptions(merge: true));
     });
 
-    final snapshot = await messageDocument.get();
-    return _messageFromSnapshot(snapshot);
+    return ChatMessageRecord(
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      type: ChatMessageType.audio,
+      text: messageText,
+      fileUrl: trimmedFileUrl,
+      filePath: trimmedFilePath,
+      fileName: trimmedFileName,
+      fileContentType: trimmedContentType,
+      fileSizeBytes: fileSizeBytes,
+      fileDurationMs: fileDurationMs,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  Set<String> _requireSendableAttachmentChat({
+    required DocumentSnapshot<Map<String, dynamic>> chatSnapshot,
+    required String senderUserId,
+  }) {
+    final chatData = chatSnapshot.data();
+
+    if (!chatSnapshot.exists || chatData == null) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+
+    final participantIds = _stringListFromValue(
+      chatData['participants'],
+    ).where((participantId) => participantId.trim().isNotEmpty).toSet();
+    final status = chatData['status'];
+    final deletedBy = _boolMapFromValue(chatData['deletedBy']);
+
+    if (participantIds.length != 2 || !participantIds.contains(senderUserId)) {
+      throw StateError('Du bist kein Teilnehmer dieses Chats.');
+    }
+
+    if (status != FirestoreChatStatus.active &&
+        status != FirestoreChatStatus.archived) {
+      throw StateError('Dieser Chat ist für neue Anhänge gesperrt.');
+    }
+
+    if (deletedBy[senderUserId] == true) {
+      throw StateError('Dieser Chat wurde für dich gelöscht.');
+    }
+
+    return participantIds;
   }
 
   @override
@@ -1407,7 +1666,7 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     await _chatsCollection.doc(trimmedChatId).update({
@@ -1427,7 +1686,7 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     await _chatsCollection.doc(trimmedChatId).update({
@@ -1448,7 +1707,7 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     await _chatsCollection.doc(trimmedChatId).update({
@@ -1466,17 +1725,66 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = blockedByUserId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and blocker user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final chatDocument = _chatsCollection.doc(trimmedChatId);
+    final existingChat = await chatDocument.get();
+    if (!existingChat.exists) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+    final chat = _chatFromSnapshot(existingChat);
+    _requireChatActionParticipant(
+      chat: chat,
+      userId: trimmedUserId,
+      allowBlocked: true,
+    );
 
-    await chatDocument.set({
+    if (chat.status == ChatStatus.blocked) {
+      if (chat.isBlockedBy(trimmedUserId)) {
+        return chat;
+      }
+      throw StateError('Dieser Chat wurde bereits blockiert.');
+    }
+
+    if (chat.status != ChatStatus.active &&
+        chat.status != ChatStatus.archived) {
+      throw StateError('Dieser Chat kann nicht blockiert werden.');
+    }
+    final participants = _stringListFromValue(
+      existingChat.data()?['participants'],
+    );
+    final existingRelationships = <DocumentReference<Map<String, dynamic>>>[];
+    if (participants.length == 2) {
+      final firstUserId = participants[0].trim();
+      final secondUserId = participants[1].trim();
+      if (firstUserId.isNotEmpty && secondUserId.isNotEmpty) {
+        final relationships = _firestore.collection('follow_relationships');
+        final references = <DocumentReference<Map<String, dynamic>>>[
+          relationships.doc('${firstUserId}_$secondUserId'),
+          relationships.doc('${secondUserId}_$firstUserId'),
+        ];
+        final snapshots = await Future.wait(
+          references.map((reference) => reference.get()),
+        );
+        for (var index = 0; index < snapshots.length; index++) {
+          if (snapshots[index].exists) {
+            existingRelationships.add(references[index]);
+          }
+        }
+      }
+    }
+    final batch = _firestore.batch();
+    batch.set(chatDocument, {
       'status': ChatStatus.blocked.name,
       'blockedBy': trimmedUserId,
       'blockedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    for (final relationship in existingRelationships) {
+      batch.delete(relationship);
+    }
+    await batch.commit();
 
     final snapshot = await chatDocument.get();
     return _chatFromSnapshot(snapshot);
@@ -1491,10 +1799,28 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final chatDocument = _chatsCollection.doc(trimmedChatId);
+    final existingChat = await chatDocument.get();
+
+    if (!existingChat.exists) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+
+    final chat = _chatFromSnapshot(existingChat);
+    _requireChatActionParticipant(
+      chat: chat,
+      userId: trimmedUserId,
+      allowBlocked: true,
+    );
+
+    if (chat.status != ChatStatus.blocked || !chat.isBlockedBy(trimmedUserId)) {
+      throw StateError(
+        'Nur der Nutzer, der blockiert hat, kann die Blockierung aufheben.',
+      );
+    }
 
     await chatDocument.update({
       'status': FirestoreChatStatus.active,
@@ -1519,17 +1845,36 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedReason = reason.trim();
 
     if (trimmedChatId.isEmpty || trimmedReporterId.isEmpty) {
-      throw ArgumentError('Chat ID and reporter user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
-    await _firestore.collection(CaRismaFirestoreCollections.reports).add({
-      'type': 'chat',
-      'chatId': trimmedChatId,
-      'reporterUserId': trimmedReporterId,
-      'reason': trimmedReason.isEmpty ? 'Chat gemeldet' : trimmedReason,
-      'status': 'open',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+    final resolvedReason = trimmedReason.isEmpty
+        ? 'Chat gemeldet'
+        : trimmedReason;
+
+    if (resolvedReason.length > 500) {
+      throw ArgumentError('Der Meldegrund darf höchstens 500 Zeichen haben.');
+    }
+
+    final reportDocument = _firestore
+        .collection(CaRismaFirestoreCollections.reports)
+        .doc('chat_${trimmedChatId}_$trimmedReporterId');
+    await _firestore.runTransaction((transaction) async {
+      final existingReport = await transaction.get(reportDocument);
+
+      if (existingReport.exists) {
+        return;
+      }
+
+      transaction.set(reportDocument, {
+        'type': 'chat',
+        'chatId': trimmedChatId,
+        'reporterUserId': trimmedReporterId,
+        'reason': resolvedReason,
+        'status': 'open',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 
@@ -1542,21 +1887,33 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final chatDocument = _chatsCollection.doc(trimmedChatId);
+    final existingChat = await chatDocument.get();
+
+    if (!existingChat.exists) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+
+    final chat = _chatFromSnapshot(existingChat);
+    _requireChatActionParticipant(chat: chat, userId: trimmedUserId);
+
+    if (chat.isArchivedFor(trimmedUserId)) {
+      return chat;
+    }
 
     await chatDocument.update({
-      'status': FirestoreChatStatus.active,
       FieldPath(['archivedBy', trimmedUserId]): true,
       FieldPath(['archivedUpdatedAtBy', trimmedUserId]):
           FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    final snapshot = await chatDocument.get();
-    return _chatFromSnapshot(snapshot);
+    final archivedBy = Map<String, bool>.from(chat.archivedBy)
+      ..[trimmedUserId] = true;
+    return chat.copyWith(archivedBy: archivedBy, updatedAt: DateTime.now());
   }
 
   @override
@@ -1568,21 +1925,33 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final chatDocument = _chatsCollection.doc(trimmedChatId);
+    final existingChat = await chatDocument.get();
+
+    if (!existingChat.exists) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+
+    final chat = _chatFromSnapshot(existingChat);
+    _requireChatActionParticipant(chat: chat, userId: trimmedUserId);
+
+    if (!chat.isArchivedFor(trimmedUserId)) {
+      return chat;
+    }
 
     await chatDocument.update({
-      'status': FirestoreChatStatus.active,
       FieldPath(['archivedBy', trimmedUserId]): false,
       FieldPath(['archivedUpdatedAtBy', trimmedUserId]):
           FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    final snapshot = await chatDocument.get();
-    return _chatFromSnapshot(snapshot);
+    final archivedBy = Map<String, bool>.from(chat.archivedBy)
+      ..[trimmedUserId] = false;
+    return chat.copyWith(archivedBy: archivedBy, updatedAt: DateTime.now());
   }
 
   @override
@@ -1594,22 +1963,63 @@ class FirestoreChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final chatDocument = _chatsCollection.doc(trimmedChatId);
+    final existingChat = await chatDocument.get();
+
+    if (!existingChat.exists) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+
+    final chat = _chatFromSnapshot(existingChat);
+    _requireChatActionParticipant(
+      chat: chat,
+      userId: trimmedUserId,
+      allowDeleted: true,
+    );
+
+    if (chat.isDeletedFor(trimmedUserId)) {
+      return chat;
+    }
 
     await chatDocument.update({
-      'status': FirestoreChatStatus.active,
-      'isDeleted': false,
       FieldPath(['deletedBy', trimmedUserId]): true,
       FieldPath(['deletedUpdatedAtBy', trimmedUserId]):
           FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    final snapshot = await chatDocument.get();
-    return _chatFromSnapshot(snapshot);
+    final deletedBy = Map<String, bool>.from(chat.deletedBy)
+      ..[trimmedUserId] = true;
+    return chat.copyWith(deletedBy: deletedBy, updatedAt: DateTime.now());
+  }
+
+  void _requireChatActionParticipant({
+    required ChatRecord chat,
+    required String userId,
+    bool allowBlocked = false,
+    bool allowDeleted = false,
+  }) {
+    final participantIds = chat.participants
+        .map((participantId) => participantId.trim())
+        .where((participantId) => participantId.isNotEmpty)
+        .toSet();
+
+    if (chat.participants.length != 2 ||
+        participantIds.length != 2 ||
+        !participantIds.contains(userId)) {
+      throw StateError('Du bist kein Teilnehmer dieses Chats.');
+    }
+
+    if (!allowDeleted && chat.isDeletedFor(userId)) {
+      throw StateError('Dieser Chat wurde für dich gelöscht.');
+    }
+
+    if (!allowBlocked && chat.status == ChatStatus.blocked) {
+      throw StateError('Dieser Chat ist blockiert.');
+    }
   }
 
   @override
@@ -2003,7 +2413,16 @@ class LocalChatRepository implements ChatRepository {
     String? vehicleLabel,
   }) async {
     final now = DateTime.now();
-    final uniqueParticipants = participants.toSet().toList()..sort();
+    final uniqueParticipants =
+        participants
+            .map((participant) => participant.trim())
+            .where((participant) => participant.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    if (uniqueParticipants.length != 2) {
+      throw ArgumentError('A chat requires exactly two participants.');
+    }
     final trimmedRequestId = requestId?.trim() ?? '';
     final chatId = trimmedRequestId.isEmpty
         ? 'local-chat-${now.microsecondsSinceEpoch}'
@@ -2083,10 +2502,45 @@ class LocalChatRepository implements ChatRepository {
     String? replyToMessageId,
     String? replyToText,
   }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedSenderUserId = senderUserId.trim();
     final trimmedText = text.trim();
+
+    if (trimmedChatId.isEmpty || trimmedSenderUserId.isEmpty) {
+      throw ArgumentError('Chat ID and sender user ID must not be empty.');
+    }
 
     if (trimmedText.isEmpty) {
       throw ArgumentError('Message text must not be empty.');
+    }
+
+    if (trimmedText.length > FirestoreDocumentDefaults.maxChatMessageLength) {
+      throw ArgumentError('Message text is too long.');
+    }
+
+    final chat = await loadChat(chatId: trimmedChatId);
+
+    if (chat == null) {
+      throw StateError('Chat not found: $trimmedChatId');
+    }
+
+    final participantIds = chat.participants
+        .map((participantId) => participantId.trim())
+        .where((participantId) => participantId.isNotEmpty)
+        .toSet();
+
+    if (participantIds.length != 2 ||
+        !participantIds.contains(trimmedSenderUserId)) {
+      throw StateError('Sender is not a participant of this chat.');
+    }
+
+    if (chat.status != ChatStatus.active &&
+        chat.status != ChatStatus.archived) {
+      throw StateError('This chat is not open for new messages.');
+    }
+
+    if (chat.isDeletedFor(trimmedSenderUserId)) {
+      throw StateError('This chat was deleted for the sender.');
     }
 
     final now = DateTime.now();
@@ -2103,8 +2557,8 @@ class LocalChatRepository implements ChatRepository {
 
     final message = ChatMessageRecord(
       id: 'local-message-${now.microsecondsSinceEpoch}',
-      chatId: chatId,
-      senderUserId: senderUserId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
       type: effectiveMessageType,
       text: trimmedText,
       createdAt: now,
@@ -2115,10 +2569,11 @@ class LocalChatRepository implements ChatRepository {
 
     _messages.add(message);
     _updateChatLastMessage(
-      chatId: chatId,
+      chatId: trimmedChatId,
       lastMessage: lastMessageText,
       timestamp: now,
       clearArchivedForParticipants: true,
+      readByUserId: trimmedSenderUserId,
     );
 
     return message;
@@ -2133,30 +2588,57 @@ class LocalChatRepository implements ChatRepository {
     required String imagePath,
     String? caption,
   }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
+    final trimmedImageUrl = imageUrl.trim();
+    final trimmedImagePath = imagePath.trim();
+    final trimmedCaption = caption?.trim() ?? '';
+    final expectedImagePath =
+        'chat_images/$trimmedChatId/$trimmedSenderUserId/'
+        '$trimmedMessageId.jpg';
+
+    _requireLocalAttachmentChat(
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      messageId: trimmedMessageId,
+    );
+
+    if (trimmedImageUrl.isEmpty || trimmedImagePath != expectedImagePath) {
+      throw ArgumentError('Die Foto-Metadaten sind ungültig.');
+    }
+
+    if (trimmedCaption.length > _maxChatImageCaptionLength) {
+      throw ArgumentError('Die Bildunterschrift ist zu lang.');
+    }
+
     final now = DateTime.now();
-    final messageText = caption?.trim().isNotEmpty == true
-        ? caption!.trim()
-        : 'Foto';
+    final messageText = trimmedCaption.isEmpty ? 'Foto' : trimmedCaption;
     final message = ChatMessageRecord(
-      id: messageId.trim().isEmpty
-          ? createMessageId(chatId: chatId)
-          : messageId,
-      chatId: chatId,
-      senderUserId: senderUserId,
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
       type: ChatMessageType.image,
       text: messageText,
-      imageUrl: imageUrl.trim(),
-      imagePath: imagePath.trim(),
+      imageUrl: trimmedImageUrl,
+      imagePath: trimmedImagePath,
       createdAt: now,
       updatedAt: now,
     );
 
     _messages.add(message);
     _updateChatLastMessage(
-      chatId: chatId,
+      chatId: trimmedChatId,
       lastMessage: messageText,
       timestamp: now,
       clearArchivedForParticipants: true,
+      readByUserId: trimmedSenderUserId,
     );
 
     return message;
@@ -2173,21 +2655,59 @@ class LocalChatRepository implements ChatRepository {
     required int fileSizeBytes,
     String? fileContentType,
   }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
+    final trimmedFileUrl = fileUrl.trim();
+    final trimmedFilePath = filePath.trim();
     final now = DateTime.now();
     final trimmedFileName = fileName.trim();
+    final trimmedContentType = fileContentType?.trim().toLowerCase() ?? '';
+    final expectedPathPrefix =
+        'chat_documents/$trimmedChatId/$trimmedSenderUserId/'
+        '${trimmedMessageId}_';
+
+    _requireLocalAttachmentChat(
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      messageId: trimmedMessageId,
+    );
+
+    if (trimmedFileUrl.isEmpty ||
+        trimmedFileName.isEmpty ||
+        trimmedFileName.length > 160 ||
+        !trimmedFilePath.startsWith(expectedPathPrefix) ||
+        trimmedFilePath.length == expectedPathPrefix.length ||
+        trimmedFilePath.substring(expectedPathPrefix.length).contains('/')) {
+      throw ArgumentError('Die Dokument-Metadaten sind ungültig.');
+    }
+
+    if (fileSizeBytes <= 0 || fileSizeBytes > _maxChatDocumentBytes) {
+      throw ArgumentError('Die Dokumentgröße ist ungültig.');
+    }
+
+    if (trimmedContentType.isEmpty ||
+        !_isAllowedChatDocumentContentType(trimmedContentType)) {
+      throw ArgumentError('Dieser Dokumenttyp wird nicht unterstützt.');
+    }
+
     final messageText = 'Dokument: $trimmedFileName';
     final message = ChatMessageRecord(
-      id: messageId.trim().isEmpty
-          ? createMessageId(chatId: chatId)
-          : messageId,
-      chatId: chatId,
-      senderUserId: senderUserId,
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
       type: ChatMessageType.document,
       text: messageText,
-      fileUrl: fileUrl.trim(),
-      filePath: filePath.trim(),
+      fileUrl: trimmedFileUrl,
+      filePath: trimmedFilePath,
       fileName: trimmedFileName,
-      fileContentType: fileContentType?.trim(),
+      fileContentType: trimmedContentType,
       fileSizeBytes: fileSizeBytes,
       createdAt: now,
       updatedAt: now,
@@ -2195,10 +2715,11 @@ class LocalChatRepository implements ChatRepository {
 
     _messages.add(message);
     _updateChatLastMessage(
-      chatId: chatId,
+      chatId: trimmedChatId,
       lastMessage: messageText,
       timestamp: now,
       clearArchivedForParticipants: true,
+      readByUserId: trimmedSenderUserId,
     );
 
     return message;
@@ -2216,20 +2737,62 @@ class LocalChatRepository implements ChatRepository {
     required int fileDurationMs,
     String? fileContentType,
   }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
+    final trimmedFileUrl = fileUrl.trim();
+    final trimmedFilePath = filePath.trim();
+    final trimmedFileName = fileName.trim();
+    final trimmedContentType = fileContentType?.trim().toLowerCase() ?? '';
+    final expectedPathPrefix =
+        'chat_voice_memos/$trimmedChatId/$trimmedSenderUserId/'
+        '${trimmedMessageId}_';
+
+    _requireLocalAttachmentChat(
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      messageId: trimmedMessageId,
+    );
+
+    if (trimmedFileUrl.isEmpty ||
+        trimmedFileName.isEmpty ||
+        trimmedFileName.length > 160 ||
+        !trimmedFilePath.startsWith(expectedPathPrefix) ||
+        !trimmedFilePath.endsWith('.m4a') ||
+        trimmedFilePath.substring(expectedPathPrefix.length).contains('/')) {
+      throw ArgumentError('Die Sprachmemo-Metadaten sind ungültig.');
+    }
+
+    if (fileSizeBytes <= 0 || fileSizeBytes > _maxChatVoiceMemoBytes) {
+      throw ArgumentError('Die Größe der Sprachmemo ist ungültig.');
+    }
+
+    if (fileDurationMs < 0 || fileDurationMs > _maxChatVoiceMemoDurationMs) {
+      throw ArgumentError('Die Dauer der Sprachmemo ist ungültig.');
+    }
+
+    if (trimmedContentType != 'audio/mp4') {
+      throw ArgumentError('Das Audioformat wird nicht unterstützt.');
+    }
+
     final now = DateTime.now();
     const messageText = 'Sprachnachricht';
     final message = ChatMessageRecord(
-      id: messageId.trim().isEmpty
-          ? createMessageId(chatId: chatId)
-          : messageId,
-      chatId: chatId,
-      senderUserId: senderUserId,
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
       type: ChatMessageType.audio,
       text: messageText,
-      fileUrl: fileUrl.trim(),
-      filePath: filePath.trim(),
-      fileName: fileName.trim(),
-      fileContentType: fileContentType?.trim(),
+      fileUrl: trimmedFileUrl,
+      filePath: trimmedFilePath,
+      fileName: trimmedFileName,
+      fileContentType: trimmedContentType,
       fileSizeBytes: fileSizeBytes,
       fileDurationMs: fileDurationMs,
       createdAt: now,
@@ -2238,13 +2801,55 @@ class LocalChatRepository implements ChatRepository {
 
     _messages.add(message);
     _updateChatLastMessage(
-      chatId: chatId,
+      chatId: trimmedChatId,
       lastMessage: messageText,
       timestamp: now,
       clearArchivedForParticipants: true,
+      readByUserId: trimmedSenderUserId,
     );
 
     return message;
+  }
+
+  ChatRecord _requireLocalAttachmentChat({
+    required String chatId,
+    required String senderUserId,
+    required String messageId,
+  }) {
+    final chatIndex = _chats.indexWhere((chat) => chat.id == chatId);
+
+    if (chatIndex < 0) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+
+    final chat = _chats[chatIndex];
+    final participantIds = chat.participants
+        .map((participantId) => participantId.trim())
+        .where((participantId) => participantId.isNotEmpty)
+        .toSet();
+
+    if (participantIds.length != 2 || !participantIds.contains(senderUserId)) {
+      throw StateError('Du bist kein Teilnehmer dieses Chats.');
+    }
+
+    if (chat.status != ChatStatus.active &&
+        chat.status != ChatStatus.archived) {
+      throw StateError('Dieser Chat ist für neue Anhänge gesperrt.');
+    }
+
+    if (chat.isDeletedFor(senderUserId)) {
+      throw StateError('Dieser Chat wurde für dich gelöscht.');
+    }
+
+    final messageExists = _messages.any(
+      (message) => message.chatId == chatId && message.id == messageId,
+    );
+
+    if (messageExists) {
+      throw StateError('Diese Nachricht wurde bereits gesendet.');
+    }
+
+    return chat;
   }
 
   @override
@@ -2293,20 +2898,28 @@ class LocalChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
 
     if (index < 0) {
-      throw StateError('Chat not found: $trimmedChatId');
+      throw StateError('Der Chat wurde nicht gefunden.');
     }
 
-    final archivedBy = Map<String, bool>.from(_chats[index].archivedBy)
+    final chat = _requireLocalChatActionParticipant(
+      index: index,
+      userId: trimmedUserId,
+    );
+
+    if (chat.isArchivedFor(trimmedUserId)) {
+      return chat;
+    }
+
+    final archivedBy = Map<String, bool>.from(chat.archivedBy)
       ..[trimmedUserId] = true;
 
-    final updated = _chats[index].copyWith(
-      status: ChatStatus.active,
+    final updated = chat.copyWith(
       archivedBy: archivedBy,
       updatedAt: DateTime.now(),
     );
@@ -2324,20 +2937,28 @@ class LocalChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
 
     if (index < 0) {
-      throw StateError('Chat not found: $trimmedChatId');
+      throw StateError('Der Chat wurde nicht gefunden.');
     }
 
-    final archivedBy = Map<String, bool>.from(_chats[index].archivedBy)
+    final chat = _requireLocalChatActionParticipant(
+      index: index,
+      userId: trimmedUserId,
+    );
+
+    if (!chat.isArchivedFor(trimmedUserId)) {
+      return chat;
+    }
+
+    final archivedBy = Map<String, bool>.from(chat.archivedBy)
       ..[trimmedUserId] = false;
 
-    final updated = _chats[index].copyWith(
-      status: ChatStatus.active,
+    final updated = chat.copyWith(
       archivedBy: archivedBy,
       updatedAt: DateTime.now(),
     );
@@ -2355,20 +2976,29 @@ class LocalChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
 
     if (index < 0) {
-      throw StateError('Chat not found: $trimmedChatId');
+      throw StateError('Der Chat wurde nicht gefunden.');
     }
 
-    final deletedBy = Map<String, bool>.from(_chats[index].deletedBy)
+    final chat = _requireLocalChatActionParticipant(
+      index: index,
+      userId: trimmedUserId,
+      allowDeleted: true,
+    );
+
+    if (chat.isDeletedFor(trimmedUserId)) {
+      return chat;
+    }
+
+    final deletedBy = Map<String, bool>.from(chat.deletedBy)
       ..[trimmedUserId] = true;
 
-    final updated = _chats[index].copyWith(
-      status: ChatStatus.active,
+    final updated = chat.copyWith(
       deletedBy: deletedBy,
       updatedAt: DateTime.now(),
     );
@@ -2386,20 +3016,28 @@ class LocalChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
 
     if (index < 0) {
-      throw StateError('Chat not found: $trimmedChatId');
+      throw StateError('Der Chat wurde nicht gefunden.');
     }
 
-    if (!_chats[index].isBlockedBy(trimmedUserId)) {
-      throw StateError('Only the blocker can unblock this chat.');
+    final chat = _requireLocalChatActionParticipant(
+      index: index,
+      userId: trimmedUserId,
+      allowBlocked: true,
+    );
+
+    if (!chat.isBlockedBy(trimmedUserId)) {
+      throw StateError(
+        'Nur der Nutzer, der blockiert hat, kann die Blockierung aufheben.',
+      );
     }
 
-    final updated = _chats[index].copyWith(
+    final updated = chat.copyWith(
       status: ChatStatus.active,
       blockedBy: '',
       blockedAt: DateTime.fromMillisecondsSinceEpoch(0),
@@ -2440,19 +3078,53 @@ class LocalChatRepository implements ChatRepository {
     final trimmedUserId = userId.trim();
 
     if (trimmedChatId.isEmpty || trimmedUserId.isEmpty) {
-      throw ArgumentError('Chat ID and user ID must not be empty.');
+      throw ArgumentError('Chat-ID und Nutzer-ID dürfen nicht leer sein.');
     }
 
     final index = _chats.indexWhere((chat) => chat.id == trimmedChatId);
 
     if (index < 0) {
-      throw StateError('Chat not found: $trimmedChatId');
+      throw StateError('Der Chat wurde nicht gefunden.');
     }
 
-    final pinnedBy = Map<String, bool>.from(_chats[index].pinnedBy)
+    final chat = _requireLocalChatActionParticipant(
+      index: index,
+      userId: trimmedUserId,
+    );
+
+    final pinnedBy = Map<String, bool>.from(chat.pinnedBy)
       ..[trimmedUserId] = isPinned;
 
-    _chats[index] = _chats[index].copyWith(pinnedBy: pinnedBy);
+    _chats[index] = chat.copyWith(pinnedBy: pinnedBy);
+  }
+
+  ChatRecord _requireLocalChatActionParticipant({
+    required int index,
+    required String userId,
+    bool allowBlocked = false,
+    bool allowDeleted = false,
+  }) {
+    final chat = _chats[index];
+    final participantIds = chat.participants
+        .map((participantId) => participantId.trim())
+        .where((participantId) => participantId.isNotEmpty)
+        .toSet();
+
+    if (chat.participants.length != 2 ||
+        participantIds.length != 2 ||
+        !participantIds.contains(userId)) {
+      throw StateError('Du bist kein Teilnehmer dieses Chats.');
+    }
+
+    if (!allowDeleted && chat.isDeletedFor(userId)) {
+      throw StateError('Dieser Chat wurde für dich gelöscht.');
+    }
+
+    if (!allowBlocked && chat.status == ChatStatus.blocked) {
+      throw StateError('Dieser Chat ist blockiert.');
+    }
+
+    return chat;
   }
 
   @override
@@ -2521,6 +3193,7 @@ class LocalChatRepository implements ChatRepository {
     required String lastMessage,
     required DateTime timestamp,
     bool clearArchivedForParticipants = false,
+    String? readByUserId,
   }) {
     final index = _chats.indexWhere((chat) => chat.id == chatId);
 
@@ -2534,11 +3207,18 @@ class LocalChatRepository implements ChatRepository {
               if (participantId.trim().isNotEmpty) participantId: false,
           }
         : _chats[index].archivedBy;
+    final lastReadAtBy = Map<String, DateTime>.from(_chats[index].lastReadAtBy);
+    final trimmedReadByUserId = readByUserId?.trim() ?? '';
+
+    if (trimmedReadByUserId.isNotEmpty) {
+      lastReadAtBy[trimmedReadByUserId] = timestamp;
+    }
 
     _chats[index] = _chats[index].copyWith(
       lastMessage: lastMessage,
       lastMessageAt: timestamp,
       archivedBy: archivedBy,
+      lastReadAtBy: lastReadAtBy,
       updatedAt: timestamp,
     );
   }

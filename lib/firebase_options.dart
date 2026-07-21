@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAs4N5ra1m3IATkyY317ZrwrKKy91gR9Sg',
-    appId: '1:493803183324:android:c385f30944ec2804896819',
+    appId: '1:493803183324:android:7bce5506d37bf37d896819',
     messagingSenderId: '493803183324',
     projectId: 'carma-a84e4',
     storageBucket: 'carma-a84e4.firebasestorage.app',

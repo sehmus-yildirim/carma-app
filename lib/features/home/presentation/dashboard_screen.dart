@@ -8,24 +8,23 @@ import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/domain/app_feature_gate.dart';
 import '../../../shared/firebase/carisma_firestore_schema.dart';
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/plate/dach_plate_presentation.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_country_selector_card.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
-import '../../../shared/widgets/carisma_page_header.dart';
-import '../../../shared/widgets/carisma_plate_input_card.dart';
+import '../../../shared/widgets/carisma_premium_license_plate_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_region_identity_card.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../auth/data/search_credit_repository.dart';
-import '../../plate_search/data/plate_speech_bridge.dart';
 import '../../profile/data/plate_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/data/user_profile.dart' as firestore_profile;
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
-import '../../../shared/plate/plate_speech_parser.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.userState, this.onOpenChats});
@@ -43,7 +42,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       SearchCreditRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
   final PlateRepository _plateRepository = PlateRepository();
-  final PlateSpeechBridge _plateSpeechBridge = PlateSpeechBridge();
 
   final TextEditingController _regionController = TextEditingController();
   final TextEditingController _lettersController = TextEditingController();
@@ -67,7 +65,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoadingSearchCredit = true;
   bool _isSearching = false;
   bool _isRequestingContact = false;
-  bool _isListeningToPlateSpeech = false;
 
   String? _locationError;
   String? _creditError;
@@ -281,8 +278,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _numbersController.clear();
       _clearResultMessages();
     });
+    FocusScope.of(context).unfocus();
+  }
 
-    _regionFocusNode.requestFocus();
+  Future<void> _openRegionPicker() async {
+    FocusScope.of(context).unfocus();
+    final selectedRegion =
+        await showModalBottomSheet<RegistrationRegionPresentationData>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          barrierColor: Colors.black.withValues(alpha: 0.72),
+          builder: (sheetContext) => _RegistrationRegionPickerSheet(
+            countryCode: _countryCode,
+            regions: registrationRegionsForCountry(_countryCode),
+          ),
+        );
+
+    if (!mounted || selectedRegion == null) {
+      return;
+    }
+
+    setState(() {
+      _regionController.value = TextEditingValue(
+        text: selectedRegion.plateCode,
+        selection: TextSelection.collapsed(
+          offset: selectedRegion.plateCode.length,
+        ),
+      );
+      _clearResultMessages();
+    });
+
+    if (_countryCode == 'CH' || _countryCode == 'AT') {
+      _numbersFocusNode.requestFocus();
+    } else {
+      _lettersFocusNode.requestFocus();
+    }
   }
 
   Future<void> _syncOwnPlateLocation(Position position) async {
@@ -500,122 +532,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _isSearching = false;
       });
     }
-  }
-
-  Future<void> _startPlateVoiceInput() async {
-    if (_isListeningToPlateSpeech || _isSearching || _isRequestingContact) {
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-
-    setState(() {
-      _isListeningToPlateSpeech = true;
-      _errorMessage = null;
-      _successMessage = null;
-    });
-
-    try {
-      final speechResult = await _plateSpeechBridge.recognizePlateSpeech();
-
-      if (!mounted) {
-        return;
-      }
-
-      if (speechResult == null || speechResult.transcript.trim().isEmpty) {
-        setState(() {
-          _isListeningToPlateSpeech = false;
-        });
-        return;
-      }
-
-      _applyPlateSpeech(speechResult.transcript);
-
-      setState(() {
-        _isListeningToPlateSpeech = false;
-        _successMessage = 'Kennzeichen aus Sprache \u00fcbernommen.';
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isListeningToPlateSpeech = false;
-        _errorMessage = 'Spracheingabe konnte nicht gestartet werden.';
-      });
-    }
-  }
-
-  void _applyPlateSpeech(String transcript) {
-    final parsed = parseSpokenPlateInput(
-      countryCode: _countryCode,
-      transcript: transcript,
-      currentRegion: _regionController.text,
-      currentLetters: _lettersController.text,
-      currentNumbers: _numbersController.text,
-    );
-
-    if (!parsed.hasAnyValue) {
-      return;
-    }
-
-    _regionController.value = _regionController.value.copyWith(
-      text: parsed.region,
-      selection: TextSelection.collapsed(offset: parsed.region.length),
-    );
-    _lettersController.value = _lettersController.value.copyWith(
-      text: parsed.letters,
-      selection: TextSelection.collapsed(offset: parsed.letters.length),
-    );
-    _numbersController.value = _numbersController.value.copyWith(
-      text: parsed.numbers,
-      selection: TextSelection.collapsed(offset: parsed.numbers.length),
-    );
-
-    _clearResultMessages();
-
-    if (parsed.region.length < _regionMaxLength) {
-      _regionFocusNode.requestFocus();
-      return;
-    }
-
-    if (_countryCode == 'AT') {
-      if (parsed.numbers.length < _numbersMaxLength) {
-        _numbersFocusNode.requestFocus();
-        return;
-      }
-
-      if (parsed.letters.length < _lettersMaxLength) {
-        _lettersFocusNode.requestFocus();
-        return;
-      }
-
-      _lettersFocusNode.unfocus();
-      return;
-    }
-
-    if (_countryCode == 'CH') {
-      if (parsed.numbers.length < _numbersMaxLength) {
-        _numbersFocusNode.requestFocus();
-        return;
-      }
-
-      _numbersFocusNode.unfocus();
-      return;
-    }
-
-    if (parsed.letters.length < _lettersMaxLength) {
-      _lettersFocusNode.requestFocus();
-      return;
-    }
-
-    if (parsed.numbers.length < _numbersMaxLength) {
-      _numbersFocusNode.requestFocus();
-      return;
-    }
-
-    _numbersFocusNode.unfocus();
   }
 
   Future<void> _requestContact() async {
@@ -849,22 +765,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    final displayName =
-        FirebaseAuth.instance.currentUser?.displayName?.trim() ?? '';
-    final firstName = displayName.isNotEmpty
-        ? displayName.split(' ').first
-        : '';
-    final titleText = firstName.isNotEmpty
-        ? 'Jemanden gesehen, $firstName?'
-        : 'Jemanden gesehen?';
-
+    final regionPresentation = registrationRegionPresentationFor(
+      countryCode: _countryCode,
+      plateCode: _regionController.text,
+    );
     return CaRismaBackground(
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final horizontalPadding = constraints.maxWidth <= 380
+                ? 14.0
+                : constraints.maxWidth <= 480
+                ? 16.0
+                : 20.0;
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(20, 18, 20, 112 + keyboardInset),
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                8,
+                horizontalPadding,
+                112 + keyboardInset,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: constraints.maxHeight - 112,
@@ -872,32 +793,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CaRismaPageHeader(
-                      icon: Icons.directions_car_filled_rounded,
-                      title: 'Suchen',
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      titleText,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.4,
-                            height: 1.12,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Dann gib hier das Kennzeichen ein.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 17,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     _SearchCreditCard(
                       searchCredit: _searchCredit,
                       isLoading: _isLoadingSearchCredit,
@@ -914,9 +809,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       selectedCountryCode: _countryCode,
                       onChanged: _changeCountry,
                     ),
-                    const SizedBox(height: 10),
-                    CaRismaPlateInputCard(
+                    const SizedBox(height: 15),
+                    CaRismaRegionIdentityCard(
+                      region: regionPresentation,
+                      onTap: _openRegionPicker,
+                    ),
+                    const SizedBox(height: 15),
+                    CaRismaPremiumLicensePlateCard(
                       countryCode: _countryCode,
+                      regionPresentation: regionPresentation,
                       regionController: _regionController,
                       lettersController: _lettersController,
                       numbersController: _numbersController,
@@ -926,17 +827,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onRegionChanged: _handleRegionChanged,
                       onLettersChanged: _handleLettersChanged,
                       onNumbersChanged: _handleNumbersChanged,
-                      onUseVoiceInput: _startPlateVoiceInput,
-                      isVoiceInputLoading: _isListeningToPlateSpeech,
+                      isSubmitEnabled: _canAttemptSearch,
+                      isSubmitting: _isSearching,
+                      onSubmit: _searchPlate,
+                      showSubmit: _result == null,
                     ),
-                    if (_result == null) ...[
-                      const SizedBox(height: 10),
-                      _SearchButtonCard(
-                        isEnabled: _canAttemptSearch,
-                        isLoading: _isSearching,
-                        onPressed: _searchPlate,
-                      ),
-                    ],
                     if (_isLoadingLocation) ...[
                       const SizedBox(height: 8),
                       const _LocationLoadingCard(),
@@ -1044,6 +939,277 @@ class _RetryLocationButton extends StatelessWidget {
   }
 }
 
+class _RegistrationRegionPickerSheet extends StatefulWidget {
+  const _RegistrationRegionPickerSheet({
+    required this.countryCode,
+    required this.regions,
+  });
+
+  final String countryCode;
+  final List<RegistrationRegionPresentationData> regions;
+
+  @override
+  State<_RegistrationRegionPickerSheet> createState() =>
+      _RegistrationRegionPickerSheetState();
+}
+
+class _RegistrationRegionPickerSheetState
+    extends State<_RegistrationRegionPickerSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<RegistrationRegionPresentationData> get _visibleRegions {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) {
+      return widget.regions;
+    }
+    return widget.regions
+        .where((region) {
+          return region.plateCode.toLowerCase().contains(query) ||
+              region.displayName.toLowerCase().contains(query) ||
+              region.parentRegionName.toLowerCase().contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final regions = _visibleRegions;
+    final country = countryPresentationFor(widget.countryCode);
+
+    return FractionallySizedBox(
+      heightFactor: 0.88,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: CaRismaDesignTokens.card,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 28,
+              offset: const Offset(0, -8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.24),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 10, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Zulassungsregion wählen',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          country.label,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: CaRismaDesignTokens.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.white,
+                    tooltip: 'Schließen',
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Code oder Stadt suchen',
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.46),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: CaRismaDesignTokens.blueBright,
+                  ),
+                  filled: true,
+                  fillColor: CaRismaDesignTokens.controlSurface,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: CaRismaDesignTokens.blueBright,
+                      width: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: regions.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Keine passende Zulassungsregion gefunden.',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: CaRismaDesignTokens.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 22),
+                      itemCount: regions.length,
+                      separatorBuilder: (_, _) => Divider(
+                        height: 1,
+                        color: Colors.white.withValues(alpha: 0.065),
+                      ),
+                      itemBuilder: (context, index) {
+                        final region = regions[index];
+                        return Semantics(
+                          button: true,
+                          label: '${region.plateCode}, ${region.displayName}',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => Navigator.of(context).pop(region),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: CaRismaDesignTokens.controlSurface,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 48,
+                                    child: Text(
+                                      region.plateCode,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: CaRismaDesignTokens.bluePrimary,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  SizedBox(
+                                    width: 34,
+                                    height: 34,
+                                    child: region.usesFallback
+                                        ? const Icon(
+                                            Icons.shield_outlined,
+                                            color:
+                                                CaRismaDesignTokens.textMuted,
+                                          )
+                                        : Image.asset(
+                                            region.regionCoatAsset,
+                                            fit: BoxFit.contain,
+                                            filterQuality: FilterQuality.high,
+                                            errorBuilder: (_, _, _) =>
+                                                const Icon(
+                                                  Icons.shield_outlined,
+                                                  color: CaRismaDesignTokens
+                                                      .textMuted,
+                                                ),
+                                          ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          region.displayName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15.5,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          region.parentRegionName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: CaRismaDesignTokens
+                                                .textSecondary,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SearchCreditCard extends StatelessWidget {
   const _SearchCreditCard({
     required this.searchCredit,
@@ -1115,7 +1281,7 @@ class _SearchCreditCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: Colors.white.withValues(alpha: 0.02),
+        color: CaRismaDesignTokens.card,
         border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
@@ -1163,32 +1329,6 @@ class _SearchCreditCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SearchButtonCard extends StatelessWidget {
-  const _SearchButtonCard({
-    required this.isEnabled,
-    required this.isLoading,
-    required this.onPressed,
-  });
-
-  final bool isEnabled;
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return CaRismaPrimaryButton(
-      label: 'Anfrage pr\u00fcfen',
-      loadingLabel: 'Pr\u00fcfung l\u00e4uft...',
-      icon: Icons.search_rounded,
-      iconSize: 29,
-      fontSize: 19.5,
-      isEnabled: isEnabled,
-      isLoading: isLoading,
-      onPressed: onPressed,
     );
   }
 }
@@ -1427,7 +1567,7 @@ class _ExistingRequestInfo extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: Colors.white.withValues(alpha: 0.04),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(

@@ -52,9 +52,9 @@ class CaRismaPrimaryButton extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF0B5EF5),
-                  Color(0xFF1E7BFF),
-                  Color(0xFF2D6DFF),
+                  CaRismaDesignTokens.bluePrimary,
+                  CaRismaDesignTokens.bluePrimary,
+                  CaRismaDesignTokens.bluePrimary,
                 ],
               ),
               border: Border.all(color: Colors.white.withValues(alpha: 0.16)),

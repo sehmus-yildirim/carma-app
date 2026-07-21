@@ -7,15 +7,16 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/plate/dach_plate_presentation.dart';
 import '../../../shared/plate/plate_country_config.dart';
-import '../../../shared/plate/german_plate_region_codes.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_country_selector_card.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
-import '../../../shared/widgets/carisma_page_header.dart';
-import '../../../shared/widgets/carisma_plate_input_card.dart';
+import '../../../shared/widgets/carisma_premium_license_plate_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_region_identity_card.dart';
 import '../../../shared/widgets/carisma_secondary_button.dart';
 import '../../../shared/widgets/carisma_section_title.dart';
 import '../../../shared/widgets/glass_card.dart';
@@ -55,6 +56,10 @@ class _ReportScreenState extends State<ReportScreen> {
   final FocusNode _regionFocusNode = FocusNode();
   final FocusNode _lettersFocusNode = FocusNode();
   final FocusNode _numbersFocusNode = FocusNode();
+
+  late final Stream<List<ReportNotificationRecord>>
+  _incomingReportNotifications;
+  late final Stream<List<ReportNotificationRecord>> _sentReportNotifications;
 
   String _countryCode = 'DE';
   _ReportCategory? _selectedCategory;
@@ -142,6 +147,13 @@ class _ReportScreenState extends State<ReportScreen> {
     _addressController.addListener(_refresh);
     _noteController.addListener(_refresh);
 
+    _incomingReportNotifications = _reportRepository.watchReportNotifications(
+      userId: widget.userState.userId,
+    );
+    _sentReportNotifications = _reportRepository.watchSentReportNotifications(
+      userId: widget.userState.userId,
+    );
+
     _loadLocation();
   }
 
@@ -213,21 +225,36 @@ class _ReportScreenState extends State<ReportScreen> {
     _regionFocusNode.requestFocus();
   }
 
+  Future<void> _openRegionPicker() async {
+    FocusScope.of(context).unfocus();
+    final selectedRegion = await showCaRismaRegistrationRegionPicker(
+      context,
+      countryCode: _countryCode,
+    );
+
+    if (!mounted || selectedRegion == null) {
+      return;
+    }
+
+    setState(() {
+      _regionController.value = TextEditingValue(
+        text: selectedRegion.plateCode,
+        selection: TextSelection.collapsed(
+          offset: selectedRegion.plateCode.length,
+        ),
+      );
+      _clearMessages();
+    });
+
+    if (_countryCode == 'CH' || _countryCode == 'AT') {
+      _numbersFocusNode.requestFocus();
+    } else {
+      _lettersFocusNode.requestFocus();
+    }
+  }
+
   void _handleRegionChanged(String value) {
     _clearMessages();
-
-    if (_countryCode == 'DE') {
-      final normalized = value.toUpperCase().replaceAll(
-        RegExp(r'[^A-ZÄÖÜ0-9]'),
-        '',
-      );
-      final regionCodes = germanPlateRegionCodesBySpeechKey.values.toSet();
-
-      if (regionCodes.contains(normalized)) {
-        _lettersFocusNode.requestFocus();
-        return;
-      }
-    }
 
     if (value.length >= _regionMaxLength) {
       if (_countryCode == 'CH' || _countryCode == 'AT') {
@@ -395,7 +422,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
   String? _bestGpsAddressLabel(List<ResolvedLocationPlace> places) {
     final labels = places
-        .map((place) => place.label.trim())
+        .map(_formatGpsAddressLabel)
         .where((label) => label.isNotEmpty && !_looksLikeCoordinateLabel(label))
         .toList(growable: false);
 
@@ -407,6 +434,48 @@ class _ReportScreenState extends State<ReportScreen> {
       _looksLikeStreetAddressLabel,
       orElse: () => labels.first,
     );
+  }
+
+  String _formatGpsAddressLabel(ResolvedLocationPlace place) {
+    final label = place.label.trim();
+    if (label.isEmpty) {
+      return label;
+    }
+
+    final parts = label
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+    final city = place.city.trim();
+    final streetIndex = parts.indexWhere(
+      (part) => RegExp(
+        r'\b(strasse|straße|str\.|weg|allee|platz|ring|damm|gasse|chaussee|ufer|markt)\b',
+        caseSensitive: false,
+      ).hasMatch(part),
+    );
+    final houseNumberIndex = parts.indexWhere(
+      (part) => RegExp(r'^\d+[a-zA-Z]?$').hasMatch(part),
+    );
+
+    if (streetIndex == -1) {
+      return label;
+    }
+
+    var streetLine = parts[streetIndex];
+    if (houseNumberIndex != -1 && houseNumberIndex != streetIndex) {
+      final houseNumber = parts[houseNumberIndex];
+      if (!streetLine.contains(houseNumber)) {
+        streetLine = '$streetLine $houseNumber';
+      }
+    }
+
+    final location = city.isNotEmpty
+        ? city
+        : place.region.trim().isNotEmpty
+        ? place.region.trim()
+        : null;
+    return [streetLine, ?location].join(', ');
   }
 
   bool _looksLikeStreetAddressLabel(String label) {
@@ -617,44 +686,31 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final regionPresentation = registrationRegionPresentationFor(
+      countryCode: _countryCode,
+      plateCode: _regionController.text,
+    );
+
     return CaRismaBackground(
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 112),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 84),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 112,
+                  minHeight: constraints.maxHeight - 84,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CaRismaPageHeader(
-                      icon: Icons.report_rounded,
-                      title: 'Melden',
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Sende einen anonymen Hinweis an einen Fahrzeughalter.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16.5,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const _MisuseWarningCard(),
-                    const SizedBox(height: 16),
                     _IncomingReportNotificationsSection(
-                      repository: _reportRepository,
-                      userId: widget.userState.userId,
+                      stream: _incomingReportNotifications,
                       onOpen: _openNotificationDetails,
                       onMarkRead: _markNotificationRead,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     const CaRismaSectionTitle(
                       number: '1',
                       title: 'Was möchtest du melden?',
@@ -675,8 +731,14 @@ class _ReportScreenState extends State<ReportScreen> {
                       onChanged: _changeCountry,
                     ),
                     const SizedBox(height: 12),
-                    CaRismaPlateInputCard(
+                    CaRismaRegionIdentityCard(
+                      region: regionPresentation,
+                      onTap: _openRegionPicker,
+                    ),
+                    const SizedBox(height: 12),
+                    CaRismaPremiumLicensePlateCard(
                       countryCode: _countryCode,
+                      regionPresentation: regionPresentation,
                       regionController: _regionController,
                       lettersController: _lettersController,
                       numbersController: _numbersController,
@@ -686,6 +748,10 @@ class _ReportScreenState extends State<ReportScreen> {
                       onRegionChanged: _handleRegionChanged,
                       onLettersChanged: _handleLettersChanged,
                       onNumbersChanged: _handleNumbersChanged,
+                      isSubmitEnabled: false,
+                      isSubmitting: false,
+                      onSubmit: _sendReport,
+                      showSubmit: false,
                     ),
                     const SizedBox(height: 18),
                     const CaRismaSectionTitle(
@@ -754,8 +820,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     ),
                     const SizedBox(height: 22),
                     _SentReportNotificationsSection(
-                      repository: _reportRepository,
-                      userId: widget.userState.userId,
+                      stream: _sentReportNotifications,
                       onOpen: _openNotificationDetails,
                     ),
                   ],
@@ -771,21 +836,19 @@ class _ReportScreenState extends State<ReportScreen> {
 
 class _IncomingReportNotificationsSection extends StatelessWidget {
   const _IncomingReportNotificationsSection({
-    required this.repository,
-    required this.userId,
+    required this.stream,
     required this.onOpen,
     required this.onMarkRead,
   });
 
-  final ReportRepository repository;
-  final String userId;
+  final Stream<List<ReportNotificationRecord>> stream;
   final ValueChanged<ReportNotificationRecord> onOpen;
   final ValueChanged<ReportNotificationRecord> onMarkRead;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ReportNotificationRecord>>(
-      stream: repository.watchReportNotifications(userId: userId),
+      stream: stream,
       builder: (context, snapshot) {
         final notifications = snapshot.data ?? const [];
 
@@ -807,12 +870,7 @@ class _IncomingReportNotificationsSection extends StatelessWidget {
         }
 
         if (notifications.isEmpty) {
-          return const _IncomingReportsStatusCard(
-            icon: Icons.notifications_none_rounded,
-            title: 'Keine Hinweise erhalten',
-            subtitle:
-                'Wenn jemand dein Kennzeichen meldet, erscheint der Hinweis hier.',
-          );
+          return const SizedBox.shrink();
         }
 
         final unreadCount = notifications
@@ -840,9 +898,13 @@ class _IncomingReportNotificationsSection extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      color: const Color(0xFF1E9BFF).withValues(alpha: 0.25),
+                      color: CaRismaDesignTokens.bluePrimary.withValues(
+                        alpha: 0.25,
+                      ),
                       border: Border.all(
-                        color: const Color(0xFF63D5FF).withValues(alpha: 0.45),
+                        color: CaRismaDesignTokens.bluePrimary.withValues(
+                          alpha: 0.45,
+                        ),
                       ),
                     ),
                     child: Text(
@@ -925,19 +987,17 @@ class _IncomingReportsStatusCard extends StatelessWidget {
 
 class _SentReportNotificationsSection extends StatelessWidget {
   const _SentReportNotificationsSection({
-    required this.repository,
-    required this.userId,
+    required this.stream,
     required this.onOpen,
   });
 
-  final ReportRepository repository;
-  final String userId;
+  final Stream<List<ReportNotificationRecord>> stream;
   final ValueChanged<ReportNotificationRecord> onOpen;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ReportNotificationRecord>>(
-      stream: repository.watchSentReportNotifications(userId: userId),
+      stream: stream,
       builder: (context, snapshot) {
         final notifications = snapshot.data ?? const [];
 
@@ -1057,7 +1117,7 @@ class _SentReportNotificationCard extends StatelessWidget {
             const SizedBox(width: 8),
             const Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFF63D5FF),
+              color: CaRismaDesignTokens.bluePrimary,
               size: 28,
             ),
           ],
@@ -1181,7 +1241,7 @@ class _IncomingReportNotificationCard extends StatelessWidget {
                   icon: const Icon(Icons.done_all_rounded, size: 18),
                   label: const Text('Als gelesen markieren'),
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF63D5FF),
+                    foregroundColor: CaRismaDesignTokens.bluePrimary,
                     textStyle: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -1244,14 +1304,14 @@ class _IncomingReportChip extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 260),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: const Color(0xFF63D5FF)),
+          Icon(icon, size: 15, color: CaRismaDesignTokens.bluePrimary),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
@@ -1441,7 +1501,7 @@ class _ReportDetailBlock extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white.withValues(alpha: 0.07),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Column(
@@ -1450,7 +1510,7 @@ class _ReportDetailBlock extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: const Color(0xFF63D5FF),
+              color: CaRismaDesignTokens.bluePrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1551,7 +1611,7 @@ class _ReportEvidencePlaceholder extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: const Color(0xFF63D5FF), size: 32),
+          Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 32),
           const SizedBox(height: 10),
           Text(
             label,
@@ -1594,38 +1654,6 @@ class _ReportEvidenceImageDialog extends StatelessWidget {
               style: IconButton.styleFrom(
                 backgroundColor: Colors.white.withValues(alpha: 0.12),
                 foregroundColor: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MisuseWarningCard extends StatelessWidget {
-  const _MisuseWarningCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const CaRismaBlueIconBox(
-            icon: Icons.shield_outlined,
-            size: 46,
-            iconSize: 24,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Text(
-              'Dieser Bereich ist nur für echte Hinweise gedacht. Missbrauch, falsche Meldungen oder Belästigung können zur Sperrung deines Kontos führen.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.82),
-                fontWeight: FontWeight.w700,
-                height: 1.36,
               ),
             ),
           ),
@@ -1748,27 +1776,19 @@ class _CategoryCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
-              gradient: isSelected
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.08),
-                        const Color(0xFF139CFF).withValues(alpha: 0.16),
-                        Colors.white.withValues(alpha: 0.035),
-                      ],
-                    )
-                  : null,
+              gradient: isSelected ? CaRismaDesignTokens.blueGradient : null,
               border: Border.all(
                 color: isSelected
-                    ? const Color(0xFF1E7BFF).withValues(alpha: 0.60)
+                    ? Colors.white.withValues(alpha: 0.16)
                     : Colors.transparent,
                 width: isSelected ? 1.5 : 1.0,
               ),
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF139CFF).withValues(alpha: 0.24),
+                        color: CaRismaDesignTokens.bluePrimary.withValues(
+                          alpha: 0.30,
+                        ),
                         blurRadius: 24,
                         spreadRadius: 1,
                         offset: const Offset(0, 8),
@@ -1893,7 +1913,7 @@ class _LocationCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.08),
+                    fillColor: CaRismaDesignTokens.controlSurface,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 17,
@@ -1907,7 +1927,9 @@ class _LocationCard extends StatelessWidget {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
                       borderSide: BorderSide(
-                        color: const Color(0xFF63D5FF).withValues(alpha: 0.90),
+                        color: CaRismaDesignTokens.bluePrimary.withValues(
+                          alpha: 0.90,
+                        ),
                         width: 1.4,
                       ),
                     ),
@@ -1951,13 +1973,13 @@ class _LocationModeButton extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF0A76FF),
-                      Color(0xFF139CFF),
-                      Color(0xFF63D5FF),
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
                     ],
                   )
                 : null,
-            color: isSelected ? null : Colors.white.withValues(alpha: 0.05),
+            color: isSelected ? null : CaRismaDesignTokens.controlSurface,
             border: Border.all(
               color: isSelected
                   ? Colors.white.withValues(alpha: 0.22)
@@ -2055,7 +2077,7 @@ class _InlineStatusBox extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.06),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
@@ -2187,7 +2209,7 @@ class _PrimaryActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E7BFF).withValues(alpha: 0.35),
+            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.35),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -2207,9 +2229,9 @@ class _PrimaryActionButton extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF0B5EF5),
-                  Color(0xFF1E7BFF),
-                  Color(0xFF2D6DFF),
+                  CaRismaDesignTokens.bluePrimary,
+                  CaRismaDesignTokens.bluePrimary,
+                  CaRismaDesignTokens.bluePrimary,
                 ],
               ),
               border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
@@ -2272,7 +2294,7 @@ class _NoteCard extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.08),
+          fillColor: CaRismaDesignTokens.controlSurface,
           contentPadding: const EdgeInsets.all(16),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
@@ -2281,7 +2303,7 @@ class _NoteCard extends StatelessWidget {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(
-              color: const Color(0xFF63D5FF).withValues(alpha: 0.90),
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.90),
               width: 1.4,
             ),
           ),

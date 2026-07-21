@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
@@ -661,7 +662,7 @@ class _TopBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.08),
+      color: CaRismaDesignTokens.controlSurface,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
@@ -746,7 +747,7 @@ class _ConsentRow extends StatelessWidget {
       children: [
         Checkbox(
           value: value,
-          activeColor: const Color(0xFF139CFF),
+          activeColor: CaRismaDesignTokens.bluePrimary,
           checkColor: Colors.white,
           side: BorderSide(
             color: Colors.white.withValues(alpha: 0.42),
@@ -831,10 +832,10 @@ class _InlineLegalLink extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF63D5FF),
+            color: CaRismaDesignTokens.bluePrimary,
             fontWeight: FontWeight.w900,
             decoration: TextDecoration.underline,
-            decorationColor: const Color(0xFF63D5FF),
+            decorationColor: CaRismaDesignTokens.bluePrimary,
             height: 1.34,
           ),
         ),

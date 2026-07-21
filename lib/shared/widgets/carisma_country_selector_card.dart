@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../plate/dach_plate_presentation.dart';
 import '../plate/plate_country_config.dart';
 import '../theme/carisma_design_tokens.dart';
 import 'glass_card.dart';
@@ -22,7 +23,7 @@ class CaRismaCountrySelectorCard extends StatelessWidget {
       opacity: isLocked ? 0.56 : 1,
       child: GlassCard(
         padding: const EdgeInsets.all(8),
-        radius: 22,
+        radius: 24,
         child: Row(
           children: [
             for (
@@ -63,31 +64,24 @@ class _CountryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = selectedCountryCode == config.countryCode;
+    final presentation = countryPresentationFor(config.countryCode);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: config.countryLabel,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: isLocked ? null : () => onChanged(config.countryCode),
-        borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          height: 58,
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          height: 60,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: isSelected
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0B5EF5),
-                      Color(0xFF1E7BFF),
-                      Color(0xFF2D6DFF),
-                    ],
-                  )
-                : null,
-            color: isSelected ? null : Colors.white.withValues(alpha: 0.035),
+            gradient: isSelected ? CaRismaDesignTokens.blueGradient : null,
+            color: isSelected ? null : CaRismaDesignTokens.card,
             border: Border.all(
               color: isSelected
                   ? Colors.white.withValues(alpha: 0.16)
@@ -114,15 +108,34 @@ class _CountryButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(
-                config.countryLabel,
-                maxLines: 1,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
-                  letterSpacing: 0,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: Image.asset(
+                      presentation.flagAsset,
+                      width: config.countryCode == 'CH' ? 20 : 26,
+                      height: 18,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          const SizedBox(width: 26, height: 18),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    config.countryLabel,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: isSelected
+                          ? FontWeight.w900
+                          : FontWeight.w800,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

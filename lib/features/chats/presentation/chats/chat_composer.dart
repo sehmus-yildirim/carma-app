@@ -281,7 +281,7 @@ class _ComposerIconButton extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.08),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Icon(

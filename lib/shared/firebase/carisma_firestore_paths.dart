@@ -2,9 +2,17 @@ class CaRismaFirestoreCollections {
   const CaRismaFirestoreCollections._();
 
   static const String users = 'users';
+  static const String publicProfiles = 'public_profiles';
   static const String profiles = 'profiles';
+  static const String vehicles = 'vehicles';
+  static const String modifications = 'modifications';
+  static const String gallery = 'gallery';
+  static const String timeline = 'timeline';
+  static const String encounters = 'encounters';
+  static const String vehicleEncounters = 'vehicle_encounters';
   static const String plates = 'plates';
   static const String contactRequests = 'contact_requests';
+  static const String profileConnections = 'profile_connections';
   static const String chats = 'chats';
   static const String messages = 'messages';
   static const String reports = 'reports';
@@ -64,6 +72,114 @@ class CaRismaFirestorePaths {
     return '${user(userId)}/${CaRismaFirestoreCollections.profiles}/main';
   }
 
+  static String publicProfile(String userId) {
+    return '${CaRismaFirestoreCollections.publicProfiles}/$userId';
+  }
+
+  static String userVehicles(String userId) {
+    return '${user(userId)}/${CaRismaFirestoreCollections.vehicles}';
+  }
+
+  static String userVehicle(String userId, String vehicleId) {
+    return '${userVehicles(userId)}/$vehicleId';
+  }
+
+  static String publicProfileVehicles(String userId) {
+    return '${publicProfile(userId)}/${CaRismaFirestoreCollections.vehicles}';
+  }
+
+  static String publicProfileVehicle(String userId, String vehicleId) {
+    return '${publicProfileVehicles(userId)}/$vehicleId';
+  }
+
+  static String userVehicleModifications(String userId, String vehicleId) {
+    return '${userVehicle(userId, vehicleId)}/${CaRismaFirestoreCollections.modifications}';
+  }
+
+  static String userVehicleModification(
+    String userId,
+    String vehicleId,
+    String modificationId,
+  ) {
+    return '${userVehicleModifications(userId, vehicleId)}/$modificationId';
+  }
+
+  static String publicVehicleModifications(String userId, String vehicleId) {
+    return '${publicProfileVehicle(userId, vehicleId)}/${CaRismaFirestoreCollections.modifications}';
+  }
+
+  static String publicVehicleModification(
+    String userId,
+    String vehicleId,
+    String modificationId,
+  ) {
+    return '${publicVehicleModifications(userId, vehicleId)}/$modificationId';
+  }
+
+  static String userVehicleGallery(String userId, String vehicleId) {
+    return '${userVehicle(userId, vehicleId)}/${CaRismaFirestoreCollections.gallery}';
+  }
+
+  static String userVehicleGalleryMedia(
+    String userId,
+    String vehicleId,
+    String mediaId,
+  ) {
+    return '${userVehicleGallery(userId, vehicleId)}/$mediaId';
+  }
+
+  static String publicVehicleGallery(String userId, String vehicleId) {
+    return '${publicProfileVehicle(userId, vehicleId)}/${CaRismaFirestoreCollections.gallery}';
+  }
+
+  static String publicVehicleGalleryMedia(
+    String userId,
+    String vehicleId,
+    String mediaId,
+  ) {
+    return '${publicVehicleGallery(userId, vehicleId)}/$mediaId';
+  }
+
+  static String userVehicleTimeline(String userId, String vehicleId) {
+    return '${userVehicle(userId, vehicleId)}/${CaRismaFirestoreCollections.timeline}';
+  }
+
+  static String userVehicleTimelineEntry(
+    String userId,
+    String vehicleId,
+    String entryId,
+  ) {
+    return '${userVehicleTimeline(userId, vehicleId)}/$entryId';
+  }
+
+  static String publicVehicleTimeline(String userId, String vehicleId) {
+    return '${publicProfileVehicle(userId, vehicleId)}/${CaRismaFirestoreCollections.timeline}';
+  }
+
+  static String publicVehicleTimelineEntry(
+    String userId,
+    String vehicleId,
+    String entryId,
+  ) {
+    return '${publicVehicleTimeline(userId, vehicleId)}/$entryId';
+  }
+
+  static String vehicleEncounter(String encounterId) {
+    return '${CaRismaFirestoreCollections.vehicleEncounters}/$encounterId';
+  }
+
+  static String publicVehicleEncounters(String userId, String vehicleId) {
+    return '${publicProfileVehicle(userId, vehicleId)}/${CaRismaFirestoreCollections.encounters}';
+  }
+
+  static String publicVehicleEncounter(
+    String userId,
+    String vehicleId,
+    String encounterId,
+  ) {
+    return '${publicVehicleEncounters(userId, vehicleId)}/$encounterId';
+  }
+
   static String userSearchCredit(String userId) {
     return '${user(userId)}/${CaRismaFirestoreCollections.searchCredits}/main';
   }
@@ -102,6 +218,10 @@ class CaRismaFirestorePaths {
 
   static String contactRequest(String requestId) {
     return '${CaRismaFirestoreCollections.contactRequests}/$requestId';
+  }
+
+  static String profileConnection(String connectionId) {
+    return '${CaRismaFirestoreCollections.profileConnections}/$connectionId';
   }
 
   static String chat(String chatId) {

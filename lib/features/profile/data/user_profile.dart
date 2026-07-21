@@ -21,6 +21,15 @@ class UserProfile {
     this.birthDate,
     this.photoUrl,
     this.profilePhotoLocalPath,
+    this.publicBio,
+    this.publicRegion,
+    this.showVehicleOnPublicProfile = false,
+    this.showPlateOnPublicProfile = false,
+    this.isPrivateProfile = true,
+    this.profileAccessEnabled = true,
+    this.followersVisibility = 'contacts',
+    this.followingVisibility = 'contacts',
+    this.primaryVehicleId,
     this.documentLocalPaths = const {},
     this.documentRemoteUrls = const {},
     this.verificationStatus = 'unverified',
@@ -50,6 +59,15 @@ class UserProfile {
   final DateTime? birthDate;
   final String? photoUrl;
   final String? profilePhotoLocalPath;
+  final String? publicBio;
+  final String? publicRegion;
+  final bool showVehicleOnPublicProfile;
+  final bool showPlateOnPublicProfile;
+  final bool isPrivateProfile;
+  final bool profileAccessEnabled;
+  final String followersVisibility;
+  final String followingVisibility;
+  final String? primaryVehicleId;
   final Map<String, String?> documentLocalPaths;
   final Map<String, String?> documentRemoteUrls;
   final String verificationStatus;
@@ -96,6 +114,17 @@ class UserProfile {
       birthDate: _dateTimeFromTimestamp(data['birthDate']),
       photoUrl: data['photoUrl'] as String?,
       profilePhotoLocalPath: data['profilePhotoLocalPath'] as String?,
+      publicBio: data['publicBio'] as String?,
+      publicRegion: data['publicRegion'] as String?,
+      showVehicleOnPublicProfile:
+          data['showVehicleOnPublicProfile'] as bool? ?? false,
+      showPlateOnPublicProfile:
+          data['showPlateOnPublicProfile'] as bool? ?? false,
+      isPrivateProfile: data['isPrivateProfile'] as bool? ?? true,
+      profileAccessEnabled: data['profileAccessEnabled'] as bool? ?? true,
+      followersVisibility: data['followersVisibility'] as String? ?? 'contacts',
+      followingVisibility: data['followingVisibility'] as String? ?? 'contacts',
+      primaryVehicleId: data['primaryVehicleId'] as String?,
       documentLocalPaths: _stringMapFromValue(data['documentLocalPaths']),
       documentRemoteUrls: _stringMapFromValue(data['documentRemoteUrls']),
       verificationStatus: data['verificationStatus'] as String? ?? 'unverified',
@@ -133,6 +162,15 @@ class UserProfile {
       'birthDate': birthDate == null ? null : Timestamp.fromDate(birthDate!),
       'photoUrl': photoUrl,
       'profilePhotoLocalPath': profilePhotoLocalPath,
+      'publicBio': _trimmedOrNull(publicBio),
+      'publicRegion': _trimmedOrNull(publicRegion),
+      'showVehicleOnPublicProfile': showVehicleOnPublicProfile,
+      'showPlateOnPublicProfile': showPlateOnPublicProfile,
+      'isPrivateProfile': isPrivateProfile,
+      'profileAccessEnabled': profileAccessEnabled,
+      'followersVisibility': followersVisibility,
+      'followingVisibility': followingVisibility,
+      'primaryVehicleId': _trimmedOrNull(primaryVehicleId),
       'documentLocalPaths': documentLocalPaths,
       'documentRemoteUrls': documentRemoteUrls,
       'verificationStatus': verificationStatus,
@@ -167,6 +205,15 @@ class UserProfile {
     DateTime? birthDate,
     String? photoUrl,
     String? profilePhotoLocalPath,
+    String? publicBio,
+    String? publicRegion,
+    bool? showVehicleOnPublicProfile,
+    bool? showPlateOnPublicProfile,
+    bool? isPrivateProfile,
+    bool? profileAccessEnabled,
+    String? followersVisibility,
+    String? followingVisibility,
+    String? primaryVehicleId,
     Map<String, String?>? documentLocalPaths,
     Map<String, String?>? documentRemoteUrls,
     String? verificationStatus,
@@ -198,6 +245,17 @@ class UserProfile {
       photoUrl: photoUrl ?? this.photoUrl,
       profilePhotoLocalPath:
           profilePhotoLocalPath ?? this.profilePhotoLocalPath,
+      publicBio: publicBio ?? this.publicBio,
+      publicRegion: publicRegion ?? this.publicRegion,
+      showVehicleOnPublicProfile:
+          showVehicleOnPublicProfile ?? this.showVehicleOnPublicProfile,
+      showPlateOnPublicProfile:
+          showPlateOnPublicProfile ?? this.showPlateOnPublicProfile,
+      isPrivateProfile: isPrivateProfile ?? this.isPrivateProfile,
+      profileAccessEnabled: profileAccessEnabled ?? this.profileAccessEnabled,
+      followersVisibility: followersVisibility ?? this.followersVisibility,
+      followingVisibility: followingVisibility ?? this.followingVisibility,
+      primaryVehicleId: primaryVehicleId ?? this.primaryVehicleId,
       documentLocalPaths: documentLocalPaths ?? this.documentLocalPaths,
       documentRemoteUrls: documentRemoteUrls ?? this.documentRemoteUrls,
       verificationStatus: verificationStatus ?? this.verificationStatus,

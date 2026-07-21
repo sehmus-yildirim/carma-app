@@ -62,6 +62,7 @@ class _ChatVehicleDetailPill extends StatelessWidget {
 class _ChatOverflowMenu extends StatelessWidget {
   static final FirestoreChatRepository _chatRepository =
       FirestoreChatRepository();
+  static final Set<String> _runningChatActions = <String>{};
 
   const _ChatOverflowMenu({
     this.chatId,
@@ -75,6 +76,7 @@ class _ChatOverflowMenu extends StatelessWidget {
     this.isUnread = false,
     this.isArchived = false,
     this.isBlocked = false,
+    this.canUnblock,
     this.popAfterStatusAction = true,
   });
 
@@ -89,12 +91,21 @@ class _ChatOverflowMenu extends StatelessWidget {
   final bool isUnread;
   final bool isArchived;
   final bool isBlocked;
+  final bool? canUnblock;
   final bool popAfterStatusAction;
 
   void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _friendlyActionError(Object error) {
+    return _friendlyChatUiError(error);
+  }
+
+  String _runningActionKey(String chatId, String userId) {
+    return '$chatId::$userId';
   }
 
   Future<void> _showVehicleDetails(BuildContext context) async {
@@ -231,6 +242,7 @@ class _ChatOverflowMenu extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
+          scrollable: true,
           title: Text(title),
           content: Text(message),
           actions: [
@@ -269,7 +281,8 @@ class _ChatOverflowMenu extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF101827),
+          scrollable: true,
+          backgroundColor: CaRismaDesignTokens.card,
           title: const Text(
             'Nutzer melden?',
             style: TextStyle(color: Colors.white),
@@ -282,7 +295,7 @@ class _ChatOverflowMenu extends StatelessWidget {
               hintText: 'Grund optional eingeben',
               hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.48)),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.08),
+              fillColor: CaRismaDesignTokens.controlSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
@@ -310,6 +323,10 @@ class _ChatOverflowMenu extends StatelessWidget {
       return;
     }
 
+    if (!context.mounted) {
+      return;
+    }
+
     try {
       final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
@@ -317,11 +334,21 @@ class _ChatOverflowMenu extends StatelessWidget {
         throw StateError('Du musst angemeldet sein.');
       }
 
-      await _chatRepository.reportChat(
-        chatId: id,
-        reporterUserId: currentUserId,
-        reason: reason.isEmpty ? 'Chat gemeldet' : reason,
-      );
+      final runningActionKey = _runningActionKey(id, currentUserId);
+      if (!_runningChatActions.add(runningActionKey)) {
+        _showSnackBar(context, 'Eine Chat-Aktion wird bereits ausgeführt.');
+        return;
+      }
+
+      try {
+        await _chatRepository.reportChat(
+          chatId: id,
+          reporterUserId: currentUserId,
+          reason: reason.isEmpty ? 'Chat gemeldet' : reason,
+        );
+      } finally {
+        _runningChatActions.remove(runningActionKey);
+      }
 
       if (!context.mounted) {
         return;
@@ -333,7 +360,10 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Meldung konnte nicht gesendet werden: $error');
+      _showSnackBar(
+        context,
+        'Meldung konnte nicht gesendet werden: ${_friendlyActionError(error)}',
+      );
     }
   }
 
@@ -551,7 +581,17 @@ class _ChatOverflowMenu extends StatelessWidget {
         throw StateError('Du musst angemeldet sein.');
       }
 
-      await action(chatId: id, userId: currentUserId);
+      final runningActionKey = _runningActionKey(id, currentUserId);
+      if (!_runningChatActions.add(runningActionKey)) {
+        _showSnackBar(context, 'Eine Chat-Aktion wird bereits ausgeführt.');
+        return;
+      }
+
+      try {
+        await action(chatId: id, userId: currentUserId);
+      } finally {
+        _runningChatActions.remove(runningActionKey);
+      }
 
       if (!context.mounted) {
         return;
@@ -563,7 +603,10 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
+      _showSnackBar(
+        context,
+        'Aktion konnte nicht ausgeführt werden: ${_friendlyActionError(error)}',
+      );
     }
   }
 
@@ -589,7 +632,8 @@ class _ChatOverflowMenu extends StatelessWidget {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF101827),
+          scrollable: true,
+          backgroundColor: CaRismaDesignTokens.card,
           title: Text(title, style: const TextStyle(color: Colors.white)),
           content: Text(
             message,
@@ -613,8 +657,28 @@ class _ChatOverflowMenu extends StatelessWidget {
       return;
     }
 
+    if (!context.mounted) {
+      return;
+    }
+
     try {
-      await action();
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+
+      if (currentUserId.isEmpty) {
+        throw StateError('Du musst angemeldet sein.');
+      }
+
+      final runningActionKey = _runningActionKey(id, currentUserId);
+      if (!_runningChatActions.add(runningActionKey)) {
+        _showSnackBar(context, 'Eine Chat-Aktion wird bereits ausgeführt.');
+        return;
+      }
+
+      try {
+        await action();
+      } finally {
+        _runningChatActions.remove(runningActionKey);
+      }
 
       if (!context.mounted) {
         return;
@@ -629,7 +693,10 @@ class _ChatOverflowMenu extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Aktion konnte nicht ausgeführt werden: $error');
+      _showSnackBar(
+        context,
+        'Aktion konnte nicht ausgeführt werden: ${_friendlyActionError(error)}',
+      );
     }
   }
 
@@ -642,12 +709,12 @@ class _ChatOverflowMenu extends StatelessWidget {
       onSelected: (action) => _handleAction(context, action),
       itemBuilder: (context) {
         return [
-          if (isBlocked)
+          if (isBlocked && (canUnblock ?? true))
             const PopupMenuItem(
               value: _ChatMenuAction.unblock,
               child: Text('Blockierung aufheben'),
             )
-          else ...[
+          else if (!isBlocked) ...[
             PopupMenuItem(
               value: _ChatMenuAction.pin,
               child: Text(isPinned ? 'Nicht mehr anpinnen' : 'Chat anpinnen'),

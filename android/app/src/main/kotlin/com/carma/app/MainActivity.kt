@@ -155,7 +155,23 @@ class MainActivity : FlutterActivity() {
                         val country = address.countryName?.trim().orEmpty()
                         val street = address.thoroughfare?.trim().orEmpty()
                         val feature = address.featureName?.trim().orEmpty()
-                        val labelParts = listOf(feature, street, city, region)
+                        val houseNumber = address.subThoroughfare?.trim().orEmpty()
+                            .ifBlank {
+                                feature.takeIf {
+                                    it.isNotBlank() &&
+                                        it != street &&
+                                        it != city &&
+                                        it.any(Char::isDigit)
+                                }.orEmpty()
+                            }
+                        val streetLine = listOf(street, houseNumber)
+                            .map { it.trim() }
+                            .filter { it.isNotEmpty() }
+                            .distinct()
+                            .joinToString(" ")
+                            .ifBlank { feature }
+                        val cityOrRegion = city.ifBlank { region }
+                        val labelParts = listOf(streetLine, cityOrRegion)
                             .map { it.trim() }
                             .filter { it.isNotEmpty() }
                             .distinct()

@@ -1,0 +1,1316 @@
+import 'package:flutter/material.dart';
+
+import '../../../../shared/theme/carisma_design_tokens.dart';
+import '../../../../shared/widgets/carisma_blue_icon_box.dart';
+import '../../../../shared/widgets/glass_card.dart';
+import '../../data/profile_vehicle.dart';
+import '../../data/profile_vehicle_encounter.dart';
+import '../../data/profile_vehicle_gallery_media.dart';
+import '../../data/profile_vehicle_modification.dart';
+import '../../data/profile_vehicle_timeline_entry.dart';
+import '../../data/user_profile.dart';
+import 'profile_vehicle_gallery_card.dart';
+import 'profile_vehicle_encounters_card.dart';
+import 'profile_vehicle_statistics_card.dart';
+import 'profile_vehicle_timeline_card.dart';
+
+enum ProfileVehicleMenuAction { edit, details, setPrimary, archive }
+
+class ProfileVehiclePanel extends StatefulWidget {
+  const ProfileVehiclePanel({
+    super.key,
+    required this.profile,
+    required this.postCount,
+    required this.vehicles,
+    required this.isOwnProfile,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onEditDetails,
+    required this.onSetPrimary,
+    required this.onArchive,
+    required this.onGenerateHero,
+    required this.isHeroRequestBusy,
+    required this.galleryMediaForVehicle,
+    required this.onAddGalleryMedia,
+    required this.onSetMainGalleryMedia,
+    required this.onDeleteGalleryMedia,
+    required this.modificationsForVehicle,
+    required this.onAddModification,
+    required this.onEditModification,
+    required this.onDeleteModification,
+    required this.timelineEntriesForVehicle,
+    required this.onAddTimelineEntry,
+    required this.onEditTimelineEntry,
+    required this.onDeleteTimelineEntry,
+    required this.currentUserId,
+    required this.encountersForVehicle,
+    required this.onRequestEncounter,
+    required this.onAcceptEncounter,
+    required this.onDeclineEncounter,
+    required this.onRemoveEncounter,
+  });
+
+  final UserProfile? profile;
+  final int postCount;
+  final Stream<List<ProfileVehicle>> vehicles;
+  final bool isOwnProfile;
+  final VoidCallback onAdd;
+  final ValueChanged<ProfileVehicle> onEdit;
+  final ValueChanged<ProfileVehicle> onEditDetails;
+  final ValueChanged<ProfileVehicle> onSetPrimary;
+  final ValueChanged<ProfileVehicle> onArchive;
+  final ValueChanged<ProfileVehicle> onGenerateHero;
+  final bool Function(String vehicleId) isHeroRequestBusy;
+  final Stream<List<ProfileVehicleGalleryMedia>> Function(String vehicleId)
+  galleryMediaForVehicle;
+  final ValueChanged<ProfileVehicle> onAddGalleryMedia;
+  final void Function(ProfileVehicle vehicle, ProfileVehicleGalleryMedia media)
+  onSetMainGalleryMedia;
+  final ValueChanged<ProfileVehicleGalleryMedia> onDeleteGalleryMedia;
+  final Stream<List<ProfileVehicleModification>> Function(String vehicleId)
+  modificationsForVehicle;
+  final ValueChanged<ProfileVehicle> onAddModification;
+  final void Function(
+    ProfileVehicle vehicle,
+    ProfileVehicleModification modification,
+  )
+  onEditModification;
+  final ValueChanged<ProfileVehicleModification> onDeleteModification;
+  final Stream<List<ProfileVehicleTimelineEntry>> Function(String vehicleId)
+  timelineEntriesForVehicle;
+  final ValueChanged<ProfileVehicle> onAddTimelineEntry;
+  final void Function(ProfileVehicle vehicle, ProfileVehicleTimelineEntry entry)
+  onEditTimelineEntry;
+  final ValueChanged<ProfileVehicleTimelineEntry> onDeleteTimelineEntry;
+  final String currentUserId;
+  final Stream<List<ProfileVehicleEncounter>> Function(String vehicleId)
+  encountersForVehicle;
+  final ValueChanged<ProfileVehicle> onRequestEncounter;
+  final ValueChanged<ProfileVehicleEncounter> onAcceptEncounter;
+  final ValueChanged<ProfileVehicleEncounter> onDeclineEncounter;
+  final ValueChanged<ProfileVehicleEncounter> onRemoveEncounter;
+
+  @override
+  State<ProfileVehiclePanel> createState() => _ProfileVehiclePanelState();
+}
+
+class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
+  String? _selectedVehicleId;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ProfileVehicle>>(
+      stream: widget.vehicles,
+      builder: (context, snapshot) {
+        final resolvedVehicles = _resolvedVehicles(snapshot.data ?? const []);
+        final selectedVehicle = _selectedVehicle(resolvedVehicles);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.isOwnProfile ? 'Meine Fahrzeuge' : 'Fahrzeuge',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (widget.isOwnProfile)
+                  IconButton(
+                    tooltip: 'Fahrzeug hinzufügen',
+                    onPressed: widget.onAdd,
+                    icon: const Icon(Icons.add_rounded),
+                    color: CaRismaDesignTokens.blueBright,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                resolvedVehicles.isEmpty)
+              const _VehicleLoadingState()
+            else if (snapshot.hasError)
+              const _VehicleMessageState(
+                icon: Icons.cloud_off_rounded,
+                title: 'Fahrzeuge konnten nicht geladen werden',
+                message: 'Prüfe deine Verbindung und versuche es erneut.',
+              )
+            else if (resolvedVehicles.isEmpty)
+              _VehicleMessageState(
+                icon: Icons.directions_car_outlined,
+                title: 'Noch kein Fahrzeug',
+                message: widget.isOwnProfile
+                    ? 'Füge dein erstes Fahrzeug zu deinem Profil hinzu.'
+                    : 'Dieser Nutzer zeigt aktuell kein Fahrzeug.',
+                actionLabel: widget.isOwnProfile ? 'Fahrzeug hinzufügen' : null,
+                onAction: widget.isOwnProfile ? widget.onAdd : null,
+              )
+            else ...[
+              _VehicleHeroCard(
+                vehicle: selectedVehicle!,
+                isOwnProfile: widget.isOwnProfile,
+                isGenerationBusy: widget.isHeroRequestBusy(selectedVehicle.id),
+                onGenerate: () => widget.onGenerateHero(selectedVehicle),
+              ),
+              if (resolvedVehicles.length > 1) ...[
+                const SizedBox(height: 12),
+                _VehicleSelector(
+                  vehicles: resolvedVehicles,
+                  selectedVehicleId: selectedVehicle.id,
+                  onSelected: (vehicle) {
+                    setState(() => _selectedVehicleId = vehicle.id);
+                  },
+                ),
+              ],
+              const SizedBox(height: 12),
+              ProfileVehicleGalleryCard(
+                vehicle: selectedVehicle,
+                media: widget.galleryMediaForVehicle(selectedVehicle.id),
+                isOwnProfile: widget.isOwnProfile,
+                onAdd: () => widget.onAddGalleryMedia(selectedVehicle),
+                onSetMain: (media) =>
+                    widget.onSetMainGalleryMedia(selectedVehicle, media),
+                onDelete: widget.onDeleteGalleryMedia,
+              ),
+              const SizedBox(height: 12),
+              _VehicleDataCard(
+                vehicle: selectedVehicle,
+                isOwnProfile: widget.isOwnProfile,
+                onEdit: () => widget.onEditDetails(selectedVehicle),
+              ),
+              const SizedBox(height: 12),
+              _VehicleEquipmentCard(
+                vehicle: selectedVehicle,
+                isOwnProfile: widget.isOwnProfile,
+                onEdit: () => widget.onEditDetails(selectedVehicle),
+              ),
+              const SizedBox(height: 12),
+              _VehicleModificationsCard(
+                vehicle: selectedVehicle,
+                modifications: widget.modificationsForVehicle(
+                  selectedVehicle.id,
+                ),
+                isOwnProfile: widget.isOwnProfile,
+                onAdd: () => widget.onAddModification(selectedVehicle),
+                onEdit: (modification) =>
+                    widget.onEditModification(selectedVehicle, modification),
+                onDelete: widget.onDeleteModification,
+              ),
+              const SizedBox(height: 12),
+              ProfileVehicleTimelineCard(
+                vehicle: selectedVehicle,
+                entries: widget.timelineEntriesForVehicle(selectedVehicle.id),
+                isOwnProfile: widget.isOwnProfile,
+                onAdd: () => widget.onAddTimelineEntry(selectedVehicle),
+                onEdit: (entry) =>
+                    widget.onEditTimelineEntry(selectedVehicle, entry),
+                onDelete: widget.onDeleteTimelineEntry,
+              ),
+              const SizedBox(height: 12),
+              ProfileVehicleEncountersCard(
+                vehicle: selectedVehicle,
+                currentUserId: widget.currentUserId,
+                encounters: widget.encountersForVehicle(selectedVehicle.id),
+                isOwnProfile: widget.isOwnProfile,
+                onRequest: () => widget.onRequestEncounter(selectedVehicle),
+                onAccept: widget.onAcceptEncounter,
+                onDecline: widget.onDeclineEncounter,
+                onRemove: widget.onRemoveEncounter,
+              ),
+              const SizedBox(height: 12),
+              ProfileVehicleStatisticsCard(
+                vehicle: selectedVehicle,
+                postCount: widget.postCount,
+                encounters: widget.encountersForVehicle(selectedVehicle.id),
+                isOwnProfile: widget.isOwnProfile,
+              ),
+              if (widget.isOwnProfile) ...[
+                const SizedBox(height: 18),
+                Text(
+                  'Verwalten',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 9),
+                for (
+                  var index = 0;
+                  index < resolvedVehicles.length;
+                  index++
+                ) ...[
+                  _ProfileVehicleCard(
+                    vehicle: resolvedVehicles[index],
+                    isOwnProfile: true,
+                    onAction: (action) {
+                      switch (action) {
+                        case ProfileVehicleMenuAction.edit:
+                          widget.onEdit(resolvedVehicles[index]);
+                        case ProfileVehicleMenuAction.details:
+                          widget.onEditDetails(resolvedVehicles[index]);
+                        case ProfileVehicleMenuAction.setPrimary:
+                          widget.onSetPrimary(resolvedVehicles[index]);
+                        case ProfileVehicleMenuAction.archive:
+                          widget.onArchive(resolvedVehicles[index]);
+                      }
+                    },
+                  ),
+                  if (index < resolvedVehicles.length - 1)
+                    const SizedBox(height: 10),
+                ],
+              ],
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  List<ProfileVehicle> _resolvedVehicles(List<ProfileVehicle> vehicles) {
+    if (vehicles.isNotEmpty) return vehicles;
+    final currentProfile = widget.profile;
+    if (currentProfile == null) return const [];
+    final legacyVehicle = ProfileVehicle.fromLegacyProfile(currentProfile);
+    return legacyVehicle.hasRequiredData ? [legacyVehicle] : const [];
+  }
+
+  ProfileVehicle? _selectedVehicle(List<ProfileVehicle> vehicles) {
+    if (vehicles.isEmpty) return null;
+    final selectedId = _selectedVehicleId;
+    if (selectedId != null) {
+      for (final vehicle in vehicles) {
+        if (vehicle.id == selectedId) return vehicle;
+      }
+    }
+    for (final vehicle in vehicles) {
+      if (vehicle.isPrimary) return vehicle;
+    }
+    return vehicles.first;
+  }
+}
+
+class _VehicleHeroCard extends StatelessWidget {
+  const _VehicleHeroCard({
+    required this.vehicle,
+    required this.isOwnProfile,
+    required this.isGenerationBusy,
+    required this.onGenerate,
+  });
+
+  final ProfileVehicle vehicle;
+  final bool isOwnProfile;
+  final bool isGenerationBusy;
+  final VoidCallback onGenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = vehicle.heroImageUrl?.trim() ?? '';
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (imageUrl.isNotEmpty)
+                    Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const _VehicleHeroPlaceholder(),
+                    )
+                  else
+                    const _VehicleHeroPlaceholder(),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.74),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (isOwnProfile)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: _VehicleHeroGenerationControl(
+                        status: vehicle.heroImageStatus,
+                        isBusy: isGenerationBusy,
+                        onPressed: onGenerate,
+                      ),
+                    ),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 14,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                vehicle.displayName,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.headlineSmall
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _statusLabel(vehicle.status),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.78,
+                                      ),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (vehicle.isPrimary)
+                          const _VehicleChip(
+                            icon: Icons.star_rounded,
+                            label: 'Hauptfahrzeug',
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 13, 15, 15),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (vehicle.showPlate || isOwnProfile)
+                    _VehicleChip(
+                      icon: Icons.pin_outlined,
+                      label: vehicle.displayPlate,
+                    ),
+                  if (vehicle.color.trim().isNotEmpty)
+                    _VehicleChip(
+                      icon: Icons.palette_outlined,
+                      label: vehicle.color.trim(),
+                    ),
+                  if (vehicle.mileage != null)
+                    _VehicleChip(
+                      icon: Icons.speed_rounded,
+                      label: '${vehicle.mileage} km',
+                    ),
+                  if (vehicle.ownedSince != null)
+                    _VehicleChip(
+                      icon: Icons.calendar_month_outlined,
+                      label: 'Seit ${vehicle.ownedSince!.year}',
+                    ),
+                  if (vehicle.isVerified)
+                    const _VehicleChip(
+                      icon: Icons.verified_rounded,
+                      label: 'Verifiziert',
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleHeroPlaceholder extends StatelessWidget {
+  const _VehicleHeroPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF171D2A), Color(0xFF0D1320), Color(0xFF063264)],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.directions_car_filled_rounded,
+          size: 84,
+          color: Colors.white.withValues(alpha: 0.13),
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleHeroGenerationControl extends StatelessWidget {
+  const _VehicleHeroGenerationControl({
+    required this.status,
+    required this.isBusy,
+    required this.onPressed,
+  });
+
+  final VehicleHeroImageStatus status;
+  final bool isBusy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPending =
+        isBusy ||
+        status == VehicleHeroImageStatus.queued ||
+        status == VehicleHeroImageStatus.generating;
+    final label = switch (status) {
+      VehicleHeroImageStatus.notGenerated => 'Bild erstellen',
+      VehicleHeroImageStatus.failed => 'Erneut versuchen',
+      VehicleHeroImageStatus.regenerationRequired => 'Neu erstellen',
+      VehicleHeroImageStatus.ready => 'Neu erstellen',
+      VehicleHeroImageStatus.queued ||
+      VehicleHeroImageStatus.generating => 'Wird erstellt',
+    };
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isPending ? null : onPressed,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFF080B12).withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isPending)
+                const SizedBox.square(
+                  dimension: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: CaRismaDesignTokens.blueBright,
+                  ),
+                )
+              else
+                Icon(
+                  status == VehicleHeroImageStatus.notGenerated
+                      ? Icons.auto_awesome_rounded
+                      : Icons.refresh_rounded,
+                  size: 16,
+                  color: CaRismaDesignTokens.blueBright,
+                ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleSelector extends StatelessWidget {
+  const _VehicleSelector({
+    required this.vehicles,
+    required this.selectedVehicleId,
+    required this.onSelected,
+  });
+
+  final List<ProfileVehicle> vehicles;
+  final String selectedVehicleId;
+  final ValueChanged<ProfileVehicle> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: vehicles.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final vehicle = vehicles[index];
+          final isSelected = vehicle.id == selectedVehicleId;
+          return ChoiceChip(
+            selected: isSelected,
+            onSelected: (_) => onSelected(vehicle),
+            avatar: Icon(
+              vehicle.isPrimary
+                  ? Icons.star_rounded
+                  : Icons.directions_car_rounded,
+              size: 16,
+              color: isSelected
+                  ? Colors.white
+                  : CaRismaDesignTokens.textSecondary,
+            ),
+            label: Text(vehicle.displayName),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _VehicleDataCard extends StatelessWidget {
+  const _VehicleDataCard({
+    required this.vehicle,
+    required this.isOwnProfile,
+    required this.onEdit,
+  });
+
+  final ProfileVehicle vehicle;
+  final bool isOwnProfile;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = <MapEntry<String, String>>[
+      MapEntry('Marke', vehicle.brand),
+      MapEntry('Modell', vehicle.model),
+      if ((vehicle.series ?? '').trim().isNotEmpty)
+        MapEntry('Baureihe', vehicle.series!.trim()),
+      if (vehicle.year != null) MapEntry('Baujahr', '${vehicle.year}'),
+      if (vehicle.firstRegistration != null)
+        MapEntry(
+          'Erstzulassung',
+          '${vehicle.firstRegistration!.month.toString().padLeft(2, '0')}/${vehicle.firstRegistration!.year}',
+        ),
+      if ((vehicle.bodyStyle ?? '').trim().isNotEmpty)
+        MapEntry('Karosserie', vehicle.bodyStyle!.trim()),
+      if ((vehicle.engineDescription ?? '').trim().isNotEmpty)
+        MapEntry('Motor', vehicle.engineDescription!.trim()),
+      if (vehicle.displacementCcm != null)
+        MapEntry('Hubraum', '${vehicle.displacementCcm} cm³'),
+      if (vehicle.horsepower != null)
+        MapEntry('Leistung', '${vehicle.horsepower} PS'),
+      if (vehicle.kilowatts != null)
+        MapEntry('Leistung', '${vehicle.kilowatts} kW'),
+      if ((vehicle.fuelType ?? '').trim().isNotEmpty)
+        MapEntry('Kraftstoff', vehicle.fuelType!.trim()),
+      if ((vehicle.transmission ?? '').trim().isNotEmpty)
+        MapEntry('Getriebe', vehicle.transmission!.trim()),
+      if ((vehicle.drivetrain ?? '').trim().isNotEmpty)
+        MapEntry('Antrieb', vehicle.drivetrain!.trim()),
+      MapEntry('Farbe', vehicle.color),
+      if (vehicle.mileage != null)
+        MapEntry('Kilometer', '${vehicle.mileage} km'),
+    ];
+
+    return GlassCard(
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _VehicleSectionHeader(
+            title: 'Fahrzeugdaten',
+            icon: Icons.fact_check_outlined,
+            onEdit: isOwnProfile ? onEdit : null,
+          ),
+          const SizedBox(height: 13),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = (constraints.maxWidth - 12) / 2;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 14,
+                children: values
+                    .map(
+                      (entry) => SizedBox(
+                        width: itemWidth,
+                        child: _VehicleDataValue(
+                          label: entry.key,
+                          value: entry.value,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleEquipmentCard extends StatelessWidget {
+  const _VehicleEquipmentCard({
+    required this.vehicle,
+    required this.isOwnProfile,
+    required this.onEdit,
+  });
+
+  final ProfileVehicle vehicle;
+  final bool isOwnProfile;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = vehicle.equipment.take(8).toList();
+    return GlassCard(
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _VehicleSectionHeader(
+            title: 'Ausstattung',
+            icon: Icons.auto_awesome_outlined,
+            onEdit: isOwnProfile ? onEdit : null,
+          ),
+          const SizedBox(height: 12),
+          if (preview.isEmpty)
+            Text(
+              isOwnProfile
+                  ? 'Noch keine Ausstattung hinterlegt.'
+                  : 'Keine Ausstattung freigegeben.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: CaRismaDesignTokens.textSecondary,
+              ),
+            )
+          else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: preview
+                  .map(
+                    (item) =>
+                        _VehicleChip(icon: Icons.check_rounded, label: item),
+                  )
+                  .toList(),
+            ),
+            if (vehicle.equipment.length > preview.length) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => _showAllEquipment(context),
+                child: Text('Alle ${vehicle.equipment.length} anzeigen'),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAllEquipment(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: const Color(0xFF0D1320),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ausstattung',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: vehicle.equipment
+                      .map(
+                        (item) => _VehicleChip(
+                          icon: Icons.check_rounded,
+                          label: item,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleSectionHeader extends StatelessWidget {
+  const _VehicleSectionHeader({
+    required this.title,
+    required this.icon,
+    this.onEdit,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback? onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 19, color: CaRismaDesignTokens.blueBright),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        if (onEdit != null)
+          IconButton(
+            tooltip: '$title bearbeiten',
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined),
+            iconSize: 19,
+          ),
+      ],
+    );
+  }
+}
+
+class _VehicleModificationsCard extends StatelessWidget {
+  const _VehicleModificationsCard({
+    required this.vehicle,
+    required this.modifications,
+    required this.isOwnProfile,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ProfileVehicle vehicle;
+  final Stream<List<ProfileVehicleModification>> modifications;
+  final bool isOwnProfile;
+  final VoidCallback onAdd;
+  final ValueChanged<ProfileVehicleModification> onEdit;
+  final ValueChanged<ProfileVehicleModification> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ProfileVehicleModification>>(
+      stream: modifications,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <ProfileVehicleModification>[];
+        final preview = items.take(3).toList();
+        return GlassCard(
+          padding: const EdgeInsets.all(15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _VehicleSectionHeader(
+                title: 'Umbauten',
+                icon: Icons.build_circle_outlined,
+                onEdit: isOwnProfile ? onAdd : null,
+              ),
+              const SizedBox(height: 10),
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(14),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (snapshot.hasError)
+                Text(
+                  'Umbauten konnten nicht geladen werden.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary,
+                  ),
+                )
+              else if (preview.isEmpty)
+                Text(
+                  isOwnProfile
+                      ? 'Noch keine Umbauten hinterlegt.'
+                      : 'Keine Umbauten freigegeben.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary,
+                  ),
+                )
+              else ...[
+                for (var index = 0; index < preview.length; index++) ...[
+                  _ModificationRow(
+                    modification: preview[index],
+                    isOwnProfile: isOwnProfile,
+                    onEdit: () => onEdit(preview[index]),
+                    onDelete: () => onDelete(preview[index]),
+                  ),
+                  if (index < preview.length - 1)
+                    Divider(color: Colors.white.withValues(alpha: 0.07)),
+                ],
+                if (items.length > preview.length)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: () => _showAll(context, items),
+                      child: Text('Alle ${items.length} anzeigen'),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAll(BuildContext context, List<ProfileVehicleModification> items) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0D1320),
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        builder: (context, controller) => ListView.separated(
+          controller: controller,
+          padding: const EdgeInsets.all(20),
+          itemCount: items.length + 1,
+          separatorBuilder: (context, index) =>
+              Divider(color: Colors.white.withValues(alpha: 0.07)),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  'Umbauten · ${vehicle.displayName}',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              );
+            }
+            final modification = items[index - 1];
+            return _ModificationRow(
+              modification: modification,
+              isOwnProfile: isOwnProfile,
+              onEdit: () {
+                Navigator.of(context).pop();
+                onEdit(modification);
+              },
+              onDelete: () {
+                Navigator.of(context).pop();
+                onDelete(modification);
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ModificationRow extends StatelessWidget {
+  const _ModificationRow({
+    required this.modification,
+    required this.isOwnProfile,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ProfileVehicleModification modification;
+  final bool isOwnProfile;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = <String>[
+      if ((modification.manufacturer ?? '').trim().isNotEmpty)
+        modification.manufacturer!.trim(),
+      if ((modification.product ?? '').trim().isNotEmpty)
+        modification.product!.trim(),
+      if (modification.powerChangeHp != null)
+        '${modification.powerChangeHp! >= 0 ? '+' : ''}${modification.powerChangeHp} PS',
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.build_rounded,
+              size: 18,
+              color: CaRismaDesignTokens.blueBright,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  modification.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    _modificationCategoryLabel(modification.category),
+                    ...details,
+                  ].join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (modification.isRegistered)
+            const Tooltip(
+              message: 'Eintragung vorhanden',
+              child: Icon(
+                Icons.verified_outlined,
+                size: 18,
+                color: CaRismaDesignTokens.success,
+              ),
+            ),
+          if (isOwnProfile)
+            PopupMenuButton<String>(
+              tooltip: 'Umbau verwalten',
+              color: CaRismaDesignTokens.controlSurface,
+              onSelected: (value) => value == 'edit' ? onEdit() : onDelete(),
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Bearbeiten')),
+                PopupMenuItem(value: 'delete', child: Text('Entfernen')),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+String _modificationCategoryLabel(ProfileVehicleModificationCategory category) {
+  return switch (category) {
+    ProfileVehicleModificationCategory.wheels => 'Felgen',
+    ProfileVehicleModificationCategory.tires => 'Reifen',
+    ProfileVehicleModificationCategory.suspension => 'Fahrwerk',
+    ProfileVehicleModificationCategory.brakes => 'Bremsen',
+    ProfileVehicleModificationCategory.engine => 'Motor',
+    ProfileVehicleModificationCategory.software => 'Software',
+    ProfileVehicleModificationCategory.exhaust => 'Abgasanlage',
+    ProfileVehicleModificationCategory.lighting => 'Beleuchtung',
+    ProfileVehicleModificationCategory.body => 'Karosserie',
+    ProfileVehicleModificationCategory.wrap => 'Folierung',
+    ProfileVehicleModificationCategory.interior => 'Innenraum',
+    ProfileVehicleModificationCategory.soundSystem => 'Soundsystem',
+    ProfileVehicleModificationCategory.other => 'Sonstiges',
+  };
+}
+
+class _VehicleDataValue extends StatelessWidget {
+  const _VehicleDataValue({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: CaRismaDesignTokens.textMuted,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileVehicleCard extends StatelessWidget {
+  const _ProfileVehicleCard({
+    required this.vehicle,
+    required this.isOwnProfile,
+    required this.onAction,
+  });
+
+  final ProfileVehicle vehicle;
+  final bool isOwnProfile;
+  final ValueChanged<ProfileVehicleMenuAction> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CaRismaBlueIconBox(
+                icon: Icons.directions_car_filled_rounded,
+                size: 40,
+                iconSize: 20,
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      vehicle.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _statusLabel(vehicle.status),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: CaRismaDesignTokens.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (vehicle.isPrimary)
+                const _VehicleChip(
+                  icon: Icons.star_rounded,
+                  label: 'Hauptfahrzeug',
+                ),
+              if (isOwnProfile)
+                PopupMenuButton<ProfileVehicleMenuAction>(
+                  tooltip: 'Fahrzeug verwalten',
+                  color: CaRismaDesignTokens.controlSurface,
+                  onSelected: onAction,
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: ProfileVehicleMenuAction.edit,
+                      child: Text('Bearbeiten'),
+                    ),
+                    const PopupMenuItem(
+                      value: ProfileVehicleMenuAction.details,
+                      child: Text('Fahrzeugdaten & Ausstattung'),
+                    ),
+                    if (!vehicle.isPrimary && !vehicle.isArchived)
+                      const PopupMenuItem(
+                        value: ProfileVehicleMenuAction.setPrimary,
+                        child: Text('Als Hauptfahrzeug festlegen'),
+                      ),
+                    if (!vehicle.isPrimary && !vehicle.isArchived)
+                      const PopupMenuItem(
+                        value: ProfileVehicleMenuAction.archive,
+                        child: Text('Archivieren'),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 13),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (vehicle.showPlate || isOwnProfile)
+                _VehicleChip(
+                  icon: Icons.pin_outlined,
+                  label: vehicle.displayPlate,
+                ),
+              if (vehicle.color.trim().isNotEmpty)
+                _VehicleChip(
+                  icon: Icons.palette_outlined,
+                  label: vehicle.color.trim(),
+                ),
+              if (vehicle.isVerified)
+                const _VehicleChip(
+                  icon: Icons.verified_rounded,
+                  label: 'Verifiziert',
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleChip extends StatelessWidget {
+  const _VehicleChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: CaRismaDesignTokens.blueBright),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleLoadingState extends StatelessWidget {
+  const _VehicleLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
+
+class _VehicleMessageState extends StatelessWidget {
+  const _VehicleMessageState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          CaRismaBlueIconBox(icon: icon, size: 40, iconSize: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary,
+                    height: 1.3,
+                  ),
+                ),
+                if (actionLabel != null && onAction != null) ...[
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: onAction,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(actionLabel!),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _statusLabel(ProfileVehicleStatus status) {
+  return switch (status) {
+    ProfileVehicleStatus.active => 'Aktiv',
+    ProfileVehicleStatus.modification => 'Im Umbau',
+    ProfileVehicleStatus.repair => 'In Reparatur',
+    ProfileVehicleStatus.seasonal => 'Saisonfahrzeug',
+    ProfileVehicleStatus.deregistered => 'Abgemeldet',
+    ProfileVehicleStatus.sold => 'Verkauft',
+    ProfileVehicleStatus.noLongerOwned => 'Nicht mehr im Besitz',
+    ProfileVehicleStatus.archived => 'Archiviert',
+  };
+}

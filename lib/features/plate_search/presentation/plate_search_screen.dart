@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../shared/models/search_credit.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/plate/plate_speech_parser.dart';
+import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../auth/data/search_credit_repository.dart';
@@ -998,7 +999,7 @@ class _SearchFormCard extends StatelessWidget {
           const SizedBox(height: 14),
           DropdownButtonFormField<String>(
             initialValue: countryCode,
-            dropdownColor: const Color(0xFF1A1A2E),
+            dropdownColor: CaRismaDesignTokens.controlSurface,
             style: const TextStyle(color: Colors.white),
             decoration: _inputDecoration(
               label: 'Land',
@@ -1015,7 +1016,7 @@ class _SearchFormCard extends StatelessWidget {
           const SizedBox(height: 14),
           DropdownButtonFormField<int>(
             initialValue: radiusKm,
-            dropdownColor: const Color(0xFF1A1A2E),
+            dropdownColor: CaRismaDesignTokens.controlSurface,
             style: const TextStyle(color: Colors.white),
             decoration: _inputDecoration(
               label: 'Radius',
@@ -1052,7 +1053,7 @@ class _SearchFormCard extends StatelessWidget {
       labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
       hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.38)),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.08),
+      fillColor: CaRismaDesignTokens.controlSurface,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
         borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.16)),

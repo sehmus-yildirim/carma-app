@@ -13,6 +13,7 @@ import '../domain/profile_document_mapper.dart';
 import '../domain/profile_draft.dart';
 import '../data/profile_media_storage.dart';
 import '../data/profile_repository.dart';
+import '../data/profile_vehicle_repository.dart';
 import '../data/profile_verification_repository.dart';
 import '../data/plate_repository.dart';
 import '../data/user_profile.dart' as firestore_profile;
@@ -44,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   final ProfileMediaStorage _profileMediaStorage = ProfileMediaStorage();
   final ProfileRepository _profileRepository = ProfileRepository();
+  final ProfileVehicleRepository _profileVehicleRepository =
+      ProfileVehicleRepository();
   final ProfileVerificationRepository _profileVerificationRepository =
       ProfileVerificationRepository();
   final PlateRepository _plateRepository = PlateRepository();
@@ -826,6 +829,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         latitude: platePosition?.latitude,
         longitude: platePosition?.longitude,
       );
+      await _profileVehicleRepository.ensureLegacyPrimaryVehicle(profile);
       await _syncFirebaseUserProfile(
         firebaseUser,
         displayName: _displayName,
@@ -1137,7 +1141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Text(
                 'Neues Profil',
                 style: TextStyle(
-                  color: Color(0xFF63D5FF),
+                  color: CaRismaDesignTokens.bluePrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1745,7 +1749,7 @@ class _RejectedVerificationStep extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF63D5FF), size: 19),
+        Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 19),
         const SizedBox(width: 9),
         Expanded(
           child: Text(
@@ -2146,7 +2150,7 @@ class _ProfileStatusCard extends StatelessWidget {
 
   Color get _statusColor {
     if (isVerified) {
-      return const Color(0xFF63D5FF);
+      return CaRismaDesignTokens.bluePrimary;
     }
 
     if (isSubmittedForVerification) {
@@ -2582,7 +2586,7 @@ class _VerificationSummaryCard extends StatelessWidget {
                   minHeight: 8,
                   backgroundColor: Colors.white.withValues(alpha: 0.10),
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF63D5FF),
+                    CaRismaDesignTokens.bluePrimary,
                   ),
                 ),
                 if (verificationProgress > 0)
@@ -2594,16 +2598,16 @@ class _VerificationSummaryCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [
-                              Color(0xFF0B5EF5),
-                              Color(0xFF1E7BFF),
-                              Color(0xFF63D5FF),
+                              CaRismaDesignTokens.bluePrimary,
+                              CaRismaDesignTokens.bluePrimary,
+                              CaRismaDesignTokens.bluePrimary,
                             ],
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(
-                                0xFF1E7BFF,
-                              ).withValues(alpha: 0.55),
+                              color: CaRismaDesignTokens.bluePrimary.withValues(
+                                alpha: 0.55,
+                              ),
                               blurRadius: 8,
                             ),
                           ],
@@ -2772,7 +2776,7 @@ class _VehiclePickerField extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.08),
+              fillColor: CaRismaDesignTokens.controlSurface,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 15,
@@ -2954,7 +2958,7 @@ class _VehiclePickerSheetState extends State<_VehiclePickerSheet> {
                       color: Colors.white.withValues(alpha: 0.56),
                     ),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.08),
+                    fillColor: CaRismaDesignTokens.controlSurface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
                       borderSide: BorderSide.none,
@@ -3038,7 +3042,9 @@ class _VehiclePickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = isSelected ? const Color(0xFF35B7FF) : Colors.white;
+    final accentColor = isSelected
+        ? CaRismaDesignTokens.bluePrimary
+        : Colors.white;
 
     return Material(
       color: Colors.transparent,
@@ -3049,10 +3055,10 @@ class _VehiclePickerTile extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: Colors.white.withValues(alpha: isSelected ? 0.11 : 0.06),
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF35B7FF).withValues(alpha: 0.55)
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.55)
                   : Colors.white.withValues(alpha: 0.08),
             ),
           ),
@@ -3172,7 +3178,7 @@ class _VerificationInfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.06),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
@@ -3245,7 +3251,7 @@ class _DocumentUploadCard extends StatelessWidget {
               minHeight: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.10),
               valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF63D5FF),
+                CaRismaDesignTokens.bluePrimary,
               ),
             ),
           ),
@@ -3300,7 +3306,7 @@ class _DocumentUploadTile extends StatelessWidget {
         color: Colors.white.withValues(alpha: _isUploaded ? 0.09 : 0.06),
         border: Border.all(
           color: _isUploaded
-              ? const Color(0xFF63D5FF).withValues(alpha: 0.42)
+              ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.42)
               : Colors.white.withValues(alpha: 0.10),
         ),
       ),
@@ -3338,7 +3344,7 @@ class _DocumentUploadTile extends StatelessWidget {
                       _isUploaded ? 'ausgewählt' : 'auswählen',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: _isUploaded
-                            ? const Color(0xFF63D5FF)
+                            ? CaRismaDesignTokens.bluePrimary
                             : Colors.white.withValues(alpha: 0.68),
                         fontWeight: FontWeight.w900,
                       ),
@@ -3402,7 +3408,7 @@ class _RemoteDocumentPreview extends StatelessWidget {
           height: 150,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: CaRismaDesignTokens.controlSurface,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Text(
@@ -3424,7 +3430,7 @@ class _RemoteDocumentPreview extends StatelessWidget {
           height: 150,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: CaRismaDesignTokens.controlSurface,
             borderRadius: BorderRadius.circular(18),
           ),
           child: const SizedBox(
@@ -3477,7 +3483,7 @@ class _ProfileTextField extends StatelessWidget {
           ),
           prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.08),
+          fillColor: CaRismaDesignTokens.controlSurface,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 17,
@@ -3493,7 +3499,7 @@ class _ProfileTextField extends StatelessWidget {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(
-              color: const Color(0xFF63D5FF).withValues(alpha: 0.90),
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.90),
               width: 1.4,
             ),
           ),
@@ -3527,7 +3533,7 @@ class _ProfileDateField extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: CaRismaDesignTokens.controlSurface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
             ),
@@ -3607,7 +3613,7 @@ class _ProfileDropdown extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.08),
+          fillColor: CaRismaDesignTokens.controlSurface,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 17,
@@ -3623,7 +3629,7 @@ class _ProfileDropdown extends StatelessWidget {
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
             borderSide: BorderSide(
-              color: const Color(0xFF63D5FF).withValues(alpha: 0.90),
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.90),
               width: 1.4,
             ),
           ),
@@ -3701,7 +3707,7 @@ class _InlineStatusBox extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.06),
+        color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
@@ -3743,12 +3749,16 @@ class _PrimaryActionButton extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0B5EF5), Color(0xFF1E7BFF), Color(0xFF2D6DFF)],
+          colors: [
+            CaRismaDesignTokens.bluePrimary,
+            CaRismaDesignTokens.bluePrimary,
+            CaRismaDesignTokens.bluePrimary,
+          ],
         ),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E7BFF).withValues(alpha: 0.35),
+            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.35),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
