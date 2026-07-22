@@ -1,18 +1,19 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/domain/app_feature_gate.dart';
-import '../../../shared/firebase/carisma_firestore_schema.dart';
 import '../../../shared/models/carisma_models.dart';
 import '../../../shared/plate/dach_plate_presentation.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_country_selector_card.dart';
+import '../../../shared/widgets/carisma_license_plate_preview.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_premium_license_plate_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
@@ -23,6 +24,7 @@ import '../../auth/data/search_credit_repository.dart';
 import '../../profile/data/plate_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/data/user_profile.dart' as firestore_profile;
+import '../../plate_search/data/plate_contact_reason.dart';
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
 
@@ -58,6 +60,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Position? _position;
   PlateSearchResult? _result;
   PlateContactRequestState? _requestState;
+  PlateContactReason _selectedContactReason =
+      PlateContactReason.vehicleQuestion;
 
   late SearchCredit _searchCredit;
 
@@ -125,7 +129,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _currentPlate.isComplete;
   }
 
+  bool get _isDemoPlateInput {
+    final plateKey = <String>[
+      _regionController.text,
+      _lettersController.text,
+      _numbersController.text,
+    ].join().toUpperCase().replaceAll(RegExp(r'[^A-ZÄÖÜ0-9]'), '');
+
+    return PlateSearchService.isDemoPlate(
+      countryCode: _countryCode,
+      plateKey: plateKey,
+    );
+  }
+
   bool get _canAttemptSearch {
+    if (kDebugMode && _isDemoPlateInput) {
+      return !_isSearching;
+    }
+
     return _hasPlateInput &&
         _searchGateDecision.isAllowed &&
         !_isLoadingLocation &&
@@ -133,6 +154,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   bool get _canSearch {
+    if (kDebugMode && _isDemoPlateInput) {
+      return !_isSearching;
+    }
+
     return _canAttemptSearch && _position != null;
   }
 
@@ -143,17 +168,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       letters: _lettersController.text,
       numbers: _numbersController.text,
     );
-  }
-
-  String get _displayPlate {
-    final displayPlate = formatDisplayPlate(
-      countryCode: _countryCode,
-      region: _regionController.text,
-      letters: _lettersController.text,
-      numbers: _numbersController.text,
-    );
-
-    return displayPlate.isEmpty ? _currentPlate.displayValue : displayPlate;
   }
 
   @override
@@ -448,9 +462,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _searchPlate() async {
     final position = _position;
+    final isDemoSearch = kDebugMode && _isDemoPlateInput;
     final gateDecision = _searchGateDecision;
 
-    if (!gateDecision.isAllowed) {
+    if (!isDemoSearch && !gateDecision.isAllowed) {
       setState(() {
         _errorMessage =
             gateDecision.reason ??
@@ -468,7 +483,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (_isLoadingLocation) {
+    if (!isDemoSearch && _isLoadingLocation) {
       setState(() {
         _errorMessage = 'Standort wird noch geladen. Bitte warte kurz.';
         _successMessage = null;
@@ -476,7 +491,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (position == null) {
+    if (!isDemoSearch && position == null) {
       setState(() {
         _errorMessage =
             _locationError ??
@@ -498,15 +513,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      final result = await _plateSearchService.searchPlate(
-        countryCode: _countryCode,
-        plate: _plateValue,
-        latitude: position.latitude,
-        longitude: position.longitude,
-        radiusKm: CaRismaAppConfig.defaultSearchRadiusKm,
-      );
+      final result = isDemoSearch
+          ? PlateSearchService.demoSearchResult
+          : await _plateSearchService.searchPlate(
+              countryCode: _countryCode,
+              plate: _plateValue,
+              latitude: position!.latitude,
+              longitude: position.longitude,
+              radiusKm: CaRismaAppConfig.defaultSearchRadiusKm,
+            );
       final requestState =
-          result.found && result.targetUid != null && result.plateKey != null
+          !isDemoSearch &&
+              result.found &&
+              result.targetUid != null &&
+              result.plateKey != null
           ? await _plateSearchService.loadExistingRequestState(
               targetUid: result.targetUid!,
               plateKey: result.plateKey!,
@@ -535,9 +555,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _requestContact() async {
+    final result = _result;
+    final isDemoTarget =
+        kDebugMode && PlateSearchService.isDemoTarget(result?.targetUid);
     final gateDecision = _contactGateDecision;
 
-    if (!gateDecision.isAllowed) {
+    if (!isDemoTarget && !gateDecision.isAllowed) {
       setState(() {
         _errorMessage =
             gateDecision.reason ??
@@ -546,8 +569,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
       return;
     }
-
-    final result = _result;
 
     if (result == null || result.targetUid == null || result.plateKey == null) {
       return;
@@ -589,10 +610,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      await _searchCreditRepository.createSearchCreditIfMissing(
-        userId: _effectiveUserId,
-      );
-      final requestId = await _plateSearchService.requestPlateContact(
+      if (!isDemoTarget) {
+        await _searchCreditRepository.createSearchCreditIfMissing(
+          userId: _effectiveUserId,
+        );
+      }
+      final request = await _plateSearchService.requestPlateContact(
         targetUid: result.targetUid!,
         plateKey: result.plateKey!,
         receiverDisplayName: result.displayName,
@@ -602,6 +625,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         vehicleModel: result.vehicleModel,
         vehicleColor: result.vehicleColor,
         vehicleLabel: result.vehicleLabel,
+        requestReason: _selectedContactReason.key,
+        message: _selectedContactReason.messageFor(
+          vehicleName: <String>[
+            if (result.vehicleBrand?.trim().isNotEmpty == true)
+              result.vehicleBrand!.trim(),
+            if (result.vehicleModel?.trim().isNotEmpty == true)
+              result.vehicleModel!.trim(),
+          ].join(' '),
+        ),
       );
 
       if (!mounted) {
@@ -609,13 +641,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       setState(() {
-        _searchCredit = _searchCredit.consume();
+        if (!isDemoTarget) {
+          _searchCredit = _searchCredit.consume();
+        }
         _requestState = PlateContactRequestState(
-          status: FirestoreContactRequestStatus.pending,
-          chatId: 'request_$requestId',
+          status: request.status,
+          chatId: request.chatId,
         );
-        _successMessage =
-            'Kontaktanfrage wurde gesendet. Du wirst jetzt zum Chat-Bereich weitergeleitet.';
+        _successMessage = isDemoTarget
+            ? 'Testanfrage wurde angenommen. Du wirst jetzt zum Chat-Bereich weitergeleitet.'
+            : 'Kontaktanfrage wurde gesendet. Du wirst jetzt zum Chat-Bereich weitergeleitet.';
         _isRequestingContact = false;
       });
 
@@ -751,9 +786,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_result != null) {
       return _PlateSearchResultCard(
         result: _result!,
-        fallbackDisplayPlate: _displayPlate,
+        countryCode: _countryCode,
+        region: _regionController.text,
+        letters: _lettersController.text,
+        numbers: _numbersController.text,
         requestState: _requestState,
+        selectedReason: _selectedContactReason,
         isRequestingContact: _isRequestingContact,
+        onReasonSelected: (reason) {
+          setState(() => _selectedContactReason = reason);
+        },
         onRequestContact: _requestContact,
         onOpenChats: widget.onOpenChats,
       );
@@ -779,16 +821,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? 16.0
                 : 20.0;
             return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 horizontalPadding,
-                8,
+                _result == null ? 8 : 4,
                 horizontalPadding,
-                112 + keyboardInset,
+                88 + keyboardInset,
               ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 112,
+                  minHeight: constraints.maxHeight - 88,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1397,19 +1440,36 @@ class _SearchUserAvatar extends StatelessWidget {
 class _PlateSearchResultCard extends StatelessWidget {
   const _PlateSearchResultCard({
     required this.result,
-    required this.fallbackDisplayPlate,
+    required this.countryCode,
+    required this.region,
+    required this.letters,
+    required this.numbers,
     required this.requestState,
+    required this.selectedReason,
     required this.isRequestingContact,
+    required this.onReasonSelected,
     required this.onRequestContact,
     this.onOpenChats,
   });
 
   final PlateSearchResult result;
-  final String fallbackDisplayPlate;
+  final String countryCode;
+  final String region;
+  final String letters;
+  final String numbers;
   final PlateContactRequestState? requestState;
+  final PlateContactReason selectedReason;
   final bool isRequestingContact;
+  final ValueChanged<PlateContactReason> onReasonSelected;
   final VoidCallback onRequestContact;
   final VoidCallback? onOpenChats;
+
+  String _valueOrFallback(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty
+        ? 'Nicht angegeben'
+        : normalized;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1440,78 +1500,519 @@ class _PlateSearchResultCard extends StatelessWidget {
       );
     }
 
-    return GlassCard(
+    final regionPresentation = registrationRegionPresentationFor(
+      countryCode: countryCode,
+      plateCode: region,
+    );
+
+    return Container(
       key: const ValueKey('result'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Column(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.42),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: GlassCard(
+        radius: 24,
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _SearchUserAvatar(size: 50, imageUrl: result.profilePhotoUrl),
+                const Spacer(),
+                const _VerifiedBadge(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final rightWidth = (constraints.maxWidth * 0.46).clamp(
+                  138.0,
+                  158.0,
+                );
+
+                Widget detailRow({
+                  required String label,
+                  required String value,
+                  required Widget trailing,
+                }) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: _VehicleDataLine(label: label, value: value),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(width: rightWidth, child: trailing),
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    detailRow(
+                      label: 'Fahrzeugmarke:',
+                      value: _valueOrFallback(result.vehicleBrand),
+                      trailing: _CompactResultPlate(
+                        width: rightWidth,
+                        countryCode: countryCode,
+                        region: region,
+                        letters: letters,
+                        numbers: numbers,
+                        regionPresentation: regionPresentation,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    detailRow(
+                      label: 'Fahrzeugmodell:',
+                      value: _valueOrFallback(result.vehicleModel),
+                      trailing: _RequestReasonSelector(
+                        selectedReason: selectedReason,
+                        onTap: () => _showReasonPicker(context),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    detailRow(
+                      label: 'Fahrzeugfarbe:',
+                      value: _valueOrFallback(result.vehicleColor),
+                      trailing: _RequestContactButton(
+                        label: requestState?.canOpenChat == true
+                            ? 'Zu Chats'
+                            : requestState?.isAccepted == true
+                            ? 'Angenommen'
+                            : requestState?.isPending == true
+                            ? 'Anfrage läuft'
+                            : 'Kontakt anfragen',
+                        icon: requestState?.canOpenChat == true
+                            ? Icons.chat_bubble_rounded
+                            : Icons.mail_outline_rounded,
+                        isEnabled:
+                            requestState == null || requestState!.canOpenChat,
+                        isLoading: isRequestingContact,
+                        onPressed: requestState?.canOpenChat == true
+                            ? (onOpenChats ?? () {})
+                            : onRequestContact,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            if (requestState != null) ...[
+              const SizedBox(height: 12),
+              _ExistingRequestInfo(requestState: requestState!),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showReasonPicker(BuildContext context) async {
+    final reason = await showModalBottomSheet<PlateContactReason>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      builder: (context) =>
+          _ContactReasonPicker(selectedReason: selectedReason),
+    );
+    if (reason != null) {
+      onReasonSelected(reason);
+    }
+  }
+}
+
+class _VerifiedBadge extends StatelessWidget {
+  const _VerifiedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.success.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: CaRismaDesignTokens.success.withValues(alpha: 0.30),
+        ),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: CaRismaDesignTokens.success,
+              boxShadow: [
+                BoxShadow(
+                  color: CaRismaDesignTokens.success.withValues(alpha: 0.70),
+                  blurRadius: 9,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            'Verifiziert',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: CaRismaDesignTokens.success,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleDataLine extends StatelessWidget {
+  const _VehicleDataLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: CaRismaDesignTokens.textSecondary,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactResultPlate extends StatelessWidget {
+  const _CompactResultPlate({
+    required this.width,
+    required this.countryCode,
+    required this.region,
+    required this.letters,
+    required this.numbers,
+    required this.regionPresentation,
+  });
+
+  final double width;
+  final String countryCode;
+  final String region;
+  final String letters;
+  final String numbers;
+  final RegistrationRegionPresentationData regionPresentation;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: 50,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: 300,
+          height: 78,
+          child: CaRismaLicensePlatePreview(
+            countryCode: countryCode,
+            region: region,
+            letters: letters,
+            numbers: numbers,
+            regionPresentation: regionPresentation,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestReasonSelector extends StatelessWidget {
+  const _RequestReasonSelector({
+    required this.selectedReason,
+    required this.onTap,
+  });
+
+  final PlateContactReason selectedReason;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Anfragegrund auswählen: ${selectedReason.title}',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          decoration: BoxDecoration(
+            color: CaRismaDesignTokens.controlSurface,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.42),
+            ),
+          ),
+          child: Row(
             children: [
-              _SearchUserAvatar(size: 48, imageUrl: result.profilePhotoUrl),
-              const SizedBox(width: 14),
+              Icon(
+                Icons.forum_outlined,
+                color: CaRismaDesignTokens.bluePrimary,
+                size: 18,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Anfragegrund',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: CaRismaDesignTokens.textPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+              const Icon(
+                Icons.expand_more_rounded,
+                color: CaRismaDesignTokens.textSecondary,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactReasonPicker extends StatelessWidget {
+  const _ContactReasonPicker({required this.selectedReason});
+
+  final PlateContactReason selectedReason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.surface1,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.24),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Grund für deine Anfrage',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: CaRismaDesignTokens.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 19,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Der ausgewählte Text wird automatisch als erste Nachricht vorbereitet.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: CaRismaDesignTokens.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final reason in PlateContactReason.values) ...[
+              _ContactReasonTile(
+                reason: reason,
+                isSelected: reason == selectedReason,
+                onTap: () => Navigator.of(context).pop(reason),
+              ),
+              if (reason != PlateContactReason.values.last)
+                const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactReasonTile extends StatelessWidget {
+  const _ContactReasonTile({
+    required this.reason,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final PlateContactReason reason;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  IconData get _icon => switch (reason) {
+    PlateContactReason.vehicleQuestion => Icons.help_outline_rounded,
+    PlateContactReason.compliment => Icons.thumb_up_alt_outlined,
+    PlateContactReason.meetAndDrive => Icons.groups_2_outlined,
+    PlateContactReason.getToKnow => Icons.favorite_outline_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = CaRismaDesignTokens.bluePrimary;
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '${reason.title}. ${reason.description}',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 170),
+          curve: Curves.easeOutCubic,
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 11, 11, 11),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? accent.withValues(alpha: 0.11)
+                : CaRismaDesignTokens.controlSurface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? accent.withValues(alpha: 0.72)
+                  : Colors.white.withValues(alpha: 0.06),
+              width: isSelected ? 1.25 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.10),
+                      blurRadius: 14,
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? accent.withValues(alpha: 0.20)
+                      : Colors.white.withValues(alpha: 0.035),
+                  border: Border.all(
+                    color: isSelected
+                        ? accent.withValues(alpha: 0.45)
+                        : Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Icon(_icon, color: accent, size: 20),
+              ),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      result.vehicleTitle,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                          ),
+                      reason.title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: CaRismaDesignTokens.textPrimary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                      ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      'Nutzer in deiner N\u00e4he',
+                      reason.description,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.56),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                        color: CaRismaDesignTokens.textSecondary,
+                        fontWeight: FontWeight.w600,
+                        height: 1.28,
+                        fontSize: 11.5,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 170),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? accent : Colors.transparent,
+                  border: Border.all(
+                    color: isSelected
+                        ? accent
+                        : Colors.white.withValues(alpha: 0.20),
+                  ),
+                ),
+                child: isSelected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      )
+                    : null,
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          _ResultInfoRow(
-            label: 'Kennzeichen',
-            value: fallbackDisplayPlate.isEmpty ? '-' : fallbackDisplayPlate,
-          ),
-          if (result.distanceKm != null) ...[
-            const SizedBox(height: 8),
-            _ResultInfoRow(
-              label: 'Entfernung',
-              value: '${result.distanceKm!.toStringAsFixed(1)} km',
-            ),
-          ],
-          if (requestState != null) ...[
-            const SizedBox(height: 12),
-            _ExistingRequestInfo(requestState: requestState!),
-          ],
-          const SizedBox(height: 12),
-          _RequestContactButton(
-            label: requestState?.canOpenChat == true
-                ? 'Zu Chats'
-                : requestState?.isAccepted == true
-                ? 'Bereits angenommen'
-                : requestState?.isPending == true
-                ? 'Anfrage l\u00e4uft'
-                : 'Kontakt anfragen',
-            icon: requestState?.canOpenChat == true
-                ? Icons.chat_bubble_rounded
-                : Icons.mail_outline_rounded,
-            isEnabled: requestState == null || requestState!.canOpenChat,
-            isLoading: isRequestingContact,
-            onPressed: requestState?.canOpenChat == true
-                ? (onOpenChats ?? () {})
-                : onRequestContact,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1534,13 +2035,65 @@ class _RequestContactButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CaRismaPrimaryButton(
-      label: label,
-      loadingLabel: 'Anfrage l\u00e4uft...',
-      icon: icon,
-      isEnabled: isEnabled,
-      isLoading: isLoading,
-      onPressed: onPressed,
+    final foreground = isEnabled
+        ? Colors.white
+        : Colors.white.withValues(alpha: 0.42);
+    final accent = isEnabled
+        ? CaRismaDesignTokens.bluePrimary
+        : Colors.white.withValues(alpha: 0.18);
+
+    return SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: OutlinedButton(
+        onPressed: isEnabled && !isLoading ? onPressed : null,
+        style:
+            OutlinedButton.styleFrom(
+              foregroundColor: foreground,
+              disabledForegroundColor: foreground,
+              backgroundColor: CaRismaDesignTokens.controlSurface,
+              disabledBackgroundColor: CaRismaDesignTokens.controlSurface,
+              side: BorderSide(color: accent.withValues(alpha: 0.58)),
+              padding: const EdgeInsets.symmetric(horizontal: 7),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: isLoading
+              ? SizedBox(
+                  key: const ValueKey('loading'),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: CaRismaDesignTokens.bluePrimary,
+                  ),
+                )
+              : Row(
+                  key: const ValueKey('label'),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, color: accent, size: 17),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 }
@@ -1586,40 +2139,6 @@ class _ExistingRequestInfo extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ResultInfoRow extends StatelessWidget {
-  const _ResultInfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 116,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

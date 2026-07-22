@@ -131,6 +131,12 @@ class ContactRequestRecord {
   }
 
   String get introMessage {
+    final requestMessage = message.trim();
+
+    if (requestMessage.isNotEmpty) {
+      return requestMessage;
+    }
+
     final title = vehicleTitle;
 
     if (title == 'Fahrzeug') {

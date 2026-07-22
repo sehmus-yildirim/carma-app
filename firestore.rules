@@ -1757,6 +1757,8 @@ service cloud.firestore {
           'text',
           'imageUrl',
           'imagePath',
+          'isViewOnce',
+          'viewOnceOpenedAtBy',
           'createdAt',
           'updatedAt',
           'isDeleted',
@@ -1772,6 +1774,9 @@ service cloud.firestore {
         && request.resource.data.imageUrl.size() > 0
         && request.resource.data.imagePath is string
         && request.resource.data.imagePath.size() > 0
+        && request.resource.data.isViewOnce is bool
+        && request.resource.data.viewOnceOpenedAtBy is map
+        && request.resource.data.viewOnceOpenedAtBy.size() == 0
         && isOwnChatImagePath(
           chatId,
           messageId,
@@ -1897,6 +1902,62 @@ service cloud.firestore {
         && request.resource.data.isDeleted == false;
     }
 
+    function isValidVideoMessageCreate(chatId, messageId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && messageId.matches('^[A-Za-z0-9_-]{1,120}$')
+        && hasOnlyMessageCreateFields([
+          'chatId',
+          'senderUserId',
+          'type',
+          'text',
+          'fileUrl',
+          'filePath',
+          'fileName',
+          'fileContentType',
+          'fileSizeBytes',
+          'fileDurationMs',
+          'isViewOnce',
+          'viewOnceOpenedAtBy',
+          'createdAt',
+          'updatedAt',
+          'isDeleted',
+        ])
+        && isOpenUndeletedChatParticipant(chat.data)
+        && request.resource.data.chatId == chatId
+        && request.resource.data.senderUserId == request.auth.uid
+        && request.resource.data.type == 'video'
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000
+        && request.resource.data.fileUrl is string
+        && request.resource.data.fileUrl.size() > 0
+        && request.resource.data.filePath is string
+        && request.resource.data.filePath.size() > 0
+        && isOwnChatVideoPath(
+          chatId,
+          messageId,
+          request.resource.data.filePath
+        )
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() > 0
+        && request.resource.data.fileName.size() <= 160
+        && request.resource.data.fileContentType == 'video/mp4'
+        && request.resource.data.fileSizeBytes is int
+        && request.resource.data.fileSizeBytes > 0
+        && request.resource.data.fileSizeBytes <= 80 * 1024 * 1024
+        && request.resource.data.fileDurationMs is int
+        && request.resource.data.fileDurationMs > 0
+        && request.resource.data.fileDurationMs <= 5 * 60 * 1000
+        && request.resource.data.isViewOnce is bool
+        && request.resource.data.viewOnceOpenedAtBy is map
+        && request.resource.data.viewOnceOpenedAtBy.size() == 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.isDeleted == false;
+    }
+
     function isValidMessageStarUpdate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
@@ -1908,6 +1969,33 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
+    function isValidViewOnceMessageOpenUpdate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && isOpenUndeletedChatParticipant(chat.data)
+        && resource.data.isDeleted == false
+        && resource.data.isViewOnce == true
+        && (resource.data.type == 'image' || resource.data.type == 'video')
+        && resource.data.senderUserId != request.auth.uid
+        && resource.data.viewOnceOpenedAtBy is map
+        && request.resource.data.viewOnceOpenedAtBy is map
+        && !resource.data.viewOnceOpenedAtBy.keys().hasAny([request.auth.uid])
+        && request.resource.data.viewOnceOpenedAtBy.keys().hasAll([
+          request.auth.uid,
+        ])
+        && request.resource.data.viewOnceOpenedAtBy.size()
+          == resource.data.viewOnceOpenedAtBy.size() + 1
+        && request.resource.data.viewOnceOpenedAtBy[request.auth.uid]
+          is timestamp
+        && request.resource.data.viewOnceOpenedAtBy
+          .diff(resource.data.viewOnceOpenedAtBy)
+          .affectedKeys()
+          .hasOnly([request.auth.uid])
+        && changedOnly(['viewOnceOpenedAtBy', 'updatedAt'])
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     function isValidMessageDeleteUpdate(chatId) {
       let chat = get(/databases/$(database)/documents/chats/$(chatId));
 
@@ -1915,9 +2003,40 @@ service cloud.firestore {
         && isOpenUndeletedChatParticipant(chat.data)
         && resource.data.senderUserId == request.auth.uid
         && resource.data.isDeleted == false
+        && resource.data.createdAt is timestamp
+        && request.time <= resource.data.createdAt + duration.value(48, 'h')
         && changedOnly(['isDeleted', 'updatedAt'])
         && request.resource.data.isDeleted == true
         && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidMessageDeleteForUserUpdate(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId));
+
+      return isSignedIn()
+        && isOpenUndeletedChatParticipant(chat.data)
+        && resource.data.isDeleted == false
+        && changedOnly(['deletedFor', 'updatedAt'])
+        && request.resource.data.deletedFor is map
+        && request.resource.data.deletedFor.keys().hasOnly(chat.data.participants)
+        && request.resource.data.deletedFor[request.auth.uid] == true
+        && request.resource.data.updatedAt is timestamp
+        && (
+          (
+            !('deletedFor' in resource.data)
+            && request.resource.data.deletedFor.keys().hasOnly([
+              request.auth.uid,
+            ])
+          )
+          ||
+          (
+            resource.data.deletedFor is map
+            && request.resource.data.deletedFor
+              .diff(resource.data.deletedFor)
+              .affectedKeys()
+              .hasOnly([request.auth.uid])
+          )
+        );
     }
 
     function isAllowedMessageReaction(reaction) {
@@ -2272,6 +2391,11 @@ service cloud.firestore {
       );
     }
 
+    function isOwnChatVideoPath(chatId, messageId, path) {
+      return path == 'chat_videos/' + chatId + '/' + request.auth.uid
+        + '/' + messageId + '.mp4';
+    }
+
     function isOwnStoryImagePath(path) {
       return path.matches(
         '^chat_stories/' + request.auth.uid + '/[0-9]{12,24}\\.jpg$'
@@ -2373,6 +2497,46 @@ service cloud.firestore {
         );
     }
 
+    function isValidStorySticker(sticker) {
+      return sticker is map
+        && sticker.keys().hasOnly([
+          'type',
+          'label',
+          'payload',
+          'alignmentX',
+          'alignmentY',
+        ])
+        && sticker.type is string
+        && sticker.type != ''
+        && isValidStoryStickerType(sticker.type)
+        && sticker.label is string
+        && sticker.payload is string
+        && isValidStoryStickerData(
+          sticker.type,
+          sticker.label,
+          sticker.payload
+        )
+        && sticker.alignmentX is number
+        && sticker.alignmentX >= 0
+        && sticker.alignmentX <= 1
+        && sticker.alignmentY is number
+        && sticker.alignmentY >= 0
+        && sticker.alignmentY <= 1;
+    }
+
+    function isValidStoryStickerList(stickers) {
+      return stickers is list
+        && stickers.size() <= 8
+        && (stickers.size() < 1 || isValidStorySticker(stickers[0]))
+        && (stickers.size() < 2 || isValidStorySticker(stickers[1]))
+        && (stickers.size() < 3 || isValidStorySticker(stickers[2]))
+        && (stickers.size() < 4 || isValidStorySticker(stickers[3]))
+        && (stickers.size() < 5 || isValidStorySticker(stickers[4]))
+        && (stickers.size() < 6 || isValidStorySticker(stickers[5]))
+        && (stickers.size() < 7 || isValidStorySticker(stickers[6]))
+        && (stickers.size() < 8 || isValidStorySticker(stickers[7]));
+    }
+
     function hasOnlyStoryOwnerWriteFields() {
       return request.resource.data.keys().hasOnly([
         'ownerUserId',
@@ -2403,6 +2567,7 @@ service cloud.firestore {
         'stickerPayload',
         'stickerAlignmentX',
         'stickerAlignmentY',
+        'stickers',
         'createdAt',
         'updatedAt',
         'expiresAt',
@@ -2509,6 +2674,10 @@ service cloud.firestore {
         && request.resource.data.stickerAlignmentY is number
         && request.resource.data.stickerAlignmentY >= 0
         && request.resource.data.stickerAlignmentY <= 1
+        && (
+          !request.resource.data.keys().hasAny(['stickers'])
+          || isValidStoryStickerList(request.resource.data.stickers)
+        )
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.expiresAt is timestamp
@@ -2953,11 +3122,14 @@ service cloud.firestore {
           || isValidContactMessageCreate(chatId)
           || isValidImageMessageCreate(chatId, messageId)
           || isValidDocumentMessageCreate(chatId, messageId)
-          || isValidAudioMessageCreate(chatId, messageId);
+          || isValidAudioMessageCreate(chatId, messageId)
+          || isValidVideoMessageCreate(chatId, messageId);
 
         allow update: if isValidMessageStarUpdate(chatId)
           || isValidMessageDeleteUpdate(chatId)
-          || isValidMessageReactionUpdate(chatId);
+          || isValidMessageDeleteForUserUpdate(chatId)
+          || isValidMessageReactionUpdate(chatId)
+          || isValidViewOnceMessageOpenUpdate(chatId);
 
         allow delete: if false;
       }

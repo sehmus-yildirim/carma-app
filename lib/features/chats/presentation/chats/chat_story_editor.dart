@@ -27,7 +27,7 @@ class _StoryDraft {
     required this.textAlign,
     required this.textAlignment,
     required this.filterType,
-    required this.sticker,
+    required this.stickers,
   });
 
   final String mediaPath;
@@ -42,7 +42,7 @@ class _StoryDraft {
   final String textAlign;
   final Alignment textAlignment;
   final String filterType;
-  final _StoryStickerDraft sticker;
+  final List<_StoryStickerDraft> stickers;
 }
 
 class _StoryCaptureResult {
@@ -54,18 +54,14 @@ class _StoryCaptureResult {
 
 class _StoryStickerDraft {
   const _StoryStickerDraft({
+    this.id = '',
     required this.type,
     required this.label,
     required this.payload,
     required this.alignment,
   });
 
-  const _StoryStickerDraft.empty()
-    : type = '',
-      label = '',
-      payload = '',
-      alignment = const Alignment(0, 0.52);
-
+  final String id;
   final String type;
   final String label;
   final String payload;
@@ -73,6 +69,16 @@ class _StoryStickerDraft {
 
   bool get isEmpty {
     return type.trim().isEmpty || label.trim().isEmpty;
+  }
+
+  _StoryStickerDraft copyWith({String? id, Alignment? alignment}) {
+    return _StoryStickerDraft(
+      id: id ?? this.id,
+      type: type,
+      label: label,
+      payload: payload,
+      alignment: alignment ?? this.alignment,
+    );
   }
 }
 
@@ -159,19 +165,28 @@ class _StoryFilterOption {
 }
 
 class _StoryCaptureScreen extends StatefulWidget {
-  const _StoryCaptureScreen({required this.imagePicker});
+  const _StoryCaptureScreen({
+    required this.imagePicker,
+    this.maxVideoDuration = const Duration(seconds: 30),
+    this.showModeSelector = false,
+    this.useInAppGallery = false,
+  });
 
   final ImagePicker imagePicker;
+  final Duration maxVideoDuration;
+  final bool showModeSelector;
+  final bool useInAppGallery;
 
   @override
   State<_StoryCaptureScreen> createState() => _StoryCaptureScreenState();
 }
 
 class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
-  static const Duration _maxStoryVideoDuration = Duration(seconds: 30);
   static const Duration _videoRecordHoldDelay = Duration(milliseconds: 280);
+  static const int _recentMediaLimit = 24;
 
   final List<CameraDescription> _cameras = <CameraDescription>[];
+  final List<AssetEntity> _recentMedia = <AssetEntity>[];
   CameraController? _cameraController;
   Timer? _recordingTimer;
   Timer? _captureHoldTimer;
@@ -187,11 +202,22 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   String? _cameraError;
   Duration _recordingDuration = Duration.zero;
   int _cameraIndex = 0;
+  _StoryCaptureMode _captureMode = _StoryCaptureMode.photo;
+  bool _isLoadingRecentMedia = false;
+  bool _hasRecentMediaAccess = false;
+  String? _recentMediaError;
+  Offset? _captureModeSwipeStart;
+  bool _captureModeSwipeHandled = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeCamera();
+      if (widget.showModeSelector) {
+        await _loadRecentMedia();
+      }
+    });
   }
 
   @override
@@ -258,17 +284,83 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     return backIndex < 0 ? 0 : backIndex;
   }
 
-  Future<void> _pickFromGallery() async {
+  Future<void> _loadRecentMedia() async {
+    if (_isLoadingRecentMedia) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingRecentMedia = true;
+      _recentMediaError = null;
+    });
+
+    try {
+      final permission = await PhotoManager.requestPermissionExtend(
+        requestOption: const PermissionRequestOption(
+          androidPermission: AndroidPermission(
+            type: RequestType.common,
+            mediaLocation: false,
+          ),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!permission.hasAccess) {
+        setState(() {
+          _hasRecentMediaAccess = false;
+          _recentMedia.clear();
+        });
+        return;
+      }
+
+      final albums = await PhotoManager.getAssetPathList(
+        onlyAll: true,
+        type: RequestType.common,
+      );
+      final assets = albums.isEmpty
+          ? <AssetEntity>[]
+          : await albums.first.getAssetListPaged(
+              page: 0,
+              size: _recentMediaLimit,
+            );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _hasRecentMediaAccess = true;
+        _recentMedia
+          ..clear()
+          ..addAll(assets);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _hasRecentMediaAccess = false;
+        _recentMedia.clear();
+        _recentMediaError = 'Letzte Aufnahmen konnten nicht geladen werden.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingRecentMedia = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectRecentMedia(AssetEntity asset) async {
     if (_isCapturing ||
         _isRecordingVideo ||
         _isStartingVideoRecording ||
         _isStoppingVideoRecording) {
-      return;
-    }
-
-    final pickVideo = await _showGalleryMediaPicker();
-
-    if (!mounted || pickVideo == null) {
       return;
     }
 
@@ -277,23 +369,90 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     });
 
     try {
-      final media = pickVideo
-          ? await widget.imagePicker.pickVideo(
-              source: ImageSource.gallery,
-              maxDuration: const Duration(seconds: 30),
-            )
-          : await widget.imagePicker.pickImage(
-              source: ImageSource.gallery,
-              imageQuality: 86,
-            );
+      final mediaFile = await asset.file;
+
+      if (!mounted) {
+        return;
+      }
+      if (mediaFile == null) {
+        throw StateError('Das ausgewählte Medium ist nicht mehr verfügbar.');
+      }
+
+      Navigator.of(context).pop(
+        _StoryCaptureResult(
+          path: mediaFile.path,
+          isVideo: asset.type == AssetType.video,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Das ausgewählte Medium konnte nicht geladen werden.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCapturing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    if (_isCapturing ||
+        _isRecordingVideo ||
+        _isStartingVideoRecording ||
+        _isStoppingVideoRecording) {
+      return;
+    }
+
+    setState(() {
+      _isCapturing = true;
+    });
+
+    try {
+      if (widget.useInAppGallery) {
+        final media = await Navigator.of(context).push<_StoryCaptureResult>(
+          MaterialPageRoute<_StoryCaptureResult>(
+            fullscreenDialog: true,
+            builder: (_) => const _ChatMediaGalleryScreen(),
+          ),
+        );
+
+        if (!mounted || media == null) {
+          return;
+        }
+
+        Navigator.of(context).pop(media);
+        return;
+      }
+
+      final media = await widget.imagePicker.pickMedia(
+        imageQuality: 86,
+        requestFullMetadata: false,
+      );
 
       if (!mounted || media == null) {
         return;
       }
 
+      final mimeType = media.mimeType?.trim().toLowerCase() ?? '';
+      final lowerPath = media.path.toLowerCase();
+      final isVideo =
+          mimeType.startsWith('video/') ||
+          lowerPath.endsWith('.mp4') ||
+          lowerPath.endsWith('.mov') ||
+          lowerPath.endsWith('.m4v') ||
+          lowerPath.endsWith('.webm');
+
       Navigator.of(
         context,
-      ).pop(_StoryCaptureResult(path: media.path, isVideo: pickVideo));
+      ).pop(_StoryCaptureResult(path: media.path, isVideo: isVideo));
     } catch (error) {
       if (!mounted) {
         return;
@@ -311,75 +470,6 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
         });
       }
     }
-  }
-
-  Future<bool?> _showGalleryMediaPicker() {
-    return showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    color: CaRismaDesignTokens.card,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.22),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Aufnahmen',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _StoryMediaPickerTile(
-                        icon: Icons.photo_library_rounded,
-                        title: 'Foto auswählen',
-                        subtitle: 'Bild aus deiner Galerie verwenden',
-                        onTap: () => Navigator.of(context).pop(false),
-                      ),
-                      const SizedBox(height: 10),
-                      _StoryMediaPickerTile(
-                        icon: Icons.video_library_rounded,
-                        title: 'Video auswählen',
-                        subtitle: 'Video bis 30 Sekunden verwenden',
-                        onTap: () => Navigator.of(context).pop(true),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 
   Future<void> _takePhoto() async {
@@ -441,10 +531,27 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   }
 
   void _handleCapturePointerDown() {
+    if (widget.showModeSelector && _captureMode == _StoryCaptureMode.video) {
+      if (_isCapturing || _isStoppingVideoRecording) {
+        return;
+      }
+      if (_isRecordingVideo || _isStartingVideoRecording) {
+        _requestStopVideoRecording();
+      } else {
+        unawaited(_handleLongPressStart());
+      }
+      return;
+    }
+
     if (_isCapturing ||
         _isRecordingVideo ||
         _isStartingVideoRecording ||
         _isStoppingVideoRecording) {
+      return;
+    }
+
+    if (widget.showModeSelector) {
+      _isCapturePointerDown = true;
       return;
     }
 
@@ -462,6 +569,16 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
   }
 
   void _handleCapturePointerUp({required bool takePhotoOnShortPress}) {
+    if (widget.showModeSelector) {
+      if (_captureMode == _StoryCaptureMode.photo && _isCapturePointerDown) {
+        _isCapturePointerDown = false;
+        if (takePhotoOnShortPress) {
+          unawaited(_takePhoto());
+        }
+      }
+      return;
+    }
+
     if (!_isCapturePointerDown && !_hasCaptureHoldStartedVideo) {
       return;
     }
@@ -525,7 +642,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
           _recordingDuration = nextDuration;
         });
 
-        if (nextDuration >= _maxStoryVideoDuration) {
+        if (nextDuration >= widget.maxVideoDuration) {
           _requestStopVideoRecording();
         }
       });
@@ -625,9 +742,62 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     return '$minutes:$seconds';
   }
 
+  void _selectCaptureModeBySwipe(double horizontalDelta) {
+    if (!widget.showModeSelector ||
+        _isCapturing ||
+        _isStartingVideoRecording ||
+        _isRecordingVideo ||
+        _isStoppingVideoRecording) {
+      return;
+    }
+
+    final nextMode = horizontalDelta > 0
+        ? _StoryCaptureMode.video
+        : _StoryCaptureMode.photo;
+    if (nextMode == _captureMode) {
+      return;
+    }
+
+    setState(() {
+      _captureMode = nextMode;
+    });
+    HapticFeedback.selectionClick();
+  }
+
+  void _handleCaptureModePointerDown(PointerDownEvent event) {
+    if (!widget.showModeSelector) {
+      return;
+    }
+
+    _captureModeSwipeStart = event.position;
+    _captureModeSwipeHandled = false;
+  }
+
+  void _handleCaptureModePointerMove(PointerMoveEvent event) {
+    final start = _captureModeSwipeStart;
+    if (!widget.showModeSelector || start == null || _captureModeSwipeHandled) {
+      return;
+    }
+
+    final delta = event.position - start;
+    if (delta.dx.abs() < 28 || delta.dx.abs() < delta.dy.abs() * 1.15) {
+      return;
+    }
+
+    _captureModeSwipeHandled = true;
+    _selectCaptureModeBySwipe(delta.dx);
+  }
+
+  void _clearCaptureModePointer() {
+    _captureModeSwipeStart = null;
+    _captureModeSwipeHandled = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final viewPadding = MediaQuery.paddingOf(context);
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     final controller = _cameraController;
     final previewSize = controller?.value.previewSize;
     final isCameraReady =
@@ -645,15 +815,29 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
         isCameraReady && _cameras.length > 1 && !isCaptureBusy;
     final recordingProgress =
         (_recordingDuration.inMilliseconds /
-                _maxStoryVideoDuration.inMilliseconds)
+                widget.maxVideoDuration.inMilliseconds)
             .clamp(0.0, 1.0);
 
     return Scaffold(
       backgroundColor: CaRismaDesignTokens.background,
       body: Listener(
         behavior: HitTestBehavior.translucent,
-        onPointerUp: (_) => _requestStopVideoRecording(),
-        onPointerCancel: (_) => _requestStopVideoRecording(),
+        onPointerDown: _handleCaptureModePointerDown,
+        onPointerMove: _handleCaptureModePointerMove,
+        onPointerUp: (_) {
+          if (widget.showModeSelector) {
+            _clearCaptureModePointer();
+          } else {
+            _requestStopVideoRecording();
+          }
+        },
+        onPointerCancel: (_) {
+          if (widget.showModeSelector) {
+            _clearCaptureModePointer();
+          } else {
+            _requestStopVideoRecording();
+          }
+        },
         child: Stack(
           children: [
             Positioned.fill(
@@ -716,34 +900,64 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
               left: 20,
               right: 20,
               bottom: viewPadding.bottom + 22,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _StoryCaptureSideAction(
-                    icon: Icons.photo_library_outlined,
-                    label: 'Aufnahmen',
-                    enabled: canPickMedia,
-                    onTap: _pickFromGallery,
-                  ),
-                  Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => _handleCapturePointerDown(),
-                    onPointerUp: (_) =>
-                        _handleCapturePointerUp(takePhotoOnShortPress: true),
-                    onPointerCancel: (_) =>
-                        _handleCapturePointerUp(takePhotoOnShortPress: false),
-                    child: _StoryCaptureButton(
-                      isBusy: _isCapturing,
-                      isRecording: _isRecordingVideo,
-                      recordingProgress: recordingProgress,
+                  if (widget.showModeSelector) ...[
+                    _StoryRecentMediaStrip(
+                      assets: _recentMedia,
+                      isCompact: isLandscape,
+                      isLoading: _isLoadingRecentMedia,
+                      hasAccess: _hasRecentMediaAccess,
+                      errorMessage: _recentMediaError,
+                      enabled: canPickMedia,
+                      onAssetTap: _selectRecentMedia,
+                      onRequestAccess: _loadRecentMedia,
                     ),
-                  ),
-                  _StoryCaptureSideAction(
-                    icon: Icons.cameraswitch_rounded,
-                    label: 'Kamera wechseln',
-                    enabled: canSwitchCamera,
-                    onTap: _switchCamera,
+                    SizedBox(height: isLandscape ? 6 : 10),
+                    _StoryCaptureModeSelector(
+                      selectedMode: _captureMode,
+                      enabled: !isCaptureBusy,
+                      onChanged: (mode) {
+                        setState(() {
+                          _captureMode = mode;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _StoryCaptureSideAction(
+                        icon: Icons.photo_library_outlined,
+                        label: 'Aufnahmen',
+                        enabled: canPickMedia,
+                        onTap: _pickFromGallery,
+                      ),
+                      Listener(
+                        behavior: HitTestBehavior.opaque,
+                        onPointerDown: (_) => _handleCapturePointerDown(),
+                        onPointerUp: (_) => _handleCapturePointerUp(
+                          takePhotoOnShortPress: true,
+                        ),
+                        onPointerCancel: (_) => _handleCapturePointerUp(
+                          takePhotoOnShortPress: false,
+                        ),
+                        child: _StoryCaptureButton(
+                          isBusy: _isCapturing,
+                          isRecording: _isRecordingVideo,
+                          recordingProgress: recordingProgress,
+                        ),
+                      ),
+                      _StoryCaptureSideAction(
+                        icon: Icons.cameraswitch_rounded,
+                        label: 'Kamera wechseln',
+                        enabled: canSwitchCamera,
+                        onTap: _switchCamera,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -751,6 +965,320 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+enum _StoryCaptureMode { photo, video }
+
+class _StoryRecentMediaStrip extends StatelessWidget {
+  const _StoryRecentMediaStrip({
+    required this.assets,
+    required this.isCompact,
+    required this.isLoading,
+    required this.hasAccess,
+    required this.errorMessage,
+    required this.enabled,
+    required this.onAssetTap,
+    required this.onRequestAccess,
+  });
+
+  final List<AssetEntity> assets;
+  final bool isCompact;
+  final bool isLoading;
+  final bool hasAccess;
+  final String? errorMessage;
+  final bool enabled;
+  final ValueChanged<AssetEntity> onAssetTap;
+  final VoidCallback onRequestAccess;
+
+  @override
+  Widget build(BuildContext context) {
+    final tileExtent = isCompact ? 52.0 : 66.0;
+
+    return SizedBox(height: tileExtent, child: _buildContent(tileExtent));
+  }
+
+  Widget _buildContent(double tileExtent) {
+    if (isLoading) {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            color: CaRismaDesignTokens.textPrimary,
+          ),
+        ),
+      );
+    }
+
+    if (!hasAccess) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled ? onRequestAccess : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.photo_library_outlined,
+                  size: 20,
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: enabled ? 0.92 : 0.46,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    errorMessage ?? 'Letzte Medien anzeigen',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: CaRismaDesignTokens.textSecondary.withValues(
+                        alpha: enabled ? 1 : 0.46,
+                      ),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (assets.isEmpty) {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Keine letzten Medien',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: CaRismaDesignTokens.textSecondary,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      itemCount: assets.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 7),
+      itemBuilder: (context, index) {
+        final asset = assets[index];
+        return _StoryRecentMediaTile(
+          key: ValueKey(asset.id),
+          asset: asset,
+          extent: tileExtent,
+          enabled: enabled,
+          onTap: () => onAssetTap(asset),
+        );
+      },
+    );
+  }
+}
+
+class _StoryRecentMediaTile extends StatefulWidget {
+  const _StoryRecentMediaTile({
+    super.key,
+    required this.asset,
+    required this.extent,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final AssetEntity asset;
+  final double extent;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  State<_StoryRecentMediaTile> createState() => _StoryRecentMediaTileState();
+}
+
+class _StoryRecentMediaTileState extends State<_StoryRecentMediaTile> {
+  late Future<Uint8List?> _thumbnail;
+
+  @override
+  void initState() {
+    super.initState();
+    _thumbnail = _loadThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StoryRecentMediaTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.asset.id != widget.asset.id) {
+      _thumbnail = _loadThumbnail();
+    }
+  }
+
+  Future<Uint8List?> _loadThumbnail() {
+    return widget.asset.thumbnailDataWithSize(
+      const ThumbnailSize.square(180),
+      quality: 80,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.asset.type == AssetType.video
+          ? 'Video auswählen'
+          : 'Foto auswählen',
+      child: Semantics(
+        button: true,
+        enabled: widget.enabled,
+        label: widget.asset.type == AssetType.video
+            ? 'Letztes Video auswählen'
+            : 'Letztes Foto auswählen',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.enabled ? widget.onTap : null,
+          child: Opacity(
+            opacity: widget.enabled ? 1 : 0.48,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: widget.extent,
+                height: widget.extent,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    FutureBuilder<Uint8List?>(
+                      future: _thumbnail,
+                      builder: (context, snapshot) {
+                        final bytes = snapshot.data;
+                        if (bytes == null) {
+                          return ColoredBox(
+                            color: CaRismaDesignTokens.controlSurface,
+                            child: Icon(
+                              widget.asset.type == AssetType.video
+                                  ? Icons.videocam_outlined
+                                  : Icons.image_outlined,
+                              color: CaRismaDesignTokens.textSecondary,
+                            ),
+                          );
+                        }
+
+                        return Image.memory(
+                          bytes,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                        );
+                      },
+                    ),
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.24,
+                            ),
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    if (widget.asset.type == AssetType.video) ...[
+                      Positioned(
+                        left: 5,
+                        top: 5,
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withValues(alpha: 0.62),
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 17,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 5,
+                        bottom: 4,
+                        child: Text(
+                          _formatDuration(widget.asset.duration),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                            shadows: [
+                              Shadow(color: Colors.black, blurRadius: 8),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(int totalSeconds) {
+    final minutes = (totalSeconds ~/ 60).toString();
+    final seconds = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+}
+
+class _StoryCaptureModeSelector extends StatelessWidget {
+  const _StoryCaptureModeSelector({
+    required this.selectedMode,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final _StoryCaptureMode selectedMode;
+  final bool enabled;
+  final ValueChanged<_StoryCaptureMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: _StoryCaptureMode.values.map((mode) {
+        final isSelected = mode == selectedMode;
+        final label = mode == _StoryCaptureMode.photo ? 'FOTO' : 'VIDEO';
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: enabled ? () => onChanged(mode) : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.58),
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -837,89 +1365,6 @@ class _StoryCameraPlaceholder extends StatelessWidget {
                   ],
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _StoryMediaPickerTile extends StatelessWidget {
-  const _StoryMediaPickerTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: CaRismaDesignTokens.controlSurface,
-            border: Border.all(
-              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: CaRismaDesignTokens.controlSurface,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Icon(icon, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: CaRismaDesignTokens.textPrimary,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: CaRismaDesignTokens.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: CaRismaDesignTokens.textMuted,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -1238,72 +1683,6 @@ class _StoryCaptureSideAction extends StatelessWidget {
   }
 }
 
-class _StoryDeleteDropTarget extends StatelessWidget {
-  const _StoryDeleteDropTarget({required this.isActive});
-
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedScale(
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOutCubic,
-      scale: isActive ? 1.08 : 1,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOutCubic,
-            padding: const EdgeInsets.fromLTRB(18, 11, 20, 11),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              color: (isActive ? const Color(0xFFFF315A) : Colors.black)
-                  .withValues(alpha: isActive ? 0.72 : 0.44),
-              border: Border.all(
-                color: isActive
-                    ? const Color(0xFFFFA0B0).withValues(alpha: 0.74)
-                    : Colors.white.withValues(alpha: 0.18),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: (isActive ? const Color(0xFFFF315A) : Colors.black)
-                      .withValues(alpha: isActive ? 0.34 : 0.24),
-                  blurRadius: isActive ? 26 : 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isActive
-                      ? Icons.delete_forever_rounded
-                      : Icons.delete_outline_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isActive ? 'Loslassen zum Löschen' : 'Zum Löschen hierher',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _StoryDraftEditorScreen extends StatefulWidget {
   const _StoryDraftEditorScreen({
     required this.mediaPath,
@@ -1336,12 +1715,13 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
   TextAlign _textAlign = TextAlign.center;
   Alignment _textAlignment = const Alignment(0, -0.20);
   String _filterType = 'normal';
-  _StoryStickerDraft _sticker = const _StoryStickerDraft.empty();
+  final List<_StoryStickerDraft> _stickers = <_StoryStickerDraft>[];
   bool _isSaving = false;
   bool _isPublishing = false;
   bool _isVideoTooLong = false;
   bool _isDraggingText = false;
   bool _isDraggingSticker = false;
+  String? _draggingStickerId;
   bool _isDeleteTargetActive = false;
 
   static const Duration _maxDraftVideoDuration = Duration(seconds: 30);
@@ -1438,7 +1818,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
 
   bool get _hasDraftChanges {
     return _textController.text.trim().isNotEmpty ||
-        !_sticker.isEmpty ||
+        _stickers.isNotEmpty ||
         _filterType != 'normal';
   }
 
@@ -1535,50 +1915,104 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     });
   }
 
-  void _moveSticker(DragUpdateDetails details, Size size) {
-    if (size.width <= 0 || size.height <= 0 || _sticker.isEmpty) {
+  void _moveSticker(String stickerId, DragUpdateDetails details, Size size) {
+    if (size.width <= 0 || size.height <= 0) {
       return;
     }
 
-    final nextX = (_sticker.alignment.x + (details.delta.dx / size.width) * 2)
-        .clamp(-0.86, 0.86);
-    final nextY = (_sticker.alignment.y + (details.delta.dy / size.height) * 2)
-        .clamp(-0.72, 0.82);
+    final stickerIndex = _stickers.indexWhere(
+      (sticker) => sticker.id == stickerId,
+    );
+    if (stickerIndex < 0) {
+      return;
+    }
+
+    final sticker = _stickers[stickerIndex];
+
+    const horizontalTravelFactor = 0.43;
+    const verticalTravelFactor = 0.42;
+    final nextX =
+        (sticker.alignment.x +
+                details.delta.dx / (size.width * horizontalTravelFactor))
+            .clamp(-0.86, 0.86);
+    final nextY =
+        (sticker.alignment.y +
+                details.delta.dy / (size.height * verticalTravelFactor))
+            .clamp(-0.72, 0.82);
 
     setState(() {
-      _sticker = _StoryStickerDraft(
-        type: _sticker.type,
-        label: _sticker.label,
-        payload: _sticker.payload,
+      _stickers[stickerIndex] = sticker.copyWith(
         alignment: Alignment(nextX.toDouble(), nextY.toDouble()),
       );
       _isDeleteTargetActive = nextY > 0.60;
     });
   }
 
-  void _startStickerDrag() {
-    if (_sticker.isEmpty) {
+  void _startStickerDrag(String stickerId) {
+    if (!_stickers.any((sticker) => sticker.id == stickerId)) {
       return;
     }
 
     setState(() {
       _isDraggingSticker = true;
+      _draggingStickerId = stickerId;
       _isDeleteTargetActive = false;
     });
   }
 
-  void _finishStickerDrag() {
-    if (!_isDraggingSticker) {
+  void _finishStickerDrag(String stickerId) {
+    if (!_isDraggingSticker || _draggingStickerId != stickerId) {
       return;
     }
 
     setState(() {
       if (_isDeleteTargetActive) {
-        _sticker = const _StoryStickerDraft.empty();
+        _stickers.removeWhere((sticker) => sticker.id == stickerId);
       }
 
       _isDraggingSticker = false;
+      _draggingStickerId = null;
       _isDeleteTargetActive = false;
+    });
+  }
+
+  void _appendSticker(_StoryStickerDraft sticker) {
+    if (sticker.isEmpty) {
+      return;
+    }
+
+    if (_stickers.length >= 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Du kannst höchstens acht Sticker hinzufügen.'),
+        ),
+      );
+      return;
+    }
+
+    const offsets = <Alignment>[
+      Alignment(0, 0),
+      Alignment(-0.18, -0.16),
+      Alignment(0.18, 0.16),
+      Alignment(-0.12, 0.28),
+      Alignment(0.14, -0.30),
+      Alignment(-0.28, 0.10),
+      Alignment(0.28, -0.08),
+      Alignment(0, 0.34),
+    ];
+    final offset = offsets[_stickers.length % offsets.length];
+    final alignment = Alignment(
+      (sticker.alignment.x + offset.x).clamp(-0.82, 0.82).toDouble(),
+      (sticker.alignment.y + offset.y).clamp(-0.68, 0.76).toDouble(),
+    );
+
+    setState(() {
+      _stickers.add(
+        sticker.copyWith(
+          id: '${sticker.type}_${DateTime.now().microsecondsSinceEpoch}',
+          alignment: alignment,
+        ),
+      );
     });
   }
 
@@ -1672,9 +2106,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       return;
     }
 
-    setState(() {
-      _sticker = sticker;
-    });
+    _appendSticker(sticker);
   }
 
   Future<void> _addVehicleSticker() async {
@@ -1700,9 +2132,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       return;
     }
 
-    setState(() {
-      _sticker = sticker;
-    });
+    _appendSticker(sticker);
   }
 
   Future<void> _addStatusSticker() async {
@@ -1713,7 +2143,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     }
 
     if (status == _storyCustomStatusOption) {
-      await Future<void>.delayed(const Duration(milliseconds: 120));
+      await WidgetsBinding.instance.endOfFrame;
 
       if (!mounted) {
         return;
@@ -1728,14 +2158,14 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
 
     final effectiveStatus = status;
 
-    setState(() {
-      _sticker = _StoryStickerDraft(
+    _appendSticker(
+      _StoryStickerDraft(
         type: 'status',
         label: effectiveStatus,
         payload: effectiveStatus,
         alignment: const Alignment(0, 0.52),
-      );
-    });
+      ),
+    );
   }
 
   void _changeFilterBySwipe(DragEndDetails details) {
@@ -2262,12 +2692,6 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                               label: status,
                               onTap: () => Navigator.of(context).pop(status),
                             ),
-                          _StoryStatusChoiceChip(
-                            label: 'Eigener Status',
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pop(_storyCustomStatusOption),
-                          ),
                         ],
                       ),
                     ],
@@ -2282,86 +2706,16 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
   }
 
   Future<String?> _showCustomStatusInput(BuildContext context) async {
-    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      useRootNavigator: false,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.58),
+      builder: (_) => const _StoryCustomStatusDialog(),
+    );
 
-    try {
-      final value = await showDialog<String>(
-        context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.58),
-        builder: (dialogContext) {
-          return Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(horizontal: 18),
-            child: _StoryTextInputDialog(
-              icon: Icons.bolt_rounded,
-              title: const Text(
-                'Eigener Status',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              content: TextField(
-                controller: controller,
-                autofocus: true,
-                maxLength: _storyCustomStatusMaxLength,
-                textInputAction: TextInputAction.done,
-                buildCounter: _hideStoryInputCounter,
-                onSubmitted: (text) {
-                  final trimmed = text.trim();
-
-                  if (trimmed.isNotEmpty) {
-                    Navigator.of(dialogContext).pop(trimmed);
-                  }
-                },
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'z. B. Gleich wieder da',
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text(
-                    'Abbrechen',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final trimmed = controller.text.trim();
-
-                    if (trimmed.isNotEmpty) {
-                      Navigator.of(dialogContext).pop(trimmed);
-                    }
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _carismaBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text(
-                    'Hinzufügen',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-
-      final trimmedValue = value?.trim() ?? '';
-      return trimmedValue.isEmpty ? null : trimmedValue;
-    } finally {
-      controller.dispose();
-    }
+    final trimmedValue = value?.trim() ?? '';
+    return trimmedValue.isEmpty ? null : trimmedValue;
   }
 
   Future<void> _saveDraftImage() async {
@@ -2487,7 +2841,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         textAlign: _storyTextAlignName(_textAlign),
         textAlignment: _textAlignment,
         filterType: _filterType,
-        sticker: _sticker,
+        stickers: List<_StoryStickerDraft>.unmodifiable(_stickers),
       ),
     );
   }
@@ -2504,14 +2858,14 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragEnd: _changeFilterBySwipe,
-              child: RepaintBoundary(
-                key: _storyPreviewKey,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
+            child: RepaintBoundary(
+              key: _storyPreviewKey,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onHorizontalDragEnd: _changeFilterBySwipe,
                       child: widget.isVideo
                           ? _StoryDraftVideoPreview(
                               controller: _draftVideoController,
@@ -2532,7 +2886,145 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                               },
                             ),
                     ),
+                  ),
+                  Positioned.fill(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final size = Size(
+                          constraints.maxWidth,
+                          constraints.maxHeight,
+                        );
+
+                        final hasText = _textController.text.trim().isNotEmpty;
+
+                        if ((!_isTextEditingEnabled && !hasText) ||
+                            ((_isSaving || _isPublishing) && !hasText)) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final textAlignment = _visibleTextAlignmentForEditing(
+                          context,
+                        );
+
+                        return Align(
+                          alignment: textAlignment,
+                          child: GestureDetector(
+                            onTap: hasText && !_isTextEditingEnabled
+                                ? _activateTextEditing
+                                : null,
+                            onPanStart: (_) => _startTextDrag(),
+                            onPanUpdate: (details) => _moveText(details, size),
+                            onPanEnd: (_) => _finishTextDrag(),
+                            onPanCancel: _finishTextDrag,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth * 0.82,
+                              ),
+                              child: AbsorbPointer(
+                                absorbing: !_isTextEditingEnabled,
+                                child: _isTextEditingEnabled
+                                    ? TextField(
+                                        controller: _textController,
+                                        focusNode: _textFocusNode,
+                                        textAlign: _textAlign,
+                                        maxLength: _storyTextMaxLength,
+                                        maxLines: 4,
+                                        minLines: 1,
+                                        cursorColor: _textColor,
+                                        readOnly: !_isTextEditingEnabled,
+                                        enableInteractiveSelection:
+                                            _isTextEditingEnabled,
+                                        textInputAction: TextInputAction.done,
+                                        onTapOutside: (_) =>
+                                            _keepTextInputFocused(),
+                                        onEditingComplete: _finishTextEditing,
+                                        onSubmitted: (_) =>
+                                            _finishTextEditing(),
+                                        onChanged: (_) => setState(() {}),
+                                        buildCounter: _hideStoryInputCounter,
+                                        style: TextStyle(
+                                          color: _textColor,
+                                          fontSize: 30,
+                                          height: 1.08,
+                                          fontWeight: _isBold
+                                              ? FontWeight.w900
+                                              : FontWeight.w600,
+                                          fontStyle: _isItalic
+                                              ? FontStyle.italic
+                                              : FontStyle.normal,
+                                          fontFamily: _effectiveFontFamily,
+                                          decoration: _isUnderline
+                                              ? TextDecoration.underline
+                                              : TextDecoration.none,
+                                          decorationColor: _textColor,
+                                          decorationThickness: 2,
+                                          shadows: const [
+                                            Shadow(
+                                              blurRadius: 12,
+                                              color: Colors.black87,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        decoration: InputDecoration(
+                                          isCollapsed: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          hintText: 'Text hinzufügen',
+                                          hintStyle: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.62,
+                                            ),
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          disabledBorder: InputBorder.none,
+                                          errorBorder: InputBorder.none,
+                                          focusedErrorBorder: InputBorder.none,
+                                          filled: false,
+                                        ),
+                                      )
+                                    : Text(
+                                        _textController.text.trim(),
+                                        textAlign: _textAlign,
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: _textColor,
+                                          fontSize: 30,
+                                          height: 1.08,
+                                          fontWeight: _isBold
+                                              ? FontWeight.w900
+                                              : FontWeight.w600,
+                                          fontStyle: _isItalic
+                                              ? FontStyle.italic
+                                              : FontStyle.normal,
+                                          fontFamily: _effectiveFontFamily,
+                                          decoration: _isUnderline
+                                              ? TextDecoration.underline
+                                              : TextDecoration.none,
+                                          decorationColor: _textColor,
+                                          decorationThickness: 2,
+                                          shadows: const [
+                                            Shadow(
+                                              blurRadius: 12,
+                                              color: Colors.black87,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  for (final sticker in _stickers)
                     Positioned.fill(
+                      key: ValueKey<String>(sticker.id),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final size = Size(
@@ -2540,130 +3032,26 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                             constraints.maxHeight,
                           );
 
-                          final hasText = _textController.text
-                              .trim()
-                              .isNotEmpty;
-
-                          if ((!_isTextEditingEnabled && !hasText) ||
-                              ((_isSaving || _isPublishing) && !hasText)) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final textAlignment = _visibleTextAlignmentForEditing(
-                            context,
-                          );
-
                           return Align(
-                            alignment: textAlignment,
-                            child: GestureDetector(
-                              onTap: hasText && !_isTextEditingEnabled
-                                  ? _activateTextEditing
-                                  : null,
-                              onPanStart: (_) => _startTextDrag(),
-                              onPanUpdate: (details) =>
-                                  _moveText(details, size),
-                              onPanEnd: (_) => _finishTextDrag(),
-                              onPanCancel: _finishTextDrag,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxWidth: constraints.maxWidth * 0.82,
-                                ),
-                                child: AbsorbPointer(
-                                  absorbing: !_isTextEditingEnabled,
-                                  child: _isTextEditingEnabled
-                                      ? TextField(
-                                          controller: _textController,
-                                          focusNode: _textFocusNode,
-                                          textAlign: _textAlign,
-                                          maxLength: _storyTextMaxLength,
-                                          maxLines: 4,
-                                          minLines: 1,
-                                          cursorColor: _textColor,
-                                          readOnly: !_isTextEditingEnabled,
-                                          enableInteractiveSelection:
-                                              _isTextEditingEnabled,
-                                          textInputAction: TextInputAction.done,
-                                          onTapOutside: (_) =>
-                                              _keepTextInputFocused(),
-                                          onEditingComplete: _finishTextEditing,
-                                          onSubmitted: (_) =>
-                                              _finishTextEditing(),
-                                          onChanged: (_) => setState(() {}),
-                                          buildCounter: _hideStoryInputCounter,
-                                          style: TextStyle(
-                                            color: _textColor,
-                                            fontSize: 30,
-                                            height: 1.08,
-                                            fontWeight: _isBold
-                                                ? FontWeight.w900
-                                                : FontWeight.w600,
-                                            fontStyle: _isItalic
-                                                ? FontStyle.italic
-                                                : FontStyle.normal,
-                                            fontFamily: _effectiveFontFamily,
-                                            decoration: _isUnderline
-                                                ? TextDecoration.underline
-                                                : TextDecoration.none,
-                                            decorationColor: _textColor,
-                                            decorationThickness: 2,
-                                            shadows: const [
-                                              Shadow(
-                                                blurRadius: 12,
-                                                color: Colors.black87,
-                                                offset: Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          decoration: InputDecoration(
-                                            isCollapsed: true,
-                                            contentPadding: EdgeInsets.zero,
-                                            hintText: 'Text hinzufügen',
-                                            hintStyle: TextStyle(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.62,
-                                              ),
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                            border: InputBorder.none,
-                                            enabledBorder: InputBorder.none,
-                                            focusedBorder: InputBorder.none,
-                                            disabledBorder: InputBorder.none,
-                                            errorBorder: InputBorder.none,
-                                            focusedErrorBorder:
-                                                InputBorder.none,
-                                            filled: false,
-                                          ),
-                                        )
-                                      : Text(
-                                          _textController.text.trim(),
-                                          textAlign: _textAlign,
-                                          maxLines: 4,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: _textColor,
-                                            fontSize: 30,
-                                            height: 1.08,
-                                            fontWeight: _isBold
-                                                ? FontWeight.w900
-                                                : FontWeight.w600,
-                                            fontStyle: _isItalic
-                                                ? FontStyle.italic
-                                                : FontStyle.normal,
-                                            fontFamily: _effectiveFontFamily,
-                                            decoration: _isUnderline
-                                                ? TextDecoration.underline
-                                                : TextDecoration.none,
-                                            decorationColor: _textColor,
-                                            decorationThickness: 2,
-                                            shadows: const [
-                                              Shadow(
-                                                blurRadius: 12,
-                                                color: Colors.black87,
-                                                offset: Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                            alignment: Alignment.center,
+                            child: Transform.translate(
+                              offset: Offset(
+                                sticker.alignment.x * size.width * 0.43,
+                                sticker.alignment.y * size.height * 0.42,
+                              ),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onPanStart: (_) =>
+                                    _startStickerDrag(sticker.id),
+                                onPanUpdate: (details) =>
+                                    _moveSticker(sticker.id, details, size),
+                                onPanEnd: (_) => _finishStickerDrag(sticker.id),
+                                onPanCancel: () =>
+                                    _finishStickerDrag(sticker.id),
+                                child: _StoryStickerChip(
+                                  type: sticker.type,
+                                  label: sticker.label,
+                                  payload: sticker.payload,
                                 ),
                               ),
                             ),
@@ -2671,35 +3059,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                         },
                       ),
                     ),
-                    if (!_sticker.isEmpty)
-                      Positioned.fill(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final size = Size(
-                              constraints.maxWidth,
-                              constraints.maxHeight,
-                            );
-
-                            return Align(
-                              alignment: _sticker.alignment,
-                              child: GestureDetector(
-                                onPanStart: (_) => _startStickerDrag(),
-                                onPanUpdate: (details) =>
-                                    _moveSticker(details, size),
-                                onPanEnd: (_) => _finishStickerDrag(),
-                                onPanCancel: _finishStickerDrag,
-                                child: _StoryStickerChip(
-                                  type: _sticker.type,
-                                  label: _sticker.label,
-                                  payload: _sticker.payload,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
             ),
           ),
@@ -2727,7 +3087,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
               right: 0,
               bottom: viewPadding.bottom + 28,
               child: Center(
-                child: _StoryDeleteDropTarget(isActive: _isDeleteTargetActive),
+                child: _ChatTextDeleteTarget(isActive: _isDeleteTargetActive),
               ),
             ),
           if (!_isSaving)
@@ -2766,7 +3126,9 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
                 hasTextTool:
                     _isTextEditingEnabled ||
                     _textController.text.trim().isNotEmpty,
-                stickerType: _sticker.type,
+                selectedStickerTypes: <String>{
+                  for (final sticker in _stickers) sticker.type,
+                },
                 onAddText: _activateTextEditing,
                 onAddVehicle: _addVehicleSticker,
                 onAddLocation: _addLocationSticker,
@@ -2853,15 +3215,15 @@ class _StoryEditorHeaderButton extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onPressed,
           child: SizedBox(
-            width: 60,
-            height: 60,
+            width: 64,
+            height: 64,
             child: Center(
               child: _StoryGlassActionCircle(
-                size: 52,
+                size: 56,
                 child: Icon(
                   icon,
                   color: CaRismaDesignTokens.textPrimary,
-                  size: 29,
+                  size: 30,
                 ),
               ),
             ),
@@ -2895,12 +3257,12 @@ class _StoryEditorPublishButton extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: isEnabled && !isBusy ? onPressed : null,
           child: SizedBox(
-            width: 68,
+            width: 72,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _StoryGlassActionCircle(
-                  size: 54,
+                  size: 56,
                   isActive: isEnabled,
                   child: isBusy
                       ? const SizedBox(
@@ -2916,7 +3278,7 @@ class _StoryEditorPublishButton extends StatelessWidget {
                           color: isEnabled
                               ? CaRismaDesignTokens.textPrimary
                               : CaRismaDesignTokens.textMuted,
-                          size: 26,
+                          size: 28,
                         ),
                 ),
                 const SizedBox(height: 4),
@@ -2962,7 +3324,9 @@ class _StoryGlassActionCircle extends StatelessWidget {
         shape: BoxShape.circle,
         color: CaRismaDesignTokens.controlSurface,
         border: Border.all(
-          color: Colors.white.withValues(alpha: isActive ? 0.82 : 0.42),
+          color: isActive
+              ? CaRismaDesignTokens.bluePrimary
+              : Colors.white.withValues(alpha: 0.11),
           width: isActive ? 1.5 : 1,
         ),
         boxShadow: [
@@ -2973,7 +3337,7 @@ class _StoryGlassActionCircle extends StatelessWidget {
           ),
           if (isActive)
             BoxShadow(
-              color: Colors.white.withValues(alpha: 0.18),
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.30),
               blurRadius: 18,
             ),
         ],
@@ -3109,6 +3473,103 @@ class _StoryDiscardDialog extends StatelessWidget {
   }
 }
 
+class _StoryCustomStatusDialog extends StatefulWidget {
+  const _StoryCustomStatusDialog();
+
+  @override
+  State<_StoryCustomStatusDialog> createState() =>
+      _StoryCustomStatusDialogState();
+}
+
+class _StoryCustomStatusDialogState extends State<_StoryCustomStatusDialog> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _isClosing = false;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _close([String? value]) {
+    if (_isClosing || !mounted) {
+      return;
+    }
+
+    _isClosing = true;
+    Navigator.of(context).pop(value);
+  }
+
+  void _submit() {
+    final trimmed = _controller.text.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    _close(trimmed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      alignment: Alignment.bottomCenter,
+      insetPadding: const EdgeInsets.fromLTRB(14, 24, 14, 14),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: _StoryTextInputDialog(
+        icon: Icons.bolt_rounded,
+        title: const Text(
+          'Eigener Status',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          autofocus: true,
+          maxLength: _storyCustomStatusMaxLength,
+          textInputAction: TextInputAction.done,
+          buildCounter: _hideStoryInputCounter,
+          onSubmitted: (_) => _submit(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+          ),
+          decoration: const InputDecoration(hintText: 'z. B. Gleich wieder da'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => _close(),
+            child: const Text(
+              'Abbrechen',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+          FilledButton(
+            onPressed: _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: _carismaBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              'Hinzufügen',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StoryTextInputDialog extends StatelessWidget {
   const _StoryTextInputDialog({
     this.icon = Icons.edit_rounded,
@@ -3124,106 +3585,95 @@ class _StoryTextInputDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return SafeArea(
-      child: AnimatedPadding(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.fromLTRB(14, 0, 14, keyboardInset + 14),
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  color: CaRismaDesignTokens.card,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.13),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.36),
-                      blurRadius: 32,
-                      offset: const Offset(0, 18),
-                    ),
-                  ],
+    return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              color: CaRismaDesignTokens.card,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.36),
+                  blurRadius: 32,
+                  offset: const Offset(0, 18),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: CaRismaDesignTokens.controlSurface,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Icon(icon, color: Colors.white, size: 22),
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: CaRismaDesignTokens.controlSurface,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.5),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(child: title ?? const SizedBox.shrink()),
-                      ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 22),
                     ),
-                    if (content != null) ...[
-                      const SizedBox(height: 16),
-                      Theme(
-                        data: Theme.of(context).copyWith(
-                          inputDecorationTheme: InputDecorationTheme(
-                            filled: true,
-                            fillColor: CaRismaDesignTokens.controlSurface,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            hintStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.46),
-                              fontWeight: FontWeight.w700,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        child: content!,
-                      ),
-                    ],
-                    if (actions != null && actions!.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: actions!
-                            .map(
-                              (action) => Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: action,
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
+                    const SizedBox(width: 12),
+                    Expanded(child: title ?? const SizedBox.shrink()),
                   ],
                 ),
-              ),
+                if (content != null) ...[
+                  const SizedBox(height: 16),
+                  Theme(
+                    data: Theme.of(context).copyWith(
+                      inputDecorationTheme: InputDecorationTheme(
+                        filled: true,
+                        fillColor: CaRismaDesignTokens.controlSurface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.46),
+                          fontWeight: FontWeight.w700,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    child: content!,
+                  ),
+                ],
+                if (actions != null && actions!.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: actions!
+                        .map(
+                          (action) => Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: action,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -3232,13 +3682,13 @@ class _StoryTextInputDialog extends StatelessWidget {
   }
 }
 
-class _StoryEditorActionRail extends StatelessWidget {
+class _StoryEditorActionRail extends StatefulWidget {
   const _StoryEditorActionRail({
     required this.isSaving,
     required this.isVideo,
     required this.videoIsMuted,
     required this.hasTextTool,
-    required this.stickerType,
+    required this.selectedStickerTypes,
     required this.onAddText,
     required this.onAddVehicle,
     required this.onAddLocation,
@@ -3251,7 +3701,7 @@ class _StoryEditorActionRail extends StatelessWidget {
   final bool isVideo;
   final bool videoIsMuted;
   final bool hasTextTool;
-  final String stickerType;
+  final Set<String> selectedStickerTypes;
   final VoidCallback onAddText;
   final VoidCallback onAddVehicle;
   final VoidCallback onAddLocation;
@@ -3260,8 +3710,20 @@ class _StoryEditorActionRail extends StatelessWidget {
   final VoidCallback onSave;
 
   @override
+  State<_StoryEditorActionRail> createState() => _StoryEditorActionRailState();
+}
+
+class _StoryEditorActionRailState extends State<_StoryEditorActionRail> {
+  bool _isExpanded = false;
+
+  void _runAction(VoidCallback action) {
+    setState(() => _isExpanded = false);
+    action();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final selectedStickerType = stickerType.trim();
+    final selectedStickerTypes = widget.selectedStickerTypes;
 
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -3277,50 +3739,101 @@ class _StoryEditorActionRail extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _StoryRailButton(
-                icon: Icons.text_fields_rounded,
-                label: 'Text',
-                isSelected: hasTextTool,
-                onTap: onAddText,
-              ),
-              const SizedBox(height: 8),
-              _StoryRailButton(
-                icon: Icons.directions_car_filled_rounded,
-                label: 'Fahrzeug',
-                isSelected: selectedStickerType == 'vehicle',
-                onTap: onAddVehicle,
-              ),
-              const SizedBox(height: 8),
-              _StoryRailButton(
-                icon: Icons.location_on_rounded,
-                label: 'Standort',
-                isSelected: selectedStickerType == 'location',
-                onTap: onAddLocation,
-              ),
-              const SizedBox(height: 8),
-              _StoryRailButton(
-                icon: Icons.auto_awesome_rounded,
-                label: 'Status',
-                isSelected: selectedStickerType == 'status',
-                onTap: onAddStatus,
-              ),
-              if (isVideo) ...[
-                const SizedBox(height: 8),
-                _StoryRailButton(
-                  icon: videoIsMuted
-                      ? Icons.volume_off_rounded
-                      : Icons.volume_up_rounded,
-                  label: videoIsMuted ? 'Stumm' : 'Audio',
-                  isSelected: videoIsMuted,
-                  onTap: onToggleVideoMuted,
+              Tooltip(
+                message: _isExpanded
+                    ? 'Werkzeuge schließen'
+                    : 'Werkzeuge öffnen',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _isExpanded = !_isExpanded),
+                  child: _StoryGlassActionCircle(
+                    size: 56,
+                    isActive: _isExpanded,
+                    child: AnimatedRotation(
+                      turns: _isExpanded ? 0.125 : 0,
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOutCubic,
+                      child: const Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 29,
+                      ),
+                    ),
+                  ),
                 ),
-              ],
-              const SizedBox(height: 8),
-              _StoryRailButton(
-                icon: Icons.download_rounded,
-                label: 'Sichern',
-                isBusy: isSaving,
-                onTap: onSave,
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: !_isExpanded
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _StoryRailButton(
+                              icon: Icons.text_fields_rounded,
+                              iconColor: Colors.white,
+                              label: 'Text',
+                              isSelected: widget.hasTextTool,
+                              onTap: () => _runAction(widget.onAddText),
+                            ),
+                            const SizedBox(height: 8),
+                            _StoryRailButton(
+                              icon: Icons.directions_car_filled_rounded,
+                              iconColor: Colors.white,
+                              label: 'Fahrzeug',
+                              isSelected: selectedStickerTypes.contains(
+                                'vehicle',
+                              ),
+                              onTap: () => _runAction(widget.onAddVehicle),
+                            ),
+                            const SizedBox(height: 8),
+                            _StoryRailButton(
+                              icon: Icons.location_on_rounded,
+                              iconColor: Colors.white,
+                              label: 'Standort',
+                              isSelected: selectedStickerTypes.contains(
+                                'location',
+                              ),
+                              onTap: () => _runAction(widget.onAddLocation),
+                            ),
+                            const SizedBox(height: 8),
+                            _StoryRailButton(
+                              icon: Icons.auto_awesome_rounded,
+                              iconColor: Colors.white,
+                              label: 'Status',
+                              isSelected: selectedStickerTypes.contains(
+                                'status',
+                              ),
+                              onTap: () => _runAction(widget.onAddStatus),
+                            ),
+                            if (widget.isVideo) ...[
+                              const SizedBox(height: 8),
+                              _StoryRailButton(
+                                icon: widget.videoIsMuted
+                                    ? Icons.volume_off_rounded
+                                    : Icons.volume_up_rounded,
+                                iconColor: Colors.white,
+                                label: widget.videoIsMuted ? 'Stumm' : 'Audio',
+                                isSelected: widget.videoIsMuted,
+                                onTap: () =>
+                                    _runAction(widget.onToggleVideoMuted),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            _StoryRailButton(
+                              icon: Icons.download_rounded,
+                              iconColor: Colors.white,
+                              label: 'Sichern',
+                              isBusy: widget.isSaving,
+                              onTap: () => _runAction(widget.onSave),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
@@ -3333,6 +3846,7 @@ class _StoryEditorActionRail extends StatelessWidget {
 class _StoryRailButton extends StatelessWidget {
   const _StoryRailButton({
     required this.icon,
+    required this.iconColor,
     required this.label,
     required this.onTap,
     this.isSelected = false,
@@ -3340,6 +3854,7 @@ class _StoryRailButton extends StatelessWidget {
   });
 
   final IconData icon;
+  final Color iconColor;
   final String label;
   final VoidCallback onTap;
   final bool isSelected;
@@ -3360,7 +3875,7 @@ class _StoryRailButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _StoryGlassActionCircle(
-                size: 52,
+                size: 56,
                 isActive: isSelected,
                 child: Center(
                   child: isBusy
@@ -3372,7 +3887,7 @@ class _StoryRailButton extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : Icon(icon, color: Colors.white, size: 26),
+                      : Icon(icon, color: iconColor, size: 28),
                 ),
               ),
               const SizedBox(height: 4),
@@ -3850,429 +4365,467 @@ class _StoryStickerChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vehicleStyle = type == 'vehicle'
-        ? _vehicleStickerStyleFromPayload(payload)
-        : '';
-    final vehicleDetail = type == 'vehicle'
-        ? _vehicleStickerDetailFromPayload(payload)
-        : '';
-    final isPlateSticker = type == 'vehicle' && vehicleStyle == 'plate';
-    final isCompactSticker = type == 'vehicle' && vehicleStyle == 'compact';
-    final isBadgeSticker = type == 'vehicle' && vehicleStyle == 'badge';
-    final isLocationSticker = type == 'location';
-    final isStatusSticker = type == 'status';
-    final icon = switch (type) {
-      'vehicle' => Icons.directions_car_filled_rounded,
-      'location' => Icons.location_on_rounded,
-      'status' => _storyStatusStickerIcon(label),
-      _ => Icons.add_reaction_rounded,
-    };
-    final subtitle = switch (type) {
-      'vehicle' =>
-        isPlateSticker || isCompactSticker || isBadgeSticker
-            ? ''
-            : vehicleDetail,
-      'status' => '',
-      _ => '',
-    };
-    final isExpandedSticker = subtitle.isNotEmpty;
-    final effectiveLabel = isPlateSticker && vehicleDetail.isNotEmpty
-        ? vehicleDetail
-        : label;
-    final borderRadius = isPlateSticker
-        ? 14.0
-        : isStatusSticker
-        ? 24.0
-        : isExpandedSticker
-        ? 22.0
-        : 999.0;
-    final maxWidth = isStatusSticker
-        ? 286.0
-        : isExpandedSticker
-        ? 310.0
-        : 270.0;
-    final foregroundColor = isPlateSticker
-        ? const Color(0xFF08111F)
-        : Colors.white;
-    final secondaryColor = isPlateSticker
-        ? const Color(0xFF20304A).withValues(alpha: 0.72)
-        : Colors.white.withValues(alpha: 0.72);
-    final iconColor = isPlateSticker ? Colors.white : Colors.white;
-    final iconBackground = isPlateSticker
-        ? const Color(0xFF08111F)
-        : isBadgeSticker
-        ? const Color(0xFF2A7DFF)
-        : isStatusSticker
-        ? const Color(0xFF00A3FF)
-        : _carismaBlue.withValues(alpha: 0.92);
-    final gradientColors = isPlateSticker
-        ? <Color>[
-            Colors.white.withValues(alpha: 0.96),
-            const Color(0xFFDDEBFF).withValues(alpha: 0.92),
-          ]
-        : isBadgeSticker
-        ? <Color>[
-            const Color(0xFF064F8F).withValues(alpha: 0.9),
-            const Color(0xFF0B1A2D).withValues(alpha: 0.86),
-          ]
-        : isStatusSticker
-        ? <Color>[
-            const Color(0xFF073A63).withValues(alpha: 0.92),
-            const Color(0xFF0A1628).withValues(alpha: 0.88),
-          ]
-        : <Color>[
-            const Color(0xFF101827).withValues(alpha: 0.84),
-            _carismaBlueDark.withValues(alpha: 0.74),
-          ];
+    if (type == 'vehicle') {
+      final style = _vehicleStickerStyleFromPayload(payload);
+      final detail = _vehicleStickerDetailFromPayload(payload);
 
-    if (isCompactSticker) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 300),
-            padding: const EdgeInsets.fromLTRB(13, 8, 9, 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              color: const Color(0xFF08111F).withValues(alpha: 0.72),
-              border: Border.all(
-                color: _carismaBlueLight.withValues(alpha: 0.28),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 18,
-                  color: Colors.black.withValues(alpha: 0.26),
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.directions_car_filled_rounded,
-                  color: _carismaBlueLight,
-                  size: 18,
-                ),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    [
-                      label,
-                      if (vehicleDetail.isNotEmpty) vehicleDetail,
-                    ].join('  |  '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return switch (style) {
+        'plate' => _StoryPlateSticker(plate: detail.isEmpty ? label : detail),
+        'compact' => _StoryCompactVehicleSticker(vehicle: label, plate: detail),
+        'badge' => _StoryVehicleBadgeSticker(vehicle: label, plate: detail),
+        _ => _StoryVehicleCardSticker(vehicle: label, plate: detail),
+      };
     }
 
-    if (isBadgeSticker) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 290),
-            padding: const EdgeInsets.fromLTRB(13, 11, 10, 11),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [CaRismaDesignTokens.bluePrimary, Color(0xFF061628)],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 22,
-                  color: _carismaBlue.withValues(alpha: 0.24),
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.16),
-                  ),
-                  child: const Icon(
-                    Icons.verified_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'CaRisma',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        vehicleDetail.isEmpty
-                            ? label
-                            : '$label - $vehicleDetail',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+    if (type == 'location') {
+      return _StoryLocationSticker(label: label);
     }
 
-    if (isLocationSticker) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 286),
-            padding: const EdgeInsets.fromLTRB(13, 10, 14, 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF0B1B2F).withValues(alpha: 0.88),
-                  const Color(0xFF0F766E).withValues(alpha: 0.78),
-                ],
-              ),
-              border: Border.all(
-                color: const Color(0xFF5EEAD4).withValues(alpha: 0.24),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 22,
-                  color: const Color(0xFF14B8A6).withValues(alpha: 0.18),
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.14),
-                  ),
-                  child: const Icon(
-                    Icons.location_on_rounded,
-                    color: Colors.white,
-                    size: 19,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+    if (type == 'status') {
+      return _StoryStatusSticker(label: label);
     }
 
-    if (isStatusSticker) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 270),
-            padding: const EdgeInsets.fromLTRB(12, 8, 15, 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.94),
-                  const Color(0xFF061628).withValues(alpha: 0.86),
-                ],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 22,
-                  color: _carismaBlue.withValues(alpha: 0.24),
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.16),
-                  ),
-                  child: Icon(
-                    _storyStatusStickerIcon(label),
-                    color: Colors.white,
-                    size: 19,
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    return _StoryStatusSticker(label: label);
+  }
+}
 
+class _StoryStickerSurface extends StatelessWidget {
+  const _StoryStickerSurface({
+    required this.child,
+    required this.borderRadius,
+    required this.padding,
+    this.width,
+    this.maxWidth = 304,
+    this.blueGlow = false,
+    this.borderColor,
+  });
+
+  final Widget child;
+  final double borderRadius;
+  final EdgeInsets padding;
+  final double? width;
+  final double maxWidth;
+  final bool blueGlow;
+  final Color? borderColor;
+
+  @override
+  Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
+          width: width,
           constraints: BoxConstraints(maxWidth: maxWidth),
-          padding: EdgeInsets.fromLTRB(
-            isPlateSticker ? 14 : 12,
-            isExpandedSticker || isPlateSticker ? 11 : 9,
-            isPlateSticker || isStatusSticker ? 12 : 9,
-            isExpandedSticker || isPlateSticker ? 11 : 9,
-          ),
+          padding: padding,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(borderRadius),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradientColors,
-            ),
+            color: CaRismaDesignTokens.card.withValues(alpha: 0.94),
             border: Border.all(
-              color: isPlateSticker
-                  ? const Color(0xFF08111F).withValues(alpha: 0.42)
-                  : isStatusSticker
-                  ? _carismaBlueLight.withValues(alpha: 0.24)
-                  : Colors.white.withValues(alpha: 0.18),
-              width: isPlateSticker ? 1.4 : 1,
+              color: borderColor ?? Colors.white.withValues(alpha: 0.14),
             ),
             boxShadow: [
               BoxShadow(
-                blurRadius: 22,
-                color: Colors.black.withValues(alpha: 0.32),
+                color: Colors.black.withValues(alpha: 0.38),
+                blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
+              if (blueGlow)
+                BoxShadow(
+                  color: CaRismaDesignTokens.bluePrimary.withValues(
+                    alpha: 0.20,
+                  ),
+                  blurRadius: 22,
+                  spreadRadius: -4,
+                ),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isStatusSticker ? null : iconBackground,
-                  gradient: isStatusSticker
-                      ? LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            _carismaBlueLight.withValues(alpha: 0.96),
-                            _carismaBlue.withValues(alpha: 0.9),
-                          ],
-                        )
-                      : null,
-                ),
-                child: Icon(icon, color: iconColor, size: 18),
-              ),
-              const SizedBox(width: 9),
-              Flexible(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      effectiveLabel,
-                      maxLines: isExpandedSticker && !isCompactSticker ? 2 : 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: foregroundColor,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: isPlateSticker ? 0.4 : 0,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: secondaryColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
+          child: child,
         ),
+      ),
+    );
+  }
+}
+
+class _StoryStickerIcon extends StatelessWidget {
+  const _StoryStickerIcon({required this.icon, this.size = 42});
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(size * 0.34),
+        color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.18),
+        border: Border.all(
+          color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.48),
+        ),
+      ),
+      child: Icon(
+        icon,
+        color: CaRismaDesignTokens.bluePrimary,
+        size: size * 0.52,
+      ),
+    );
+  }
+}
+
+class _StoryVehicleCardSticker extends StatelessWidget {
+  const _StoryVehicleCardSticker({required this.vehicle, required this.plate});
+
+  final String vehicle;
+  final String plate;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StoryStickerSurface(
+      width: 296,
+      borderRadius: 20,
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+      blueGlow: true,
+      child: Row(
+        children: [
+          const _StoryStickerIcon(
+            icon: Icons.directions_car_filled_rounded,
+            size: 46,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'FAHRZEUG',
+                  style: TextStyle(
+                    color: CaRismaDesignTokens.bluePrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  vehicle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CaRismaDesignTokens.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+                if (plate.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    plate,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: CaRismaDesignTokens.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryPlateSticker extends StatelessWidget {
+  const _StoryPlateSticker({required this.plate});
+
+  final String plate;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StoryStickerSurface(
+      width: 276,
+      borderRadius: 16,
+      padding: const EdgeInsets.all(4),
+      borderColor: Colors.white.withValues(alpha: 0.22),
+      child: Container(
+        height: 62,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFFF2F4F7),
+          border: Border.all(color: const Color(0xFF111318), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: CaRismaDesignTokens.bluePrimary,
+                borderRadius: BorderRadius.horizontal(
+                  left: Radius.circular(10),
+                ),
+              ),
+              child: const Icon(
+                Icons.directions_car_filled_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                plate,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF0C0E12),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryCompactVehicleSticker extends StatelessWidget {
+  const _StoryCompactVehicleSticker({
+    required this.vehicle,
+    required this.plate,
+  });
+
+  final String vehicle;
+  final String plate;
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = plate.isEmpty ? vehicle : '$vehicle  •  $plate';
+
+    return _StoryStickerSurface(
+      borderRadius: 999,
+      padding: const EdgeInsets.fromLTRB(10, 8, 16, 8),
+      maxWidth: 300,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const _StoryStickerIcon(
+            icon: Icons.directions_car_filled_rounded,
+            size: 34,
+          ),
+          const SizedBox(width: 9),
+          Flexible(
+            child: Text(
+              detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: CaRismaDesignTokens.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryVehicleBadgeSticker extends StatelessWidget {
+  const _StoryVehicleBadgeSticker({required this.vehicle, required this.plate});
+
+  final String vehicle;
+  final String plate;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StoryStickerSurface(
+      width: 282,
+      borderRadius: 20,
+      padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+      blueGlow: true,
+      borderColor: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.58),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.18),
+              border: Border.all(
+                color: CaRismaDesignTokens.bluePrimary,
+                width: 1.5,
+              ),
+            ),
+            child: const Icon(
+              Icons.verified_rounded,
+              color: CaRismaDesignTokens.bluePrimary,
+              size: 27,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'CaRisma GARAGE',
+                  style: TextStyle(
+                    color: CaRismaDesignTokens.bluePrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  vehicle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CaRismaDesignTokens.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+                if (plate.isNotEmpty)
+                  Text(
+                    plate,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: CaRismaDesignTokens.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryLocationSticker extends StatelessWidget {
+  const _StoryLocationSticker({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StoryStickerSurface(
+      width: 288,
+      borderRadius: 20,
+      padding: const EdgeInsets.fromLTRB(12, 11, 14, 11),
+      borderColor: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.38),
+      child: Row(
+        children: [
+          const _StoryStickerIcon(icon: Icons.location_on_rounded, size: 44),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'STANDORT',
+                  style: TextStyle(
+                    color: CaRismaDesignTokens.bluePrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CaRismaDesignTokens.textPrimary,
+                    fontSize: 15,
+                    height: 1.12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryStatusSticker extends StatelessWidget {
+  const _StoryStatusSticker({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return _StoryStickerSurface(
+      borderRadius: 999,
+      padding: const EdgeInsets.fromLTRB(9, 8, 17, 8),
+      maxWidth: 286,
+      blueGlow: true,
+      borderColor: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.44),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StoryStickerIcon(icon: _storyStatusStickerIcon(label), size: 38),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'STATUS',
+                  style: TextStyle(
+                    color: CaRismaDesignTokens.bluePrimary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: CaRismaDesignTokens.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

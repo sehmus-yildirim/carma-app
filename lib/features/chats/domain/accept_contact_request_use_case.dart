@@ -182,8 +182,7 @@ class AcceptContactRequestUseCase {
       return await _chatRepository.createChat(
         participants: [request.senderUserId, request.receiverUserId],
         requestId: request.id,
-        systemMessage:
-            'Kontaktanfrage angenommen. Ihr könnt jetzt geschützt schreiben.',
+        systemMessage: request.introMessage,
         senderUserId: request.senderUserId,
         receiverUserId: request.receiverUserId,
         senderDisplayName: request.senderDisplayName,

@@ -1,5 +1,7 @@
 part of '../chats_screen.dart';
 
+enum _MessageDeleteScope { forMe, forEveryone }
+
 class _ChatConversationScreen extends StatefulWidget {
   const _ChatConversationScreen({
     required this.initialMessages,
@@ -28,9 +30,64 @@ class _ChatConversationScreen extends StatefulWidget {
       _ChatConversationScreenState();
 }
 
+class _DeleteMessageOption extends StatelessWidget {
+  const _DeleteMessageOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive
+        ? CaRismaDesignTokens.danger
+        : CaRismaDesignTokens.bluePrimary;
+
+    return Material(
+      color: CaRismaDesignTokens.card,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   static const int _maxDocumentSizeBytes = 25 * 1024 * 1024;
   static const int _maxVoiceMemoDurationMs = 10 * 60 * 1000;
+  static const int _maxVideoSizeBytes = 80 * 1024 * 1024;
+  static const int _maxVideoDurationMs = 5 * 60 * 1000;
   static const Set<String> _allowedDocumentContentTypes = {
     'application/pdf',
     'application/msword',
@@ -55,7 +112,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _hasText = false;
   bool _isLoadingMessages = false;
   bool _isSendingMessage = false;
+  double? _attachmentUploadProgress;
   bool _isRecordingVoiceMemo = false;
+  bool _isStartingVoiceMemo = false;
+  bool _isFinishingVoiceMemo = false;
+  bool _stopVoiceMemoWhenReady = false;
+  bool _cancelVoiceMemoWhenReady = false;
+  bool _isVoiceMemoLocked = false;
+  bool _isAttachmentPanelVisible = false;
   bool _isChatStatusLoading = false;
   bool _isOtherUserTyping = false;
   bool _isCurrentUserTyping = false;
@@ -75,7 +139,6 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   DateTime? _outgoingReadReceiptBaselineAt;
   ChatRecord? _currentChatRecord;
   String? _chatStatusErrorMessage;
-  double _lastKeyboardInset = 0;
   Timer? _typingStopTimer;
   Timer? _voiceMemoRecordingTimer;
   Timer? _audioPlaybackStopTimer;
@@ -421,31 +484,65 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       const Duration(milliseconds: 420),
     );
 
-    void schedule(Duration delay, {bool forceRequest = false}) {
-      Future<void>.delayed(delay, () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (requestGeneration != _messageScrollRequestGeneration) {
+        return;
+      }
+      _scrollToBottomNow(animated: false, force: force);
+    });
+
+    Future<void>.delayed(const Duration(milliseconds: 240), () {
+      if (requestGeneration != _messageScrollRequestGeneration) {
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (requestGeneration != _messageScrollRequestGeneration) {
           return;
         }
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (requestGeneration != _messageScrollRequestGeneration) {
-            return;
-          }
-
-          _scrollToBottomNow(animated: animated, force: force || forceRequest);
-        });
+        _scrollToBottomNow(animated: animated, force: force);
       });
-    }
-
-    schedule(Duration.zero, forceRequest: force);
-    schedule(const Duration(milliseconds: 80));
-    schedule(const Duration(milliseconds: 220));
-    schedule(const Duration(milliseconds: 520));
-    schedule(const Duration(milliseconds: 820), forceRequest: force);
+    });
   }
 
   void _scheduleScrollToBottomAfterKeyboard() {
     _scheduleScrollToBottom(force: true);
+  }
+
+  void _handleComposerTextInputFocus() {
+    _closeAttachmentPanel();
+    _scheduleScrollToBottomAfterKeyboard();
+  }
+
+  double _currentKeyboardInset() {
+    final mediaQueryInset = MediaQuery.viewInsetsOf(context).bottom;
+    final view = View.of(context);
+    final systemInset = view.viewInsets.bottom / view.devicePixelRatio;
+    return systemInset > mediaQueryInset ? systemInset : mediaQueryInset;
+  }
+
+  void _toggleAttachmentPanel() {
+    if (_isSendingMessage || !_isChatComposerEnabled) {
+      return;
+    }
+    setState(() {
+      _isAttachmentPanelVisible = !_isAttachmentPanelVisible;
+    });
+  }
+
+  void _closeAttachmentPanel() {
+    if (!_isAttachmentPanelVisible || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isAttachmentPanelVisible = false;
+    });
+  }
+
+  void _runComposerAttachment(Future<void> Function() action) {
+    _closeAttachmentPanel();
+    unawaited(action());
   }
 
   bool _handleMessageListSizeChanged(SizeChangedLayoutNotification _) {
@@ -566,6 +663,36 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     if (_messageFocusNode.hasFocus) {
       _scheduleScrollToBottomAfterKeyboard();
     }
+  }
+
+  void _clearSentTextPreservingFocus() {
+    final shouldKeepFocus = _messageFocusNode.hasFocus;
+    _messageController.clear();
+
+    if (!shouldKeepFocus) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isChatComposerEnabled) {
+        return;
+      }
+
+      if (!_messageFocusNode.hasFocus) {
+        _messageFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _restoreFailedMessage(String message) {
+    if (_messageController.text.trim().isNotEmpty) {
+      return;
+    }
+
+    _messageController.value = TextEditingValue(
+      text: message,
+      selection: TextSelection.collapsed(offset: message.length),
+    );
   }
 
   void _watchTypingStatus() {
@@ -827,18 +954,24 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           (records) {
             final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
             final otherLastReadAt = _otherLastReadAt;
+            final recordsById = {
+              for (final record in records) record.id: record,
+            };
+            final visibleRecords = records
+                .where((record) => !record.isDeletedFor(currentUserId))
+                .toList();
             final previousMessageCount = _messages.length;
             final shouldKeepBottom = _isNearMessageBottom;
             final lastRecordIsMine =
-                records.isNotEmpty &&
-                records.last.senderUserId == currentUserId;
+                visibleRecords.isNotEmpty &&
+                visibleRecords.last.senderUserId == currentUserId;
             final shouldScrollToBottom =
                 _forceScrollToBottomOnNextMessages ||
-                (records.length > previousMessageCount &&
+                (visibleRecords.length > previousMessageCount &&
                     (shouldKeepBottom || lastRecordIsMine));
             DateTime? latestIncomingMessageAt;
 
-            for (final record in records) {
+            for (final record in visibleRecords) {
               if (record.senderUserId == currentUserId) {
                 continue;
               }
@@ -854,8 +987,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             }
 
             setState(() {
-              _messages = records.map((record) {
+              _messages = visibleRecords.map((record) {
                 final isMine = record.senderUserId == currentUserId;
+                final repliedMessage = recordsById[record.replyToMessageId];
 
                 return _LocalChatMessage(
                   text: record.text,
@@ -878,8 +1012,15 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                     otherLastReadAt: otherLastReadAt,
                   ),
                   replyToText: record.replyToText,
+                  replyToSenderName: repliedMessage == null
+                      ? null
+                      : repliedMessage.senderUserId == currentUserId
+                      ? 'Du'
+                      : widget.displayName,
                   isStarred: record.isStarred,
                   reactionBy: record.reactionBy,
+                  isViewOnce: record.isViewOnce,
+                  viewOnceOpenedAtBy: record.viewOnceOpenedAtBy,
                 );
               }).toList();
 
@@ -924,35 +1065,293 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     return '$hour:$minute';
   }
 
-  Future<void> _handlePickImage(ImageSource source) async {
+  Future<void> _handleOpenCameraMedia() async {
     if (_isSendingMessage) {
       return;
     }
 
     try {
-      final pickedImage = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 82,
-        maxWidth: 1800,
+      final media = await Navigator.of(context).push<_StoryCaptureResult>(
+        MaterialPageRoute<_StoryCaptureResult>(
+          fullscreenDialog: true,
+          builder: (_) => _StoryCaptureScreen(
+            imagePicker: _imagePicker,
+            maxVideoDuration: const Duration(minutes: 5),
+            showModeSelector: true,
+            useInAppGallery: true,
+          ),
+        ),
       );
 
-      if (pickedImage == null) {
+      if (!mounted || media == null) {
         return;
       }
 
-      await _sendImageAttachment(File(pickedImage.path));
+      final mediaFile = File(media.path);
+      if (media.isVideo) {
+        await _prepareVideoAttachment(mediaFile);
+      } else {
+        await _prepareImageAttachment(mediaFile);
+      }
     } catch (error) {
       if (!mounted) {
         return;
       }
 
+      final message = error is ChatAttachmentStorageException
+          ? error.message
+          : 'Medium konnte nicht ausgewählt werden: ${_friendlyChatErrorMessage(error)}';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _handlePickMediaFromGallery() async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    try {
+      final selectedMedia = await Navigator.of(context)
+          .push<_StoryCaptureResult>(
+            MaterialPageRoute<_StoryCaptureResult>(
+              fullscreenDialog: true,
+              builder: (_) => const _ChatMediaGalleryScreen(),
+            ),
+          );
+
+      if (!mounted || selectedMedia == null) {
+        return;
+      }
+
+      final mediaFile = File(selectedMedia.path);
+      if (selectedMedia.isVideo) {
+        await _prepareVideoAttachment(mediaFile);
+      } else {
+        await _prepareImageAttachment(mediaFile);
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final message = error is ChatAttachmentStorageException
+          ? error.message
+          : 'Medium konnte nicht ausgewählt werden: ${_friendlyChatErrorMessage(error)}';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _prepareImageAttachment(File imageFile) async {
+    if (!mounted) {
+      return;
+    }
+
+    final result = await Navigator.of(context).push<_ChatImageEditorResult>(
+      MaterialPageRoute<_ChatImageEditorResult>(
+        fullscreenDialog: true,
+        builder: (_) => _ChatImageEditorScreen(
+          file: imageFile,
+          nativeBridge: _nativeBridge,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    await _sendImageAttachment(
+      result.file,
+      caption: result.caption,
+      isViewOnce: result.isViewOnce,
+    );
+  }
+
+  Future<void> _prepareVideoAttachment(File videoFile) async {
+    final fileSizeBytes = await videoFile.length();
+
+    if (!videoFile.path.toLowerCase().endsWith('.mp4')) {
+      throw const ChatAttachmentStorageException(
+        'Dieses Videoformat wird nicht unterstützt. Bitte wähle ein MP4-Video.',
+      );
+    }
+
+    if (fileSizeBytes <= 0) {
+      throw const ChatAttachmentStorageException('Das Video ist leer.');
+    }
+
+    if (fileSizeBytes > _maxVideoSizeBytes) {
+      throw const ChatAttachmentStorageException(
+        'Das Video ist zu groß. Maximal 80 MB.',
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final previewResult = await Navigator.of(context)
+        .push<_ChatVideoPreviewResult>(
+          MaterialPageRoute<_ChatVideoPreviewResult>(
+            fullscreenDialog: true,
+            builder: (_) => _ChatVideoPreviewDialog(file: videoFile),
+          ),
+        );
+
+    if (previewResult == null) {
+      return;
+    }
+
+    final durationMs = previewResult.durationMs;
+    if (durationMs <= 0 || durationMs > _maxVideoDurationMs) {
+      throw const ChatAttachmentStorageException(
+        'Videos dürfen maximal 5 Minuten lang sein.',
+      );
+    }
+
+    await _sendVideoAttachment(
+      videoFile,
+      fileSizeBytes: fileSizeBytes,
+      durationMs: durationMs,
+      caption: previewResult.caption,
+      isViewOnce: previewResult.isViewOnce,
+    );
+  }
+
+  Future<void> _sendVideoAttachment(
+    File videoFile, {
+    required int fileSizeBytes,
+    required int durationMs,
+    required String caption,
+    required bool isViewOnce,
+  }) async {
+    if (_isSendingMessage) {
+      return;
+    }
+
+    String? uploadedPath;
+
+    setState(() {
+      _isSendingMessage = true;
+      _attachmentUploadProgress = 0;
+    });
+
+    try {
+      final chatId = widget.chatId?.trim();
+
+      if (chatId == null || chatId.isEmpty) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _messages = [
+            ..._messages,
+            _LocalChatMessage(
+              text: caption.isEmpty ? 'Video' : caption,
+              isMine: true,
+              timeLabel: 'Jetzt',
+              createdAt: DateTime.now(),
+              type: ChatMessageType.video,
+              fileUrl: videoFile.path,
+              filePath: videoFile.path,
+              fileName: 'Video.mp4',
+              fileContentType: 'video/mp4',
+              fileSizeBytes: fileSizeBytes,
+              fileDurationMs: durationMs,
+              isViewOnce: isViewOnce,
+              isReadByOther: false,
+            ),
+          ];
+          _isSendingMessage = false;
+          _attachmentUploadProgress = null;
+        });
+        _scheduleScrollToBottom(force: true);
+        return;
+      }
+
+      final currentUserId = await _requireSendableCurrentChat(
+        unauthenticatedMessage:
+            'Du musst angemeldet sein, um Videos zu senden.',
+      );
+      final messageId = _chatRepository.createMessageId(chatId: chatId);
+      final upload = await _attachmentStorage.uploadChatVideo(
+        chatId: chatId,
+        userId: currentUserId,
+        messageId: messageId,
+        file: videoFile,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _attachmentUploadProgress = progress;
+            });
+          }
+        },
+      );
+      uploadedPath = upload.path;
+
+      _forceScrollToBottomOnNextMessages = true;
+      _rememberOutgoingReadReceiptBaseline();
+
+      await _chatRepository.sendVideoMessage(
+        chatId: chatId,
+        messageId: messageId,
+        senderUserId: currentUserId,
+        fileUrl: upload.url,
+        filePath: upload.path,
+        fileName: upload.fileName,
+        fileContentType: upload.contentType,
+        fileSizeBytes: upload.fileSizeBytes,
+        fileDurationMs: durationMs,
+        caption: caption,
+        isViewOnce: isViewOnce,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+        _attachmentUploadProgress = null;
+      });
+      _scheduleScrollToBottom(force: true);
+    } catch (error) {
+      final cleanupError = await _cleanupFailedChatAttachment(uploadedPath);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSendingMessage = false;
+        _attachmentUploadProgress = null;
+      });
+      _forceScrollToBottomOnNextMessages = false;
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Foto konnte nicht ausgewählt werden: $error')),
+        SnackBar(
+          content: Text(
+            _chatAttachmentSendErrorMessage(
+              'Video konnte nicht gesendet werden',
+              error,
+              cleanupError: cleanupError,
+            ),
+          ),
+        ),
       );
     }
   }
 
-  Future<void> _sendImageAttachment(File imageFile) async {
+  Future<void> _sendImageAttachment(
+    File imageFile, {
+    required String caption,
+    required bool isViewOnce,
+  }) async {
     if (_isSendingMessage) {
       return;
     }
@@ -975,13 +1374,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           _messages = [
             ..._messages,
             _LocalChatMessage(
-              text: 'Foto',
+              text: caption.isEmpty ? 'Foto' : caption,
               isMine: true,
               timeLabel: 'Jetzt',
               createdAt: DateTime.now(),
               type: ChatMessageType.image,
               imageUrl: imageFile.path,
               imagePath: imageFile.path,
+              isViewOnce: isViewOnce,
               isReadByOther: false,
             ),
           ];
@@ -1013,6 +1413,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         senderUserId: currentUserId,
         imageUrl: upload.url,
         imagePath: upload.path,
+        caption: caption,
+        isViewOnce: isViewOnce,
       );
 
       if (!mounted) {
@@ -1227,71 +1629,89 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
   }
 
-  Future<void> _handleVoiceMemo() async {
-    if (_isSendingMessage) {
+  Future<void> _startVoiceMemoRecording() async {
+    if (_isSendingMessage ||
+        _isRecordingVoiceMemo ||
+        _isStartingVoiceMemo ||
+        _isFinishingVoiceMemo) {
       return;
     }
 
-    if (!_isRecordingVoiceMemo) {
-      try {
-        await _requireSendableCurrentChat(
-          unauthenticatedMessage:
-              'Du musst angemeldet sein, um Sprachmemos aufzunehmen.',
-        );
-
-        await _nativeBridge.startVoiceMemo();
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _isRecordingVoiceMemo = true;
-          _voiceMemoRecordingSeconds = 0;
-        });
-        _startVoiceMemoRecordingTimer();
-      } catch (error) {
-        if (!mounted) {
-          return;
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Sprachmemo konnte nicht starten: ${_friendlyChatErrorMessage(error)}',
-            ),
-          ),
-        );
-      }
-
-      return;
-    }
-
+    _isStartingVoiceMemo = true;
+    _stopVoiceMemoWhenReady = false;
+    _cancelVoiceMemoWhenReady = false;
     try {
-      final voiceMemo = await _nativeBridge.stopVoiceMemo();
+      await _requireSendableCurrentChat(
+        unauthenticatedMessage:
+            'Du musst angemeldet sein, um Sprachmemos aufzunehmen.',
+      );
+      await _nativeBridge.startVoiceMemo();
 
       if (!mounted) {
+        await _nativeBridge.cancelVoiceMemo();
+        return;
+      }
+
+      _isStartingVoiceMemo = false;
+      if (_cancelVoiceMemoWhenReady) {
+        await _nativeBridge.cancelVoiceMemo();
+        _resetVoiceMemoRecordingState();
         return;
       }
 
       setState(() {
-        _isRecordingVoiceMemo = false;
+        _isRecordingVoiceMemo = true;
         _voiceMemoRecordingSeconds = 0;
       });
-      _voiceMemoRecordingTimer?.cancel();
+      _startVoiceMemoRecordingTimer();
 
+      if (_stopVoiceMemoWhenReady) {
+        await _finishVoiceMemoRecording();
+      }
+    } catch (error) {
+      _isStartingVoiceMemo = false;
+      if (!mounted) {
+        return;
+      }
+
+      _resetVoiceMemoRecordingState();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sprachmemo konnte nicht gestartet werden: ${_friendlyChatErrorMessage(error)}',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _finishVoiceMemoRecording() async {
+    if (_isStartingVoiceMemo) {
+      _stopVoiceMemoWhenReady = true;
+      _cancelVoiceMemoWhenReady = false;
+      return;
+    }
+
+    if (!_isRecordingVoiceMemo || _isFinishingVoiceMemo) {
+      return;
+    }
+
+    _isFinishingVoiceMemo = true;
+    try {
+      final voiceMemo = await _nativeBridge.stopVoiceMemo();
+      if (!mounted) {
+        return;
+      }
+
+      _resetVoiceMemoRecordingState();
       await _sendVoiceMemoAttachment(voiceMemo);
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      setState(() {
-        _isRecordingVoiceMemo = false;
-        _voiceMemoRecordingSeconds = 0;
-      });
-      _voiceMemoRecordingTimer?.cancel();
-
+      _resetVoiceMemoRecordingState();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1299,7 +1719,55 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           ),
         ),
       );
+    } finally {
+      _isFinishingVoiceMemo = false;
     }
+  }
+
+  Future<void> _cancelVoiceMemoRecording() async {
+    if (_isStartingVoiceMemo) {
+      _cancelVoiceMemoWhenReady = true;
+      _stopVoiceMemoWhenReady = false;
+      return;
+    }
+
+    if (!_isRecordingVoiceMemo || _isFinishingVoiceMemo) {
+      return;
+    }
+
+    try {
+      await _nativeBridge.cancelVoiceMemo();
+    } finally {
+      if (mounted) {
+        _resetVoiceMemoRecordingState();
+      }
+    }
+  }
+
+  void _lockVoiceMemoRecording() {
+    if (!_isRecordingVoiceMemo && !_isStartingVoiceMemo) {
+      return;
+    }
+
+    setState(() {
+      _isVoiceMemoLocked = true;
+    });
+  }
+
+  void _resetVoiceMemoRecordingState() {
+    _voiceMemoRecordingTimer?.cancel();
+    _stopVoiceMemoWhenReady = false;
+    _cancelVoiceMemoWhenReady = false;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isRecordingVoiceMemo = false;
+      _isVoiceMemoLocked = false;
+      _voiceMemoRecordingSeconds = 0;
+    });
   }
 
   void _startVoiceMemoRecordingTimer() {
@@ -1693,6 +2161,99 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
   }
 
+  Future<void> _handleOpenViewOnceMedia(_LocalChatMessage message) async {
+    if (!message.isViewOnce || (!message.isImage && !message.isVideo)) {
+      return;
+    }
+
+    if (message.isMine) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Einmal-Medien können vom Absender nicht geöffnet werden.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+    final localViewerId = currentUserId.isEmpty
+        ? 'local-viewer'
+        : currentUserId;
+    if (message.isViewOnceOpenedFor(localViewerId) ||
+        (message.viewOnceOpenedAtBy.isNotEmpty && currentUserId.isEmpty)) {
+      return;
+    }
+
+    final chatId = widget.chatId?.trim() ?? '';
+    final messageId = message.messageId?.trim() ?? '';
+
+    try {
+      if (chatId.isNotEmpty && messageId.isNotEmpty) {
+        if (currentUserId.isEmpty) {
+          throw StateError(
+            'Du musst angemeldet sein, um dieses Medium zu öffnen.',
+          );
+        }
+
+        final didOpen = await _chatRepository.markViewOnceMediaOpened(
+          chatId: chatId,
+          messageId: messageId,
+          userId: currentUserId,
+        );
+        if (!didOpen) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Dieses Medium wurde bereits geöffnet.'),
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      final openedAt = DateTime.now();
+      setState(() {
+        _messages = _messages.map((item) {
+          if (!identical(item, message) &&
+              item.messageId != message.messageId) {
+            return item;
+          }
+          return item.copyWith(
+            viewOnceOpenedAtBy: <String, DateTime>{
+              ...item.viewOnceOpenedAtBy,
+              localViewerId: openedAt,
+            },
+          );
+        }).toList();
+      });
+
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => _ChatViewOnceMediaScreen(message: message),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Medium konnte nicht geöffnet werden: ${_friendlyChatErrorMessage(error)}',
+          ),
+        ),
+      );
+    }
+  }
+
   String _audioMessageKey(_LocalChatMessage message) {
     final messageId = message.messageId?.trim();
 
@@ -1868,9 +2429,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   Future<void> _handleDeleteMessage(_LocalChatMessage message) async {
-    final shouldDelete = await _confirmDeleteMessage();
+    final deleteScope = await _confirmDeleteMessage(message);
 
-    if (!shouldDelete) {
+    if (deleteScope == null) {
       return;
     }
 
@@ -1880,6 +2441,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
     final chatId = widget.chatId?.trim();
     final messageId = message.messageId?.trim();
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
 
     if (chatId == null ||
         chatId.isEmpty ||
@@ -1894,7 +2456,28 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
 
     try {
-      await _chatRepository.deleteMessage(chatId: chatId, messageId: messageId);
+      if (currentUserId.isEmpty) {
+        throw StateError(
+          'Du musst angemeldet sein, um Nachrichten zu löschen.',
+        );
+      }
+
+      switch (deleteScope) {
+        case _MessageDeleteScope.forMe:
+          await _chatRepository.deleteMessageForUser(
+            chatId: chatId,
+            messageId: messageId,
+            userId: currentUserId,
+          );
+          break;
+        case _MessageDeleteScope.forEveryone:
+          await _chatRepository.deleteMessageForEveryone(
+            chatId: chatId,
+            messageId: messageId,
+            userId: currentUserId,
+          );
+          break;
+      }
 
       if (!mounted) return;
 
@@ -1905,7 +2488,13 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nachricht wurde gelöscht.')),
+        SnackBar(
+          content: Text(
+            deleteScope == _MessageDeleteScope.forEveryone
+                ? 'Nachricht wurde für alle gelöscht.'
+                : 'Nachricht wurde für dich gelöscht.',
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -1917,138 +2506,110 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
   }
 
-  Future<bool> _confirmDeleteMessage() async {
-    final result = await showDialog<bool>(
+  Future<_MessageDeleteScope?> _confirmDeleteMessage(
+    _LocalChatMessage message,
+  ) async {
+    final createdAt = message.createdAt;
+    final canDeleteForEveryone =
+        message.isMine &&
+        createdAt != null &&
+        !DateTime.now().difference(createdAt).isNegative &&
+        DateTime.now().difference(createdAt) <=
+            chatMessageDeleteForEveryoneWindow;
+    final result = await showDialog<_MessageDeleteScope>(
       context: context,
       builder: (dialogContext) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: CaRismaDesignTokens.background,
           insetPadding: const EdgeInsets.symmetric(horizontal: 26),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(26),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(26),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF101827).withValues(alpha: 0.95),
-                      const Color(0xFF071120).withValues(alpha: 0.92),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.13),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.34),
-                      blurRadius: 30,
-                      offset: const Offset(0, 16),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.redAccent.withValues(alpha: 0.16),
-                            border: Border.all(
-                              color: Colors.redAccent.withValues(alpha: 0.28),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: Colors.redAccent,
-                            size: 24,
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: CaRismaDesignTokens.card,
+                        border: Border.all(
+                          color: CaRismaDesignTokens.danger.withValues(
+                            alpha: 0.32,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'Nachricht löschen?',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Diese Nachricht wird aus diesem Chat entfernt.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w700,
-                        height: 1.32,
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: CaRismaDesignTokens.danger,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(false),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.16),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text(
-                              'Abbrechen',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
-                          ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Nachricht löschen?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(true),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text(
-                              'Löschen',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 14),
+                Text(
+                  message.isMine
+                      ? canDeleteForEveryone
+                            ? 'Wähle aus, für wen die Nachricht gelöscht werden soll.'
+                            : 'Diese Nachricht kann nur noch für dich gelöscht werden.'
+                      : 'Die Nachricht wird nur aus deinem Chat entfernt.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontWeight: FontWeight.w700,
+                    height: 1.32,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _DeleteMessageOption(
+                  icon: Icons.person_outline_rounded,
+                  label: 'Für mich löschen',
+                  onTap: () => Navigator.of(
+                    dialogContext,
+                  ).pop(_MessageDeleteScope.forMe),
+                ),
+                if (canDeleteForEveryone) ...[
+                  const SizedBox(height: 10),
+                  _DeleteMessageOption(
+                    icon: Icons.groups_2_outlined,
+                    label: 'Für alle löschen',
+                    isDestructive: true,
+                    onTap: () => Navigator.of(
+                      dialogContext,
+                    ).pop(_MessageDeleteScope.forEveryone),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Abbrechen'),
+                ),
+              ],
             ),
           ),
         );
       },
     );
 
-    return result == true;
+    return result;
   }
 
   Future<void> _handleSend() async {
@@ -2073,6 +2634,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             text: message,
             isMine: true,
             replyToText: replyTarget?.text,
+            replyToSenderName: replyTarget == null
+                ? null
+                : replyTarget.isMine
+                ? 'Du'
+                : widget.displayName,
             timeLabel: 'Jetzt',
             createdAt: DateTime.now(),
             isReadByOther: false,
@@ -2082,13 +2648,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       });
       _scheduleScrollToBottom(force: true);
 
-      _messageController.clear();
+      _clearSentTextPreservingFocus();
       return;
     }
 
     setState(() {
       _isSendingMessage = true;
     });
+    _clearSentTextPreservingFocus();
 
     _LocalChatMessage? optimisticMessage;
 
@@ -2105,6 +2672,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         text: message,
         isMine: true,
         replyToText: replyTarget?.text,
+        replyToSenderName: replyTarget == null
+            ? null
+            : replyTarget.isMine
+            ? 'Du'
+            : widget.displayName,
         timeLabel: 'Jetzt',
         createdAt: DateTime.now(),
         isReadByOther: false,
@@ -2134,7 +2706,6 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         _replyingToMessage = null;
       });
 
-      _messageController.clear();
       _scheduleScrollToBottom(force: true);
     } catch (error) {
       if (!mounted) {
@@ -2148,6 +2719,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             .toList();
       });
       _forceScrollToBottomOnNextMessages = false;
+      _restoreFailedMessage(message);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2161,17 +2733,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final keyboardInset = _currentKeyboardInset();
+    final compactLandscapeKeyboard =
+        mediaQuery.orientation == Orientation.landscape && keyboardInset > 0;
     final chatSendDisabledMessage = _chatSendDisabledMessage;
     final isChatComposerEnabled = chatSendDisabledMessage == null;
     final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
     final currentChat = _currentChatRecord;
-
-    if (keyboardInset > _lastKeyboardInset) {
-      _scheduleScrollToBottomAfterKeyboard();
-    }
-
-    _lastKeyboardInset = keyboardInset;
 
     return CaRismaBackground(
       child: Scaffold(
@@ -2180,30 +2749,33 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 18, 14, 0),
-                child: _CompactChatInfoCard(
-                  displayName: widget.displayName,
-                  profilePhotoUrl: widget.profilePhotoUrl,
-                  vehicleModel: widget.vehicleModel,
-                  vehicleColor: widget.vehicleColor,
-                  displayPlate: widget.displayPlate,
-                  isOnline: _isOtherUserOnline,
-                  onBack: () => Navigator.of(context).pop(),
-                  onOpenProfile: _showChatProfileSheet,
-                  chatId: widget.chatId,
-                  isFavorite:
-                      currentChat?.isFavoriteFor(currentUserId) ?? false,
-                  isPinned: currentChat?.isPinnedFor(currentUserId) ?? false,
-                  isMuted: currentChat?.isMutedFor(currentUserId) ?? false,
-                  isUnread: currentChat?.hasUnreadFor(currentUserId) ?? false,
-                  isArchived:
-                      currentChat?.isArchivedFor(currentUserId) ?? false,
-                  isBlocked: currentChat?.status == ChatStatus.blocked,
-                  canUnblock: currentChat?.isBlockedBy(currentUserId) ?? false,
+              if (!compactLandscapeKeyboard) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 18, 14, 0),
+                  child: _CompactChatInfoCard(
+                    displayName: widget.displayName,
+                    profilePhotoUrl: widget.profilePhotoUrl,
+                    vehicleModel: widget.vehicleModel,
+                    vehicleColor: widget.vehicleColor,
+                    displayPlate: widget.displayPlate,
+                    isOnline: _isOtherUserOnline,
+                    onBack: () => Navigator.of(context).pop(),
+                    onOpenProfile: _showChatProfileSheet,
+                    chatId: widget.chatId,
+                    isFavorite:
+                        currentChat?.isFavoriteFor(currentUserId) ?? false,
+                    isPinned: currentChat?.isPinnedFor(currentUserId) ?? false,
+                    isMuted: currentChat?.isMutedFor(currentUserId) ?? false,
+                    isUnread: currentChat?.hasUnreadFor(currentUserId) ?? false,
+                    isArchived:
+                        currentChat?.isArchivedFor(currentUserId) ?? false,
+                    isBlocked: currentChat?.status == ChatStatus.blocked,
+                    canUnblock:
+                        currentChat?.isBlockedBy(currentUserId) ?? false,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
+              ],
               Expanded(
                 child: NotificationListener<SizeChangedLayoutNotification>(
                   onNotification: _handleMessageListSizeChanged,
@@ -2215,7 +2787,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                         reverse: true,
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.manual,
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 2),
                         children: [
                           SizedBox(key: _messageListEndKey, height: 1),
                           if (_isOtherUserTyping)
@@ -2226,6 +2798,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                           if (_replyingToMessage != null)
                             _ReplyPreview(
                               message: _replyingToMessage!,
+                              senderName: _replyingToMessage!.isMine
+                                  ? 'Du'
+                                  : widget.displayName,
                               onClear: _clearReplyMessage,
                             ),
                           if (_isLoadingMessages)
@@ -2242,6 +2817,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                               onReactMessage: _handleReactMessage,
                               onOpenLocation: _handleOpenLocation,
                               onOpenDocument: _handleOpenDocument,
+                              onOpenViewOnceMedia: _handleOpenViewOnceMedia,
                               onToggleAudioMessage: _handleToggleAudioMessage,
                             ),
                         ],
@@ -2254,19 +2830,31 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                 controller: _messageController,
                 focusNode: _messageFocusNode,
                 hasText: _hasText,
-                onPickPhoto: () => _handlePickImage(ImageSource.gallery),
-                onTakePhoto: () => _handlePickImage(ImageSource.camera),
-                onShareLocation: _handleShareLocation,
-                onShareContact: _handleShareContact,
-                onPickDocument: _handlePickDocument,
+                onOpenGallery: () =>
+                    _runComposerAttachment(_handlePickMediaFromGallery),
+                onOpenCamera: () =>
+                    _runComposerAttachment(_handleOpenCameraMedia),
+                onShareLocation: () =>
+                    _runComposerAttachment(_handleShareLocation),
+                onShareContact: () =>
+                    _runComposerAttachment(_handleShareContact),
+                onPickDocument: () =>
+                    _runComposerAttachment(_handlePickDocument),
                 onSend: _handleSend,
-                onVoiceMemo: _handleVoiceMemo,
+                onVoiceMemoStart: _startVoiceMemoRecording,
+                onVoiceMemoStop: _finishVoiceMemoRecording,
+                onVoiceMemoCancel: _cancelVoiceMemoRecording,
+                onVoiceMemoLock: _lockVoiceMemoRecording,
+                isVoiceMemoLocked: _isVoiceMemoLocked,
+                isAttachmentPanelVisible: _isAttachmentPanelVisible,
+                onToggleAttachmentPanel: _toggleAttachmentPanel,
                 isSending: _isSendingMessage,
                 isEnabled: isChatComposerEnabled,
                 disabledMessage: chatSendDisabledMessage,
                 isRecordingVoiceMemo: _isRecordingVoiceMemo,
                 voiceMemoRecordingSeconds: _voiceMemoRecordingSeconds,
-                onTextInputFocus: _scheduleScrollToBottomAfterKeyboard,
+                onTextInputFocus: _handleComposerTextInputFocus,
+                attachmentUploadProgress: _attachmentUploadProgress,
               ),
             ],
           ),
@@ -2466,15 +3054,7 @@ class _CompactChatInfoCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(9, 10, 8, 10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.white.withValues(alpha: 0.055),
-              _myMessageBlue.withValues(alpha: 0.07),
-              Colors.white.withValues(alpha: 0.025),
-            ],
-          ),
+          color: CaRismaDesignTokens.surface2,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -2547,17 +3127,14 @@ class _CompactChatInfoCard extends StatelessWidget {
                       const SizedBox(height: 7),
                       Row(
                         children: [
-                          Expanded(
-                            flex: 3,
+                          Flexible(
+                            fit: FlexFit.loose,
                             child: _ChatHeaderInfoChip(
                               label: vehicleModelLabel,
                             ),
                           ),
                           const SizedBox(width: 5),
-                          Expanded(
-                            flex: 7,
-                            child: _ChatHeaderInfoChip(label: plateLabel),
-                          ),
+                          _ChatHeaderInfoChip(label: plateLabel),
                         ],
                       ),
                     ],
@@ -2596,27 +3173,22 @@ class _ChatHeaderInfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(minHeight: 26),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: Colors.white.withValues(alpha: 0.08),
+        color: CaRismaDesignTokens.surface2,
         border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
       ),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.visible,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.86),
-              fontWeight: FontWeight.w900,
-              fontSize: 10,
-              height: 1,
-            ),
-          ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Colors.white.withValues(alpha: 0.86),
+          fontWeight: FontWeight.w900,
+          fontSize: 10,
+          height: 1,
         ),
       ),
     );
@@ -2985,7 +3557,7 @@ class _ChatProfileSheet extends StatelessWidget {
                               shape: BoxShape.circle,
                               color: const Color(0xFF25D366),
                               border: Border.all(
-                                color: const Color(0xFF101827),
+                                color: CaRismaDesignTokens.card,
                                 width: 3,
                               ),
                             ),
@@ -3026,11 +3598,51 @@ class _ChatProfileSheet extends StatelessWidget {
                 ),
                 if (onOpenPublicProfile != null) ...[
                   const SizedBox(height: 14),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: onOpenPublicProfile,
-                      icon: const Icon(Icons.person_outline_rounded),
-                      label: const Text('Öffentliches Profil ansehen'),
+                  Semantics(
+                    button: true,
+                    label: 'Profil ansehen',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onOpenPublicProfile,
+                      child: Container(
+                        width: double.infinity,
+                        height: 54,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: CaRismaDesignTokens.controlSurface,
+                          borderRadius: BorderRadius.circular(
+                            CaRismaDesignTokens.radiusInput,
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.09),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.person_outline_rounded,
+                              color: CaRismaDesignTokens.bluePrimary,
+                              size: 22,
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Profil ansehen',
+                                style: TextStyle(
+                                  color: CaRismaDesignTokens.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: CaRismaDesignTokens.textSecondary,
+                              size: 24,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -3157,7 +3769,7 @@ class _ChatProfileChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: Colors.white.withValues(alpha: 0.08),
+        color: CaRismaDesignTokens.card,
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Row(
@@ -3200,12 +3812,14 @@ class _ChatProfileStat extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         borderRadius: BorderRadius.circular(18),
         child: Ink(
           padding: const EdgeInsets.symmetric(vertical: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.07),
+            color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
           ),
           child: Column(
@@ -3309,10 +3923,7 @@ class _ChatProfileMediaPreview extends StatelessWidget {
           onTap: () => onOpenMessage(messages[index]),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15),
-            child: Container(
-              color: Colors.white.withValues(alpha: 0.08),
-              child: image,
-            ),
+            child: Container(color: CaRismaDesignTokens.card, child: image),
           ),
         );
       },
@@ -3635,7 +4246,7 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         Container(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: CaRismaDesignTokens.card,
                           child: _buildImage(imageUrl),
                         ),
                         if (isSelectionMode)
@@ -3972,7 +4583,7 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
   Future<void> _showItemActions(BuildContext context, int index) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF101827),
+      backgroundColor: CaRismaDesignTokens.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -4255,7 +4866,7 @@ class _ChatProfileCollectionShellBodyState
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF101827),
+                      color: CaRismaDesignTokens.background,
                       border: Border(
                         top: BorderSide(
                           color: Colors.white.withValues(alpha: 0.09),
@@ -4324,7 +4935,7 @@ class _ChatProfileSelectionButton extends StatelessWidget {
       label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       style: TextButton.styleFrom(
         foregroundColor: Colors.white,
-        backgroundColor: Colors.white.withValues(alpha: 0.08),
+        backgroundColor: CaRismaDesignTokens.card,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
@@ -4405,7 +5016,7 @@ class _ChatProfileListTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white.withValues(alpha: 0.06),
+        color: CaRismaDesignTokens.card,
         border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
       ),
       child: Row(
@@ -4456,7 +5067,7 @@ class _ChatProfileEmptyRow extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white.withValues(alpha: 0.04),
+        color: CaRismaDesignTokens.card,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
@@ -4471,6 +5082,238 @@ class _ChatProfileEmptyRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatVideoPreviewDialog extends StatefulWidget {
+  const _ChatVideoPreviewDialog({required this.file});
+
+  final File file;
+
+  @override
+  State<_ChatVideoPreviewDialog> createState() =>
+      _ChatVideoPreviewDialogState();
+}
+
+class _ChatVideoPreviewDialogState extends State<_ChatVideoPreviewDialog> {
+  late final VideoPlayerController _controller;
+  final TextEditingController _captionController = TextEditingController();
+  bool _isReady = false;
+  bool _isViewOnce = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(widget.file)
+      ..addListener(_handlePlayerChanged);
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await _controller.initialize().timeout(const Duration(seconds: 12));
+
+      if (!mounted) {
+        return;
+      }
+
+      final durationMs = _controller.value.duration.inMilliseconds;
+      setState(() {
+        _isReady = durationMs > 0;
+        _errorMessage = durationMs > 0
+            ? null
+            : 'Das Video konnte nicht gelesen werden.';
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage =
+              'Die Videovorschau konnte nicht geladen werden. Bitte versuche es mit einem anderen Video.';
+        });
+      }
+    }
+  }
+
+  void _handlePlayerChanged() {
+    if (mounted && _isReady) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _togglePlayback() async {
+    if (!_isReady) {
+      return;
+    }
+
+    if (_controller.value.isPlaying) {
+      await _controller.pause();
+    } else {
+      if (_controller.value.position >= _controller.value.duration) {
+        await _controller.seekTo(Duration.zero);
+      }
+      await _controller.play();
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.toString();
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_handlePlayerChanged);
+    _controller.dispose();
+    _captionController.dispose();
+    super.dispose();
+  }
+
+  void _complete() {
+    if (!_isReady) {
+      return;
+    }
+
+    Navigator.of(context).pop(
+      _ChatVideoPreviewResult(
+        durationMs: _controller.value.duration.inMilliseconds,
+        caption: _captionController.text.trim(),
+        isViewOnce: _isViewOnce,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = _controller.value.duration;
+
+    return Scaffold(
+      backgroundColor: CaRismaDesignTokens.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 10, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Abbrechen',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.white,
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Video prüfen',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: _errorMessage != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          _errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      )
+                    : !_isReady
+                    ? const CircularProgressIndicator()
+                    : GestureDetector(
+                        onTap: _togglePlayback,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            AspectRatio(
+                              aspectRatio: _controller.value.aspectRatio > 0
+                                  ? _controller.value.aspectRatio
+                                  : 16 / 9,
+                              child: VideoPlayer(_controller),
+                            ),
+                            AnimatedOpacity(
+                              opacity: _controller.value.isPlaying ? 0 : 1,
+                              duration: const Duration(milliseconds: 160),
+                              child: Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.black.withValues(alpha: 0.62),
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 38,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+            if (_isReady)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: _controller.value.isPlaying
+                          ? 'Pausieren'
+                          : 'Abspielen',
+                      onPressed: _togglePlayback,
+                      icon: Icon(
+                        _controller.value.isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                      ),
+                      color: Colors.white,
+                    ),
+                    Expanded(
+                      child: VideoProgressIndicator(
+                        _controller,
+                        allowScrubbing: true,
+                        colors: const VideoProgressColors(
+                          playedColor: CaRismaDesignTokens.bluePrimary,
+                          bufferedColor: Colors.white24,
+                          backgroundColor: Colors.white12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _formatDuration(duration),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            _ChatMediaSendBar(
+              controller: _captionController,
+              isViewOnce: _isViewOnce,
+              isBusy: false,
+              onToggleViewOnce: () {
+                setState(() => _isViewOnce = !_isViewOnce);
+              },
+              onSend: _complete,
+            ),
+          ],
+        ),
       ),
     );
   }

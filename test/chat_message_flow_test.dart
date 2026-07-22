@@ -59,5 +59,89 @@ void main() {
       );
       expect(await repository.loadMessages(chatId: chat.id), isEmpty);
     });
+
+    test('hides a received message only for the acting user', () async {
+      final repository = LocalChatRepository();
+      final chat = await repository.createChat(
+        participants: const ['receiver', 'sender'],
+        requestId: 'request-id',
+      );
+      final message = await repository.sendTextMessage(
+        chatId: chat.id,
+        senderUserId: 'sender',
+        text: 'Nur lokal löschen',
+      );
+
+      await repository.deleteMessageForUser(
+        chatId: chat.id,
+        messageId: message.id,
+        userId: 'receiver',
+      );
+
+      final storedMessage = (await repository.loadMessages(
+        chatId: chat.id,
+      )).single;
+      expect(storedMessage.isDeleted, isFalse);
+      expect(storedMessage.isDeletedFor('receiver'), isTrue);
+      expect(storedMessage.isDeletedFor('sender'), isFalse);
+    });
+
+    test(
+      'allows only the sender to delete a recent message for everyone',
+      () async {
+        final repository = LocalChatRepository();
+        final chat = await repository.createChat(
+          participants: const ['receiver', 'sender'],
+          requestId: 'request-id',
+        );
+        final message = await repository.sendTextMessage(
+          chatId: chat.id,
+          senderUserId: 'sender',
+          text: 'Für alle löschen',
+        );
+
+        await expectLater(
+          repository.deleteMessageForEveryone(
+            chatId: chat.id,
+            messageId: message.id,
+            userId: 'receiver',
+          ),
+          throwsStateError,
+        );
+
+        await repository.deleteMessageForEveryone(
+          chatId: chat.id,
+          messageId: message.id,
+          userId: 'sender',
+        );
+
+        expect(await repository.loadMessages(chatId: chat.id), isEmpty);
+      },
+    );
+
+    test('limits delete for everyone to 48 hours', () {
+      final now = DateTime(2026, 7, 22, 12);
+      final recent = ChatMessageRecord(
+        id: 'recent',
+        chatId: 'chat',
+        senderUserId: 'sender',
+        type: ChatMessageType.text,
+        text: 'Neu',
+        createdAt: now.subtract(const Duration(hours: 47)),
+        updatedAt: now,
+      );
+      final expired = ChatMessageRecord(
+        id: 'expired',
+        chatId: 'chat',
+        senderUserId: 'sender',
+        type: ChatMessageType.text,
+        text: 'Alt',
+        createdAt: now.subtract(const Duration(hours: 49)),
+        updatedAt: now,
+      );
+
+      expect(canDeleteChatMessageForEveryone(recent, now: now), isTrue);
+      expect(canDeleteChatMessageForEveryone(expired, now: now), isFalse);
+    });
   });
 }

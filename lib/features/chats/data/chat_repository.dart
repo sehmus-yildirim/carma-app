@@ -5,12 +5,23 @@ import '../../../shared/firebase/carisma_firestore_schema.dart';
 
 enum ChatStatus { active, archived, blocked, deleted }
 
-enum ChatMessageType { text, image, document, audio, location, contact, system }
+enum ChatMessageType {
+  text,
+  image,
+  document,
+  audio,
+  video,
+  location,
+  contact,
+  system,
+}
 
 const int _maxChatImageCaptionLength = 1000;
 const int _maxChatDocumentBytes = 25 * 1024 * 1024;
 const int _maxChatVoiceMemoBytes = 15 * 1024 * 1024;
 const int _maxChatVoiceMemoDurationMs = 10 * 60 * 1000;
+const int _maxChatVideoBytes = 80 * 1024 * 1024;
+const int _maxChatVideoDurationMs = 5 * 60 * 1000;
 const Set<String> _allowedChatDocumentContentTypes = {
   'application/pdf',
   'application/msword',
@@ -367,6 +378,16 @@ class ChatRecord {
   }
 }
 
+const Duration chatMessageDeleteForEveryoneWindow = Duration(hours: 48);
+
+bool canDeleteChatMessageForEveryone(
+  ChatMessageRecord message, {
+  DateTime? now,
+}) {
+  final age = (now ?? DateTime.now()).difference(message.createdAt);
+  return !age.isNegative && age <= chatMessageDeleteForEveryoneWindow;
+}
+
 class ChatMessageRecord {
   const ChatMessageRecord({
     required this.id,
@@ -388,7 +409,10 @@ class ChatMessageRecord {
     this.fileContentType,
     this.fileSizeBytes,
     this.fileDurationMs,
+    this.isViewOnce = false,
+    this.viewOnceOpenedAtBy = const <String, DateTime>{},
     this.reactionBy = const <String, String>{},
+    this.deletedFor = const <String, bool>{},
   });
 
   final String id;
@@ -410,10 +434,21 @@ class ChatMessageRecord {
   final String? fileContentType;
   final int? fileSizeBytes;
   final int? fileDurationMs;
+  final bool isViewOnce;
+  final Map<String, DateTime> viewOnceOpenedAtBy;
   final Map<String, String> reactionBy;
+  final Map<String, bool> deletedFor;
 
   bool get isSystem {
     return type == ChatMessageType.system;
+  }
+
+  bool isDeletedFor(String userId) {
+    return deletedFor[userId.trim()] == true;
+  }
+
+  bool isViewOnceOpenedFor(String userId) {
+    return viewOnceOpenedAtBy.containsKey(userId.trim());
   }
 
   ChatMessageRecord copyWith({
@@ -436,7 +471,10 @@ class ChatMessageRecord {
     String? fileContentType,
     int? fileSizeBytes,
     int? fileDurationMs,
+    bool? isViewOnce,
+    Map<String, DateTime>? viewOnceOpenedAtBy,
     Map<String, String>? reactionBy,
+    Map<String, bool>? deletedFor,
   }) {
     return ChatMessageRecord(
       id: id ?? this.id,
@@ -458,7 +496,10 @@ class ChatMessageRecord {
       fileContentType: fileContentType ?? this.fileContentType,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
       fileDurationMs: fileDurationMs ?? this.fileDurationMs,
+      isViewOnce: isViewOnce ?? this.isViewOnce,
+      viewOnceOpenedAtBy: viewOnceOpenedAtBy ?? this.viewOnceOpenedAtBy,
       reactionBy: reactionBy ?? this.reactionBy,
+      deletedFor: deletedFor ?? this.deletedFor,
     );
   }
 }
@@ -512,6 +553,7 @@ abstract class ChatRepository {
     required String imageUrl,
     required String imagePath,
     String? caption,
+    bool isViewOnce = false,
   });
 
   Future<ChatMessageRecord> sendDocumentMessage({
@@ -535,6 +577,20 @@ abstract class ChatRepository {
     required int fileSizeBytes,
     required int fileDurationMs,
     String? fileContentType,
+  });
+
+  Future<ChatMessageRecord> sendVideoMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    required int fileDurationMs,
+    String? fileContentType,
+    String? caption,
+    bool isViewOnce = false,
   });
 
   Future<ChatMessageRecord> addSystemMessage({
@@ -564,9 +620,16 @@ abstract class ChatRepository {
     required String userId,
   });
 
-  Future<void> deleteMessage({
+  Future<void> deleteMessageForUser({
     required String chatId,
     required String messageId,
+    required String userId,
+  });
+
+  Future<void> deleteMessageForEveryone({
+    required String chatId,
+    required String messageId,
+    required String userId,
   });
 
   Future<void> setMessageStarred({
@@ -586,6 +649,12 @@ abstract class ChatRepository {
     required String messageId,
     required String userId,
     required String reaction,
+  });
+
+  Future<bool> markViewOnceMediaOpened({
+    required String chatId,
+    required String messageId,
+    required String userId,
   });
 }
 
@@ -1242,6 +1311,7 @@ class FirestoreChatRepository implements ChatRepository {
     required String imageUrl,
     required String imagePath,
     String? caption,
+    bool isViewOnce = false,
   }) async {
     final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
     final trimmedMessageId = _requiredChatAttachmentId(
@@ -1299,6 +1369,8 @@ class FirestoreChatRepository implements ChatRepository {
         'text': messageText,
         'imageUrl': trimmedImageUrl,
         'imagePath': trimmedImagePath,
+        'isViewOnce': isViewOnce,
+        'viewOnceOpenedAtBy': <String, Timestamp>{},
         'createdAt': timestamp,
         'updatedAt': timestamp,
         'isDeleted': false,
@@ -1331,6 +1403,7 @@ class FirestoreChatRepository implements ChatRepository {
       text: messageText,
       imageUrl: trimmedImageUrl,
       imagePath: trimmedImagePath,
+      isViewOnce: isViewOnce,
       createdAt: now,
       updatedAt: now,
     );
@@ -1590,6 +1663,146 @@ class FirestoreChatRepository implements ChatRepository {
       fileContentType: trimmedContentType,
       fileSizeBytes: fileSizeBytes,
       fileDurationMs: fileDurationMs,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  @override
+  Future<ChatMessageRecord> sendVideoMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    required int fileDurationMs,
+    String? fileContentType,
+    String? caption,
+    bool isViewOnce = false,
+  }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
+    final trimmedFileUrl = fileUrl.trim();
+    final trimmedFilePath = filePath.trim();
+    final trimmedFileName = fileName.trim();
+    final trimmedContentType = fileContentType?.trim().toLowerCase() ?? '';
+    final trimmedCaption = caption?.trim() ?? '';
+
+    if (trimmedFileUrl.isEmpty ||
+        trimmedFilePath.isEmpty ||
+        trimmedFileName.isEmpty) {
+      throw ArgumentError(
+        'Video-URL, Dateipfad und Dateiname dürfen nicht leer sein.',
+      );
+    }
+
+    if (trimmedFileName.length > 160) {
+      throw ArgumentError('Der Dateiname ist zu lang.');
+    }
+
+    if (fileSizeBytes <= 0 || fileSizeBytes > _maxChatVideoBytes) {
+      throw ArgumentError('Die Videogröße ist ungültig.');
+    }
+
+    if (fileDurationMs <= 0 || fileDurationMs > _maxChatVideoDurationMs) {
+      throw ArgumentError('Die Videodauer ist ungültig.');
+    }
+
+    if (trimmedContentType != 'video/mp4') {
+      throw ArgumentError('Das Videoformat wird nicht unterstützt.');
+    }
+
+    if (trimmedCaption.length > _maxChatImageCaptionLength) {
+      throw ArgumentError('Die Videobeschreibung ist zu lang.');
+    }
+
+    final expectedPath =
+        'chat_videos/$trimmedChatId/$trimmedSenderUserId/'
+        '$trimmedMessageId.mp4';
+
+    if (trimmedFilePath != expectedPath) {
+      throw ArgumentError('Der Videopfad passt nicht zur Nachricht.');
+    }
+
+    final now = DateTime.now();
+    final timestamp = Timestamp.fromDate(now);
+    final messageDocument = _messagesCollection(
+      trimmedChatId,
+    ).doc(trimmedMessageId);
+    final messageText = trimmedCaption.isEmpty ? 'Video' : trimmedCaption;
+
+    await _firestore.runTransaction((transaction) async {
+      final chatDocument = _chatsCollection.doc(trimmedChatId);
+      final chatSnapshot = await transaction.get(chatDocument);
+      final messageSnapshot = await transaction.get(messageDocument);
+      final participantIds = _requireSendableAttachmentChat(
+        chatSnapshot: chatSnapshot,
+        senderUserId: trimmedSenderUserId,
+      );
+
+      if (messageSnapshot.exists) {
+        throw StateError('Diese Nachricht wurde bereits gesendet.');
+      }
+
+      transaction.set(messageDocument, {
+        'chatId': trimmedChatId,
+        'senderUserId': trimmedSenderUserId,
+        'type': ChatMessageType.video.name,
+        'text': messageText,
+        'fileUrl': trimmedFileUrl,
+        'filePath': trimmedFilePath,
+        'fileName': trimmedFileName,
+        'fileContentType': trimmedContentType,
+        'fileSizeBytes': fileSizeBytes,
+        'fileDurationMs': fileDurationMs,
+        'isViewOnce': isViewOnce,
+        'viewOnceOpenedAtBy': <String, Timestamp>{},
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
+        'isDeleted': false,
+      });
+
+      transaction.set(chatDocument, {
+        'lastMessage': messageText,
+        'lastMessageAt': timestamp,
+        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        'manualUnreadBy': {trimmedSenderUserId: false},
+        'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
+        if (participantIds.isNotEmpty)
+          'archivedBy': {
+            for (final participantId in participantIds) participantId: false,
+          },
+        if (participantIds.isNotEmpty)
+          'archivedUpdatedAtBy': {
+            for (final participantId in participantIds)
+              participantId: timestamp,
+          },
+        'updatedAt': timestamp,
+      }, SetOptions(merge: true));
+    });
+
+    return ChatMessageRecord(
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      type: ChatMessageType.video,
+      text: messageText,
+      fileUrl: trimmedFileUrl,
+      filePath: trimmedFilePath,
+      fileName: trimmedFileName,
+      fileContentType: trimmedContentType,
+      fileSizeBytes: fileSizeBytes,
+      fileDurationMs: fileDurationMs,
+      isViewOnce: isViewOnce,
       createdAt: now,
       updatedAt: now,
     );
@@ -2023,21 +2236,68 @@ class FirestoreChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> deleteMessage({
+  Future<void> deleteMessageForUser({
     required String chatId,
     required String messageId,
+    required String userId,
   }) async {
     final trimmedChatId = chatId.trim();
     final trimmedMessageId = messageId.trim();
+    final trimmedUserId = userId.trim();
 
-    if (trimmedChatId.isEmpty || trimmedMessageId.isEmpty) {
-      throw ArgumentError('Chat ID and message ID must not be empty.');
+    if (trimmedChatId.isEmpty ||
+        trimmedMessageId.isEmpty ||
+        trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat-, Nachrichten- und Nutzer-ID fehlen.');
     }
 
-    await _messagesCollection(trimmedChatId).doc(trimmedMessageId).set({
+    await _messagesCollection(trimmedChatId).doc(trimmedMessageId).update({
+      'deletedFor.$trimmedUserId': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
+  Future<void> deleteMessageForEveryone({
+    required String chatId,
+    required String messageId,
+    required String userId,
+  }) async {
+    final trimmedChatId = chatId.trim();
+    final trimmedMessageId = messageId.trim();
+    final trimmedUserId = userId.trim();
+
+    if (trimmedChatId.isEmpty ||
+        trimmedMessageId.isEmpty ||
+        trimmedUserId.isEmpty) {
+      throw ArgumentError('Chat-, Nachrichten- und Nutzer-ID fehlen.');
+    }
+
+    final messageDocument = _messagesCollection(
+      trimmedChatId,
+    ).doc(trimmedMessageId);
+    final messageSnapshot = await messageDocument.get();
+
+    if (!messageSnapshot.exists) {
+      throw StateError('Die Nachricht wurde nicht gefunden.');
+    }
+
+    final message = _messageFromSnapshot(messageSnapshot);
+
+    if (message.senderUserId != trimmedUserId) {
+      throw StateError('Du kannst diese Nachricht nur für dich löschen.');
+    }
+
+    if (!canDeleteChatMessageForEveryone(message)) {
+      throw StateError(
+        'Diese Nachricht kann nicht mehr für alle gelöscht werden.',
+      );
+    }
+
+    await messageDocument.update({
       'isDeleted': true,
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
 
     final latestSnapshot = await _messagesCollection(
       trimmedChatId,
@@ -2105,6 +2365,75 @@ class FirestoreChatRepository implements ChatRepository {
     });
   }
 
+  @override
+  Future<bool> markViewOnceMediaOpened({
+    required String chatId,
+    required String messageId,
+    required String userId,
+  }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedUserId = _requiredChatAttachmentId(userId, 'Nutzer-ID');
+    final chatDocument = _chatsCollection.doc(trimmedChatId);
+    final messageDocument = _messagesCollection(
+      trimmedChatId,
+    ).doc(trimmedMessageId);
+
+    return _firestore.runTransaction<bool>((transaction) async {
+      final chatSnapshot = await transaction.get(chatDocument);
+      final messageSnapshot = await transaction.get(messageDocument);
+      _requireSendableAttachmentChat(
+        chatSnapshot: chatSnapshot,
+        senderUserId: trimmedUserId,
+      );
+
+      final data = messageSnapshot.data();
+
+      if (!messageSnapshot.exists || data == null) {
+        throw StateError('Die Mediennachricht wurde nicht gefunden.');
+      }
+
+      final type = _messageTypeFromName(data['type'] as String?);
+      final senderUserId = _stringFromValue(data['senderUserId']);
+      final isViewOnce = data['isViewOnce'] as bool? ?? false;
+      final isDeleted = data['isDeleted'] as bool? ?? false;
+
+      if (!isViewOnce ||
+          isDeleted ||
+          (type != ChatMessageType.image && type != ChatMessageType.video)) {
+        throw StateError('Diese Nachricht ist kein Einmal-Medium.');
+      }
+
+      if (senderUserId == trimmedUserId) {
+        throw StateError(
+          'Eigene Einmal-Medien können nicht erneut geöffnet werden.',
+        );
+      }
+
+      final openedAtBy = _dateTimeMapFromValue(data['viewOnceOpenedAtBy']);
+
+      if (openedAtBy.containsKey(trimmedUserId)) {
+        return false;
+      }
+
+      final now = DateTime.now();
+      final nextOpenedAtBy = <String, Timestamp>{
+        for (final entry in openedAtBy.entries)
+          entry.key: Timestamp.fromDate(entry.value),
+        trimmedUserId: Timestamp.fromDate(now),
+      };
+
+      transaction.update(messageDocument, {
+        'viewOnceOpenedAtBy': nextOpenedAtBy,
+        'updatedAt': Timestamp.fromDate(now),
+      });
+      return true;
+    });
+  }
+
   CollectionReference<Map<String, dynamic>> _messagesCollection(String chatId) {
     return _chatsCollection
         .doc(chatId)
@@ -2119,25 +2448,25 @@ class FirestoreChatRepository implements ChatRepository {
     return ChatRecord(
       id: snapshot.id,
       participants: _stringListFromValue(data['participants']),
-      status: _chatStatusFromName(data['status'] as String?),
+      status: _chatStatusFromName(_stringFromValue(data['status'])),
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       updatedAt: _dateTimeFromValue(data['updatedAt']) ?? DateTime(1970),
-      requestId: data['requestId'] as String?,
-      lastMessage: data['lastMessage'] as String?,
+      requestId: _stringFromValue(data['requestId']),
+      lastMessage: _stringFromValue(data['lastMessage']),
       lastMessageAt: _dateTimeFromValue(data['lastMessageAt']),
-      senderUserId: data['senderUserId'] as String?,
-      receiverUserId: data['receiverUserId'] as String?,
-      senderDisplayName: data['senderDisplayName'] as String?,
-      receiverDisplayName: data['receiverDisplayName'] as String?,
-      senderPhotoUrl: data['senderPhotoUrl'] as String?,
-      receiverPhotoUrl: data['receiverPhotoUrl'] as String?,
-      blockedBy: data['blockedBy'] as String?,
+      senderUserId: _stringFromValue(data['senderUserId']),
+      receiverUserId: _stringFromValue(data['receiverUserId']),
+      senderDisplayName: _stringFromValue(data['senderDisplayName']),
+      receiverDisplayName: _stringFromValue(data['receiverDisplayName']),
+      senderPhotoUrl: _stringFromValue(data['senderPhotoUrl']),
+      receiverPhotoUrl: _stringFromValue(data['receiverPhotoUrl']),
+      blockedBy: _stringFromValue(data['blockedBy']),
       blockedAt: _dateTimeFromValue(data['blockedAt']),
-      displayPlate: data['displayPlate'] as String?,
-      vehicleBrand: data['vehicleBrand'] as String?,
-      vehicleModel: data['vehicleModel'] as String?,
-      vehicleColor: data['vehicleColor'] as String?,
-      vehicleLabel: data['vehicleLabel'] as String?,
+      displayPlate: _stringFromValue(data['displayPlate']),
+      vehicleBrand: _stringFromValue(data['vehicleBrand']),
+      vehicleModel: _stringFromValue(data['vehicleModel']),
+      vehicleColor: _stringFromValue(data['vehicleColor']),
+      vehicleLabel: _stringFromValue(data['vehicleLabel']),
       favoriteBy: _boolMapFromValue(data['favoriteBy']),
       pinnedBy: _boolMapFromValue(data['pinnedBy']),
       mutedBy: _boolMapFromValue(data['mutedBy']),
@@ -2173,10 +2502,13 @@ class FirestoreChatRepository implements ChatRepository {
       fileContentType: data['fileContentType'] as String?,
       fileSizeBytes: _intFromValue(data['fileSizeBytes']),
       fileDurationMs: _intFromValue(data['fileDurationMs']),
+      isViewOnce: data['isViewOnce'] as bool? ?? false,
+      viewOnceOpenedAtBy: _dateTimeMapFromValue(data['viewOnceOpenedAtBy']),
       reactionBy: _stringMapFromValue(
         data['reactionBy'],
         allowedValues: _allowedMessageReactions,
       ),
+      deletedFor: _boolMapFromValue(data['deletedFor']),
     );
   }
 
@@ -2219,6 +2551,10 @@ class FirestoreChatRepository implements ChatRepository {
     }
 
     return const <String>[];
+  }
+
+  static String? _stringFromValue(Object? value) {
+    return value is String ? value : null;
   }
 
   static Map<String, bool> _boolMapFromValue(Object? value) {
@@ -2587,6 +2923,7 @@ class LocalChatRepository implements ChatRepository {
     required String imageUrl,
     required String imagePath,
     String? caption,
+    bool isViewOnce = false,
   }) async {
     final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
     final trimmedMessageId = _requiredChatAttachmentId(
@@ -2628,6 +2965,7 @@ class LocalChatRepository implements ChatRepository {
       text: messageText,
       imageUrl: trimmedImageUrl,
       imagePath: trimmedImagePath,
+      isViewOnce: isViewOnce,
       createdAt: now,
       updatedAt: now,
     );
@@ -2795,6 +3133,98 @@ class LocalChatRepository implements ChatRepository {
       fileContentType: trimmedContentType,
       fileSizeBytes: fileSizeBytes,
       fileDurationMs: fileDurationMs,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _messages.add(message);
+    _updateChatLastMessage(
+      chatId: trimmedChatId,
+      lastMessage: messageText,
+      timestamp: now,
+      clearArchivedForParticipants: true,
+      readByUserId: trimmedSenderUserId,
+    );
+
+    return message;
+  }
+
+  @override
+  Future<ChatMessageRecord> sendVideoMessage({
+    required String chatId,
+    required String messageId,
+    required String senderUserId,
+    required String fileUrl,
+    required String filePath,
+    required String fileName,
+    required int fileSizeBytes,
+    required int fileDurationMs,
+    String? fileContentType,
+    String? caption,
+    bool isViewOnce = false,
+  }) async {
+    final trimmedChatId = _requiredChatAttachmentId(chatId, 'Chat-ID');
+    final trimmedMessageId = _requiredChatAttachmentId(
+      messageId,
+      'Nachrichten-ID',
+    );
+    final trimmedSenderUserId = _requiredChatAttachmentId(
+      senderUserId,
+      'Absender-ID',
+    );
+    final trimmedFileUrl = fileUrl.trim();
+    final trimmedFilePath = filePath.trim();
+    final trimmedFileName = fileName.trim();
+    final trimmedContentType = fileContentType?.trim().toLowerCase() ?? '';
+    final trimmedCaption = caption?.trim() ?? '';
+    final expectedPath =
+        'chat_videos/$trimmedChatId/$trimmedSenderUserId/'
+        '$trimmedMessageId.mp4';
+
+    _requireLocalAttachmentChat(
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      messageId: trimmedMessageId,
+    );
+
+    if (trimmedFileUrl.isEmpty ||
+        trimmedFilePath != expectedPath ||
+        trimmedFileName.isEmpty ||
+        trimmedFileName.length > 160) {
+      throw ArgumentError('Die Video-Metadaten sind ungültig.');
+    }
+
+    if (fileSizeBytes <= 0 || fileSizeBytes > _maxChatVideoBytes) {
+      throw ArgumentError('Die Videogröße ist ungültig.');
+    }
+
+    if (fileDurationMs <= 0 || fileDurationMs > _maxChatVideoDurationMs) {
+      throw ArgumentError('Die Videodauer ist ungültig.');
+    }
+
+    if (trimmedContentType != 'video/mp4') {
+      throw ArgumentError('Das Videoformat wird nicht unterstützt.');
+    }
+
+    if (trimmedCaption.length > _maxChatImageCaptionLength) {
+      throw ArgumentError('Die Videobeschreibung ist zu lang.');
+    }
+
+    final now = DateTime.now();
+    final messageText = trimmedCaption.isEmpty ? 'Video' : trimmedCaption;
+    final message = ChatMessageRecord(
+      id: trimmedMessageId,
+      chatId: trimmedChatId,
+      senderUserId: trimmedSenderUserId,
+      type: ChatMessageType.video,
+      text: messageText,
+      fileUrl: trimmedFileUrl,
+      filePath: trimmedFilePath,
+      fileName: trimmedFileName,
+      fileContentType: trimmedContentType,
+      fileSizeBytes: fileSizeBytes,
+      fileDurationMs: fileDurationMs,
+      isViewOnce: isViewOnce,
       createdAt: now,
       updatedAt: now,
     );
@@ -3159,10 +3589,74 @@ class LocalChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> deleteMessage({
+  Future<bool> markViewOnceMediaOpened({
     required String chatId,
     required String messageId,
+    required String userId,
   }) async {
+    final trimmedUserId = userId.trim();
+    final index = _messages.indexWhere(
+      (message) => message.chatId == chatId && message.id == messageId,
+    );
+
+    if (trimmedUserId.isEmpty) {
+      throw ArgumentError('Die Nutzer-ID fehlt.');
+    }
+
+    if (index < 0) {
+      throw StateError('Die Mediennachricht wurde nicht gefunden.');
+    }
+
+    final chatIndex = _chats.indexWhere((chat) => chat.id == chatId);
+
+    if (chatIndex < 0) {
+      throw StateError('Der Chat wurde nicht gefunden.');
+    }
+
+    _requireLocalChatActionParticipant(index: chatIndex, userId: trimmedUserId);
+
+    final message = _messages[index];
+
+    if (!message.isViewOnce ||
+        message.isDeleted ||
+        (message.type != ChatMessageType.image &&
+            message.type != ChatMessageType.video)) {
+      throw StateError('Diese Nachricht ist kein Einmal-Medium.');
+    }
+
+    if (message.senderUserId == trimmedUserId) {
+      throw StateError(
+        'Eigene Einmal-Medien können nicht erneut geöffnet werden.',
+      );
+    }
+
+    if (message.isViewOnceOpenedFor(trimmedUserId)) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    _messages[index] = message.copyWith(
+      viewOnceOpenedAtBy: <String, DateTime>{
+        ...message.viewOnceOpenedAtBy,
+        trimmedUserId: now,
+      },
+      updatedAt: now,
+    );
+    return true;
+  }
+
+  @override
+  Future<void> deleteMessageForUser({
+    required String chatId,
+    required String messageId,
+    required String userId,
+  }) async {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty) {
+      throw ArgumentError('Die Nutzer-ID fehlt.');
+    }
+
     final index = _messages.indexWhere(
       (message) => message.chatId == chatId && message.id == messageId,
     );
@@ -3171,7 +3665,45 @@ class LocalChatRepository implements ChatRepository {
       throw StateError('Message not found: $messageId');
     }
 
-    _messages[index] = _messages[index].copyWith(isDeleted: true);
+    final deletedFor = Map<String, bool>.from(_messages[index].deletedFor)
+      ..[trimmedUserId] = true;
+    _messages[index] = _messages[index].copyWith(
+      deletedFor: deletedFor,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> deleteMessageForEveryone({
+    required String chatId,
+    required String messageId,
+    required String userId,
+  }) async {
+    final trimmedUserId = userId.trim();
+    final index = _messages.indexWhere(
+      (message) => message.chatId == chatId && message.id == messageId,
+    );
+
+    if (index < 0) {
+      throw StateError('Message not found: $messageId');
+    }
+
+    final message = _messages[index];
+
+    if (trimmedUserId.isEmpty || message.senderUserId != trimmedUserId) {
+      throw StateError('Du kannst diese Nachricht nur für dich löschen.');
+    }
+
+    if (!canDeleteChatMessageForEveryone(message)) {
+      throw StateError(
+        'Diese Nachricht kann nicht mehr für alle gelöscht werden.',
+      );
+    }
+
+    _messages[index] = message.copyWith(
+      isDeleted: true,
+      updatedAt: DateTime.now(),
+    );
 
     final latestMessages =
         _messages

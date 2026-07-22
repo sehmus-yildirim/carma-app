@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('chat attachment flow', () {
-    test('stores image, document and voice metadata exactly once', () async {
+    test('stores image, document, voice and video metadata once', () async {
       final repository = LocalChatRepository();
       final chat = await repository.createChat(
         participants: const ['receiver', 'sender'],
@@ -42,11 +42,22 @@ void main() {
         fileDurationMs: 3500,
         fileContentType: 'audio/mp4',
       );
+      final video = await repository.sendVideoMessage(
+        chatId: chat.id,
+        messageId: 'video-message',
+        senderUserId: 'sender',
+        fileUrl: 'https://example.invalid/video.mp4',
+        filePath: 'chat_videos/${chat.id}/sender/video-message.mp4',
+        fileName: 'Video.mp4',
+        fileSizeBytes: 4 * 1024 * 1024,
+        fileDurationMs: 12500,
+        fileContentType: 'video/mp4',
+      );
 
       final messages = await repository.loadMessages(chatId: chat.id);
       final updatedChat = await repository.loadChat(chatId: chat.id);
 
-      expect(messages, hasLength(3));
+      expect(messages, hasLength(4));
       expect(image.id, 'image-message');
       expect(image.type, ChatMessageType.image);
       expect(document.id, 'document-message');
@@ -56,8 +67,67 @@ void main() {
       expect(audio.id, 'audio-message');
       expect(audio.type, ChatMessageType.audio);
       expect(audio.fileDurationMs, 3500);
-      expect(updatedChat?.lastMessage, 'Sprachnachricht');
-      expect(updatedChat?.lastReadAtBy['sender'], audio.createdAt);
+      expect(video.id, 'video-message');
+      expect(video.type, ChatMessageType.video);
+      expect(video.filePath, 'chat_videos/${chat.id}/sender/video-message.mp4');
+      expect(video.fileContentType, 'video/mp4');
+      expect(video.fileSizeBytes, 4 * 1024 * 1024);
+      expect(video.fileDurationMs, 12500);
+      expect(updatedChat?.lastMessage, 'Video');
+      expect(updatedChat?.lastReadAtBy['sender'], video.createdAt);
+    });
+
+    test('rejects invalid video metadata and duplicate video IDs', () async {
+      final repository = LocalChatRepository();
+      final chat = await repository.createChat(
+        participants: const ['receiver', 'sender'],
+        requestId: 'video-validation-request',
+      );
+
+      Future<ChatMessageRecord> sendVideo({
+        String messageId = 'video-message',
+        String filePath = '',
+        String contentType = 'video/mp4',
+        int fileSizeBytes = 1024,
+        int durationMs = 5000,
+      }) {
+        final resolvedPath = filePath.isEmpty
+            ? 'chat_videos/${chat.id}/sender/$messageId.mp4'
+            : filePath;
+        return repository.sendVideoMessage(
+          chatId: chat.id,
+          messageId: messageId,
+          senderUserId: 'sender',
+          fileUrl: 'https://example.invalid/$messageId.mp4',
+          filePath: resolvedPath,
+          fileName: 'Video.mp4',
+          fileSizeBytes: fileSizeBytes,
+          fileDurationMs: durationMs,
+          fileContentType: contentType,
+        );
+      }
+
+      await sendVideo();
+      await expectLater(sendVideo(), throwsStateError);
+      await expectLater(
+        sendVideo(
+          messageId: 'wrong-path',
+          filePath: 'chat_videos/${chat.id}/outsider/wrong-path.mp4',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        sendVideo(messageId: 'wrong-type', contentType: 'video/quicktime'),
+        throwsArgumentError,
+      );
+      await expectLater(
+        sendVideo(messageId: 'too-large', fileSizeBytes: 80 * 1024 * 1024 + 1),
+        throwsArgumentError,
+      );
+      await expectLater(
+        sendVideo(messageId: 'too-long', durationMs: 5 * 60 * 1000 + 1),
+        throwsArgumentError,
+      );
     });
 
     test('rejects duplicate IDs, outsiders and deleted chats', () async {
@@ -93,6 +163,57 @@ void main() {
         throwsStateError,
       );
       expect(await repository.loadMessages(chatId: chat.id), hasLength(1));
+    });
+
+    test('opens view-once media exactly once for the receiver', () async {
+      final repository = LocalChatRepository();
+      final chat = await repository.createChat(
+        participants: const ['receiver', 'sender'],
+        requestId: 'view-once-request',
+      );
+
+      final image = await repository.sendImageMessage(
+        chatId: chat.id,
+        messageId: 'view-once-image',
+        senderUserId: 'sender',
+        imageUrl: 'https://example.invalid/view-once.jpg',
+        imagePath: 'chat_images/${chat.id}/sender/view-once-image.jpg',
+        caption: 'Nur einmal ansehen',
+        isViewOnce: true,
+      );
+
+      expect(image.isViewOnce, isTrue);
+      expect(image.text, 'Nur einmal ansehen');
+      expect(image.viewOnceOpenedAtBy, isEmpty);
+
+      expect(
+        await repository.markViewOnceMediaOpened(
+          chatId: chat.id,
+          messageId: image.id,
+          userId: 'receiver',
+        ),
+        isTrue,
+      );
+      expect(
+        await repository.markViewOnceMediaOpened(
+          chatId: chat.id,
+          messageId: image.id,
+          userId: 'receiver',
+        ),
+        isFalse,
+      );
+      await expectLater(
+        repository.markViewOnceMediaOpened(
+          chatId: chat.id,
+          messageId: image.id,
+          userId: 'sender',
+        ),
+        throwsStateError,
+      );
+
+      final stored = (await repository.loadMessages(chatId: chat.id)).single;
+      expect(stored.isViewOnceOpenedFor('receiver'), isTrue);
+      expect(stored.isViewOnceOpenedFor('sender'), isFalse);
     });
 
     test('keeps location and contact payloads structured', () async {

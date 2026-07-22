@@ -287,6 +287,10 @@ class _ChatsOverview extends StatelessWidget {
     required this.onShowMessages,
     required this.onHideArchiveShortcut,
     required this.onOpenChat,
+    required this.onToggleChatRead,
+    required this.onToggleChatPinned,
+    required this.onToggleChatArchived,
+    required this.onShowChatVehicleDetails,
     required this.onOpenLocalChat,
     required this.onAddOwnStory,
     required this.onOpenStory,
@@ -308,6 +312,10 @@ class _ChatsOverview extends StatelessWidget {
   final VoidCallback onShowMessages;
   final VoidCallback onHideArchiveShortcut;
   final ValueChanged<ChatRecord> onOpenChat;
+  final Future<void> Function(ChatRecord chat) onToggleChatRead;
+  final Future<void> Function(ChatRecord chat) onToggleChatPinned;
+  final Future<void> Function(ChatRecord chat) onToggleChatArchived;
+  final Future<void> Function(ChatRecord chat) onShowChatVehicleDetails;
   final VoidCallback onOpenLocalChat;
   final ValueChanged<List<ChatRecord>> onAddOwnStory;
   final void Function(ChatStoryRecord story, List<ChatStoryRecord> stories)
@@ -380,6 +388,7 @@ class _ChatsOverview extends StatelessWidget {
             children: [
               for (final chat in selectedChats) ...[
                 _ActiveChatListTile(
+                  key: ValueKey('chat_${chat.id}_$isArchivedView'),
                   title: chat.displayNameFor(currentUserId),
                   imageUrl: chat.profilePhotoUrlFor(currentUserId),
                   subtitle: chat.lastMessage?.trim().isNotEmpty == true
@@ -389,6 +398,11 @@ class _ChatsOverview extends StatelessWidget {
                   isPinned: chat.isPinnedFor(currentUserId),
                   isMuted: chat.isMutedFor(currentUserId),
                   isUnread: chat.hasUnreadFor(currentUserId),
+                  isArchived: isArchivedView,
+                  onToggleRead: () => onToggleChatRead(chat),
+                  onTogglePinned: () => onToggleChatPinned(chat),
+                  onToggleArchived: () => onToggleChatArchived(chat),
+                  onShowVehicleDetails: () => onShowChatVehicleDetails(chat),
                   trailing: _ChatOverflowMenu(
                     chatId: chat.id,
                     title: chat.displayNameFor(currentUserId),
@@ -952,8 +966,8 @@ class _ChatStoriesStrip extends StatelessWidget {
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          height: 132,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          height: visibleGroups.isEmpty ? 116 : 128,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             color: CaRismaDesignTokens.card,

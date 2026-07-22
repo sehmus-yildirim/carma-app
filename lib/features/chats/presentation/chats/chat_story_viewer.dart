@@ -37,8 +37,11 @@ class _StoryViewerDialog extends StatefulWidget {
 class _StoryViewerDialogState extends State<_StoryViewerDialog>
     with SingleTickerProviderStateMixin {
   late final AnimationController _progressController;
+  final ProfileRepository _profileRepository = ProfileRepository();
   final TextEditingController _replyController = TextEditingController();
   final FocusNode _replyFocusNode = FocusNode();
+  final Map<String, String> _vehicleLabelByOwnerUserId = <String, String>{};
+  final Set<String> _loadingVehicleOwnerUserIds = <String>{};
   Timer? _expirationTimer;
   late final List<ChatStoryRecord> _stories;
   late int _storyIndex;
@@ -89,6 +92,9 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
           ..addStatusListener(_handleProgressStatus)
           ..forward();
     _replyFocusNode.addListener(_handleReplyFocusChanged);
+    if (_stories.isNotEmpty) {
+      unawaited(_loadStoryOwnerVehicleLabel(_story));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -221,9 +227,51 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     setState(() {
       _storyIndex = index;
     });
+    unawaited(_loadStoryOwnerVehicleLabel(_story));
     _replyController.clear();
     widget.onStoryVisible(_story);
     _restartProgress();
+  }
+
+  Future<void> _loadStoryOwnerVehicleLabel(ChatStoryRecord story) async {
+    final ownerUserId = story.ownerUserId.trim();
+
+    if (ownerUserId.isEmpty ||
+        _vehicleLabelByOwnerUserId.containsKey(ownerUserId) ||
+        !_loadingVehicleOwnerUserIds.add(ownerUserId)) {
+      return;
+    }
+
+    var vehicleLabel = 'Fahrzeug nicht angegeben';
+
+    try {
+      final profile = ownerUserId == _currentUserId
+          ? await _profileRepository.getProfile(ownerUserId)
+          : await _profileRepository.watchPublicProfile(ownerUserId).first;
+      final vehicleParts = <String>[
+        if ((profile?.vehicleBrand ?? '').trim().isNotEmpty)
+          profile!.vehicleBrand!.trim(),
+        if ((profile?.vehicleModel ?? '').trim().isNotEmpty)
+          profile!.vehicleModel!.trim(),
+      ];
+      final loadedLabel = vehicleParts.join(' ').trim();
+
+      if (loadedLabel.isNotEmpty) {
+        vehicleLabel = loadedLabel;
+      }
+    } catch (_) {
+      // Fehlende oder nicht freigegebene Fahrzeugdaten bleiben neutral.
+    } finally {
+      _loadingVehicleOwnerUserIds.remove(ownerUserId);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _vehicleLabelByOwnerUserId[ownerUserId] = vehicleLabel;
+    });
   }
 
   void _showPreviousStory() {
@@ -467,21 +515,15 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
 
     final story = _story;
     final storyText = story.text.trim();
-    final storyStickerLabel = story.stickerLabel.trim();
+    final storyStickers = story.effectiveStickers;
     final seenCount = story.viewedAtBy.keys
         .where((viewerId) => viewerId != story.ownerUserId)
         .length;
-    final headerTimeLabel = _formatStoryHeaderTime(
-      story,
-      isOwnStory: _isOwnStory,
-    );
+    final headerVehicleLabel =
+        _vehicleLabelByOwnerUserId[story.ownerUserId.trim()] ?? 'Fahrzeug';
     final textAlignment = Alignment(
       (story.textAlignmentX * 2) - 1,
       (story.textAlignmentY * 2) - 1,
-    );
-    final stickerAlignment = Alignment(
-      (story.stickerAlignmentX * 2) - 1,
-      (story.stickerAlignmentY * 2) - 1,
     );
     final fontFamily = _storyFontFamily(story.textFontFamily);
     final textAlign = _storyTextAlign(story.textAlign);
@@ -521,12 +563,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                             return child;
                           }
 
-                          return const _StoryMediaStatus(
-                            icon: Icons.image_rounded,
-                            title: 'Story wird geladen',
-                            message: 'Das Bild wird vorbereitet.',
-                            isLoading: true,
-                          );
+                          return const ColoredBox(color: Colors.black);
                         },
                         errorBuilder: (_, _, _) {
                           return const _StoryMediaStatus(
@@ -596,26 +633,41 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                   ),
                 ),
               ),
-            if (storyStickerLabel.isNotEmpty)
-              Positioned.fill(
-                child: Align(
-                  alignment: stickerAlignment,
-                  child: widget.enableStickerAction
-                      ? GestureDetector(
-                          onTap: () => _pauseForAction(widget.onOpenSticker),
-                          child: _StoryStickerChip(
-                            type: story.stickerType,
-                            label: storyStickerLabel,
-                            payload: story.stickerPayload,
+            for (final sticker in storyStickers)
+              if (!sticker.isEmpty)
+                Positioned.fill(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final alignmentX = (sticker.alignmentX * 2) - 1;
+                      final alignmentY = (sticker.alignmentY * 2) - 1;
+
+                      return Align(
+                        alignment: Alignment.center,
+                        child: Transform.translate(
+                          offset: Offset(
+                            alignmentX * constraints.maxWidth * 0.43,
+                            alignmentY * constraints.maxHeight * 0.42,
                           ),
-                        )
-                      : _StoryStickerChip(
-                          type: story.stickerType,
-                          label: storyStickerLabel,
-                          payload: story.stickerPayload,
+                          child: widget.enableStickerAction
+                              ? GestureDetector(
+                                  onTap: () =>
+                                      _pauseForAction(widget.onOpenSticker),
+                                  child: _StoryStickerChip(
+                                    type: sticker.type,
+                                    label: sticker.label,
+                                    payload: sticker.payload,
+                                  ),
+                                )
+                              : _StoryStickerChip(
+                                  type: sticker.type,
+                                  label: sticker.label,
+                                  payload: sticker.payload,
+                                ),
                         ),
+                      );
+                    },
+                  ),
                 ),
-              ),
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 24, 12, 0),
@@ -657,7 +709,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  headerTimeLabel,
+                                  headerVehicleLabel,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -1243,12 +1295,7 @@ class _StoryViewerVideoState extends State<_StoryViewerVideo> {
     }
 
     if (controller == null || !controller.value.isInitialized) {
-      return const _StoryMediaStatus(
-        icon: Icons.play_circle_rounded,
-        title: 'Story wird geladen',
-        message: 'Das Video wird vorbereitet.',
-        isLoading: true,
-      );
+      return const ColoredBox(color: Colors.black);
     }
 
     return _StoryFilteredContent(
@@ -1270,13 +1317,11 @@ class _StoryMediaStatus extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
-    this.isLoading = false,
   });
 
   final IconData icon;
   final String title;
   final String message;
-  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -1308,28 +1353,14 @@ class _StoryMediaStatus extends StatelessWidget {
                   SizedBox(
                     width: 54,
                     height: 54,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        if (isLoading)
-                          const SizedBox(
-                            width: 54,
-                            height: 54,
-                            child: CircularProgressIndicator(
-                              color: _carismaBlueLight,
-                              strokeWidth: 2.4,
-                            ),
-                          ),
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _carismaBlue.withValues(alpha: 0.88),
-                          ),
-                          child: Icon(icon, color: Colors.white, size: 24),
-                        ),
-                      ],
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _carismaBlue.withValues(alpha: 0.88),
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 24),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -1422,43 +1453,4 @@ TextAlign _storyTextAlign(String value) {
     'right' => TextAlign.right,
     _ => TextAlign.center,
   };
-}
-
-String _formatStoryHeaderTime(
-  ChatStoryRecord story, {
-  required bool isOwnStory,
-}) {
-  final now = DateTime.now();
-
-  if (isOwnStory) {
-    final remaining = story.expiresAt.difference(now);
-
-    if (remaining.isNegative) {
-      return 'Läuft gleich ab';
-    }
-
-    if (remaining.inHours >= 1) {
-      return 'Läuft noch ${remaining.inHours} Std.';
-    }
-
-    final minutes = remaining.inMinutes.clamp(1, 59);
-    return 'Läuft noch $minutes Min.';
-  }
-
-  final createdAt = story.createdAt.toLocal();
-  final localNow = now.toLocal();
-  final today = DateTime(localNow.year, localNow.month, localNow.day);
-  final createdDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
-  final dayDifference = today.difference(createdDay).inDays;
-  final dayLabel = switch (dayDifference) {
-    0 => 'Heute',
-    1 => 'Gestern',
-    _ =>
-      '${createdAt.day.toString().padLeft(2, '0')}.'
-          '${createdAt.month.toString().padLeft(2, '0')}.'
-          '${createdAt.year}',
-  };
-  final hour = createdAt.hour.toString().padLeft(2, '0');
-  final minute = createdAt.minute.toString().padLeft(2, '0');
-  return '$dayLabel, $hour:$minute Uhr';
 }

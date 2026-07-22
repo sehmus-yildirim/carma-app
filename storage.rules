@@ -4,6 +4,12 @@ service firebase.storage {
   match /b/{bucket}/o {
     function isChatParticipant(chatId) {
       return request.auth != null
+        && firestore.exists(
+          /databases/(default)/documents/chats/$(chatId)
+        )
+        && firestore.get(
+          /databases/(default)/documents/chats/$(chatId)
+        ).data.participants is list
         && request.auth.uid in firestore.get(
           /databases/(default)/documents/chats/$(chatId)
         ).data.participants;
@@ -196,6 +202,13 @@ service firebase.storage {
         && request.resource.contentType == 'audio/mp4';
     }
 
+    function isValidChatVideoUpload(fileName) {
+      return fileName.matches('^[A-Za-z0-9_-]{1,120}\\.mp4$')
+        && request.resource.size > 0
+        && request.resource.size <= 80 * 1024 * 1024
+        && request.resource.contentType == 'video/mp4';
+    }
+
     function isValidChatDocumentUpload(fileName) {
       return fileName.matches(
         '^[A-Za-z0-9_-]{1,120}_[^/]{1,159}$'
@@ -348,6 +361,17 @@ service firebase.storage {
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && isValidChatVoiceMemoUpload(fileName);
+      allow delete: if request.auth != null
+        && request.auth.uid == userId
+        && isChatParticipant(chatId);
+    }
+
+    match /chat_videos/{chatId}/{userId}/{fileName} {
+      allow read: if isUndeletedChatParticipant(chatId);
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && isOpenChat(chatId)
+        && isValidChatVideoUpload(fileName);
       allow delete: if request.auth != null
         && request.auth.uid == userId
         && isChatParticipant(chatId);

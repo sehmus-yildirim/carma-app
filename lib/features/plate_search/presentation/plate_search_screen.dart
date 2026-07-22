@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -77,12 +78,33 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
         (!config.usesLettersField || letters.isNotEmpty);
   }
 
+  bool get _isDemoPlateInput {
+    final directPlateKey = <String>[
+      _regionController.text,
+      _lettersController.text,
+      _numbersController.text,
+    ].join().toUpperCase().replaceAll(RegExp(r'[^A-ZÄÖÜ0-9]'), '');
+
+    return PlateSearchService.isDemoPlate(
+      countryCode: _countryCode,
+      plateKey: directPlateKey,
+    );
+  }
+
   bool get _canSearch {
-    return _isPlateComplete &&
-        _position != null &&
-        !_isLoadingLocation &&
-        _hasSearchCredit &&
-        !_isSearching;
+    if (_isSearching) {
+      return false;
+    }
+
+    if (_isDemoPlateInput) {
+      return true;
+    }
+
+    if (!_isPlateComplete) {
+      return false;
+    }
+
+    return _position != null && !_isLoadingLocation && _hasSearchCredit;
   }
 
   bool get _hasSearchCredit => _searchCredit?.hasRemaining ?? false;
@@ -394,8 +416,9 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
 
   Future<void> _search() async {
     final position = _position;
+    final isDemoSearch = _isDemoPlateInput;
 
-    if (position == null || !_canSearch) {
+    if (!_canSearch || (!isDemoSearch && position == null)) {
       return;
     }
 
@@ -409,13 +432,15 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
     });
 
     try {
-      final result = await _service.searchPlate(
-        countryCode: _countryCode,
-        plate: _plateValue,
-        latitude: position.latitude,
-        longitude: position.longitude,
-        radiusKm: _radiusKm,
-      );
+      final result = kDebugMode && isDemoSearch
+          ? PlateSearchService.demoSearchResult
+          : await _service.searchPlate(
+              countryCode: _countryCode,
+              plate: _plateValue,
+              latitude: position?.latitude ?? 0,
+              longitude: position?.longitude ?? 0,
+              radiusKm: _radiusKm,
+            );
 
       setState(() {
         _result = result;
@@ -436,7 +461,9 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
       return;
     }
 
-    if (!_hasSearchCredit) {
+    final isDemoTarget = PlateSearchService.isDemoTarget(result.targetUid);
+
+    if (!_hasSearchCredit && !isDemoTarget) {
       setState(() {
         _errorMessage = 'Du hast aktuell keine monatlichen Anfragen mehr.';
         _successMessage = null;
@@ -469,8 +496,9 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
       });
 
       final chatId = request.chatId.trim();
+      final isDemoChat = PlateSearchService.isDemoChat(chatId);
 
-      if (chatId.isEmpty) {
+      if (chatId.isEmpty && !isDemoChat) {
         setState(() {
           _errorMessage =
               'Der Chat konnte nicht geöffnet werden. Bitte öffne ihn im Chat-Bereich.';
@@ -484,7 +512,7 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
 
       await Navigator.of(context).push(
         buildChatConversationRoute(
-          chatId: chatId,
+          chatId: isDemoChat ? '' : chatId,
           displayName: result.displayName ?? 'CaRisma Nutzer',
           profilePhotoUrl: result.profilePhotoUrl,
           vehicleModel: result.vehicleLabel?.trim().isNotEmpty == true
@@ -599,7 +627,10 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
                 ],
                 if (_result == null) ...[
                   _PlateSearchButton(
-                    label: !_hasSearchCredit && !_isLoadingSearchCredit
+                    label:
+                        !_hasSearchCredit &&
+                            !_isLoadingSearchCredit &&
+                            !_isDemoPlateInput
                         ? 'Keine Anfragen verfügbar'
                         : _isSearching
                         ? 'Suche läuft...'
@@ -614,7 +645,9 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
                 else if (_result != null)
                   _ResultCard(
                     result: _result!,
-                    canRequestContact: _hasSearchCredit,
+                    canRequestContact:
+                        _hasSearchCredit ||
+                        PlateSearchService.isDemoTarget(_result!.targetUid),
                     isRequestingContact: _isRequestingContact,
                     onRequestContact: _requestContact,
                   ),

@@ -5,6 +5,24 @@ final RegExp _storyStoragePathPattern = RegExp(
   r'^chat_stories/([^/]+)/(?:[0-9]{12,24}\.(?:jpg|mp4)|[0-9]{12,24}/media\.(?:jpg|mp4))$',
 );
 
+class ChatStoryStickerRecord {
+  const ChatStoryStickerRecord({
+    required this.type,
+    required this.label,
+    required this.payload,
+    required this.alignmentX,
+    required this.alignmentY,
+  });
+
+  final String type;
+  final String label;
+  final String payload;
+  final double alignmentX;
+  final double alignmentY;
+
+  bool get isEmpty => type.trim().isEmpty || label.trim().isEmpty;
+}
+
 class ChatStoryRecord {
   const ChatStoryRecord({
     required this.id,
@@ -33,6 +51,7 @@ class ChatStoryRecord {
     this.stickerPayload = '',
     this.stickerAlignmentX = 0.5,
     this.stickerAlignmentY = 0.76,
+    this.stickers = const <ChatStoryStickerRecord>[],
     this.viewedAtBy = const <String, DateTime>{},
     this.viewerNameBy = const <String, String>{},
     this.viewerPhotoUrlBy = const <String, String>{},
@@ -67,6 +86,7 @@ class ChatStoryRecord {
   final String stickerPayload;
   final double stickerAlignmentX;
   final double stickerAlignmentY;
+  final List<ChatStoryStickerRecord> stickers;
   final Map<String, DateTime> viewedAtBy;
   final Map<String, String> viewerNameBy;
   final Map<String, String> viewerPhotoUrlBy;
@@ -88,6 +108,26 @@ class ChatStoryRecord {
     }
 
     return imageUrl.trim().isNotEmpty;
+  }
+
+  List<ChatStoryStickerRecord> get effectiveStickers {
+    if (stickers.isNotEmpty) {
+      return stickers;
+    }
+
+    if (stickerType.trim().isEmpty || stickerLabel.trim().isEmpty) {
+      return const <ChatStoryStickerRecord>[];
+    }
+
+    return <ChatStoryStickerRecord>[
+      ChatStoryStickerRecord(
+        type: stickerType,
+        label: stickerLabel,
+        payload: stickerPayload,
+        alignmentX: stickerAlignmentX,
+        alignmentY: stickerAlignmentY,
+      ),
+    ];
   }
 }
 
@@ -219,6 +259,7 @@ class ChatStoryRepository {
     String stickerPayload = '',
     double stickerAlignmentX = 0.5,
     double stickerAlignmentY = 0.76,
+    List<ChatStoryStickerRecord> stickers = const <ChatStoryStickerRecord>[],
   }) async {
     final trimmedStoryId = storyId.trim();
     final trimmedOwnerUserId = ownerUserId.trim();
@@ -234,19 +275,24 @@ class ChatStoryRepository {
     final safeTextFontFamily = _safeStoryTextFontFamily(textFontFamily);
     final safeTextAlign = _safeStoryTextAlign(textAlign);
     final safeFilterType = _safeStoryFilterType(filterType);
-    final safeStickerType = _safeStoryStickerType(stickerType);
-    final safeStickerPayload = _safeStoryStickerPayload(
-      safeStickerType,
-      stickerPayload,
+    final safeStickers = _safeStoryStickers(stickers);
+    final safeLegacySticker = _safeStorySticker(
+      ChatStoryStickerRecord(
+        type: stickerType,
+        label: stickerLabel,
+        payload: stickerPayload,
+        alignmentX: stickerAlignmentX,
+        alignmentY: stickerAlignmentY,
+      ),
     );
-    final effectiveStickerType = safeStickerPayload.isEmpty
-        ? ''
-        : safeStickerType;
-    final safeStickerLabel = _safeStoryStickerLabel(
-      effectiveStickerType,
-      stickerLabel,
-      safeStickerPayload,
-    );
+    final effectiveStickers = safeStickers.isNotEmpty
+        ? safeStickers
+        : safeLegacySticker == null
+        ? const <ChatStoryStickerRecord>[]
+        : <ChatStoryStickerRecord>[safeLegacySticker];
+    final legacySticker = effectiveStickers.isEmpty
+        ? null
+        : effectiveStickers.first;
     final normalizedViewerUserIds = <String>{
       trimmedOwnerUserId,
       for (final userId in viewerUserIds)
@@ -305,11 +351,21 @@ class ChatStoryRepository {
       'textAlignmentX': textAlignmentX.clamp(0.08, 0.92),
       'textAlignmentY': textAlignmentY.clamp(0.18, 0.82),
       'filterType': safeFilterType,
-      'stickerType': effectiveStickerType,
-      'stickerLabel': safeStickerLabel,
-      'stickerPayload': safeStickerPayload,
-      'stickerAlignmentX': stickerAlignmentX.clamp(0.08, 0.92),
-      'stickerAlignmentY': stickerAlignmentY.clamp(0.18, 0.86),
+      'stickerType': legacySticker?.type ?? '',
+      'stickerLabel': legacySticker?.label ?? '',
+      'stickerPayload': legacySticker?.payload ?? '',
+      'stickerAlignmentX': legacySticker?.alignmentX ?? 0.5,
+      'stickerAlignmentY': legacySticker?.alignmentY ?? 0.76,
+      'stickers': <Map<String, Object>>[
+        for (final sticker in effectiveStickers)
+          <String, Object>{
+            'type': sticker.type,
+            'label': sticker.label,
+            'payload': sticker.payload,
+            'alignmentX': sticker.alignmentX,
+            'alignmentY': sticker.alignmentY,
+          },
+      ],
       'createdAt': Timestamp.fromDate(now),
       'updatedAt': FieldValue.serverTimestamp(),
       'expiresAt': Timestamp.fromDate(now.add(const Duration(hours: 24))),
@@ -515,6 +571,7 @@ class ChatStoryRepository {
       data['stickerLabel'],
       safeStickerPayload,
     );
+    final safeStickers = _storyStickersFromValue(data['stickers']);
 
     return ChatStoryRecord(
       id: snapshot.id,
@@ -543,6 +600,7 @@ class ChatStoryRepository {
       stickerPayload: safeStickerPayload,
       stickerAlignmentX: _doubleFromValue(data['stickerAlignmentX']) ?? 0.5,
       stickerAlignmentY: _doubleFromValue(data['stickerAlignmentY']) ?? 0.76,
+      stickers: safeStickers,
       viewedAtBy: _dateTimeMapFromValue(data['viewedAtBy']),
       viewerNameBy: _stringMapFromValue(data['viewerNameBy']),
       viewerPhotoUrlBy: _stringMapFromValue(data['viewerPhotoUrlBy']),
@@ -759,6 +817,74 @@ class ChatStoryRepository {
     }
 
     return '';
+  }
+
+  List<ChatStoryStickerRecord> _safeStoryStickers(
+    Iterable<ChatStoryStickerRecord> values,
+  ) {
+    final stickers = <ChatStoryStickerRecord>[];
+
+    for (final value in values) {
+      final sticker = _safeStorySticker(value);
+      if (sticker != null) {
+        stickers.add(sticker);
+      }
+      if (stickers.length == 8) {
+        break;
+      }
+    }
+
+    return List<ChatStoryStickerRecord>.unmodifiable(stickers);
+  }
+
+  ChatStoryStickerRecord? _safeStorySticker(ChatStoryStickerRecord value) {
+    final type = _safeStoryStickerType(value.type);
+    final payload = _safeStoryStickerPayload(type, value.payload);
+    final effectiveType = payload.isEmpty ? '' : type;
+    final label = _safeStoryStickerLabel(effectiveType, value.label, payload);
+
+    if (effectiveType.isEmpty || label.isEmpty) {
+      return null;
+    }
+
+    return ChatStoryStickerRecord(
+      type: effectiveType,
+      label: label,
+      payload: payload,
+      alignmentX: value.alignmentX.clamp(0.08, 0.92).toDouble(),
+      alignmentY: value.alignmentY.clamp(0.18, 0.86).toDouble(),
+    );
+  }
+
+  List<ChatStoryStickerRecord> _storyStickersFromValue(Object? value) {
+    if (value is! List) {
+      return const <ChatStoryStickerRecord>[];
+    }
+
+    final stickers = <ChatStoryStickerRecord>[];
+    for (final item in value) {
+      if (item is! Map) {
+        continue;
+      }
+
+      final sticker = _safeStorySticker(
+        ChatStoryStickerRecord(
+          type: item['type']?.toString() ?? '',
+          label: item['label']?.toString() ?? '',
+          payload: item['payload']?.toString() ?? '',
+          alignmentX: _doubleFromValue(item['alignmentX']) ?? 0.5,
+          alignmentY: _doubleFromValue(item['alignmentY']) ?? 0.76,
+        ),
+      );
+      if (sticker != null) {
+        stickers.add(sticker);
+      }
+      if (stickers.length == 8) {
+        break;
+      }
+    }
+
+    return List<ChatStoryStickerRecord>.unmodifiable(stickers);
   }
 
   String _limitedText(Object? value, int maxLength) {

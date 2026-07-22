@@ -10,6 +10,7 @@ class _ChatMessageList extends StatelessWidget {
     required this.onReactMessage,
     required this.onOpenLocation,
     required this.onOpenDocument,
+    required this.onOpenViewOnceMedia,
     required this.onToggleAudioMessage,
   });
 
@@ -23,6 +24,7 @@ class _ChatMessageList extends StatelessWidget {
   onReactMessage;
   final ValueChanged<_LocationPayload> onOpenLocation;
   final ValueChanged<_LocalChatMessage> onOpenDocument;
+  final ValueChanged<_LocalChatMessage> onOpenViewOnceMedia;
   final ValueChanged<_LocalChatMessage> onToggleAudioMessage;
 
   String _audioMessageKey(_LocalChatMessage message) {
@@ -38,9 +40,12 @@ class _ChatMessageList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: messages.map((message) {
+      children: List.generate(messages.length, (index) {
+        final message = messages[index];
+        final isNewestMessage = index == messages.length - 1;
+
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: EdgeInsets.only(bottom: isNewestMessage ? 2 : 10),
           child: _ChatMessageBubble(
             message: message,
             onDeleteMessage: onDeleteMessage,
@@ -49,6 +54,7 @@ class _ChatMessageList extends StatelessWidget {
             onReactMessage: onReactMessage,
             onOpenLocation: onOpenLocation,
             onOpenDocument: onOpenDocument,
+            onOpenViewOnceMedia: onOpenViewOnceMedia,
             onToggleAudioMessage: onToggleAudioMessage,
             isAudioPlaying:
                 playingAudioMessageKey != null &&
@@ -69,6 +75,7 @@ class _ChatMessageBubble extends StatelessWidget {
     required this.onReactMessage,
     required this.onOpenLocation,
     required this.onOpenDocument,
+    required this.onOpenViewOnceMedia,
     required this.onToggleAudioMessage,
     required this.isAudioPlaying,
   });
@@ -82,6 +89,7 @@ class _ChatMessageBubble extends StatelessWidget {
   onReactMessage;
   final ValueChanged<_LocationPayload> onOpenLocation;
   final ValueChanged<_LocalChatMessage> onOpenDocument;
+  final ValueChanged<_LocalChatMessage> onOpenViewOnceMedia;
   final ValueChanged<_LocalChatMessage> onToggleAudioMessage;
   final bool isAudioPlaying;
 
@@ -104,6 +112,14 @@ class _ChatMessageBubble extends StatelessWidget {
   }
 
   String _clipboardTextForMessage() {
+    if (message.isViewOnce) {
+      return message.viewOnceOpenedAtBy.isNotEmpty
+          ? 'Geöffnet'
+          : message.isVideo
+          ? 'Video'
+          : 'Foto';
+    }
+
     final location = message.locationPayload;
     if (location != null) {
       return 'Standort: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}';
@@ -135,6 +151,62 @@ class _ChatMessageBubble extends StatelessWidget {
     }
 
     return message.text.trim();
+  }
+
+  Widget _buildViewOnceCard(BuildContext context, bool isOpened) {
+    final label = isOpened
+        ? 'Geöffnet'
+        : message.isVideo
+        ? 'Video'
+        : 'Foto';
+    final canOpen = !message.isMine && !isOpened;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: canOpen ? () => onOpenViewOnceMedia(message) : null,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
+          color: CaRismaDesignTokens.card,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isOpened
+                      ? Colors.white.withValues(alpha: 0.34)
+                      : CaRismaDesignTokens.blueBright,
+                ),
+              ),
+              child: Text(
+                '1',
+                style: TextStyle(
+                  color: isOpened ? Colors.white54 : Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: isOpened ? Colors.white54 : Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _copyMessageText(BuildContext context, String successMessage) {
@@ -234,15 +306,8 @@ class _ChatMessageBubble extends StatelessWidget {
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          gradient: CaRismaDesignTokens.blueGradient,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          boxShadow: [
-            BoxShadow(
-              color: _carismaBlue.withValues(alpha: 0.20),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
@@ -573,27 +638,64 @@ class _ChatMessageBubble extends StatelessWidget {
     return text.substring(separatorIndex + 1).trim();
   }
 
-  Widget _buildReplyPreview(BuildContext context, String replyText) {
+  Widget _buildReplyPreview(
+    BuildContext context,
+    String replyText,
+    String? replyToSenderName,
+  ) {
     final isStoryReply = _isStoryReplyPreview(replyText);
 
     if (!isStoryReply) {
       return Container(
         margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.16),
+          color: CaRismaDesignTokens.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
         ),
-        child: Text(
-          replyText,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white.withValues(alpha: 0.78),
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-          ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 3,
+              height: 34,
+              decoration: BoxDecoration(
+                color: CaRismaDesignTokens.bluePrimary,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    replyToSenderName?.trim().isNotEmpty == true
+                        ? replyToSenderName!.trim()
+                        : 'Nachricht',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: CaRismaDesignTokens.bluePrimary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    replyText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -739,12 +841,22 @@ class _ChatMessageBubble extends StatelessWidget {
   Future<void> _showMessageActions(BuildContext context) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: CaRismaDesignTokens.surface1,
+      backgroundColor: CaRismaDesignTokens.background,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (sheetContext) {
+        void runAfterClose(VoidCallback action) {
+          Navigator.of(sheetContext).pop();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) {
+              return;
+            }
+            action();
+          });
+        }
+
         return SafeArea(
           child: SingleChildScrollView(
             child: Padding(
@@ -775,8 +887,7 @@ class _ChatMessageBubble extends StatelessWidget {
                         _MessageReactionButton(
                           emoji: emoji,
                           onTap: () {
-                            Navigator.of(sheetContext).pop();
-                            onReactMessage(message, emoji);
+                            runAfterClose(() => onReactMessage(message, emoji));
                           },
                         ),
                     ],
@@ -786,27 +897,19 @@ class _ChatMessageBubble extends StatelessWidget {
                     icon: Icons.reply_rounded,
                     label: 'Antworten',
                     onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      onReplyMessage(message);
-                    },
-                  ),
-                  _MessageActionTile(
-                    icon: Icons.forward_rounded,
-                    label: 'Weiterleiten',
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _copyMessageText(
-                        context,
-                        'Nachricht wurde zum Weiterleiten kopiert.',
-                      );
+                      runAfterClose(() => onReplyMessage(message));
                     },
                   ),
                   _MessageActionTile(
                     icon: Icons.copy_rounded,
                     label: 'Kopieren',
                     onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      _copyMessageText(context, 'Nachricht wurde kopiert.');
+                      runAfterClose(
+                        () => _copyMessageText(
+                          context,
+                          'Nachricht wurde kopiert.',
+                        ),
+                      );
                     },
                   ),
                   _MessageActionTile(
@@ -817,20 +920,17 @@ class _ChatMessageBubble extends StatelessWidget {
                         ? 'Stern entfernen'
                         : 'Mit Stern markieren',
                     onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      onStarMessage(message);
+                      runAfterClose(() => onStarMessage(message));
                     },
                   ),
-                  if (message.isMine)
-                    _MessageActionTile(
-                      icon: Icons.delete_outline_rounded,
-                      label: 'Löschen',
-                      isDestructive: true,
-                      onTap: () {
-                        Navigator.of(sheetContext).pop();
-                        onDeleteMessage(message);
-                      },
-                    ),
+                  _MessageActionTile(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Löschen',
+                    isDestructive: true,
+                    onTap: () {
+                      runAfterClose(() => onDeleteMessage(message));
+                    },
+                  ),
                 ],
               ),
             ),
@@ -852,18 +952,49 @@ class _ChatMessageBubble extends StatelessWidget {
         .toList();
     final locationPayload = message.locationPayload;
     final contactPayload = message.contactPayload;
+    final isStructuredCardMessage =
+        locationPayload != null || contactPayload != null;
     final imageUrl = message.imageUrl?.trim() ?? '';
     final isImageMessage = message.isImage && imageUrl.isNotEmpty;
     final isDocumentMessage = message.isDocument;
     final isAudioMessage = message.isAudio;
+    final isVideoMessage = message.isVideo;
+    final isViewOnceMedia =
+        message.isViewOnce && (isImageMessage || isVideoMessage);
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+    final isViewOnceOpened =
+        message.isViewOnce &&
+        (message.viewOnceOpenedAtBy.isNotEmpty ||
+            (currentUserId.isNotEmpty &&
+                message.isViewOnceOpenedFor(currentUserId)));
     final caption = message.text.trim();
-    final bubblePadding = isImageMessage
+    final isCompactTextMessage =
+        !isImageMessage &&
+        locationPayload == null &&
+        contactPayload == null &&
+        !isDocumentMessage &&
+        !isAudioMessage &&
+        !isVideoMessage &&
+        !_isStoryReactionMessage(message);
+    final bubblePadding = isImageMessage || isVideoMessage
         ? const EdgeInsets.all(4)
+        : isCompactTextMessage
+        ? const EdgeInsets.fromLTRB(11, 6, 8, 5)
         : const EdgeInsets.fromLTRB(14, 10, 12, 8);
     final bubbleCrossAxisAlignment = message.isMine
         ? CrossAxisAlignment.end
         : CrossAxisAlignment.start;
     final isStoryReactionMessage = _isStoryReactionMessage(message);
+    final deliveryMetadata = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(message.timeLabel, style: timeStyle),
+        if (message.isMine) ...[
+          const SizedBox(width: 4),
+          _MessageDeliveryStatusIcon(message: message),
+        ],
+      ],
+    );
 
     return Align(
       alignment: message.isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -878,7 +1009,7 @@ class _ChatMessageBubble extends StatelessWidget {
         },
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.76,
+            maxWidth: MediaQuery.of(context).size.width * 0.82,
           ),
           padding: bubblePadding,
           decoration: BoxDecoration(
@@ -888,7 +1019,7 @@ class _ChatMessageBubble extends StatelessWidget {
               bottomLeft: Radius.circular(message.isMine ? 20 : 5),
               bottomRight: Radius.circular(message.isMine ? 5 : 20),
             ),
-            gradient: message.isMine
+            gradient: message.isMine && !isStructuredCardMessage
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -899,19 +1030,21 @@ class _ChatMessageBubble extends StatelessWidget {
                     ],
                   )
                 : null,
-            color: message.isMine
+            color: isStructuredCardMessage
+                ? CaRismaDesignTokens.surface2.withValues(alpha: 0.90)
+                : message.isMine
                 ? null
                 : CaRismaDesignTokens.surface2.withValues(alpha: 0.86),
             border: Border.all(
-              color: message.isMine
+              color: message.isMine && !isStructuredCardMessage
                   ? _myMessageBorder
                   : Colors.white.withValues(alpha: 0.08),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -922,9 +1055,15 @@ class _ChatMessageBubble extends StatelessWidget {
               if (message.replyToText != null &&
                   message.replyToText!.trim().isNotEmpty &&
                   !isStoryReactionMessage) ...[
-                _buildReplyPreview(context, message.replyToText!.trim()),
+                _buildReplyPreview(
+                  context,
+                  message.replyToText!.trim(),
+                  message.replyToSenderName,
+                ),
               ],
-              if (isImageMessage) ...[
+              if (isViewOnceMedia)
+                _buildViewOnceCard(context, isViewOnceOpened)
+              else if (isImageMessage) ...[
                 GestureDetector(
                   onTap: () => _showImagePreview(context, imageUrl),
                   child: _buildMessageImage(context, imageUrl),
@@ -941,7 +1080,9 @@ class _ChatMessageBubble extends StatelessWidget {
                       ),
                     ),
                   ),
-              ] else if (locationPayload != null)
+              ] else if (isVideoMessage)
+                _InlineChatVideo(message: message)
+              else if (locationPayload != null)
                 _buildLocationCard(context, locationPayload)
               else if (contactPayload != null)
                 _buildContactCard(context, contactPayload)
@@ -951,6 +1092,29 @@ class _ChatMessageBubble extends StatelessWidget {
                 _buildAudioCard(context)
               else if (isStoryReactionMessage)
                 _buildStoryReactionCard(context, message)
+              else if (isCompactTextMessage)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        message.text,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 1),
+                      child: deliveryMetadata,
+                    ),
+                  ],
+                )
               else
                 Text(
                   message.text,
@@ -960,32 +1124,287 @@ class _ChatMessageBubble extends StatelessWidget {
                     height: 1.28,
                   ),
                 ),
-              SizedBox(height: isImageMessage ? 5 : 4),
-              Align(
-                alignment: Alignment.centerRight,
-                widthFactor: 1,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: isImageMessage ? 6 : 0,
-                    bottom: isImageMessage ? 3 : 0,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(message.timeLabel, style: timeStyle),
-                      if (message.isMine) ...[
-                        const SizedBox(width: 5),
-                        _MessageDeliveryStatusIcon(message: message),
-                      ],
-                    ],
+              if (!isCompactTextMessage) ...[
+                SizedBox(height: isImageMessage ? 5 : 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  widthFactor: 1,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: isImageMessage ? 6 : 0,
+                      bottom: isImageMessage ? 3 : 0,
+                    ),
+                    child: deliveryMetadata,
                   ),
                 ),
-              ),
+              ],
               if (reactions.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 5),
                   child: _MessageReactionSummary(reactions: reactions),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineChatVideo extends StatefulWidget {
+  const _InlineChatVideo({required this.message});
+
+  final _LocalChatMessage message;
+
+  @override
+  State<_InlineChatVideo> createState() => _InlineChatVideoState();
+}
+
+class _InlineChatVideoState extends State<_InlineChatVideo> {
+  VideoPlayerController? _controller;
+  Future<void>? _initialization;
+  String? _errorMessage;
+  bool _lastIsPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  void _initializeVideo() {
+    final source = widget.message.fileUrl?.trim() ?? '';
+    if (source.isEmpty) {
+      _errorMessage = 'Video nicht verfügbar.';
+      return;
+    }
+
+    try {
+      final uri = Uri.tryParse(source);
+      final controller =
+          uri != null && (uri.scheme == 'https' || uri.scheme == 'http')
+          ? VideoPlayerController.networkUrl(uri)
+          : VideoPlayerController.file(File(source));
+      _controller = controller;
+      controller.addListener(_handlePlaybackStateChanged);
+      _initialization = controller
+          .initialize()
+          .then((_) {
+            controller.setLooping(false);
+            if (mounted) {
+              setState(() {});
+            }
+          })
+          .catchError((Object _) {
+            if (mounted) {
+              setState(() {
+                _errorMessage = 'Video konnte nicht geladen werden.';
+              });
+            }
+          });
+    } catch (_) {
+      _errorMessage = 'Video konnte nicht geladen werden.';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handlePlaybackStateChanged);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _handlePlaybackStateChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+
+    final isPlaying = controller.value.isPlaying;
+    if (isPlaying == _lastIsPlaying) {
+      return;
+    }
+
+    _lastIsPlaying = isPlaying;
+    setState(() {});
+  }
+
+  void _togglePlayback() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    setState(() {
+      if (controller.value.isPlaying) {
+        controller.pause();
+      } else {
+        controller.play();
+      }
+      _lastIsPlaying = controller.value.isPlaying;
+    });
+  }
+
+  String _formatFileSize(int? bytes) {
+    if (bytes == null || bytes <= 0) {
+      return 'Video';
+    }
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).clamp(1, double.infinity).round()} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String _formatDuration(int? durationMs) {
+    final duration = Duration(milliseconds: durationMs ?? 0);
+    final minutes = duration.inMinutes.toString();
+    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    final errorMessage = _errorMessage;
+
+    return SizedBox(
+      width: 270,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(17),
+        child: ColoredBox(
+          color: CaRismaDesignTokens.surface2,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AspectRatio(
+                aspectRatio:
+                    controller?.value.isInitialized == true &&
+                        controller!.value.aspectRatio > 0
+                    ? controller.value.aspectRatio.clamp(0.75, 1.8)
+                    : 16 / 9,
+                child: errorMessage != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            errorMessage,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: CaRismaDesignTokens.textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      )
+                    : FutureBuilder<void>(
+                        future: _initialization,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState !=
+                                  ConnectionState.done ||
+                              controller == null ||
+                              !controller.value.isInitialized) {
+                            return const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: CaRismaDesignTokens.bluePrimary,
+                              ),
+                            );
+                          }
+
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _togglePlayback,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              alignment: Alignment.center,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: SizedBox(
+                                    width: controller.value.size.width,
+                                    height: controller.value.size.height,
+                                    child: VideoPlayer(controller),
+                                  ),
+                                ),
+                                Center(
+                                  child: AnimatedOpacity(
+                                    duration: const Duration(milliseconds: 160),
+                                    opacity: controller.value.isPlaying ? 0 : 1,
+                                    child: Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.black.withValues(
+                                          alpha: 0.62,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.play_arrow_rounded,
+                                        color: Colors.white,
+                                        size: 34,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 8,
+                                  right: 8,
+                                  bottom: 6,
+                                  child: VideoProgressIndicator(
+                                    controller,
+                                    allowScrubbing: true,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 5,
+                                    ),
+                                    colors: VideoProgressColors(
+                                      playedColor:
+                                          CaRismaDesignTokens.blueBright,
+                                      bufferedColor: Colors.white.withValues(
+                                        alpha: 0.28,
+                                      ),
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.videocam_rounded,
+                      size: 16,
+                      color: CaRismaDesignTokens.blueBright,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _formatDuration(widget.message.fileDurationMs),
+                      style: const TextStyle(
+                        color: CaRismaDesignTokens.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      _formatFileSize(widget.message.fileSizeBytes),
+                      style: const TextStyle(
+                        color: CaRismaDesignTokens.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -1075,14 +1494,20 @@ class _MessageReactionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.08),
+      color: CaRismaDesignTokens.card,
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         customBorder: const CircleBorder(),
-        child: SizedBox(
+        child: Container(
           width: 44,
           height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+          ),
           child: Center(
             child: Text(emoji, style: const TextStyle(fontSize: 22)),
           ),
@@ -1107,16 +1532,42 @@ class _MessageActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive ? Colors.redAccent : Colors.white;
+    final color = isDestructive
+        ? CaRismaDesignTokens.danger
+        : CaRismaDesignTokens.bluePrimary;
 
-    return ListTile(
-      onTap: onTap,
-      leading: Icon(icon, color: color),
-      title: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w800,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: CaRismaDesignTokens.card,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: color),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1263,22 +1714,25 @@ class _ChatEmptySpace extends StatelessWidget {
 }
 
 class _ReplyPreview extends StatelessWidget {
-  const _ReplyPreview({required this.message, required this.onClear});
+  const _ReplyPreview({
+    required this.message,
+    required this.senderName,
+    required this.onClear,
+  });
 
   final _LocalChatMessage message;
+  final String senderName;
   final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
-    final label = message.isMine ? 'Antwort auf dich' : 'Antwort auf Nachricht';
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: CaRismaDesignTokens.card,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
@@ -1298,37 +1752,13 @@ class _ReplyPreview extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    label,
+                    senderName,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: _carismaBlueLight,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 3),
-                  if (message.replyToText != null &&
-                      message.replyToText!.trim().isNotEmpty) ...[
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.14),
-                        ),
-                      ),
-                      child: Text(
-                        message.replyToText!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          fontWeight: FontWeight.w800,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
                   Text(
                     message.text,
                     maxLines: 1,

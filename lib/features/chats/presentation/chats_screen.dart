@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
@@ -38,6 +39,8 @@ part 'chats/chat_lists.dart';
 part 'chats/chat_conversation.dart';
 part 'chats/chat_message_bubbles.dart';
 part 'chats/chat_composer.dart';
+part 'chats/chat_media_gallery.dart';
+part 'chats/chat_media_editor.dart';
 part 'chats/chat_story_editor.dart';
 part 'chats/chat_story_viewer.dart';
 
@@ -236,7 +239,10 @@ Future<ChatStoryRecord?> showProfileStoryComposer({
     final captureResult = await Navigator.of(context).push<_StoryCaptureResult>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => _StoryCaptureScreen(imagePicker: ImagePicker()),
+        builder: (_) => _StoryCaptureScreen(
+          imagePicker: ImagePicker(),
+          useInAppGallery: true,
+        ),
       ),
     );
     if (captureResult == null || captureResult.path.trim().isEmpty) return null;
@@ -333,11 +339,16 @@ Future<ChatStoryRecord?> showProfileStoryComposer({
       textAlignmentX: (draft.textAlignment.x + 1) / 2,
       textAlignmentY: (draft.textAlignment.y + 1) / 2,
       filterType: draft.filterType,
-      stickerType: draft.sticker.type,
-      stickerLabel: draft.sticker.label,
-      stickerPayload: draft.sticker.payload,
-      stickerAlignmentX: (draft.sticker.alignment.x + 1) / 2,
-      stickerAlignmentY: (draft.sticker.alignment.y + 1) / 2,
+      stickers: <ChatStoryStickerRecord>[
+        for (final sticker in draft.stickers)
+          ChatStoryStickerRecord(
+            type: sticker.type,
+            label: sticker.label,
+            payload: sticker.payload,
+            alignmentX: (sticker.alignment.x + 1) / 2,
+            alignmentY: (sticker.alignment.y + 1) / 2,
+          ),
+      ],
     );
 
     try {

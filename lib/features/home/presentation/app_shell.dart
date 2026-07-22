@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/models/carisma_models.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
-import '../../chats/data/chat_repository.dart';
 import '../../chats/presentation/chats_screen.dart';
 import '../../profile/presentation/social_profile_screen.dart';
 import '../../reports/data/report_repository.dart';
@@ -23,10 +22,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
   final ReportRepository _reportRepository = ReportRepository();
 
-  late final Stream<int> _openChatCountStream;
   late final Stream<int> _unreadReportCountStream;
 
   int _selectedIndex = 0;
@@ -34,24 +31,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    _openChatCountStream = _watchOpenChatCount();
     _unreadReportCountStream = _watchUnreadReportCount();
-  }
-
-  Stream<int> _watchOpenChatCount() {
-    final userId =
-        FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
-    final trimmedUserId = userId.trim();
-
-    if (trimmedUserId.isEmpty) {
-      return Stream<int>.value(0);
-    }
-
-    return _chatRepository.watchChats(userId: trimmedUserId).map((chats) {
-      return chats
-          .where((chat) => chat.isVisibleInActiveListFor(trimmedUserId))
-          .length;
-    });
   }
 
   Stream<int> _watchUnreadReportCount() {
@@ -102,24 +82,17 @@ class _AppShellState extends State<AppShell> {
       backgroundColor: Colors.transparent,
       body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: StreamBuilder<int>(
-        stream: _openChatCountStream,
+        stream: _unreadReportCountStream,
         initialData: 0,
-        builder: (context, chatSnapshot) {
-          return StreamBuilder<int>(
-            stream: _unreadReportCountStream,
-            initialData: 0,
-            builder: (context, reportSnapshot) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _GlassBottomNavigationBar(
-                  selectedIndex: _selectedIndex,
-                  onTabSelected: _onTabSelected,
-                  bottomInset: bottomInset,
-                  openChatCount: chatSnapshot.data ?? 0,
-                  unreadReportCount: reportSnapshot.data ?? 0,
-                ),
-              );
-            },
+        builder: (context, reportSnapshot) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: _GlassBottomNavigationBar(
+              selectedIndex: _selectedIndex,
+              onTabSelected: _onTabSelected,
+              bottomInset: bottomInset,
+              unreadReportCount: reportSnapshot.data ?? 0,
+            ),
           );
         },
       ),
@@ -132,14 +105,12 @@ class _GlassBottomNavigationBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onTabSelected,
     required this.bottomInset,
-    required this.openChatCount,
     required this.unreadReportCount,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
   final double bottomInset;
-  final int openChatCount;
   final int unreadReportCount;
 
   static const List<_NavigationItem> _items = [
@@ -215,7 +186,6 @@ class _GlassBottomNavigationBar extends StatelessWidget {
                           isSelected: isSelected,
                           width: isSelected ? activeWidth : compactWidth,
                           badgeCount: switch (index) {
-                            2 => openChatCount,
                             3 => unreadReportCount,
                             _ => 0,
                           },

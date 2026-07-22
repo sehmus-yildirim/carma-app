@@ -1068,10 +1068,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 84 + keyboardInset),
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + keyboardInset),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 84,
+                  minHeight: constraints.maxHeight - 16,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

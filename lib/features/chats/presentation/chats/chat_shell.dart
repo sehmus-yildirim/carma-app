@@ -52,6 +52,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   bool _isAddingOwnStory = false;
   bool _isArchiveShortcutVisible = false;
   final Set<String> _busyRequestIds = <String>{};
+  final Set<String> _busyChatSwipeActions = <String>{};
   List<ChatStoryRecord> _cachedStories = const <ChatStoryRecord>[];
   String _currentUserProfilePhotoUrl = '';
   Timer? _storyRefreshTimer;
@@ -354,6 +355,130 @@ class _ChatsScreenState extends State<ChatsScreen> {
     });
   }
 
+  Future<void> _runChatSwipeAction({
+    required ChatRecord chat,
+    required String actionName,
+    required String successMessage,
+    required Future<void> Function(String userId) action,
+  }) async {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitte melde dich erneut an.')),
+      );
+      return;
+    }
+
+    final actionKey = '${chat.id}::$userId::$actionName';
+    if (!_busyChatSwipeActions.add(actionKey)) return;
+
+    try {
+      await action(userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Die Chat-Aktion konnte nicht ausgeführt werden.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      _busyChatSwipeActions.remove(actionKey);
+    }
+  }
+
+  Future<void> _toggleChatReadFromSwipe(ChatRecord chat) async {
+    final userId = _effectiveUserId.trim();
+    final markAsRead = chat.hasUnreadFor(userId);
+
+    await _runChatSwipeAction(
+      chat: chat,
+      actionName: 'read',
+      successMessage: markAsRead
+          ? 'Chat wurde als gelesen markiert.'
+          : 'Chat wurde als ungelesen markiert.',
+      action: (resolvedUserId) async {
+        if (markAsRead) {
+          await _chatRepository.markChatRead(
+            chatId: chat.id,
+            userId: resolvedUserId,
+          );
+        } else {
+          await _chatRepository.markChatUnread(
+            chatId: chat.id,
+            userId: resolvedUserId,
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _toggleChatPinnedFromSwipe(ChatRecord chat) async {
+    final userId = _effectiveUserId.trim();
+    final nextIsPinned = !chat.isPinnedFor(userId);
+
+    await _runChatSwipeAction(
+      chat: chat,
+      actionName: 'pin',
+      successMessage: nextIsPinned
+          ? 'Chat wurde angepinnt.'
+          : 'Chat wurde gelöst.',
+      action: (resolvedUserId) => _chatRepository.setChatPinned(
+        chatId: chat.id,
+        userId: resolvedUserId,
+        isPinned: nextIsPinned,
+      ),
+    );
+  }
+
+  Future<void> _toggleChatArchivedFromSwipe(ChatRecord chat) async {
+    final userId = _effectiveUserId.trim();
+    final restoreChat = chat.isVisibleInArchivedListFor(userId);
+
+    await _runChatSwipeAction(
+      chat: chat,
+      actionName: 'archive',
+      successMessage: restoreChat
+          ? 'Chat wurde aus dem Archiv geholt.'
+          : 'Chat wurde archiviert.',
+      action: (resolvedUserId) async {
+        if (restoreChat) {
+          await _chatRepository.unarchiveChat(
+            chatId: chat.id,
+            userId: resolvedUserId,
+          );
+        } else {
+          await _chatRepository.archiveChat(
+            chatId: chat.id,
+            userId: resolvedUserId,
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _showChatVehicleDetailsFromSwipe(ChatRecord chat) {
+    final currentUserId = _effectiveUserId.trim();
+
+    return _ChatOverflowMenu(
+      title: chat.displayNameFor(currentUserId),
+      subtitle:
+          '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
+      vehicleLabel: chat.vehicleModelLabel,
+      plateLabel: _formatChatPlateLabel(chat.displayPlate),
+      popAfterStatusAction: false,
+    )._showVehicleDetails(context);
+  }
+
   void _assignStreamsForCurrentUser({required bool clearStories}) {
     if (clearStories) {
       _cachedStories = const <ChatStoryRecord>[];
@@ -525,7 +650,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
           .push<_StoryCaptureResult>(
             MaterialPageRoute(
               fullscreenDialog: true,
-              builder: (_) => _StoryCaptureScreen(imagePicker: _imagePicker),
+              builder: (_) => _StoryCaptureScreen(
+                imagePicker: _imagePicker,
+                useInAppGallery: true,
+              ),
             ),
           );
 
@@ -601,11 +729,16 @@ class _ChatsScreenState extends State<ChatsScreen> {
         textAlignmentX: (draft.textAlignment.x + 1) / 2,
         textAlignmentY: (draft.textAlignment.y + 1) / 2,
         filterType: draft.filterType,
-        stickerType: draft.sticker.type,
-        stickerLabel: draft.sticker.label,
-        stickerPayload: draft.sticker.payload,
-        stickerAlignmentX: (draft.sticker.alignment.x + 1) / 2,
-        stickerAlignmentY: (draft.sticker.alignment.y + 1) / 2,
+        stickers: <ChatStoryStickerRecord>[
+          for (final sticker in draft.stickers)
+            ChatStoryStickerRecord(
+              type: sticker.type,
+              label: sticker.label,
+              payload: sticker.payload,
+              alignmentX: (sticker.alignment.x + 1) / 2,
+              alignmentY: (sticker.alignment.y + 1) / 2,
+            ),
+        ],
       );
 
       try {
@@ -2127,6 +2260,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
                 onShowMessages: _showMessageChats,
                 onHideArchiveShortcut: _hideArchiveShortcut,
                 onOpenChat: _openChat,
+                onToggleChatRead: _toggleChatReadFromSwipe,
+                onToggleChatPinned: _toggleChatPinnedFromSwipe,
+                onToggleChatArchived: _toggleChatArchivedFromSwipe,
+                onShowChatVehicleDetails: _showChatVehicleDetailsFromSwipe,
                 onOpenLocalChat: _openLocalChat,
                 onAddOwnStory: _addOwnStory,
                 onOpenStory: _openStory,

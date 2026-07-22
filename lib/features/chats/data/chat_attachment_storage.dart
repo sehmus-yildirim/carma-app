@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
@@ -41,6 +42,22 @@ class ChatVoiceMemoUploadResult {
   final String contentType;
 }
 
+class ChatVideoUploadResult {
+  const ChatVideoUploadResult({
+    required this.path,
+    required this.url,
+    required this.fileName,
+    required this.fileSizeBytes,
+    required this.contentType,
+  });
+
+  final String path;
+  final String url;
+  final String fileName;
+  final int fileSizeBytes;
+  final String contentType;
+}
+
 class ChatAttachmentStorageException implements Exception {
   const ChatAttachmentStorageException(this.message);
 
@@ -59,6 +76,7 @@ class ChatAttachmentStorage {
   static const int _maxChatImageBytes = 10 * 1024 * 1024;
   static const int _maxChatDocumentBytes = 25 * 1024 * 1024;
   static const int _maxChatVoiceMemoBytes = 15 * 1024 * 1024;
+  static const int _maxChatVideoBytes = 80 * 1024 * 1024;
   static const int _maxStoryImageBytes = 10 * 1024 * 1024;
   static const int _maxStoryVideoBytes = 80 * 1024 * 1024;
   static const Set<String> _allowedChatDocumentContentTypes = {
@@ -204,9 +222,9 @@ class ChatAttachmentStorage {
     }
 
     if (!RegExp(
-      r'^chat_(images|documents|voice_memos)/[^/]+/[^/]+/[^/]+$',
+      r'^chat_(images|documents|voice_memos|videos)/[^/]+/[^/]+/[^/]+$',
     ).hasMatch(trimmedPath)) {
-      throw ArgumentError('Chat attachment path is invalid.');
+      throw ArgumentError('Der Chat-Anhangspfad ist ungültig.');
     }
 
     await _storage.ref(trimmedPath).delete();
@@ -340,6 +358,52 @@ class ChatAttachmentStorage {
     );
   }
 
+  Future<ChatVideoUploadResult> uploadChatVideo({
+    required String chatId,
+    required String userId,
+    required String messageId,
+    required File file,
+    void Function(double progress)? onProgress,
+  }) async {
+    final trimmedChatId = _requireStoragePathSegment(chatId, 'Chat-ID');
+    final trimmedUserId = _requireStoragePathSegment(userId, 'Nutzer-ID');
+    final trimmedMessageId = _requireStoragePathSegment(
+      messageId,
+      'Nachrichten-ID',
+    );
+
+    final fileSizeBytes = await file.length();
+
+    if (fileSizeBytes <= 0) {
+      throw const ChatAttachmentStorageException('Das Video ist leer.');
+    }
+
+    if (fileSizeBytes > _maxChatVideoBytes) {
+      throw const ChatAttachmentStorageException(
+        'Das Video ist zu groß. Maximal 80 MB.',
+      );
+    }
+
+    final path =
+        'chat_videos/$trimmedChatId/$trimmedUserId/$trimmedMessageId.mp4';
+    final reference = _storage.ref(path);
+    final metadata = SettableMetadata(contentType: 'video/mp4');
+    final url = await _uploadChatFileAndResolveUrl(
+      reference: reference,
+      file: file,
+      metadata: metadata,
+      onProgress: onProgress,
+    );
+
+    return ChatVideoUploadResult(
+      path: path,
+      url: url,
+      fileName: 'Video.mp4',
+      fileSizeBytes: fileSizeBytes,
+      contentType: 'video/mp4',
+    );
+  }
+
   Future<void> _ensureUploadFits({
     required File file,
     required int maxBytes,
@@ -361,8 +425,35 @@ class ChatAttachmentStorage {
     required Reference reference,
     required File file,
     required SettableMetadata metadata,
+    void Function(double progress)? onProgress,
   }) async {
-    await reference.putFile(file, metadata);
+    final uploadTask = reference.putFile(file, metadata);
+    StreamSubscription<TaskSnapshot>? progressSubscription;
+
+    if (onProgress != null) {
+      progressSubscription = uploadTask.snapshotEvents.listen((snapshot) {
+        final totalBytes = snapshot.totalBytes;
+
+        if (totalBytes > 0) {
+          onProgress(
+            (snapshot.bytesTransferred / totalBytes).clamp(0.0, 1.0).toDouble(),
+          );
+        }
+      });
+    }
+
+    try {
+      await uploadTask;
+    } catch (_) {
+      try {
+        await reference.delete();
+      } catch (_) {
+        // Eine nicht fertig geschriebene Datei existiert üblicherweise nicht.
+      }
+      rethrow;
+    } finally {
+      await progressSubscription?.cancel();
+    }
 
     try {
       return await reference.getDownloadURL();

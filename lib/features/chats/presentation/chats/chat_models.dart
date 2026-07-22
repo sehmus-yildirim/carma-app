@@ -31,6 +31,7 @@ class _LocalChatMessage {
     this.messageId,
     this.isReadByOther = false,
     this.replyToText,
+    this.replyToSenderName,
     this.isStarred = false,
     this.type = ChatMessageType.text,
     this.imageUrl,
@@ -41,6 +42,8 @@ class _LocalChatMessage {
     this.fileContentType,
     this.fileSizeBytes,
     this.fileDurationMs,
+    this.isViewOnce = false,
+    this.viewOnceOpenedAtBy = const <String, DateTime>{},
     this.reactionBy = const <String, String>{},
   });
 
@@ -51,6 +54,7 @@ class _LocalChatMessage {
   final String? messageId;
   final bool isReadByOther;
   final String? replyToText;
+  final String? replyToSenderName;
   final bool isStarred;
   final ChatMessageType type;
   final String? imageUrl;
@@ -61,7 +65,13 @@ class _LocalChatMessage {
   final String? fileContentType;
   final int? fileSizeBytes;
   final int? fileDurationMs;
+  final bool isViewOnce;
+  final Map<String, DateTime> viewOnceOpenedAtBy;
   final Map<String, String> reactionBy;
+
+  bool isViewOnceOpenedFor(String userId) {
+    return viewOnceOpenedAtBy.containsKey(userId.trim());
+  }
 
   bool get isImage {
     return type == ChatMessageType.image && imageUrl?.trim().isNotEmpty == true;
@@ -75,6 +85,10 @@ class _LocalChatMessage {
 
   bool get isAudio {
     return type == ChatMessageType.audio && fileUrl?.trim().isNotEmpty == true;
+  }
+
+  bool get isVideo {
+    return type == ChatMessageType.video && fileUrl?.trim().isNotEmpty == true;
   }
 
   _LocationPayload? get locationPayload {
@@ -101,6 +115,7 @@ class _LocalChatMessage {
     String? messageId,
     bool? isReadByOther,
     String? replyToText,
+    String? replyToSenderName,
     bool? isStarred,
     ChatMessageType? type,
     String? imageUrl,
@@ -111,6 +126,8 @@ class _LocalChatMessage {
     String? fileContentType,
     int? fileSizeBytes,
     int? fileDurationMs,
+    bool? isViewOnce,
+    Map<String, DateTime>? viewOnceOpenedAtBy,
     Map<String, String>? reactionBy,
   }) {
     return _LocalChatMessage(
@@ -121,6 +138,7 @@ class _LocalChatMessage {
       messageId: messageId ?? this.messageId,
       isReadByOther: isReadByOther ?? this.isReadByOther,
       replyToText: replyToText ?? this.replyToText,
+      replyToSenderName: replyToSenderName ?? this.replyToSenderName,
       isStarred: isStarred ?? this.isStarred,
       type: type ?? this.type,
       imageUrl: imageUrl ?? this.imageUrl,
@@ -131,6 +149,8 @@ class _LocalChatMessage {
       fileContentType: fileContentType ?? this.fileContentType,
       fileSizeBytes: fileSizeBytes ?? this.fileSizeBytes,
       fileDurationMs: fileDurationMs ?? this.fileDurationMs,
+      isViewOnce: isViewOnce ?? this.isViewOnce,
+      viewOnceOpenedAtBy: viewOnceOpenedAtBy ?? this.viewOnceOpenedAtBy,
       reactionBy: reactionBy ?? this.reactionBy,
     );
   }

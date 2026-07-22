@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../shared/config/carisma_app_config.dart';
@@ -52,6 +53,22 @@ class PlateContactRequestResult {
 }
 
 class PlateSearchService {
+  static const String demoTargetUserId = 'carisma-demo-plate-user';
+  static const String demoPlateKey = 'HHCR2026';
+  static const String demoChatId = 'local-demo-hh-cr-2026';
+  static const PlateSearchResult demoSearchResult = PlateSearchResult(
+    found: true,
+    targetUid: demoTargetUserId,
+    displayName: 'CaRisma Testnutzer',
+    distanceKm: 0.1,
+    plateKey: demoPlateKey,
+    displayPlate: 'HH-CR 2026',
+    vehicleBrand: 'BMW',
+    vehicleModel: 'X6',
+    vehicleColor: 'Schwarz',
+    vehicleLabel: 'BMW X6',
+  );
+
   PlateSearchService({
     FirebaseAuth? auth,
     FirebaseFirestore? firestore,
@@ -70,6 +87,21 @@ class PlateSearchService {
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
   final bool _useMock;
+
+  static bool isDemoPlate({
+    required String countryCode,
+    required String plateKey,
+  }) {
+    return kDebugMode && plateKey.trim().toUpperCase() == demoPlateKey;
+  }
+
+  static bool isDemoTarget(String? targetUserId) {
+    return kDebugMode && targetUserId?.trim() == demoTargetUserId;
+  }
+
+  static bool isDemoChat(String? chatId) {
+    return kDebugMode && chatId?.trim() == demoChatId;
+  }
 
   String normalizePlate(String value) {
     return value.toUpperCase().replaceAll(RegExp(r'[^A-ZÄÖÜ0-9]'), '');
@@ -252,7 +284,22 @@ class PlateSearchService {
     String? vehicleModel,
     String? vehicleColor,
     String? vehicleLabel,
+    String? requestReason,
+    String? message,
   }) async {
+    if (_useMock &&
+        isDemoTarget(targetUid) &&
+        plateKey.trim().toUpperCase() == demoPlateKey) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+
+      return const PlateContactRequestResult(
+        requestId: 'demo-request-hh-cr-2026',
+        chatId: demoChatId,
+        status: FirestoreContactRequestStatus.accepted,
+        created: true,
+      );
+    }
+
     if (_useMock) {
       return _createContactRequestInFirestore(
         targetUid: targetUid,
@@ -264,6 +311,8 @@ class PlateSearchService {
         vehicleModel: vehicleModel,
         vehicleColor: vehicleColor,
         vehicleLabel: vehicleLabel,
+        requestReason: requestReason,
+        message: message,
       );
     }
 
@@ -279,6 +328,8 @@ class PlateSearchService {
       'vehicleModel': vehicleModel,
       'vehicleColor': vehicleColor,
       'vehicleLabel': vehicleLabel,
+      'requestReason': requestReason,
+      'message': message,
     });
 
     final data = Map<String, dynamic>.from(response.data);
@@ -287,13 +338,16 @@ class PlateSearchService {
         data['chatId'] as String? ??
         (requestId.isEmpty ? '' : 'request_$requestId');
 
-    return PlateContactRequestResult(
+    final result = PlateContactRequestResult(
       requestId: requestId,
       chatId: chatId,
       status:
           data['status'] as String? ?? FirestoreContactRequestStatus.pending,
       created: data['created'] == true,
     );
+
+    await _ensureInitialContactMessage(result: result, message: message);
+    return result;
   }
 
   Future<PlateSearchResult> _searchPlateFromFirestore({
@@ -313,6 +367,10 @@ class PlateSearchService {
 
     if (normalizedCountryCode.isEmpty || plateKey.isEmpty) {
       return const PlateSearchResult(found: false);
+    }
+
+    if (isDemoPlate(countryCode: normalizedCountryCode, plateKey: plateKey)) {
+      return demoSearchResult;
     }
 
     final DocumentSnapshot<Map<String, dynamic>> document;
@@ -452,6 +510,8 @@ class PlateSearchService {
     String? vehicleModel,
     String? vehicleColor,
     String? vehicleLabel,
+    String? requestReason,
+    String? message,
   }) async {
     final sender = _auth.currentUser;
 
@@ -501,6 +561,16 @@ class PlateSearchService {
             brand: normalizedVehicleBrand,
             model: normalizedVehicleModel,
           );
+    final normalizedRequestReason = requestReason?.trim();
+    final normalizedMessage = message?.trim();
+
+    if (normalizedMessage == null || normalizedMessage.isEmpty) {
+      throw FirebaseException(
+        plugin: 'carisma',
+        code: 'invalid-argument',
+        message: 'Bitte wähle einen Grund für deine Anfrage.',
+      );
+    }
 
     final now = DateTime.now();
     final expiresAt = now.add(
@@ -525,7 +595,7 @@ class PlateSearchService {
         .collection(CaRismaFirestoreCollections.chats)
         .doc(chatId);
 
-    return _firestore.runTransaction((transaction) async {
+    final result = await _firestore.runTransaction((transaction) async {
       final requestSnapshot = await transaction.get(document);
       final creditSnapshot = await transaction.get(creditDocument);
       final chatSnapshot = await transaction.get(chatDocument);
@@ -571,6 +641,9 @@ class PlateSearchService {
               vehicleLabel:
                   existingRequestData['vehicleLabel'] as String? ??
                   normalizedVehicleLabel,
+              requestMessage:
+                  existingRequestData['message'] as String? ??
+                  normalizedMessage,
             ),
           );
         }
@@ -619,6 +692,8 @@ class PlateSearchService {
         'vehicleModel': normalizedVehicleModel,
         'vehicleColor': normalizedVehicleColor,
         'vehicleLabel': normalizedVehicleLabel,
+        'requestReason': normalizedRequestReason,
+        'message': normalizedMessage,
         'status': FirestoreContactRequestStatus.pending,
         'chatId': chatId,
         'createdAt': FieldValue.serverTimestamp(),
@@ -648,6 +723,7 @@ class PlateSearchService {
             vehicleModel: normalizedVehicleModel,
             vehicleColor: normalizedVehicleColor,
             vehicleLabel: normalizedVehicleLabel,
+            requestMessage: normalizedMessage,
           ),
         );
       }
@@ -658,6 +734,107 @@ class PlateSearchService {
         status: FirestoreContactRequestStatus.pending,
         created: true,
       );
+    });
+
+    await _ensureInitialContactMessage(
+      result: result,
+      message: normalizedMessage,
+    );
+    return result;
+  }
+
+  Future<void> _ensureInitialContactMessage({
+    required PlateContactRequestResult result,
+    required String? message,
+  }) async {
+    final sender = _auth.currentUser;
+    final normalizedMessage = message?.trim() ?? '';
+    final chatId = result.chatId.trim();
+    final requestId = result.requestId.trim();
+
+    if (sender == null ||
+        normalizedMessage.isEmpty ||
+        chatId.isEmpty ||
+        requestId.isEmpty ||
+        isDemoChat(chatId)) {
+      return;
+    }
+
+    if (normalizedMessage.length >
+        FirestoreDocumentDefaults.maxChatMessageLength) {
+      throw FirebaseException(
+        plugin: 'carisma',
+        code: 'invalid-argument',
+        message: 'Der automatische Nachrichtentext ist zu lang.',
+      );
+    }
+
+    final senderUserId = sender.uid;
+    final messageId = 'contact_request_${requestId}_initial';
+    final chatDocument = _firestore.doc(CaRismaFirestorePaths.chat(chatId));
+    final messageDocument = _firestore.doc(
+      CaRismaFirestorePaths.chatMessage(chatId, messageId),
+    );
+
+    await _firestore.runTransaction((transaction) async {
+      final chatSnapshot = await transaction.get(chatDocument);
+      final messageSnapshot = await transaction.get(messageDocument);
+
+      if (messageSnapshot.exists) {
+        return;
+      }
+
+      final chatData = chatSnapshot.data();
+      final participants = (chatData?['participants'] as List<dynamic>? ?? [])
+          .whereType<String>()
+          .map((participant) => participant.trim())
+          .where((participant) => participant.isNotEmpty)
+          .toSet();
+      final deletedBy = Map<String, dynamic>.from(
+        chatData?['deletedBy'] as Map<dynamic, dynamic>? ?? const {},
+      );
+      final status = chatData?['status'];
+
+      if (!chatSnapshot.exists ||
+          participants.length != 2 ||
+          !participants.contains(senderUserId) ||
+          (status != FirestoreChatStatus.active &&
+              status != FirestoreChatStatus.archived) ||
+          deletedBy[senderUserId] == true) {
+        throw FirebaseException(
+          plugin: 'carisma',
+          code: 'failed-precondition',
+          message: 'Der vorbereitete Chat ist noch nicht verfügbar.',
+        );
+      }
+
+      final timestamp = Timestamp.fromDate(DateTime.now());
+
+      transaction.set(messageDocument, {
+        'chatId': chatId,
+        'senderUserId': senderUserId,
+        'type': FirestoreMessageTypes.text,
+        'text': normalizedMessage,
+        'createdAt': timestamp,
+        'updatedAt': timestamp,
+        'isDeleted': false,
+        'replyToMessageId': null,
+        'replyToText': null,
+      });
+      transaction.set(chatDocument, {
+        'lastMessage': normalizedMessage,
+        'lastMessageAt': timestamp,
+        'lastReadAtBy': {senderUserId: timestamp},
+        'manualUnreadBy': {senderUserId: false},
+        'manualUnreadUpdatedAtBy': {senderUserId: timestamp},
+        'archivedBy': {
+          for (final participant in participants) participant: false,
+        },
+        'archivedUpdatedAtBy': {
+          for (final participant in participants) participant: timestamp,
+        },
+        'updatedAt': timestamp,
+      }, SetOptions(merge: true));
     });
   }
 
@@ -675,6 +852,7 @@ class PlateSearchService {
     required String? vehicleModel,
     required String? vehicleColor,
     required String? vehicleLabel,
+    required String requestMessage,
   }) {
     return {
       'participants': ([senderUserId, receiverUserId]..sort()),
@@ -682,8 +860,7 @@ class PlateSearchService {
       'requestId': requestId,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(createdAt),
-      'lastMessage':
-          'Kontaktanfrage gesendet. Ihr könnt jetzt geschützt schreiben.',
+      'lastMessage': requestMessage,
       'lastMessageAt': Timestamp.fromDate(createdAt),
       'isDeleted': false,
       'senderUserId': senderUserId,

@@ -697,10 +697,10 @@ class _ReportScreenState extends State<ReportScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 84),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 84,
+                  minHeight: constraints.maxHeight - 16,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -818,7 +818,6 @@ class _ReportScreenState extends State<ReportScreen> {
                       isLoading: _isSending,
                       onPressed: _sendReport,
                     ),
-                    const SizedBox(height: 22),
                     _SentReportNotificationsSection(
                       stream: _sentReportNotifications,
                       onOpen: _openNotificationDetails,
@@ -1002,10 +1001,13 @@ class _SentReportNotificationsSection extends StatelessWidget {
         final notifications = snapshot.data ?? const [];
 
         if (snapshot.hasError) {
-          return const _IncomingReportsStatusCard(
-            icon: Icons.error_outline_rounded,
-            title: 'Gesendete Hinweise konnten nicht geladen werden',
-            subtitle: 'Bitte versuche es später erneut.',
+          return const Padding(
+            padding: EdgeInsets.only(top: 22),
+            child: _IncomingReportsStatusCard(
+              icon: Icons.error_outline_rounded,
+              title: 'Gesendete Hinweise konnten nicht geladen werden',
+              subtitle: 'Bitte versuche es später erneut.',
+            ),
           );
         }
 
@@ -1018,27 +1020,30 @@ class _SentReportNotificationsSection extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Gesendete Hinweise',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ...notifications.map((notification) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _SentReportNotificationCard(
-                  notification: notification,
-                  onOpen: () => onOpen(notification),
+        return Padding(
+          padding: const EdgeInsets.only(top: 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Gesendete Hinweise',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
                 ),
-              );
-            }),
-          ],
+              ),
+              const SizedBox(height: 10),
+              ...notifications.map((notification) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _SentReportNotificationCard(
+                    notification: notification,
+                    onOpen: () => onOpen(notification),
+                  ),
+                );
+              }),
+            ],
+          ),
         );
       },
     );
@@ -1721,7 +1726,7 @@ class _CategoryGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        mainAxisExtent: 150,
+        mainAxisExtent: 104,
       ),
       itemBuilder: (context, index) {
         final item = items[index];
@@ -1773,7 +1778,7 @@ class _CategoryCard extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
               gradient: isSelected ? CaRismaDesignTokens.blueGradient : null,
@@ -1799,27 +1804,43 @@ class _CategoryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CaRismaBlueIconBox(icon: item.icon, size: 42, iconSize: 23),
-                const SizedBox(height: 10),
-                Text(
-                  item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    CaRismaBlueIconBox(icon: item.icon, size: 34, iconSize: 19),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                                height: 1.08,
+                              ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  item.subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
+                Expanded(
+                  child: Text(
+                    item.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      height: 1.14,
+                    ),
                   ),
                 ),
               ],

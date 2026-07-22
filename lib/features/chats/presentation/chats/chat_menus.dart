@@ -18,12 +18,12 @@ class _ChatVehicleDetailPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white.withValues(alpha: 0.10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white.withValues(alpha: 0.74), size: 18),
+          Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -138,25 +138,10 @@ class _ChatOverflowMenu extends StatelessWidget {
           insetPadding: const EdgeInsets.symmetric(horizontal: 24),
           child: Container(
             padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _myMessageBlueDark,
-                  _myMessageBlue,
-                  _myMessageBlueLight,
-                ],
-              ),
-              border: Border.all(color: _myMessageBorder),
-              boxShadow: [
-                BoxShadow(
-                  color: _carismaBlue.withValues(alpha: 0.16),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-              ],
+            decoration: CaRismaDesignTokens.surfaceDecoration(
+              radius: 24,
+              borderAlpha: 0.08,
+              darkShadowAlpha: 0.56,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -702,68 +687,89 @@ class _ChatOverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<_ChatMenuAction>(
-      tooltip: 'Chat-Einstellungen',
-      icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
-      color: const Color(0xFF101827),
-      onSelected: (action) => _handleAction(context, action),
-      itemBuilder: (context) {
-        return [
-          if (isBlocked && (canUnblock ?? true))
-            const PopupMenuItem(
-              value: _ChatMenuAction.unblock,
-              child: Text('Blockierung aufheben'),
-            )
-          else if (!isBlocked) ...[
-            PopupMenuItem(
-              value: _ChatMenuAction.pin,
-              child: Text(isPinned ? 'Nicht mehr anpinnen' : 'Chat anpinnen'),
-            ),
-            PopupMenuItem(
-              value: _ChatMenuAction.favorite,
-              child: Text(
-                isFavorite
-                    ? 'Aus Favoriten entfernen'
-                    : 'Zu Favoriten hinzufügen',
+    final menuTheme = Theme.of(context).copyWith(
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      popupMenuTheme: PopupMenuThemeData(
+        color: CaRismaDesignTokens.surface1,
+        surfaceTintColor: Colors.transparent,
+        elevation: 12,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+      ),
+    );
+
+    return Theme(
+      data: menuTheme,
+      child: PopupMenuButton<_ChatMenuAction>(
+        tooltip: 'Chat-Einstellungen',
+        icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+        color: CaRismaDesignTokens.surface1,
+        onSelected: (action) => _handleAction(context, action),
+        itemBuilder: (context) {
+          return [
+            if (isBlocked && (canUnblock ?? true))
+              const PopupMenuItem(
+                value: _ChatMenuAction.unblock,
+                child: Text('Blockierung aufheben'),
+              )
+            else if (!isBlocked) ...[
+              PopupMenuItem(
+                value: _ChatMenuAction.pin,
+                child: Text(isPinned ? 'Nicht mehr anpinnen' : 'Chat anpinnen'),
               ),
-            ),
-            PopupMenuItem(
-              value: _ChatMenuAction.mute,
-              child: Text(
-                isMuted ? 'Stummschaltung aufheben' : 'Stummschalten',
+              PopupMenuItem(
+                value: _ChatMenuAction.favorite,
+                child: Text(
+                  isFavorite
+                      ? 'Aus Favoriten entfernen'
+                      : 'Zu Favoriten hinzufügen',
+                ),
               ),
-            ),
-            PopupMenuItem(
-              value: _ChatMenuAction.readState,
-              child: Text(
-                isUnread ? 'Als gelesen markieren' : 'Als ungelesen markieren',
+              PopupMenuItem(
+                value: _ChatMenuAction.mute,
+                child: Text(
+                  isMuted ? 'Stummschaltung aufheben' : 'Stummschalten',
+                ),
               ),
-            ),
-          ],
-          const PopupMenuItem(
-            value: _ChatMenuAction.vehicleDetails,
-            child: Text('Fahrzeugdetails anzeigen'),
-          ),
-          if (!isBlocked) ...[
-            PopupMenuItem(
-              value: _ChatMenuAction.archive,
-              child: Text(isArchived ? 'Aus Archiv holen' : 'Archivieren'),
-            ),
+              PopupMenuItem(
+                value: _ChatMenuAction.readState,
+                child: Text(
+                  isUnread
+                      ? 'Als gelesen markieren'
+                      : 'Als ungelesen markieren',
+                ),
+              ),
+            ],
             const PopupMenuItem(
-              value: _ChatMenuAction.delete,
-              child: Text('Chat löschen'),
+              value: _ChatMenuAction.vehicleDetails,
+              child: Text('Fahrzeugdetails anzeigen'),
             ),
+            if (!isBlocked) ...[
+              PopupMenuItem(
+                value: _ChatMenuAction.archive,
+                child: Text(isArchived ? 'Aus Archiv holen' : 'Archivieren'),
+              ),
+              const PopupMenuItem(
+                value: _ChatMenuAction.delete,
+                child: Text('Chat löschen'),
+              ),
+              const PopupMenuItem(
+                value: _ChatMenuAction.block,
+                child: Text('Nutzer blockieren'),
+              ),
+            ],
             const PopupMenuItem(
-              value: _ChatMenuAction.block,
-              child: Text('Nutzer blockieren'),
+              value: _ChatMenuAction.report,
+              child: Text('Nutzer melden'),
             ),
-          ],
-          const PopupMenuItem(
-            value: _ChatMenuAction.report,
-            child: Text('Nutzer melden'),
-          ),
-        ];
-      },
+          ];
+        },
+      ),
     );
   }
 }
