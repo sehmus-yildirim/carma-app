@@ -42,12 +42,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
   final ProfileRepository _profileRepository = ProfileRepository();
   final ChatAttachmentStorage _attachmentStorage = ChatAttachmentStorage();
   final ImagePicker _imagePicker = ImagePicker();
-  final TextEditingController _searchController = TextEditingController();
 
   _ChatsView _selectedView = _ChatsView.chats;
   _ChatListView _selectedChatListView = _ChatListView.messages;
   _RequestListView _selectedRequestListView = _RequestListView.incoming;
-  String _searchQuery = '';
   String _streamUserId = '';
   bool _isAddingOwnStory = false;
   bool _isArchiveShortcutVisible = false;
@@ -61,6 +59,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   late Stream<List<ChatRecord>> _archivedChatStream;
   late Stream<List<ChatStoryRecord>> _storyStream;
   late Stream<List<ContactRequestRecord>> _incomingRequestStream;
+  late Stream<List<ContactRequestRecord>> _incomingRequestStateStream;
   late Stream<List<ContactRequestRecord>> _outgoingRequestStream;
   late bool _hasActiveChat;
   late List<_LocalChatMessage> _chatMessages;
@@ -90,7 +89,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
     _streamUserId = _effectiveUserId.trim();
     _assignStreamsForCurrentUser(clearStories: true);
-    _searchController.addListener(_handleSearchChanged);
     unawaited(_loadCurrentUserProfilePhotoUrl());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -127,8 +125,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
   @override
   void dispose() {
     _storyRefreshTimer?.cancel();
-    _searchController.removeListener(_handleSearchChanged);
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -195,6 +191,18 @@ class _ChatsScreenState extends State<ChatsScreen> {
     return _requestRepository.watchIncomingRequests(userId: userId);
   }
 
+  Stream<List<ContactRequestRecord>> _watchIncomingRequestStates() {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      return Stream<List<ContactRequestRecord>>.value(
+        const <ContactRequestRecord>[],
+      );
+    }
+
+    return _requestRepository.watchIncomingRequestStates(userId: userId);
+  }
+
   Stream<List<ContactRequestRecord>> _watchOutgoingRequests() {
     final userId = _effectiveUserId.trim();
 
@@ -205,43 +213,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
 
     return _requestRepository.watchOutgoingRequests(userId: userId);
-  }
-
-  void _handleSearchChanged() {
-    final nextQuery = _searchController.text.trim();
-
-    if (_searchQuery == nextQuery) {
-      return;
-    }
-
-    setState(() {
-      _searchQuery = nextQuery;
-    });
-  }
-
-  bool _matchesSearch(String value) {
-    final query = _searchQuery.trim().toLowerCase();
-
-    if (query.isEmpty) {
-      return true;
-    }
-
-    return value.toLowerCase().contains(query);
-  }
-
-  bool _matchesChatSearch(ChatRecord chat) {
-    final currentUserId = _effectiveUserId;
-
-    return _matchesSearch(
-      [
-        chat.displayNameFor(currentUserId),
-        chat.vehicleTitle,
-        chat.vehicleModelLabel,
-        chat.vehicleColorLabel,
-        chat.displayPlate,
-        chat.lastMessage,
-      ].whereType<String>().join(' '),
-    );
   }
 
   List<_LocalChatMessage> _buildLocalChatMessages() {
@@ -488,6 +459,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     _archivedChatStream = _watchArchivedChats();
     _storyStream = _watchStories();
     _incomingRequestStream = _watchIncomingRequests();
+    _incomingRequestStateStream = _watchIncomingRequestStates();
     _outgoingRequestStream = _watchOutgoingRequests();
   }
 
@@ -2153,7 +2125,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, keyboardInset),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            CaRismaDesignTokens.mainScreenTopInset,
+            20,
+            keyboardInset,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2175,34 +2152,22 @@ class _ChatsScreenState extends State<ChatsScreen> {
                     stream: _chatStream,
                     builder: (context, chatsSnapshot) {
                       final chats = chatsSnapshot.data ?? const <ChatRecord>[];
-                      final hasChats = chats.isNotEmpty;
 
-                      return NotificationListener<ScrollNotification>(
-                        onNotification: _handleChatScrollNotification,
-                        child: SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(
-                            parent: AlwaysScrollableScrollPhysics(),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _ChatsSegmentedControl(
+                            selectedView: _selectedView,
+                            onChanged: _selectView,
                           ),
-                          keyboardDismissBehavior:
-                              ScrollViewKeyboardDismissBehavior.onDrag,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _ChatsSegmentedControl(
-                                selectedView: _selectedView,
-                                onChanged: _selectView,
-                              ),
-                              const SizedBox(height: 14),
-                              if (_selectedView == _ChatsView.chats &&
-                                  hasChats) ...[
-                                _ChatSearchField(controller: _searchController),
-                                const SizedBox(height: 16),
-                              ],
-                              _buildChatsOrRequestsView(chats),
-                              const SizedBox(height: 112),
-                            ],
+                          const SizedBox(height: 14),
+                          Expanded(
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: _handleChatScrollNotification,
+                              child: _buildChatsOrRequestsView(chats),
+                            ),
                           ),
-                        ),
+                        ],
                       );
                     },
                   ),
@@ -2217,59 +2182,26 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   Widget _buildChatsOrRequestsView(List<ChatRecord> chats) {
     if (_selectedView == _ChatsView.chats) {
-      return StreamBuilder<List<ChatRecord>>(
-        stream: _archivedChatStream,
-        builder: (context, archivedSnapshot) {
-          final archivedChats = archivedSnapshot.data ?? const <ChatRecord>[];
-          final isArchivedLoading =
-              archivedSnapshot.connectionState == ConnectionState.waiting;
+      return StreamBuilder<List<ContactRequestRecord>>(
+        stream: _incomingRequestStateStream,
+        builder: (context, requestStateSnapshot) {
+          final acceptedIncomingRequestIds =
+              (requestStateSnapshot.data ?? const <ContactRequestRecord>[])
+                  .where((request) => request.isAccepted)
+                  .map((request) => request.id.trim())
+                  .where((requestId) => requestId.isNotEmpty)
+                  .toSet();
+          final visibleChats = chats
+              .where(
+                (chat) => isChatVisibleForRequestState(
+                  chat: chat,
+                  currentUserId: _effectiveUserId,
+                  acceptedIncomingRequestIds: acceptedIncomingRequestIds,
+                ),
+              )
+              .toList(growable: false);
 
-          return StreamBuilder<List<ChatStoryRecord>>(
-            stream: _storyStream,
-            initialData: _cachedStories,
-            builder: (context, storySnapshot) {
-              final storyData = storySnapshot.data;
-              if (storyData != null && !storySnapshot.hasError) {
-                _cachedStories = storyData;
-              }
-
-              final storyVisibleOwnerIds = _storyVisibleOwnerIdsFor(
-                chats: [...chats, ...archivedChats],
-                currentUserId: _effectiveUserId,
-              );
-              final stories = _visibleStoryRecords(
-                storyData ?? _cachedStories,
-                allowedOwnerIds: storyVisibleOwnerIds,
-                currentUserId: _effectiveUserId,
-              );
-
-              return _ChatsOverview(
-                chats: chats,
-                archivedChats: archivedChats,
-                stories: stories,
-                currentUserPhotoUrl: _currentUserProfilePhotoUrl,
-                isAddingOwnStory: _isAddingOwnStory,
-                isLoading: isArchivedLoading,
-                hasLocalActiveChat: _hasActiveChat,
-                localMessages: _chatMessages,
-                searchQuery: _searchQuery,
-                selectedListView: _selectedChatListView,
-                showArchiveShortcut: _isArchiveShortcutVisible,
-                matchesChat: _matchesChatSearch,
-                onOpenArchived: _openArchivedChats,
-                onShowMessages: _showMessageChats,
-                onHideArchiveShortcut: _hideArchiveShortcut,
-                onOpenChat: _openChat,
-                onToggleChatRead: _toggleChatReadFromSwipe,
-                onToggleChatPinned: _toggleChatPinnedFromSwipe,
-                onToggleChatArchived: _toggleChatArchivedFromSwipe,
-                onShowChatVehicleDetails: _showChatVehicleDetailsFromSwipe,
-                onOpenLocalChat: _openLocalChat,
-                onAddOwnStory: _addOwnStory,
-                onOpenStory: _openStory,
-              );
-            },
-          );
+          return _buildChatsOverview(visibleChats, acceptedIncomingRequestIds);
         },
       );
     } else {
@@ -2286,6 +2218,73 @@ class _ChatsScreenState extends State<ChatsScreen> {
         onWithdraw: _withdrawRequest,
       );
     }
+  }
+
+  Widget _buildChatsOverview(
+    List<ChatRecord> chats,
+    Set<String> acceptedIncomingRequestIds,
+  ) {
+    return StreamBuilder<List<ChatRecord>>(
+      stream: _archivedChatStream,
+      builder: (context, archivedSnapshot) {
+        final archivedChats = (archivedSnapshot.data ?? const <ChatRecord>[])
+            .where(
+              (chat) => isChatVisibleForRequestState(
+                chat: chat,
+                currentUserId: _effectiveUserId,
+                acceptedIncomingRequestIds: acceptedIncomingRequestIds,
+              ),
+            )
+            .toList(growable: false);
+        final isArchivedLoading =
+            archivedSnapshot.connectionState == ConnectionState.waiting;
+
+        return StreamBuilder<List<ChatStoryRecord>>(
+          stream: _storyStream,
+          initialData: _cachedStories,
+          builder: (context, storySnapshot) {
+            final storyData = storySnapshot.data;
+            if (storyData != null && !storySnapshot.hasError) {
+              _cachedStories = storyData;
+            }
+
+            final storyVisibleOwnerIds = _storyVisibleOwnerIdsFor(
+              chats: [...chats, ...archivedChats],
+              currentUserId: _effectiveUserId,
+            );
+            final stories = _visibleStoryRecords(
+              storyData ?? _cachedStories,
+              allowedOwnerIds: storyVisibleOwnerIds,
+              currentUserId: _effectiveUserId,
+            );
+
+            return _ChatsOverview(
+              chats: chats,
+              archivedChats: archivedChats,
+              stories: stories,
+              currentUserPhotoUrl: _currentUserProfilePhotoUrl,
+              isAddingOwnStory: _isAddingOwnStory,
+              isLoading: isArchivedLoading,
+              hasLocalActiveChat: _hasActiveChat,
+              localMessages: _chatMessages,
+              selectedListView: _selectedChatListView,
+              showArchiveShortcut: _isArchiveShortcutVisible,
+              onOpenArchived: _openArchivedChats,
+              onShowMessages: _showMessageChats,
+              onHideArchiveShortcut: _hideArchiveShortcut,
+              onOpenChat: _openChat,
+              onToggleChatRead: _toggleChatReadFromSwipe,
+              onToggleChatPinned: _toggleChatPinnedFromSwipe,
+              onToggleChatArchived: _toggleChatArchivedFromSwipe,
+              onShowChatVehicleDetails: _showChatVehicleDetailsFromSwipe,
+              onOpenLocalChat: _openLocalChat,
+              onAddOwnStory: _addOwnStory,
+              onOpenStory: _openStory,
+            );
+          },
+        );
+      },
+    );
   }
 }
 

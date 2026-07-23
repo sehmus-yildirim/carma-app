@@ -378,6 +378,24 @@ class ChatRecord {
   }
 }
 
+bool isChatVisibleForRequestState({
+  required ChatRecord chat,
+  required String currentUserId,
+  required Set<String> acceptedIncomingRequestIds,
+}) {
+  final trimmedUserId = currentUserId.trim();
+  final requestId = chat.requestId?.trim() ?? '';
+  final receiverUserId = chat.receiverUserId?.trim() ?? '';
+
+  if (trimmedUserId.isEmpty ||
+      requestId.isEmpty ||
+      receiverUserId != trimmedUserId) {
+    return true;
+  }
+
+  return acceptedIncomingRequestIds.contains(requestId);
+}
+
 const Duration chatMessageDeleteForEveryoneWindow = Duration(hours: 48);
 
 bool canDeleteChatMessageForEveryone(

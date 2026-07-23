@@ -4,9 +4,14 @@ class PlateSearchResult {
     this.targetUid,
     this.displayName,
     this.profilePhotoUrl,
+    this.isVerified = false,
     this.distanceKm,
     this.plateKey,
     this.displayPlate,
+    this.countryCode,
+    this.region,
+    this.letters,
+    this.numbers,
     this.vehicleBrand,
     this.vehicleModel,
     this.vehicleColor,
@@ -17,9 +22,14 @@ class PlateSearchResult {
   final String? targetUid;
   final String? displayName;
   final String? profilePhotoUrl;
+  final bool isVerified;
   final double? distanceKm;
   final String? plateKey;
   final String? displayPlate;
+  final String? countryCode;
+  final String? region;
+  final String? letters;
+  final String? numbers;
   final String? vehicleBrand;
   final String? vehicleModel;
   final String? vehicleColor;
@@ -69,9 +79,14 @@ class PlateSearchResult {
       targetUid: map['targetUid'] as String?,
       displayName: map['displayName'] as String?,
       profilePhotoUrl: map['profilePhotoUrl'] as String?,
+      isVerified: map['isVerified'] == true,
       distanceKm: distanceValue is num ? distanceValue.toDouble() : null,
       plateKey: map['plateKey'] as String?,
       displayPlate: map['displayPlate'] as String?,
+      countryCode: map['countryCode'] as String?,
+      region: map['region'] as String?,
+      letters: map['letters'] as String?,
+      numbers: map['numbers'] as String?,
       vehicleBrand: map['vehicleBrand'] as String?,
       vehicleModel: map['vehicleModel'] as String?,
       vehicleColor: map['vehicleColor'] as String?,

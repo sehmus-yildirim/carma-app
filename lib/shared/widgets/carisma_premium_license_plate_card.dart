@@ -128,16 +128,21 @@ class _PremiumSubmitButtonState extends State<_PremiumSubmitButton> {
               height: 76,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                gradient: CaRismaDesignTokens.blueGradient,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                color: CaRismaDesignTokens.controlSurface,
+                border: Border.all(
+                  color: canTap
+                      ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
+                      : Colors.white.withValues(alpha: 0.12),
+                  width: canTap ? 1.4 : 1,
+                ),
                 boxShadow: canTap
                     ? [
                         BoxShadow(
                           color: CaRismaDesignTokens.bluePrimary.withValues(
-                            alpha: 0.24,
+                            alpha: 0.16,
                           ),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
                         ),
                       ]
                     : null,
@@ -152,13 +157,13 @@ class _PremiumSubmitButtonState extends State<_PremiumSubmitButton> {
                         height: 23,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.4,
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.bluePrimary,
                         ),
                       )
                     else
                       const Icon(
                         Icons.search_rounded,
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.bluePrimary,
                         size: 27,
                       ),
                     const SizedBox(width: 13),
@@ -181,7 +186,7 @@ class _PremiumSubmitButtonState extends State<_PremiumSubmitButton> {
                     const SizedBox(width: 13),
                     const Icon(
                       Icons.arrow_forward_rounded,
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.bluePrimary,
                       size: 25,
                     ),
                   ],

@@ -156,9 +156,11 @@ void main() {
         final previewContext = tester.element(
           find.byType(CaRismaLicensePlatePreview),
         );
+        final sealAsset = goldenCase.country == 'CH'
+            ? region.regionCoatAsset
+            : region.plateSealAsset;
         await tester.runAsync(
-          () =>
-              precacheImage(AssetImage(region.plateSealAsset), previewContext),
+          () => precacheImage(AssetImage(sealAsset), previewContext),
         );
         await tester.pumpAndSettle();
       }

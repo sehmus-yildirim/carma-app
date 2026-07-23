@@ -695,12 +695,24 @@ class _ReportScreenState extends State<ReportScreen> {
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            const contentTopInset = CaRismaDesignTokens.mainScreenTopInset;
+            const contentBottomInset = 16.0;
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              padding: const EdgeInsets.fromLTRB(
+                20,
+                contentTopInset,
+                20,
+                contentBottomInset,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 16,
+                  minHeight:
+                      (constraints.maxHeight -
+                              contentTopInset -
+                              contentBottomInset)
+                          .clamp(0.0, double.infinity)
+                          .toDouble(),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1989,23 +2001,24 @@ class _LocationModeButton extends StatelessWidget {
           height: 54,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: isSelected
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      CaRismaDesignTokens.bluePrimary,
-                      CaRismaDesignTokens.bluePrimary,
-                      CaRismaDesignTokens.bluePrimary,
-                    ],
-                  )
-                : null,
-            color: isSelected ? null : CaRismaDesignTokens.controlSurface,
+            color: CaRismaDesignTokens.controlSurface,
             border: Border.all(
               color: isSelected
-                  ? Colors.white.withValues(alpha: 0.22)
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
                   : Colors.white.withValues(alpha: 0.10),
+              width: isSelected ? 1.4 : 1,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: CaRismaDesignTokens.bluePrimary.withValues(
+                        alpha: 0.15,
+                      ),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
           ),
           child: Center(
             child: FittedBox(
@@ -2013,7 +2026,13 @@ class _LocationModeButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, color: Colors.white, size: 22),
+                  Icon(
+                    icon,
+                    color: isSelected
+                        ? CaRismaDesignTokens.bluePrimary
+                        : Colors.white,
+                    size: 22,
+                  ),
                   const SizedBox(width: 9),
                   Text(
                     label,
@@ -2230,9 +2249,9 @@ class _PrimaryActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.15),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -2246,16 +2265,11 @@ class _PrimaryActionButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
               borderRadius: const BorderRadius.all(Radius.circular(22)),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  CaRismaDesignTokens.bluePrimary,
-                  CaRismaDesignTokens.bluePrimary,
-                  CaRismaDesignTokens.bluePrimary,
-                ],
+              color: CaRismaDesignTokens.controlSurface,
+              border: Border.all(
+                color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88),
+                width: 1.4,
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
             ),
             child: Center(
               child: FittedBox(
@@ -2263,7 +2277,11 @@ class _PrimaryActionButton extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, color: Colors.white, size: 22),
+                    Icon(
+                      icon,
+                      color: CaRismaDesignTokens.bluePrimary,
+                      size: 22,
+                    ),
                     const SizedBox(width: 10),
                     Text(
                       label,
@@ -2353,6 +2371,7 @@ class _SendReportButton extends StatelessWidget {
       icon: Icons.send_rounded,
       iconSize: 27,
       fontSize: 19,
+      surfaceOutlined: true,
       isEnabled: isEnabled,
       isLoading: isLoading,
       onPressed: onPressed,

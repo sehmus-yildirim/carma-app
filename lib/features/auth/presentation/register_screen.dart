@@ -2,10 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/carisma_design_tokens.dart';
+import '../../../shared/widgets/carisma_auth_brand_header.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
-import '../../../shared/widgets/carisma_secondary_button.dart';
 import '../../../shared/widgets/carisma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../legal/presentation/privacy_policy_screen.dart';
@@ -16,8 +16,6 @@ import '../data/legal_consent_repository.dart';
 import '../data/user_profile_repository.dart';
 import '../data/search_credit_repository.dart';
 import '../domain/registration_legal_consent_builder.dart';
-
-const String _carismaLogoAsset = 'assets/images/carisma_logo.png';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
@@ -51,7 +49,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscurePassword = true;
   bool _obscureRepeatPassword = true;
-  bool _acceptedLegal = false;
+  bool _acceptedTerms = false;
+  bool _acceptedPrivacy = false;
   bool _acceptedResponsibleUse = false;
   bool _isLoading = false;
 
@@ -67,7 +66,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return _hasValidEmail &&
         _hasValidPassword &&
         _passwordsMatch &&
-        _acceptedLegal &&
+        _acceptedTerms &&
+        _acceptedPrivacy &&
         _acceptedResponsibleUse &&
         !_isLoading;
   }
@@ -161,10 +161,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (!_acceptedLegal) {
+    if (!_acceptedTerms) {
+      setState(() {
+        _errorMessage = 'Bitte akzeptiere die AGB, um fortzufahren.';
+        _successMessage = null;
+      });
+      return;
+    }
+
+    if (!_acceptedPrivacy) {
       setState(() {
         _errorMessage =
-            'Bitte akzeptiere die AGB und Datenschutzhinweise, um fortzufahren.';
+            'Bitte akzeptiere die Datenschutzerklärung, um fortzufahren.';
         _successMessage = null;
       });
       return;
@@ -263,7 +271,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     FocusScope.of(context).unfocus();
 
-    if (!_acceptedLegal || !_acceptedResponsibleUse) {
+    if (!_acceptedTerms || !_acceptedPrivacy || !_acceptedResponsibleUse) {
       setState(() {
         _errorMessage =
             'Bitte akzeptiere zuerst die Hinweise zur Registrierung.';
@@ -441,29 +449,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final canPop = widget.onBack != null || Navigator.of(context).canPop();
 
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
         body: SafeArea(
           child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (canPop)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _TopBackButton(onTap: _goBack),
-                  ),
-                SizedBox(height: canPop ? 14 : 8),
-                const _RegisterBrandHeader(),
-                const SizedBox(height: 28),
+                Stack(
+                  children: [
+                    const CaRismaAuthBrandHeader(),
+                    if (canPop) CaRismaAuthBackButton(onTap: _goBack),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 GlassCard(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(10),
                   child: Column(
                     children: [
                       _AuthTextField(
@@ -473,7 +481,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _AuthTextField(
                         controller: _passwordController,
                         hintText: 'Passwort',
@@ -496,7 +504,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _AuthTextField(
                         controller: _repeatPasswordController,
                         hintText: 'Passwort wiederholen',
@@ -528,13 +536,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 _RegistrationLegalCard(
-                  acceptedLegal: _acceptedLegal,
+                  acceptedTerms: _acceptedTerms,
+                  acceptedPrivacy: _acceptedPrivacy,
                   acceptedResponsibleUse: _acceptedResponsibleUse,
-                  onLegalChanged: (value) {
+                  onTermsChanged: (value) {
                     setState(() {
-                      _acceptedLegal = value;
+                      _acceptedTerms = value;
+                      _errorMessage = null;
+                      _successMessage = null;
+                    });
+                  },
+                  onPrivacyChanged: (value) {
+                    setState(() {
+                      _acceptedPrivacy = value;
                       _errorMessage = null;
                       _successMessage = null;
                     });
@@ -550,31 +566,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPrivacyPressed: _openPrivacyPolicyScreen,
                 ),
                 if (_errorMessage != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
                   CaRismaMessageCard(
                     icon: Icons.error_outline_rounded,
                     message: _errorMessage!,
                   ),
                 ],
                 if (_successMessage != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
                   CaRismaMessageCard(
                     icon: Icons.check_circle_outline_rounded,
                     message: _successMessage!,
                   ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
                 CaRismaPrimaryButton(
                   label: 'Konto erstellen',
                   loadingLabel: 'Wird erstellt...',
                   icon: Icons.person_add_alt_1_rounded,
                   isEnabled: _canSubmit,
                   isLoading: _isLoading,
+                  surfaceOutlined: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
+                  borderRadius: 22,
+                  iconSize: 24,
+                  fontSize: 17,
                   onPressed: _submitRegister,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 const CaRismaAuthDivider(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 CaRismaSocialAuthButton(
                   provider: CaRismaSocialAuthProvider.google,
                   onPressed: () {
@@ -585,15 +609,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _submitGoogleRegister();
                   },
                 ),
-                const SizedBox(height: 12),
-                CaRismaSecondaryButton(
+                const SizedBox(height: 8),
+                const CaRismaSocialAuthButton(
+                  provider: CaRismaSocialAuthProvider.apple,
+                  isEnabled: false,
+                ),
+                const SizedBox(height: 8),
+                CaRismaAuthNavigationButton(
                   label: 'Schon ein Konto? Einloggen',
                   icon: Icons.login_rounded,
-                  borderRadius: 24,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 18,
-                  ),
                   onPressed: () {
                     if (_isLoading) {
                       return;
@@ -611,89 +635,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-class _RegisterBrandHeader extends StatelessWidget {
-  const _RegisterBrandHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Image.asset(
-          _carismaLogoAsset,
-          height: 96,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-              ),
-              child: const Icon(
-                Icons.directions_car_filled_rounded,
-                color: Colors.white,
-                size: 48,
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'CaRisma',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 32,
-            letterSpacing: 0.2,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TopBackButton extends StatelessWidget {
-  const _TopBackButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: CaRismaDesignTokens.controlSurface,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-          ),
-          child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
-
 class _RegistrationLegalCard extends StatelessWidget {
   const _RegistrationLegalCard({
-    required this.acceptedLegal,
+    required this.acceptedTerms,
+    required this.acceptedPrivacy,
     required this.acceptedResponsibleUse,
-    required this.onLegalChanged,
+    required this.onTermsChanged,
+    required this.onPrivacyChanged,
     required this.onResponsibleUseChanged,
     required this.onTermsPressed,
     required this.onPrivacyPressed,
   });
 
-  final bool acceptedLegal;
+  final bool acceptedTerms;
+  final bool acceptedPrivacy;
   final bool acceptedResponsibleUse;
-  final ValueChanged<bool> onLegalChanged;
+  final ValueChanged<bool> onTermsChanged;
+  final ValueChanged<bool> onPrivacyChanged;
   final ValueChanged<bool> onResponsibleUseChanged;
   final VoidCallback onTermsPressed;
   final VoidCallback onPrivacyPressed;
@@ -701,23 +659,27 @@ class _RegistrationLegalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       child: Column(
         children: [
           _ConsentRow(
-            value: acceptedLegal,
-            onChanged: onLegalChanged,
-            text:
-                'Ich akzeptiere die AGB und Datenschutzhinweise von CaRisma. Mir ist bewusst, dass meine Angaben später für Konto, Profil, Fahrzeug, Verifizierung und Missbrauchsschutz verarbeitet werden.',
-            onTermsPressed: onTermsPressed,
-            onPrivacyPressed: onPrivacyPressed,
+            value: acceptedTerms,
+            onChanged: onTermsChanged,
+            text: 'Ich akzeptiere die',
+            linkLabel: 'AGB.',
+            onLinkPressed: onTermsPressed,
           ),
-          const SizedBox(height: 10),
+          _ConsentRow(
+            value: acceptedPrivacy,
+            onChanged: onPrivacyChanged,
+            text: 'Ich akzeptiere die',
+            linkLabel: 'Datenschutzerklärung.',
+            onLinkPressed: onPrivacyPressed,
+          ),
           _ConsentRow(
             value: acceptedResponsibleUse,
             onChanged: onResponsibleUseChanged,
-            text:
-                'Ich nutze CaRisma nur verantwortungsvoll. CaRisma ist keine Notfall-, Polizei- oder Abschlepp-App. Missbrauch, falsche Meldungen, Belästigung oder falsche Fahrzeugdaten können zur Sperrung führen.',
+            text: 'Ich nutze CaRisma verantwortungsvoll.',
           ),
         ],
       ),
@@ -730,46 +692,69 @@ class _ConsentRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     required this.text,
-    this.onTermsPressed,
-    this.onPrivacyPressed,
+    this.linkLabel,
+    this.onLinkPressed,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
   final String text;
-  final VoidCallback? onTermsPressed;
-  final VoidCallback? onPrivacyPressed;
+  final String? linkLabel;
+  final VoidCallback? onLinkPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Checkbox(
-          value: value,
-          activeColor: CaRismaDesignTokens.bluePrimary,
-          checkColor: Colors.white,
-          side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.42),
-            width: 1.4,
+    return SizedBox(
+      height: 38,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox.square(
+            dimension: 36,
+            child: Transform.scale(
+              scale: 0.88,
+              child: Checkbox(
+                value: value,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeColor: CaRismaDesignTokens.bluePrimary,
+                checkColor: Colors.white,
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.42),
+                  width: 1.4,
+                ),
+                onChanged: _isEnabled
+                    ? (nextValue) => onChanged(nextValue ?? false)
+                    : null,
+              ),
+            ),
           ),
-          onChanged: _isEnabled
-              ? (nextValue) => onChanged(nextValue ?? false)
-              : null,
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: onTermsPressed == null || onPrivacyPressed == null
-                ? Text(text, style: _consentTextStyle(context))
-                : _LegalConsentText(
-                    onTermsPressed: onTermsPressed!,
-                    onPrivacyPressed: onPrivacyPressed!,
-                  ),
+          const SizedBox(width: 3),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: linkLabel == null || onLinkPressed == null
+                  ? Text(
+                      text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _consentTextStyle(context),
+                    )
+                  : Wrap(
+                      spacing: 3,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(text, style: _consentTextStyle(context)),
+                        _InlineLegalLink(
+                          label: linkLabel!,
+                          onTap: onLinkPressed!,
+                        ),
+                      ],
+                    ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -780,40 +765,9 @@ TextStyle? _consentTextStyle(BuildContext context) {
   return Theme.of(context).textTheme.bodyMedium?.copyWith(
     color: Colors.white.withValues(alpha: 0.76),
     fontWeight: FontWeight.w700,
-    height: 1.34,
+    fontSize: 12,
+    height: 1.08,
   );
-}
-
-class _LegalConsentText extends StatelessWidget {
-  const _LegalConsentText({
-    required this.onTermsPressed,
-    required this.onPrivacyPressed,
-  });
-
-  final VoidCallback onTermsPressed;
-  final VoidCallback onPrivacyPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = _consentTextStyle(context);
-
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text('Ich akzeptiere die ', style: style),
-        _InlineLegalLink(label: 'AGB', onTap: onTermsPressed),
-        Text(' und ', style: style),
-        _InlineLegalLink(
-          label: 'Datenschutzerklärung',
-          onTap: onPrivacyPressed,
-        ),
-        Text(
-          ' von CaRisma. Mir ist bewusst, dass meine Angaben später für Konto, Profil, Fahrzeug, Verifizierung und Missbrauchsschutz verarbeitet werden.',
-          style: style,
-        ),
-      ],
-    );
-  }
 }
 
 class _InlineLegalLink extends StatelessWidget {
@@ -828,7 +782,7 @@ class _InlineLegalLink extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 5),
         child: Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -836,7 +790,8 @@ class _InlineLegalLink extends StatelessWidget {
             fontWeight: FontWeight.w900,
             decoration: TextDecoration.underline,
             decorationColor: CaRismaDesignTokens.bluePrimary,
-            height: 1.34,
+            fontSize: 12,
+            height: 1.08,
           ),
         ),
       ),
@@ -910,6 +865,8 @@ class _AuthTextField extends StatelessWidget {
       autocorrect: false,
       enableSuggestions: !obscureText,
       decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 15),
         hintText: hintText,
         prefixIcon: Icon(icon),
         suffixIcon: suffixIcon,

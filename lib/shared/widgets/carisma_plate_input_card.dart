@@ -297,48 +297,56 @@ class _PlateInputField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 9),
-        TextField(
-          controller: controller,
-          focusNode: focusNode,
-          enabled: enabled,
-          maxLength: maxLength,
-          keyboardType: TextInputType.text,
-          textInputAction: textInputAction,
-          textAlign: TextAlign.center,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: inputFormatters,
-          onChanged: onChanged,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: CaRismaDesignTokens.textPrimary,
-            fontWeight: FontWeight.w900,
-            fontSize: 23,
-            letterSpacing: 0.8,
+        Theme(
+          data: Theme.of(context).copyWith(
+            textSelectionTheme: Theme.of(context).textSelectionTheme.copyWith(
+              cursorColor: CaRismaDesignTokens.blueBright,
+              selectionHandleColor: Colors.transparent,
+            ),
           ),
-          decoration: InputDecoration(
-            counterText: '',
-            filled: true,
-            fillColor: CaRismaDesignTokens.controlSurface,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 19,
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            maxLength: maxLength,
+            keyboardType: TextInputType.text,
+            textInputAction: textInputAction,
+            textAlign: TextAlign.center,
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: inputFormatters,
+            onChanged: onChanged,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: CaRismaDesignTokens.textPrimary,
+              fontWeight: FontWeight.w900,
+              fontSize: 23,
+              letterSpacing: 0.8,
             ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.065),
+            decoration: InputDecoration(
+              counterText: '',
+              filled: true,
+              fillColor: CaRismaDesignTokens.controlSurface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 19,
               ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.07),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.065),
+                ),
               ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(
-                color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.92),
-                width: 1.4,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.07),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(
+                  color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.92),
+                  width: 1.4,
+                ),
               ),
             ),
           ),

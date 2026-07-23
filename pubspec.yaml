@@ -38,6 +38,8 @@ flutter:
 
   assets:
     - assets/images/carisma_logo.png
+    - assets/images/carisma_logo_transparent.png
+    - assets/images/google_g_logo.png
     - assets/flags/
     - assets/coats/de/states/
     - assets/coats/at/states/

@@ -316,6 +316,38 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
     return _firestore.collection(CaRismaFirestoreCollections.contactRequests);
   }
 
+  Future<ContactRequestRecord?> loadRequestById({
+    required String requestId,
+  }) async {
+    final trimmedRequestId = requestId.trim();
+
+    if (trimmedRequestId.isEmpty) {
+      return null;
+    }
+
+    final snapshot = await _collection.doc(trimmedRequestId).get();
+    return snapshot.exists
+        ? ContactRequestRecord.fromFirestore(snapshot)
+        : null;
+  }
+
+  Stream<ContactRequestRecord?> watchRequestById({required String requestId}) {
+    final trimmedRequestId = requestId.trim();
+
+    if (trimmedRequestId.isEmpty) {
+      return Stream<ContactRequestRecord?>.value(null);
+    }
+
+    return _collection
+        .doc(trimmedRequestId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.exists
+              ? ContactRequestRecord.fromFirestore(snapshot)
+              : null,
+        );
+  }
+
   DateTime? _expiryFromValue(Object? value) {
     if (value is Timestamp) {
       return value.toDate();
@@ -339,6 +371,30 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
         .where('receiverUserId', isEqualTo: userId)
         .snapshots()
         .map(_recordsFromSnapshot);
+  }
+
+  Stream<List<ContactRequestRecord>> watchIncomingRequestStates({
+    required String userId,
+  }) {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty) {
+      return Stream<List<ContactRequestRecord>>.value(
+        const <ContactRequestRecord>[],
+      );
+    }
+
+    return _collection
+        .where('receiverUserId', isEqualTo: trimmedUserId)
+        .snapshots()
+        .map((snapshot) {
+          final records =
+              snapshot.docs
+                  .map(ContactRequestRecord.fromFirestore)
+                  .toList(growable: false)
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return records;
+        });
   }
 
   Stream<List<ContactRequestRecord>> watchOutgoingRequests({

@@ -16,6 +16,7 @@ class CaRismaPrimaryButton extends StatelessWidget {
     this.iconSize = 27,
     this.fontSize = 19,
     this.showShadow = true,
+    this.surfaceOutlined = false,
   });
 
   final String label;
@@ -29,6 +30,7 @@ class CaRismaPrimaryButton extends StatelessWidget {
   final double iconSize;
   final double fontSize;
   final bool showShadow;
+  final bool surfaceOutlined;
 
   @override
   Widget build(BuildContext context) {
@@ -48,16 +50,26 @@ class CaRismaPrimaryButton extends StatelessWidget {
             padding: padding,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(borderRadius),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  CaRismaDesignTokens.bluePrimary,
-                  CaRismaDesignTokens.bluePrimary,
-                  CaRismaDesignTokens.bluePrimary,
-                ],
+              gradient: surfaceOutlined
+                  ? null
+                  : const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        CaRismaDesignTokens.bluePrimary,
+                        CaRismaDesignTokens.bluePrimary,
+                        CaRismaDesignTokens.bluePrimary,
+                      ],
+                    ),
+              color: surfaceOutlined
+                  ? CaRismaDesignTokens.controlSurface
+                  : null,
+              border: Border.all(
+                color: surfaceOutlined
+                    ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
+                    : Colors.white.withValues(alpha: 0.16),
+                width: surfaceOutlined ? 1.4 : 1,
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
               boxShadow: showShadow
                   ? [
                       BoxShadow(
@@ -67,10 +79,10 @@ class CaRismaPrimaryButton extends StatelessWidget {
                       ),
                       BoxShadow(
                         color: CaRismaDesignTokens.bluePrimary.withValues(
-                          alpha: 0.36,
+                          alpha: surfaceOutlined ? 0.15 : 0.36,
                         ),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
+                        blurRadius: surfaceOutlined ? 18 : 30,
+                        offset: Offset(0, surfaceOutlined ? 6 : 10),
                       ),
                     ]
                   : null,
@@ -78,7 +90,13 @@ class CaRismaPrimaryButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(effectiveIcon, color: Colors.white, size: iconSize),
+                Icon(
+                  effectiveIcon,
+                  color: surfaceOutlined
+                      ? CaRismaDesignTokens.bluePrimary
+                      : Colors.white,
+                  size: iconSize,
+                ),
                 const SizedBox(width: 12),
                 Flexible(
                   child: Text(

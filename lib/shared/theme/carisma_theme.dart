@@ -31,6 +31,11 @@ class CaRismaTheme {
       scaffoldBackgroundColor: background,
       colorScheme: colorScheme,
       fontFamily: 'Roboto',
+      splashFactory: NoSplash.splashFactory,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
@@ -82,6 +87,7 @@ class CaRismaTheme {
         style: FilledButton.styleFrom(
           backgroundColor: CaRismaDesignTokens.bluePrimary,
           foregroundColor: CaRismaDesignTokens.textPrimary,
+          overlayColor: Colors.transparent,
           disabledBackgroundColor: CaRismaDesignTokens.bluePrimary.withValues(
             alpha: 0.24,
           ),
@@ -98,6 +104,7 @@ class CaRismaTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: CaRismaDesignTokens.textPrimary,
+          overlayColor: Colors.transparent,
           minimumSize: const Size.fromHeight(54),
           side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
           backgroundColor: CaRismaDesignTokens.controlSurface,
@@ -106,6 +113,20 @@ class CaRismaTheme {
             borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
           ),
         ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(overlayColor: Colors.transparent),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(overlayColor: Colors.transparent),
+      ),
+      iconButtonTheme: const IconButtonThemeData(
+        style: ButtonStyle(
+          overlayColor: WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        splashColor: Colors.transparent,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -153,6 +174,7 @@ class CaRismaTheme {
       ),
       checkboxTheme: CheckboxThemeData(
         checkColor: WidgetStateProperty.all(CaRismaDesignTokens.background),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         fillColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return CaRismaDesignTokens.blueBright;
@@ -162,6 +184,12 @@ class CaRismaTheme {
         }),
         side: BorderSide(color: Colors.white.withValues(alpha: 0.55)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+      ),
+      radioTheme: const RadioThemeData(
+        overlayColor: WidgetStatePropertyAll(Colors.transparent),
+      ),
+      switchTheme: const SwitchThemeData(
+        overlayColor: WidgetStatePropertyAll(Colors.transparent),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: CaRismaDesignTokens.cardHighlight,

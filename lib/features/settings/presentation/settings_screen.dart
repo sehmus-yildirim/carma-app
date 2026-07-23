@@ -7,6 +7,7 @@ import '../../../shared/legal/legal_versions.dart';
 import '../../../shared/models/carisma_models.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
+import '../../../shared/widgets/carisma_auth_brand_header.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/carisma_switch_row.dart';
@@ -807,8 +808,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            _LegalContentScreen(content: _LegalContent.forTitle(title)),
+        builder: (_) => CaRismaLegalContentScreen.forTitle(title: title),
       ),
     );
   }
@@ -1066,12 +1066,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final contentTopInset = CaRismaDesignTokens.mainScreenTopInset;
+            final contentBottomInset = 16.0 + keyboardInset;
             return SingleChildScrollView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + keyboardInset),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                contentTopInset,
+                20,
+                contentBottomInset,
+              ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 16,
+                  minHeight:
+                      (constraints.maxHeight -
+                              contentTopInset -
+                              contentBottomInset)
+                          .clamp(0.0, double.infinity)
+                          .toDouble(),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1857,157 +1869,155 @@ class _SettingsDetailScreen extends StatelessWidget {
   }
 }
 
-class _LegalContentScreen extends StatelessWidget {
-  const _LegalContentScreen({required this.content});
+class CaRismaLegalContentScreen extends StatefulWidget {
+  CaRismaLegalContentScreen.forTitle({super.key, required String title})
+    : _content = _LegalContent.forTitle(title);
 
-  final _LegalContent content;
+  final _LegalContent _content;
+
+  @override
+  State<CaRismaLegalContentScreen> createState() =>
+      _CaRismaLegalContentScreenState();
+}
+
+class _CaRismaLegalContentScreenState extends State<CaRismaLegalContentScreen> {
+  final ScrollController _scrollController = ScrollController();
+  bool _showScrollToTop = false;
+
+  _LegalContent get _content => widget._content;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_handleScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    final shouldShow = _scrollController.offset > 320;
+    if (shouldShow == _showScrollToTop) {
+      return;
+    }
+
+    setState(() => _showScrollToTop = shouldShow);
+  }
+
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    final legalText = [
-      content.title,
-      content.description,
-      if (content.versionLabel != null) content.versionLabel!,
-      ...content.sections.map((section) => '${section.title}\n${section.body}'),
-    ].join('\n\n');
-
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CaRismaSubPageHeader(
-                  icon: content.icon,
-                  title: content.title,
-                  onBack: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  content.description,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.5,
-                    height: 1.35,
-                  ),
-                ),
-                if (content.versionLabel != null) ...[
-                  const SizedBox(height: 18),
-                  _LegalVersionCard(versionLabel: content.versionLabel!),
-                ],
-                const SizedBox(height: 18),
-                const _LegalDraftNotice(),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: legalText));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${content.title} wurde kopiert.'),
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                controller: _scrollController,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Stack(
+                      children: [
+                        const CaRismaAuthBrandHeader(),
+                        CaRismaAuthBackButton(
+                          onTap: () => Navigator.of(context).pop(),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.copy_rounded, size: 18),
-                    label: const Text('Text kopieren'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: CaRismaDesignTokens.bluePrimary,
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                      ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                GlassCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: List.generate(content.sections.length, (index) {
-                      final section = content.sections[index];
+                    const SizedBox(height: 16),
+                    GlassCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.verified_outlined,
+                            color: CaRismaDesignTokens.bluePrimary,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _content.versionLabel ?? _content.title,
+                                maxLines: 1,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 17,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        _content.description,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15.5,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    ...List.generate(_content.sections.length, (index) {
+                      final section = _content.sections[index];
 
                       return Padding(
                         padding: EdgeInsets.only(
-                          bottom: index == content.sections.length - 1 ? 0 : 16,
+                          bottom: index == _content.sections.length - 1
+                              ? 0
+                              : 12,
                         ),
-                        child: _LegalSectionBlock(section: section),
+                        child: GlassCard(
+                          padding: const EdgeInsets.all(16),
+                          child: _LegalSectionBlock(section: section),
+                        ),
                       );
                     }),
+                  ],
+                ),
+              ),
+              if (_showScrollToTop)
+                Positioned(
+                  right: 20,
+                  bottom: 20,
+                  child: CaRismaAuthBackButton(
+                    onTap: _scrollToTop,
+                    icon: Icons.arrow_upward_rounded,
+                    semanticLabel: 'Nach oben',
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _LegalVersionCard extends StatelessWidget {
-  const _LegalVersionCard({required this.versionLabel});
-
-  final String versionLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(15),
-      child: Row(
-        children: [
-          CaRismaBlueIconBox(
-            icon: Icons.verified_outlined,
-            size: 42,
-            iconSize: 22,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              versionLabel,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
-                fontWeight: FontWeight.w800,
-                height: 1.34,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LegalDraftNotice extends StatelessWidget {
-  const _LegalDraftNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(15),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CaRismaBlueIconBox(
-            icon: Icons.edit_note_rounded,
-            size: 42,
-            iconSize: 22,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Diese Seite ist ein Entwurf. Die finalen Rechtstexte müssen vor Veröffentlichung juristisch geprüft und ersetzt werden.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
-                fontWeight: FontWeight.w700,
-                height: 1.34,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2020,36 +2030,27 @@ class _LegalSectionBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            section.title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 17,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          section.title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 17,
           ),
-          const SizedBox(height: 8),
-          Text(
-            section.body,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontWeight: FontWeight.w700,
-              height: 1.36,
-            ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          section.body,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white.withValues(alpha: 0.72),
+            fontWeight: FontWeight.w700,
+            height: 1.36,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -3283,7 +3284,7 @@ Diese Nutzungsbedingungen sind vor Veröffentlichung durch einen Rechtsanwalt mi
       'Datenschutzerklärung' => const _LegalContent(
         title: 'Datenschutz',
         icon: Icons.privacy_tip_outlined,
-        description: 'Datenschutzerklärung für die mobile App CaRisma.',
+        description: 'Datenschutzerklärung für CaRisma.',
         versionLabel: 'Aktuelle Datenschutz-Version: ${LegalVersions.privacy}',
         sections: [
           _LegalSection(

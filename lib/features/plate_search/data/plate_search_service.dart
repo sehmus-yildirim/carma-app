@@ -60,9 +60,14 @@ class PlateSearchService {
     found: true,
     targetUid: demoTargetUserId,
     displayName: 'CaRisma Testnutzer',
+    isVerified: true,
     distanceKm: 0.1,
     plateKey: demoPlateKey,
     displayPlate: 'HH-CR 2026',
+    countryCode: 'DE',
+    region: 'HH',
+    letters: 'CR',
+    numbers: '2026',
     vehicleBrand: 'BMW',
     vehicleModel: 'X6',
     vehicleColor: 'Schwarz',
@@ -250,6 +255,9 @@ class PlateSearchService {
     required double latitude,
     required double longitude,
     required int radiusKm,
+    String? region,
+    String? letters,
+    String? numbers,
   }) async {
     if (_useMock) {
       return _searchPlateFromFirestore(
@@ -258,6 +266,9 @@ class PlateSearchService {
         latitude: latitude,
         longitude: longitude,
         radiusKm: radiusKm,
+        region: region,
+        letters: letters,
+        numbers: numbers,
       );
     }
 
@@ -269,6 +280,9 @@ class PlateSearchService {
       'latitude': latitude,
       'longitude': longitude,
       'radiusKm': radiusKm,
+      'region': region,
+      'letters': letters,
+      'numbers': numbers,
     });
 
     return PlateSearchResult.fromMap(Map<String, dynamic>.from(response.data));
@@ -300,54 +314,19 @@ class PlateSearchService {
       );
     }
 
-    if (_useMock) {
-      return _createContactRequestInFirestore(
-        targetUid: targetUid,
-        plateKey: plateKey,
-        receiverDisplayName: receiverDisplayName,
-        receiverPhotoUrl: receiverPhotoUrl,
-        displayPlate: displayPlate,
-        vehicleBrand: vehicleBrand,
-        vehicleModel: vehicleModel,
-        vehicleColor: vehicleColor,
-        vehicleLabel: vehicleLabel,
-        requestReason: requestReason,
-        message: message,
-      );
-    }
-
-    final callable = _functions.httpsCallable('requestPlateContact');
-
-    final response = await callable.call<Map<String, dynamic>>({
-      'targetUid': targetUid,
-      'plateKey': plateKey,
-      'receiverDisplayName': receiverDisplayName,
-      'receiverPhotoUrl': receiverPhotoUrl,
-      'displayPlate': displayPlate,
-      'vehicleBrand': vehicleBrand,
-      'vehicleModel': vehicleModel,
-      'vehicleColor': vehicleColor,
-      'vehicleLabel': vehicleLabel,
-      'requestReason': requestReason,
-      'message': message,
-    });
-
-    final data = Map<String, dynamic>.from(response.data);
-    final requestId = data['requestId'] as String? ?? '';
-    final chatId =
-        data['chatId'] as String? ??
-        (requestId.isEmpty ? '' : 'request_$requestId');
-
-    final result = PlateContactRequestResult(
-      requestId: requestId,
-      chatId: chatId,
-      status:
-          data['status'] as String? ?? FirestoreContactRequestStatus.pending,
-      created: data['created'] == true,
+    return _createContactRequestInFirestore(
+      targetUid: targetUid,
+      plateKey: plateKey,
+      receiverDisplayName: receiverDisplayName,
+      receiverPhotoUrl: receiverPhotoUrl,
+      displayPlate: displayPlate,
+      vehicleBrand: vehicleBrand,
+      vehicleModel: vehicleModel,
+      vehicleColor: vehicleColor,
+      vehicleLabel: vehicleLabel,
+      requestReason: requestReason,
+      message: message,
     );
-
-    await _ensureInitialContactMessage(result: result, message: message);
-    return result;
   }
 
   Future<PlateSearchResult> _searchPlateFromFirestore({
@@ -356,6 +335,9 @@ class PlateSearchService {
     required double latitude,
     required double longitude,
     required int radiusKm,
+    String? region,
+    String? letters,
+    String? numbers,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
@@ -410,9 +392,7 @@ class PlateSearchService {
     final storedPlateKey = data['plateKey'] as String? ?? plateKey;
     final storedLatitude = (data['latitude'] as num?)?.toDouble();
     final storedLongitude = (data['longitude'] as num?)?.toDouble();
-    final locationUpdatedAt =
-        _dateTimeFromValue(data['locationUpdatedAt']) ??
-        _dateTimeFromValue(data['updatedAt']);
+    final locationUpdatedAt = _dateTimeFromValue(data['locationUpdatedAt']);
 
     if (ownerUserId == null || ownerUserId.trim().isEmpty) {
       return const PlateSearchResult(found: false);
@@ -465,9 +445,16 @@ class PlateSearchService {
       displayName: displayName?.trim().isEmpty == true ? null : displayName,
       profilePhotoUrl:
           (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?),
+      isVerified:
+          data['verificationStatus'] == 'verified' ||
+          data['isVerified'] == true,
       distanceKm: distanceKm,
       plateKey: storedPlateKey,
       displayPlate: data['displayPlate'] as String?,
+      countryCode: normalizedCountryCode,
+      region: region?.trim().toUpperCase(),
+      letters: letters?.trim().toUpperCase(),
+      numbers: numbers?.trim().toUpperCase(),
       vehicleBrand: data['vehicleBrand'] as String?,
       vehicleModel: data['vehicleModel'] as String?,
       vehicleColor: data['vehicleColor'] as String?,

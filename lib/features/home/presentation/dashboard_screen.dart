@@ -74,6 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _creditError;
   String? _errorMessage;
   String? _successMessage;
+  String _currentUserFirstName = '';
 
   String get _effectiveUserId {
     return FirebaseAuth.instance.currentUser?.uid ?? widget.userState.userId;
@@ -181,7 +182,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _numbersController.addListener(_refresh);
 
     _watchSearchCredit();
+    _loadCurrentUserFirstName();
     _loadLocation();
+  }
+
+  Future<void> _loadCurrentUserFirstName() async {
+    final userId = _effectiveUserId.trim();
+    if (userId.isEmpty) {
+      return;
+    }
+
+    String firstName = '';
+    try {
+      final profile = await _profileRepository.getProfile(userId);
+      firstName = profile?.firstName.trim() ?? '';
+      if (firstName.isEmpty) {
+        final displayName = profile?.displayName.trim() ?? '';
+        if (displayName.isNotEmpty) {
+          firstName = displayName.split(RegExp(r'\s+')).first;
+        }
+      }
+    } catch (_) {
+      // Die Anrede darf die Kennzeichensuche nicht blockieren.
+    }
+
+    if (firstName.isEmpty) {
+      final authDisplayName =
+          FirebaseAuth.instance.currentUser?.displayName?.trim() ?? '';
+      if (authDisplayName.isNotEmpty) {
+        firstName = authDisplayName.split(RegExp(r'\s+')).first;
+      }
+    }
+
+    if (!mounted || firstName == _currentUserFirstName) {
+      return;
+    }
+    setState(() => _currentUserFirstName = firstName);
   }
 
   @override
@@ -521,6 +557,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               latitude: position!.latitude,
               longitude: position.longitude,
               radiusKm: CaRismaAppConfig.defaultSearchRadiusKm,
+              region: _regionController.text,
+              letters: _lettersController.text,
+              numbers: _numbersController.text,
             );
       final requestState =
           !isDemoSearch &&
@@ -792,6 +831,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         numbers: _numbersController.text,
         requestState: _requestState,
         selectedReason: _selectedContactReason,
+        requesterFirstName: _currentUserFirstName,
         isRequestingContact: _isRequestingContact,
         onReasonSelected: (reason) {
           setState(() => _selectedContactReason = reason);
@@ -815,23 +855,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final contentTopInset = CaRismaDesignTokens.mainScreenTopInset;
+            final contentBottomInset =
+                CaRismaDesignTokens.mainScreenBottomInset + keyboardInset;
             final horizontalPadding = constraints.maxWidth <= 380
                 ? 14.0
                 : constraints.maxWidth <= 480
                 ? 16.0
                 : 20.0;
             return SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 horizontalPadding,
-                _result == null ? 8 : 4,
+                contentTopInset,
                 horizontalPadding,
-                88 + keyboardInset,
+                contentBottomInset,
               ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 88,
+                  minHeight:
+                      (constraints.maxHeight -
+                              contentTopInset -
+                              contentBottomInset)
+                          .clamp(0.0, double.infinity)
+                          .toDouble(),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1446,6 +1494,7 @@ class _PlateSearchResultCard extends StatelessWidget {
     required this.numbers,
     required this.requestState,
     required this.selectedReason,
+    required this.requesterFirstName,
     required this.isRequestingContact,
     required this.onReasonSelected,
     required this.onRequestContact,
@@ -1459,6 +1508,7 @@ class _PlateSearchResultCard extends StatelessWidget {
   final String numbers;
   final PlateContactRequestState? requestState;
   final PlateContactReason selectedReason;
+  final String requesterFirstName;
   final bool isRequestingContact;
   final ValueChanged<PlateContactReason> onReasonSelected;
   final VoidCallback onRequestContact;
@@ -1500,9 +1550,21 @@ class _PlateSearchResultCard extends StatelessWidget {
       );
     }
 
+    final resultCountryCode = result.countryCode?.trim().isNotEmpty == true
+        ? result.countryCode!.trim().toUpperCase()
+        : countryCode;
+    final resultRegion = result.region?.trim().isNotEmpty == true
+        ? result.region!.trim().toUpperCase()
+        : region;
+    final resultLetters = result.letters?.trim().isNotEmpty == true
+        ? result.letters!.trim().toUpperCase()
+        : letters;
+    final resultNumbers = result.numbers?.trim().isNotEmpty == true
+        ? result.numbers!.trim().toUpperCase()
+        : numbers;
     final regionPresentation = registrationRegionPresentationFor(
-      countryCode: countryCode,
-      plateCode: region,
+      countryCode: resultCountryCode,
+      plateCode: resultRegion,
     );
 
     return Container(
@@ -1513,17 +1575,10 @@ class _PlateSearchResultCard extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.08),
           width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.42),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
       ),
       child: GlassCard(
         radius: 24,
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1532,10 +1587,10 @@ class _PlateSearchResultCard extends StatelessWidget {
               children: [
                 _SearchUserAvatar(size: 50, imageUrl: result.profilePhotoUrl),
                 const Spacer(),
-                const _VerifiedBadge(),
+                if (result.isVerified) const _VerifiedBadge(),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 5),
             LayoutBuilder(
               builder: (context, constraints) {
                 final rightWidth = (constraints.maxWidth * 0.46).clamp(
@@ -1567,14 +1622,14 @@ class _PlateSearchResultCard extends StatelessWidget {
                       value: _valueOrFallback(result.vehicleBrand),
                       trailing: _CompactResultPlate(
                         width: rightWidth,
-                        countryCode: countryCode,
-                        region: region,
-                        letters: letters,
-                        numbers: numbers,
+                        countryCode: resultCountryCode,
+                        region: resultRegion,
+                        letters: resultLetters,
+                        numbers: resultNumbers,
                         regionPresentation: regionPresentation,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 5),
                     detailRow(
                       label: 'Fahrzeugmodell:',
                       value: _valueOrFallback(result.vehicleModel),
@@ -1583,7 +1638,7 @@ class _PlateSearchResultCard extends StatelessWidget {
                         onTap: () => _showReasonPicker(context),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 5),
                     detailRow(
                       label: 'Fahrzeugfarbe:',
                       value: _valueOrFallback(result.vehicleColor),
@@ -1611,7 +1666,7 @@ class _PlateSearchResultCard extends StatelessWidget {
               },
             ),
             if (requestState != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 7),
               _ExistingRequestInfo(requestState: requestState!),
             ],
           ],
@@ -1627,8 +1682,10 @@ class _PlateSearchResultCard extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.72),
-      builder: (context) =>
-          _ContactReasonPicker(selectedReason: selectedReason),
+      builder: (context) => _ContactReasonPicker(
+        selectedReason: selectedReason,
+        requesterFirstName: requesterFirstName,
+      ),
     );
     if (reason != null) {
       onReasonSelected(reason);
@@ -1789,21 +1846,28 @@ class _RequestReasonSelector extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.forum_outlined,
-                color: CaRismaDesignTokens.bluePrimary,
-                size: 18,
+              const SizedBox(
+                width: 20,
+                child: Icon(
+                  Icons.forum_outlined,
+                  color: CaRismaDesignTokens.bluePrimary,
+                  size: 19,
+                ),
               ),
               const SizedBox(width: 7),
               Expanded(
-                child: Text(
-                  'Anfragegrund',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: CaRismaDesignTokens.textPrimary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11.5,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Anfragegrund',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: CaRismaDesignTokens.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
@@ -1822,9 +1886,13 @@ class _RequestReasonSelector extends StatelessWidget {
 }
 
 class _ContactReasonPicker extends StatelessWidget {
-  const _ContactReasonPicker({required this.selectedReason});
+  const _ContactReasonPicker({
+    required this.selectedReason,
+    required this.requesterFirstName,
+  });
 
   final PlateContactReason selectedReason;
+  final String requesterFirstName;
 
   @override
   Widget build(BuildContext context) {
@@ -1852,7 +1920,11 @@ class _ContactReasonPicker extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Grund für deine Anfrage',
+                requesterFirstName.trim().isEmpty
+                    ? 'Nenn deinen Grund für deine Anfrage'
+                    : '${requesterFirstName.trim()}, nenn deinen Grund für deine Anfrage',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w900,
@@ -1864,7 +1936,7 @@ class _ContactReasonPicker extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Der ausgewählte Text wird automatisch als erste Nachricht vorbereitet.',
+                'Wähle einen Anlass. Daraus erstellen wir automatisch eine passende erste Nachricht.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: CaRismaDesignTokens.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -2054,12 +2126,12 @@ class _RequestContactButton extends StatelessWidget {
               backgroundColor: CaRismaDesignTokens.controlSurface,
               disabledBackgroundColor: CaRismaDesignTokens.controlSurface,
               side: BorderSide(color: accent.withValues(alpha: 0.58)),
-              padding: const EdgeInsets.symmetric(horizontal: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 9),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
               ),
               textStyle: const TextStyle(
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ).copyWith(
@@ -2079,17 +2151,20 @@ class _RequestContactButton extends StatelessWidget {
                 )
               : Row(
                   key: const ValueKey('label'),
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, color: accent, size: 17),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    SizedBox(
+                      width: 20,
+                      child: Icon(icon, color: accent, size: 19),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(label, maxLines: 1, softWrap: false),
                       ),
                     ),
+                    const SizedBox(width: 18),
                   ],
                 ),
         ),

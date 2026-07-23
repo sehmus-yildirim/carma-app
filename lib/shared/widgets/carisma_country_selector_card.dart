@@ -80,12 +80,12 @@ class _CountryButton extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: isSelected ? CaRismaDesignTokens.blueGradient : null,
-            color: isSelected ? null : CaRismaDesignTokens.card,
+            color: CaRismaDesignTokens.card,
             border: Border.all(
               color: isSelected
-                  ? Colors.white.withValues(alpha: 0.16)
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
                   : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 1.4 : 1,
             ),
             boxShadow: isSelected
                 ? [
@@ -96,10 +96,10 @@ class _CountryButton extends StatelessWidget {
                     ),
                     BoxShadow(
                       color: CaRismaDesignTokens.bluePrimary.withValues(
-                        alpha: 0.32,
+                        alpha: 0.18,
                       ),
-                      blurRadius: 24,
-                      offset: const Offset(0, 9),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
                     ),
                   ]
                 : null,

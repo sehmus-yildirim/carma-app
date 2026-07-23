@@ -235,19 +235,20 @@ class _GlassNavigationButton extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: isSelected ? 12 : 4),
         decoration: isSelected
             ? BoxDecoration(
-                color: CaRismaDesignTokens.bluePrimary,
+                color: CaRismaDesignTokens.controlSurface,
                 borderRadius: BorderRadius.circular(
                   CaRismaDesignTokens.radiusPanel,
                 ),
                 border: Border.all(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.14,
+                  color: CaRismaDesignTokens.bluePrimary.withValues(
+                    alpha: 0.88,
                   ),
+                  width: 1.4,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: CaRismaDesignTokens.bluePrimary.withValues(
-                      alpha: 0.28,
+                      alpha: 0.16,
                     ),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
@@ -281,7 +282,7 @@ class _GlassNavigationButton extends StatelessWidget {
                             icon,
                             key: ValueKey(icon),
                             color: isSelected
-                                ? CaRismaDesignTokens.textPrimary
+                                ? CaRismaDesignTokens.bluePrimary
                                 : CaRismaDesignTokens.textMuted,
                             size: 23,
                           ),

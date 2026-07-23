@@ -63,5 +63,43 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('receiver sees request chat only after acceptance', () async {
+      final chat = ChatRecord(
+        id: 'request_request-id',
+        participants: const ['receiver', 'sender'],
+        status: ChatStatus.active,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+        requestId: 'request-id',
+        senderUserId: 'sender',
+        receiverUserId: 'receiver',
+      );
+
+      expect(
+        isChatVisibleForRequestState(
+          chat: chat,
+          currentUserId: 'sender',
+          acceptedIncomingRequestIds: const <String>{},
+        ),
+        isTrue,
+      );
+      expect(
+        isChatVisibleForRequestState(
+          chat: chat,
+          currentUserId: 'receiver',
+          acceptedIncomingRequestIds: const <String>{},
+        ),
+        isFalse,
+      );
+      expect(
+        isChatVisibleForRequestState(
+          chat: chat,
+          currentUserId: 'receiver',
+          acceptedIncomingRequestIds: const <String>{'request-id'},
+        ),
+        isTrue,
+      );
+    });
   });
 }

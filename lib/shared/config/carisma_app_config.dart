@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class CaRismaAppConfig {
   const CaRismaAppConfig._();
 
@@ -7,7 +9,7 @@ class CaRismaAppConfig {
 
   static const String localUserId = 'local-user';
 
-  static const bool useMockPlateSearch = true;
+  static const bool useMockPlateSearch = kDebugMode;
   static const int defaultSearchRadiusKm = 5;
 
   static const String firebaseRegion = 'europe-west3';

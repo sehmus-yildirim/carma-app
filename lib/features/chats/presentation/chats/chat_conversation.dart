@@ -100,6 +100,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   };
 
   final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
+  final FirestoreContactRequestRepository _contactRequestRepository =
+      FirestoreContactRequestRepository();
   final ChatAttachmentStorage _attachmentStorage = ChatAttachmentStorage();
   final ChatNativeBridge _nativeBridge = ChatNativeBridge();
   final ImagePicker _imagePicker = ImagePicker();
@@ -138,7 +140,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   DateTime? _outgoingReadReceiptGuardStartedAt;
   DateTime? _outgoingReadReceiptBaselineAt;
   ChatRecord? _currentChatRecord;
+  ContactRequestRecord? _currentContactRequest;
   String? _chatStatusErrorMessage;
+  String? _contactRequestStatusErrorMessage;
+  String? _watchedContactRequestId;
+  bool _isContactRequestStatusLoading = false;
   Timer? _typingStopTimer;
   Timer? _voiceMemoRecordingTimer;
   Timer? _audioPlaybackStopTimer;
@@ -149,6 +155,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   StreamSubscription<DateTime?>? _presenceSubscription;
   StreamSubscription<List<ChatMessageRecord>>? _messagesSubscription;
   StreamSubscription<ChatRecord?>? _chatStatusSubscription;
+  StreamSubscription<ContactRequestRecord?>? _contactRequestSubscription;
 
   static const Duration _onlineStatusWindow = Duration(seconds: 90);
 
@@ -206,6 +213,40 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       return 'Dieser Chat ist nicht mehr aktiv.';
     }
 
+    final requestId = chat.requestId?.trim() ?? '';
+    if (requestId.isNotEmpty) {
+      if (_isContactRequestStatusLoading) {
+        return 'Kontaktanfrage wird geprüft...';
+      }
+
+      final requestStatusErrorMessage = _contactRequestStatusErrorMessage;
+      if (requestStatusErrorMessage != null) {
+        return requestStatusErrorMessage;
+      }
+
+      final request = _currentContactRequest;
+      if (request == null) {
+        return 'Die zugehörige Kontaktanfrage wurde nicht gefunden.';
+      }
+
+      switch (request.status.name) {
+        case 'accepted':
+          break;
+        case 'pending':
+          return 'Warte, bis die Kontaktanfrage angenommen wurde.';
+        case 'declined':
+          return 'Die Kontaktanfrage wurde abgelehnt.';
+        case 'withdrawn':
+          return 'Die Kontaktanfrage wurde zurückgezogen.';
+        case 'expired':
+          return 'Die Kontaktanfrage ist abgelaufen.';
+        case 'blocked':
+          return 'Die Kontaktanfrage wurde blockiert.';
+        default:
+          return 'Die Kontaktanfrage ist nicht mehr aktiv.';
+      }
+    }
+
     return null;
   }
 
@@ -246,6 +287,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     _presenceSubscription?.cancel();
     _messagesSubscription?.cancel();
     _chatStatusSubscription?.cancel();
+    _contactRequestSubscription?.cancel();
     _messageController.removeListener(_handleMessageChanged);
     _messageFocusNode.removeListener(_handleMessageFocusChanged);
     _messageController.dispose();
@@ -331,6 +373,21 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       throw StateError('Dieser Chat ist nicht mehr aktiv.');
     }
 
+    final requestId = chat.requestId?.trim() ?? '';
+    if (requestId.isNotEmpty) {
+      final request = await _contactRequestRepository.loadRequestById(
+        requestId: requestId,
+      );
+
+      if (request == null) {
+        throw StateError('Die zugehörige Kontaktanfrage wurde nicht gefunden.');
+      }
+
+      if (!request.isAccepted) {
+        throw StateError('Warte, bis die Kontaktanfrage angenommen wurde.');
+      }
+    }
+
     return currentUserId;
   }
 
@@ -360,6 +417,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
               _isChatStatusLoading = false;
               _chatStatusErrorMessage = null;
             });
+            _watchLinkedContactRequest(chat?.requestId);
             _stopComposerSideEffectsIfChatUnavailable();
             _cancelVoiceMemoIfChatBecameUnavailable();
           },
@@ -373,6 +431,67 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
               _isChatStatusLoading = false;
               _chatStatusErrorMessage =
                   'Chatstatus konnte nicht geladen werden.';
+            });
+            _stopComposerSideEffectsIfChatUnavailable();
+            _cancelVoiceMemoIfChatBecameUnavailable();
+          },
+        );
+  }
+
+  void _watchLinkedContactRequest(String? requestId) {
+    final trimmedRequestId = requestId?.trim() ?? '';
+
+    if (_watchedContactRequestId == trimmedRequestId) {
+      return;
+    }
+
+    _watchedContactRequestId = trimmedRequestId;
+    _contactRequestSubscription?.cancel();
+
+    if (trimmedRequestId.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _currentContactRequest = null;
+        _isContactRequestStatusLoading = false;
+        _contactRequestStatusErrorMessage = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _currentContactRequest = null;
+      _isContactRequestStatusLoading = true;
+      _contactRequestStatusErrorMessage = null;
+    });
+
+    _contactRequestSubscription = _contactRequestRepository
+        .watchRequestById(requestId: trimmedRequestId)
+        .listen(
+          (request) {
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _currentContactRequest = request;
+              _isContactRequestStatusLoading = false;
+              _contactRequestStatusErrorMessage = null;
+            });
+            _stopComposerSideEffectsIfChatUnavailable();
+            _cancelVoiceMemoIfChatBecameUnavailable();
+          },
+          onError: (Object _) {
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _currentContactRequest = null;
+              _isContactRequestStatusLoading = false;
+              _contactRequestStatusErrorMessage =
+                  'Anfragestatus konnte nicht geladen werden.';
             });
             _stopComposerSideEffectsIfChatUnavailable();
             _cancelVoiceMemoIfChatBecameUnavailable();

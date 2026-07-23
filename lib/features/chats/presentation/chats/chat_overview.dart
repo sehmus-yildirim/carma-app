@@ -133,29 +133,21 @@ class _SegmentButton extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: isSelected
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      CaRismaDesignTokens.bluePrimary,
-                      CaRismaDesignTokens.bluePrimary,
-                      CaRismaDesignTokens.bluePrimary,
-                    ],
-                  )
-                : null,
-            color: isSelected ? null : Colors.transparent,
+            color: isSelected
+                ? CaRismaDesignTokens.controlSurface
+                : Colors.transparent,
             border: Border.all(
               color: isSelected
-                  ? Colors.white.withValues(alpha: 0.18)
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
                   : Colors.transparent,
+              width: isSelected ? 1.4 : 1,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.38),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+                      color: _carismaBlue.withValues(alpha: 0.16),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
                   ]
                 : null,
@@ -166,7 +158,7 @@ class _SegmentButton extends StatelessWidget {
               Icon(
                 icon,
                 color: isSelected
-                    ? Colors.white
+                    ? CaRismaDesignTokens.bluePrimary
                     : CaRismaDesignTokens.textSecondary,
                 size: 20,
               ),
@@ -194,81 +186,6 @@ class _SegmentButton extends StatelessWidget {
   }
 }
 
-class _ChatSearchField extends StatelessWidget {
-  const _ChatSearchField({required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: TextField(
-          controller: controller,
-          textInputAction: TextInputAction.search,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: CaRismaDesignTokens.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-          decoration: InputDecoration(
-            hintText: 'Suchen',
-            hintStyle: TextStyle(
-              color: CaRismaDesignTokens.textMuted,
-              fontWeight: FontWeight.w900,
-            ),
-            prefixIcon: Icon(
-              Icons.search_rounded,
-              color: CaRismaDesignTokens.textSecondary.withValues(alpha: 0.74),
-            ),
-            suffixIcon: ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                if (value.text.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-
-                return IconButton(
-                  onPressed: controller.clear,
-                  icon: const Icon(Icons.close_rounded),
-                  color: CaRismaDesignTokens.textSecondary,
-                  tooltip: 'Suche löschen',
-                );
-              },
-            ),
-            filled: true,
-            fillColor: CaRismaDesignTokens.controlSurface,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 18,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: const BorderRadius.all(Radius.circular(24)),
-              borderSide: BorderSide(
-                color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.8),
-                width: 1.6,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ChatsOverview extends StatelessWidget {
   const _ChatsOverview({
     required this.chats,
@@ -279,10 +196,8 @@ class _ChatsOverview extends StatelessWidget {
     required this.isLoading,
     required this.hasLocalActiveChat,
     required this.localMessages,
-    required this.searchQuery,
     required this.selectedListView,
     required this.showArchiveShortcut,
-    required this.matchesChat,
     required this.onOpenArchived,
     required this.onShowMessages,
     required this.onHideArchiveShortcut,
@@ -304,10 +219,8 @@ class _ChatsOverview extends StatelessWidget {
   final bool isLoading;
   final bool hasLocalActiveChat;
   final List<_LocalChatMessage> localMessages;
-  final String searchQuery;
   final _ChatListView selectedListView;
   final bool showArchiveShortcut;
-  final bool Function(ChatRecord chat) matchesChat;
   final VoidCallback onOpenArchived;
   final VoidCallback onShowMessages;
   final VoidCallback onHideArchiveShortcut;
@@ -325,35 +238,85 @@ class _ChatsOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final visibleChats = chats.where(matchesChat).toList();
-    final visibleArchivedChats = archivedChats.where(matchesChat).toList();
-    final hasSearchQuery = searchQuery.trim().isNotEmpty;
+    final visibleChats = chats;
+    final visibleArchivedChats = archivedChats;
     final isArchivedView = selectedListView == _ChatListView.archived;
     final selectedChats = switch (selectedListView) {
       _ChatListView.messages => visibleChats,
       _ChatListView.archived => visibleArchivedChats,
     };
     final showLocalChat =
-        selectedListView == _ChatListView.messages &&
-        hasLocalActiveChat &&
-        (searchQuery.trim().isEmpty ||
-            'carisma nutzer bmw 1er schwarz ${localMessages.map((message) => message.text).join(' ')}'
-                .toLowerCase()
-                .contains(searchQuery.trim().toLowerCase()));
+        selectedListView == _ChatListView.messages && hasLocalActiveChat;
+
+    final listChildren = <Widget>[
+      if (isLoading)
+        const _InlineLoadingRow(label: 'Chats werden geladen...')
+      else if (selectedChats.isEmpty && !showLocalChat)
+        _EmptyListCard(
+          icon: isArchivedView
+              ? Icons.archive_outlined
+              : Icons.chat_bubble_outline_rounded,
+          title: isArchivedView ? 'Keine archivierten Chats' : 'Keine Chats',
+        )
+      else ...[
+        for (final chat in selectedChats) ...[
+          _ActiveChatListTile(
+            key: ValueKey('chat_${chat.id}_$isArchivedView'),
+            title: chat.displayNameFor(currentUserId),
+            imageUrl: chat.profilePhotoUrlFor(currentUserId),
+            subtitle: chat.lastMessage?.trim().isNotEmpty == true
+                ? chat.lastMessage!.trim()
+                : chat.vehicleTitle,
+            isFavorite: chat.isFavoriteFor(currentUserId),
+            isPinned: chat.isPinnedFor(currentUserId),
+            isMuted: chat.isMutedFor(currentUserId),
+            isUnread: chat.hasUnreadFor(currentUserId),
+            isArchived: isArchivedView,
+            onToggleRead: () => onToggleChatRead(chat),
+            onTogglePinned: () => onToggleChatPinned(chat),
+            onToggleArchived: () => onToggleChatArchived(chat),
+            onShowVehicleDetails: () => onShowChatVehicleDetails(chat),
+            trailing: _ChatOverflowMenu(
+              chatId: chat.id,
+              title: chat.displayNameFor(currentUserId),
+              subtitle:
+                  '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
+              vehicleLabel: chat.vehicleModelLabel,
+              plateLabel: _formatChatPlateLabel(chat.displayPlate),
+              isFavorite: chat.isFavoriteFor(currentUserId),
+              isPinned: chat.isPinnedFor(currentUserId),
+              isMuted: chat.isMutedFor(currentUserId),
+              isUnread: chat.hasUnreadFor(currentUserId),
+              isArchived: isArchivedView,
+              popAfterStatusAction: false,
+            ),
+            onTap: () => onOpenChat(chat),
+          ),
+          const SizedBox(height: 6),
+        ],
+        if (showLocalChat) ...[
+          _ActiveChatListTile(
+            title: 'CaRisma Nutzer',
+            subtitle: localMessages.isNotEmpty
+                ? localMessages.last.text
+                : 'BMW 1er',
+            trailing: const _ChatOverflowMenu(
+              title: 'CaRisma Nutzer',
+              subtitle: 'BMW 1er - HH-HY 4747',
+              vehicleLabel: 'BMW 1er',
+              plateLabel: 'HH-HY 4747',
+              popAfterStatusAction: false,
+            ),
+            onTap: onOpenLocalChat,
+          ),
+          const SizedBox(height: 6),
+        ],
+      ],
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        if (selectedListView == _ChatListView.messages &&
-            showArchiveShortcut) ...[
-          _ArchivedChatsReveal(
-            archivedCount: archivedChats.length,
-            onOpen: onOpenArchived,
-            onCollapse: onHideArchiveShortcut,
-          ),
-          const SizedBox(height: 12),
-        ],
         if (!isKeyboardOpen && selectedListView == _ChatListView.messages) ...[
           _ChatStoriesStrip(
             chats: [...visibleChats, ...visibleArchivedChats],
@@ -365,81 +328,31 @@ class _ChatsOverview extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
+        if (selectedListView == _ChatListView.messages &&
+            showArchiveShortcut) ...[
+          _ArchivedChatsReveal(
+            archivedCount: archivedChats.length,
+            onOpen: onOpenArchived,
+            onCollapse: onHideArchiveShortcut,
+          ),
+          const SizedBox(height: 12),
+        ],
         if (isArchivedView) ...[
           _ArchivedChatsHeader(onBack: onShowMessages),
           SizedBox(height: isKeyboardOpen ? 8 : 14),
         ],
-        if (isLoading)
-          const _InlineLoadingRow(label: 'Chats werden geladen...')
-        else if (selectedChats.isEmpty && !showLocalChat)
-          _EmptyListCard(
-            icon: isArchivedView
-                ? Icons.archive_outlined
-                : Icons.chat_bubble_outline_rounded,
-            title: hasSearchQuery
-                ? 'Keine Treffer'
-                : isArchivedView
-                ? 'Keine archivierten Chats'
-                : 'Keine Chats',
-          )
-        else
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final chat in selectedChats) ...[
-                _ActiveChatListTile(
-                  key: ValueKey('chat_${chat.id}_$isArchivedView'),
-                  title: chat.displayNameFor(currentUserId),
-                  imageUrl: chat.profilePhotoUrlFor(currentUserId),
-                  subtitle: chat.lastMessage?.trim().isNotEmpty == true
-                      ? chat.lastMessage!.trim()
-                      : chat.vehicleTitle,
-                  isFavorite: chat.isFavoriteFor(currentUserId),
-                  isPinned: chat.isPinnedFor(currentUserId),
-                  isMuted: chat.isMutedFor(currentUserId),
-                  isUnread: chat.hasUnreadFor(currentUserId),
-                  isArchived: isArchivedView,
-                  onToggleRead: () => onToggleChatRead(chat),
-                  onTogglePinned: () => onToggleChatPinned(chat),
-                  onToggleArchived: () => onToggleChatArchived(chat),
-                  onShowVehicleDetails: () => onShowChatVehicleDetails(chat),
-                  trailing: _ChatOverflowMenu(
-                    chatId: chat.id,
-                    title: chat.displayNameFor(currentUserId),
-                    subtitle:
-                        '${chat.vehicleModelLabel} - ${_formatChatPlateLabel(chat.displayPlate)}',
-                    vehicleLabel: chat.vehicleModelLabel,
-                    plateLabel: _formatChatPlateLabel(chat.displayPlate),
-                    isFavorite: chat.isFavoriteFor(currentUserId),
-                    isPinned: chat.isPinnedFor(currentUserId),
-                    isMuted: chat.isMutedFor(currentUserId),
-                    isUnread: chat.hasUnreadFor(currentUserId),
-                    isArchived: isArchivedView,
-                    popAfterStatusAction: false,
-                  ),
-                  onTap: () => onOpenChat(chat),
-                ),
-                const SizedBox(height: 6),
-              ],
-              if (showLocalChat) ...[
-                _ActiveChatListTile(
-                  title: 'CaRisma Nutzer',
-                  subtitle: localMessages.isNotEmpty
-                      ? localMessages.last.text
-                      : 'BMW 1er',
-                  trailing: const _ChatOverflowMenu(
-                    title: 'CaRisma Nutzer',
-                    subtitle: 'BMW 1er - HH-HY 4747',
-                    vehicleLabel: 'BMW 1er',
-                    plateLabel: 'HH-HY 4747',
-                    popAfterStatusAction: false,
-                  ),
-                  onTap: onOpenLocalChat,
-                ),
-                const SizedBox(height: 6),
-              ],
-            ],
+        Expanded(
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.only(
+              bottom: CaRismaDesignTokens.mainScreenBottomInset + 12,
+            ),
+            children: listChildren,
           ),
+        ),
       ],
     );
   }
@@ -606,22 +519,38 @@ class _RequestsOverview extends StatelessWidget {
                 outgoingSnapshot.connectionState == ConnectionState.waiting;
             final error = incomingSnapshot.error ?? outgoingSnapshot.error;
 
-            if (error != null) {
-              return _InlineErrorCard(
-                message: _friendlyChatUiError(
-                  error,
-                  fallback: 'Kontaktanfragen konnten nicht geladen werden.',
-                ),
-              );
-            }
-
             final isIncomingView =
                 selectedListView == _RequestListView.incoming;
             final selectedRequests = isIncomingView ? incoming : outgoing;
+            final selectedContent = error != null
+                ? _InlineErrorCard(
+                    message: _friendlyChatUiError(
+                      error,
+                      fallback: 'Kontaktanfragen konnten nicht geladen werden.',
+                    ),
+                  )
+                : isLoading
+                ? const _InlineLoadingRow(label: 'Anfragen werden geladen...')
+                : selectedRequests.isEmpty
+                ? _EmptyListCard(
+                    icon: isIncomingView
+                        ? Icons.mark_email_unread_outlined
+                        : Icons.schedule_send_outlined,
+                    title: isIncomingView
+                        ? 'Keine eingehenden Anfragen'
+                        : 'Keine gesendeten Anfragen',
+                  )
+                : _InlineRequestList(
+                    requests: selectedRequests,
+                    isIncoming: isIncomingView,
+                    busyRequestIds: busyRequestIds,
+                    onAccept: onAccept,
+                    onDecline: onDecline,
+                    onWithdraw: onWithdraw,
+                  );
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 _InlineTextTabs<_RequestListView>(
                   selectedValue: selectedListView,
@@ -643,34 +572,21 @@ class _RequestsOverview extends StatelessWidget {
                 SizedBox(
                   height: MediaQuery.of(context).viewInsets.bottom > 0 ? 6 : 12,
                 ),
-                GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onHorizontalDragEnd: onHorizontalSwipe,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: Container(
-                      key: ValueKey(selectedListView),
-                      child: isLoading
-                          ? const _InlineLoadingRow(
-                              label: 'Anfragen werden geladen...',
-                            )
-                          : selectedRequests.isEmpty
-                          ? _EmptyListCard(
-                              icon: isIncomingView
-                                  ? Icons.mark_email_unread_outlined
-                                  : Icons.schedule_send_outlined,
-                              title: isIncomingView
-                                  ? 'Keine eingehenden Anfragen'
-                                  : 'Keine gesendeten Anfragen',
-                            )
-                          : _InlineRequestList(
-                              requests: selectedRequests,
-                              isIncoming: isIncomingView,
-                              busyRequestIds: busyRequestIds,
-                              onAccept: onAccept,
-                              onDecline: onDecline,
-                              onWithdraw: onWithdraw,
-                            ),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragEnd: onHorizontalSwipe,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: ListView(
+                        key: ValueKey(selectedListView),
+                        physics: const ClampingScrollPhysics(),
+                        padding: const EdgeInsets.only(
+                          bottom:
+                              CaRismaDesignTokens.mainScreenBottomInset + 12,
+                        ),
+                        children: [selectedContent],
+                      ),
                     ),
                   ),
                 ),
@@ -784,21 +700,21 @@ class _InlineTextTab<T> extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(19),
-            gradient: isSelected ? CaRismaDesignTokens.blueGradient : null,
             color: isSelected
-                ? null
+                ? CaRismaDesignTokens.controlSurface
                 : Colors.white.withValues(alpha: isCompact ? 0.02 : 0.03),
             border: Border.all(
               color: isSelected
-                  ? Colors.white.withValues(alpha: 0.16)
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
                   : Colors.transparent,
+              width: isSelected ? 1.4 : 1,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.30),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+                      color: _carismaBlue.withValues(alpha: 0.15),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
                   ]
                 : null,

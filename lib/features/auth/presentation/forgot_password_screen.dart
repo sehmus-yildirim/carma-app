@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/carisma_auth_brand_header.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
-import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../data/auth_service.dart';
 
@@ -155,28 +155,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + keyboardInset),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                CaRismaSubPageHeader(
-                  icon: Icons.lock_reset_rounded,
-                  title: 'Passwort vergessen',
-                  onBack: _goBack,
+                Stack(
+                  children: [
+                    const CaRismaAuthBrandHeader(),
+                    CaRismaAuthBackButton(onTap: _goBack),
+                  ],
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  'Gib deine E-Mail-Adresse ein. Wenn ein Konto existiert, senden wir dir einen sicheren Link zum Zurücksetzen deines Passworts.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.5,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 GlassCard(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(10),
                   child: _AuthTextField(
                     controller: _emailController,
                     hintText: 'E-Mail-Adresse',
@@ -204,13 +196,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     message: _successMessage!,
                   ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 CaRismaPrimaryButton(
                   label: 'Reset-Link senden',
                   loadingLabel: 'Wird gesendet...',
                   icon: Icons.mark_email_read_outlined,
                   isEnabled: _canSubmit,
                   isLoading: _isLoading,
+                  surfaceOutlined: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 15,
+                  ),
+                  borderRadius: 22,
+                  iconSize: 24,
+                  fontSize: 17,
                   onPressed: _submitReset,
                 ),
               ],
@@ -248,7 +248,12 @@ class _AuthTextField extends StatelessWidget {
       onSubmitted: onSubmitted,
       autocorrect: false,
       enableSuggestions: false,
-      decoration: InputDecoration(hintText: hintText, prefixIcon: Icon(icon)),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 15),
+        hintText: hintText,
+        prefixIcon: Icon(icon),
+      ),
     );
   }
 }

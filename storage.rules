@@ -29,6 +29,26 @@ service firebase.storage {
         ).data.status in ['active', 'archived'];
     }
 
+    function canSendChatAttachment(chatId) {
+      let chat = firestore.get(
+        /databases/(default)/documents/chats/$(chatId)
+      ).data;
+      let requestId = chat.get('requestId', '');
+
+      return !(
+          requestId is string
+          && requestId.size() > 0
+        )
+        || (
+          firestore.exists(
+            /databases/(default)/documents/contact_requests/$(requestId)
+          )
+          && firestore.get(
+            /databases/(default)/documents/contact_requests/$(requestId)
+          ).data.status == 'accepted'
+        );
+    }
+
     function storyDocument(userId) {
       return firestore.get(
         /databases/(default)/documents/chat_stories/$(userId)
@@ -338,6 +358,7 @@ service firebase.storage {
       allow create: if request.auth != null
         && request.auth.uid == userId
         && isOpenChat(chatId)
+        && canSendChatAttachment(chatId)
         && isValidChatImageUpload(fileName);
       allow delete: if request.auth != null
         && request.auth.uid == userId
@@ -349,6 +370,7 @@ service firebase.storage {
       allow create: if request.auth != null
         && request.auth.uid == userId
         && isOpenChat(chatId)
+        && canSendChatAttachment(chatId)
         && isValidChatDocumentUpload(fileName);
       allow delete: if request.auth != null
         && request.auth.uid == userId
@@ -360,6 +382,7 @@ service firebase.storage {
       allow create: if request.auth != null
         && request.auth.uid == userId
         && isOpenChat(chatId)
+        && canSendChatAttachment(chatId)
         && isValidChatVoiceMemoUpload(fileName);
       allow delete: if request.auth != null
         && request.auth.uid == userId
@@ -371,6 +394,7 @@ service firebase.storage {
       allow create: if request.auth != null
         && request.auth.uid == userId
         && isOpenChat(chatId)
+        && canSendChatAttachment(chatId)
         && isValidChatVideoUpload(fileName);
       allow delete: if request.auth != null
         && request.auth.uid == userId

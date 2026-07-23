@@ -453,9 +453,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(
                         20,
-                        8,
+                        CaRismaDesignTokens.mainScreenTopInset,
                         20,
-                        112 + keyboardInset,
+                        CaRismaDesignTokens.mainScreenBottomInset +
+                            keyboardInset,
                       ),
                       sliver: SliverList.list(
                         children: [

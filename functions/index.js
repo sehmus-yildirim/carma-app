@@ -16,6 +16,7 @@ const {
   submitPlateHintTransaction,
 } = require("./report_submission");
 const {runReportCleanup} = require("./report_cleanup");
+const {searchPlateDocument} = require("./plate_search");
 
 initializeApp();
 
@@ -38,6 +39,36 @@ const vehicleHeroRequestWindowMs = 24 * 60 * 60 * 1000;
 const maxVehicleHeroRequestsPerWindow = 3;
 const maxVehicleHeroImageBytes = 15 * 1024 * 1024;
 const vehicleHeroRequestTimeoutMs = 90 * 1000;
+
+exports.searchPlate = onCall(
+  {
+    timeoutSeconds: 15,
+    memory: "256MiB",
+  },
+  async (request) => {
+    const userId = safeString(request.auth?.uid);
+    if (userId.length === 0) {
+      throw new HttpsError("unauthenticated", "Bitte melde dich neu an.");
+    }
+
+    try {
+      return await searchPlateDocument({
+        firestore: db,
+        requesterUserId: userId,
+        input: request.data,
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      logger.error("Plate search failed", {errorType: errorType(error)});
+      throw new HttpsError(
+        "internal",
+        "Die Kennzeichen-Suche ist momentan nicht verfügbar.",
+      );
+    }
+  },
+);
 
 exports.submitPlateHint = onCall(
   {

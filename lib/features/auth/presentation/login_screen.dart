@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/carisma_auth_brand_header.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
-import '../../../shared/widgets/carisma_secondary_button.dart';
 import '../../../shared/widgets/carisma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../profile/data/profile_repository.dart';
@@ -12,8 +12,6 @@ import '../data/auth_service.dart';
 import '../data/user_profile_repository.dart';
 import '../data/search_credit_repository.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
-
-const String _carismaLogoAsset = 'assets/images/carisma_logo.png';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -374,20 +372,20 @@ class _LoginScreenState extends State<LoginScreen> {
         body: SafeArea(
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + keyboardInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (canPop)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _TopBackButton(onTap: _goBack),
-                  ),
-                SizedBox(height: canPop ? 14 : 8),
-                const _LoginBrandHeader(),
-                const SizedBox(height: 28),
+                Stack(
+                  children: [
+                    const CaRismaAuthBrandHeader(),
+                    if (canPop) CaRismaAuthBackButton(onTap: _goBack),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 GlassCard(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(10),
                   child: Column(
                     children: [
                       _AuthTextField(
@@ -397,7 +395,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _AuthTextField(
                         controller: _passwordController,
                         hintText: 'Passwort',
@@ -425,7 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -434,7 +432,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             'Passwort vergessen?',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                                  color: CaRismaDesignTokens.blueBright,
+                                  color: CaRismaDesignTokens.textPrimary,
                                   fontWeight: FontWeight.w900,
                                 ),
                           ),
@@ -457,18 +455,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     message: _successMessage!,
                   ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 CaRismaPrimaryButton(
                   label: 'Einloggen',
                   loadingLabel: 'Wird geprüft...',
                   icon: Icons.login_rounded,
                   isEnabled: _canSubmit,
                   isLoading: _isLoading,
+                  surfaceOutlined: true,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 15,
+                  ),
+                  borderRadius: 22,
+                  iconSize: 24,
+                  fontSize: 17,
                   onPressed: _submitLogin,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 const _AuthDivider(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 CaRismaSocialAuthButton(
                   provider: CaRismaSocialAuthProvider.google,
                   onPressed: () {
@@ -479,15 +485,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     _submitGoogleLogin();
                   },
                 ),
-                const SizedBox(height: 12),
-                CaRismaSecondaryButton(
+                const SizedBox(height: 8),
+                const CaRismaSocialAuthButton(
+                  provider: CaRismaSocialAuthProvider.apple,
+                  isEnabled: false,
+                ),
+                const SizedBox(height: 8),
+                CaRismaAuthNavigationButton(
                   label: 'Noch kein Konto? Registrieren',
                   icon: Icons.person_add_alt_1_rounded,
-                  borderRadius: 24,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 18,
-                  ),
                   onPressed: () {
                     if (_isLoading) {
                       return;
@@ -499,76 +505,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginBrandHeader extends StatelessWidget {
-  const _LoginBrandHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Image.asset(
-          _carismaLogoAsset,
-          height: 96,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-              ),
-              child: const Icon(
-                Icons.directions_car_filled_rounded,
-                color: Colors.white,
-                size: 48,
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'CaRisma',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 32,
-            letterSpacing: 0.2,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TopBackButton extends StatelessWidget {
-  const _TopBackButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: CaRismaDesignTokens.controlSurface,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-          ),
-          child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
         ),
       ),
     );
@@ -641,6 +577,8 @@ class _AuthTextField extends StatelessWidget {
       autocorrect: false,
       enableSuggestions: !obscureText,
       decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 15),
         hintText: hintText,
         prefixIcon: Icon(icon),
         suffixIcon: suffixIcon,

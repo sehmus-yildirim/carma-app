@@ -27,6 +27,10 @@ class CaRismaDesignTokens {
   static const double radiusPanel = 26;
   static const double radiusNav = 34;
 
+  /// Einheitlicher Abstand der ersten und letzten Inhalte in den Haupttabs.
+  static const double mainScreenTopInset = 12;
+  static const double mainScreenBottomInset = 84;
+
   static const LinearGradient screenGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,

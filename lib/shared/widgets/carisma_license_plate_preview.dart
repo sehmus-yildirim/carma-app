@@ -191,12 +191,15 @@ class _EuropeanPlate extends StatelessWidget {
                             ] else ...[
                               Expanded(
                                 flex: 21,
-                                child: _PlateText(
-                                  letters,
-                                  fontSize: plateTextSize,
+                                child: Transform.translate(
+                                  offset: const Offset(-2, 0),
+                                  child: _PlateText(
+                                    letters,
+                                    fontSize: plateTextSize,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 3),
+                              const SizedBox(width: 8),
                               Expanded(
                                 flex: 39,
                                 child: _PlateText(
