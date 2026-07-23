@@ -11,6 +11,16 @@ class AuthService {
 
   User? get currentUser => _firebaseAuth.currentUser;
 
+  Future<User?> reloadCurrentUser() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      return null;
+    }
+
+    await user.reload();
+    return _firebaseAuth.currentUser;
+  }
+
   Future<UserCredential> createUserWithEmailAndPassword({
     required String email,
     required String password,
