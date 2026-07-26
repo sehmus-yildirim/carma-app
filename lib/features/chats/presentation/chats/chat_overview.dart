@@ -478,7 +478,9 @@ class _ArchivedChatsHeader extends StatelessWidget {
   }
 }
 
-class _RequestsOverview extends StatelessWidget {
+enum _RequestSortOrder { newest, oldest }
+
+class _RequestsOverview extends StatefulWidget {
   const _RequestsOverview({
     required this.incomingStream,
     required this.outgoingStream,
@@ -503,12 +505,47 @@ class _RequestsOverview extends StatelessWidget {
   final ValueChanged<ContactRequestRecord> onWithdraw;
 
   @override
+  State<_RequestsOverview> createState() => _RequestsOverviewState();
+}
+
+class _RequestsOverviewState extends State<_RequestsOverview> {
+  _RequestSortOrder _sortOrder = _RequestSortOrder.newest;
+  Timer? _requestCountdownTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestCountdownTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _requestCountdownTimer?.cancel();
+    super.dispose();
+  }
+
+  List<ContactRequestRecord> _sortedRequests(
+    List<ContactRequestRecord> requests,
+  ) {
+    final sorted = [...requests];
+    sorted.sort((a, b) {
+      final comparison = b.createdAt.compareTo(a.createdAt);
+      return _sortOrder == _RequestSortOrder.newest ? comparison : -comparison;
+    });
+    return sorted;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ContactRequestRecord>>(
-      stream: incomingStream,
+      stream: widget.incomingStream,
       builder: (context, incomingSnapshot) {
         return StreamBuilder<List<ContactRequestRecord>>(
-          stream: outgoingStream,
+          stream: widget.outgoingStream,
           builder: (context, outgoingSnapshot) {
             final incoming =
                 incomingSnapshot.data ?? const <ContactRequestRecord>[];
@@ -520,8 +557,10 @@ class _RequestsOverview extends StatelessWidget {
             final error = incomingSnapshot.error ?? outgoingSnapshot.error;
 
             final isIncomingView =
-                selectedListView == _RequestListView.incoming;
-            final selectedRequests = isIncomingView ? incoming : outgoing;
+                widget.selectedListView == _RequestListView.incoming;
+            final selectedRequests = _sortedRequests(
+              isIncomingView ? incoming : outgoing,
+            );
             final selectedContent = error != null
                 ? _InlineErrorCard(
                     message: _friendlyChatUiError(
@@ -543,17 +582,17 @@ class _RequestsOverview extends StatelessWidget {
                 : _InlineRequestList(
                     requests: selectedRequests,
                     isIncoming: isIncomingView,
-                    busyRequestIds: busyRequestIds,
-                    onAccept: onAccept,
-                    onDecline: onDecline,
-                    onWithdraw: onWithdraw,
+                    busyRequestIds: widget.busyRequestIds,
+                    onAccept: widget.onAccept,
+                    onDecline: widget.onDecline,
+                    onWithdraw: widget.onWithdraw,
                   );
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _InlineTextTabs<_RequestListView>(
-                  selectedValue: selectedListView,
+                  selectedValue: widget.selectedListView,
                   isCompact: MediaQuery.of(context).viewInsets.bottom > 0,
                   items: [
                     _InlineTextTabItem(
@@ -567,25 +606,40 @@ class _RequestsOverview extends StatelessWidget {
                       count: outgoing.length,
                     ),
                   ],
-                  onChanged: onListViewChanged,
+                  onChanged: widget.onListViewChanged,
+                ),
+                const SizedBox(height: 8),
+                _RequestSortToggle(
+                  selectedOrder: _sortOrder,
+                  onChanged: (order) {
+                    setState(() {
+                      _sortOrder = order;
+                    });
+                  },
                 ),
                 SizedBox(
-                  height: MediaQuery.of(context).viewInsets.bottom > 0 ? 6 : 12,
+                  height: MediaQuery.of(context).viewInsets.bottom > 0 ? 6 : 10,
                 ),
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
-                    onHorizontalDragEnd: onHorizontalSwipe,
+                    onHorizontalDragEnd: widget.onHorizontalSwipe,
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 180),
-                      child: ListView(
-                        key: ValueKey(selectedListView),
-                        physics: const ClampingScrollPhysics(),
-                        padding: const EdgeInsets.only(
-                          bottom:
-                              CaRismaDesignTokens.mainScreenBottomInset + 12,
-                        ),
-                        children: [selectedContent],
+                      layoutBuilder: (currentChild, previousChildren) {
+                        return Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            for (final child in previousChildren)
+                              Positioned.fill(child: child),
+                            if (currentChild != null)
+                              Positioned.fill(child: currentChild),
+                          ],
+                        );
+                      },
+                      child: _RequestScrollViewport(
+                        key: ValueKey('${widget.selectedListView}_$_sortOrder'),
+                        child: selectedContent,
                       ),
                     ),
                   ),
@@ -595,6 +649,149 @@ class _RequestsOverview extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _RequestScrollViewport extends StatefulWidget {
+  const _RequestScrollViewport({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_RequestScrollViewport> createState() => _RequestScrollViewportState();
+}
+
+class _RequestScrollViewportState extends State<_RequestScrollViewport> {
+  final GlobalKey _contentKey = GlobalKey();
+  double _contentHeight = 0;
+
+  void _scheduleMeasure() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final renderObject = _contentKey.currentContext?.findRenderObject();
+      final nextHeight = renderObject is RenderBox
+          ? renderObject.size.height
+          : 0.0;
+      if ((nextHeight - _contentHeight).abs() > 0.5) {
+        setState(() {
+          _contentHeight = nextHeight;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final navigationGap = MediaQuery.of(context).viewInsets.bottom > 0
+            ? 12.0
+            : CaRismaDesignTokens.mainScreenBottomInset + 12;
+        final availableHeight = constraints.maxHeight - navigationGap;
+        final needsNavigationGap = _contentHeight > availableHeight;
+        final bottomPadding = needsNavigationGap ? navigationGap : 12.0;
+        final canScroll =
+            _contentHeight + bottomPadding > constraints.maxHeight + 0.5;
+
+        _scheduleMeasure();
+
+        return SingleChildScrollView(
+          physics: canScroll
+              ? const ClampingScrollPhysics()
+              : const NeverScrollableScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Padding(
+            key: _contentKey,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: widget.child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RequestSortToggle extends StatelessWidget {
+  const _RequestSortToggle({
+    required this.selectedOrder,
+    required this.onChanged,
+  });
+
+  final _RequestSortOrder selectedOrder;
+  final ValueChanged<_RequestSortOrder> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: CaRismaDesignTokens.controlSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _RequestSortChip(
+              label: 'Neueste',
+              isSelected: selectedOrder == _RequestSortOrder.newest,
+              onTap: () => onChanged(_RequestSortOrder.newest),
+            ),
+            _RequestSortChip(
+              label: 'Älteste',
+              isSelected: selectedOrder == _RequestSortOrder.oldest,
+              onTap: () => onChanged(_RequestSortOrder.oldest),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestSortChip extends StatelessWidget {
+  const _RequestSortChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: CaRismaDesignTokens.controlSurface,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(
+            color: isSelected
+                ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.58)
+                : Colors.transparent,
+          ),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: isSelected
+                ? CaRismaDesignTokens.textPrimary
+                : CaRismaDesignTokens.textSecondary.withValues(alpha: 0.74),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -740,31 +937,10 @@ class _InlineTextTab<T> extends StatelessWidget {
                   ),
                   if (item.count != null) ...[
                     const SizedBox(width: 8),
-                    Container(
-                      height: isCompact ? 21 : 24,
-                      constraints: BoxConstraints(
-                        minWidth: isCompact ? 21 : 24,
-                      ),
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 7),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Colors.white.withValues(alpha: 0.18)
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: isSelected
-                              ? Colors.white.withValues(alpha: 0.24)
-                              : Colors.white.withValues(alpha: 0.12),
-                        ),
-                      ),
-                      child: Text(
-                        '${item.count}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.82),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+                    _InlineTabCountBadge(
+                      count: item.count!,
+                      isSelected: isSelected,
+                      isCompact: isCompact,
                     ),
                   ],
                 ],
@@ -782,6 +958,63 @@ class _InlineTextTab<T> extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _InlineTabCountBadge extends StatelessWidget {
+  const _InlineTabCountBadge({
+    required this.count,
+    required this.isSelected,
+    required this.isCompact,
+  });
+
+  final int count;
+  final bool isSelected;
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isSelected
+        ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.54)
+        : Colors.white.withValues(alpha: 0.10);
+    final iconColor = isSelected
+        ? CaRismaDesignTokens.bluePrimary
+        : CaRismaDesignTokens.textSecondary.withValues(alpha: 0.72);
+    final textColor = isSelected
+        ? CaRismaDesignTokens.textPrimary
+        : CaRismaDesignTokens.textSecondary.withValues(alpha: 0.78);
+
+    return Container(
+      height: isCompact ? 22 : 24,
+      constraints: BoxConstraints(minWidth: isCompact ? 34 : 38),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 6 : 7),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.mark_chat_unread_outlined,
+            size: isCompact ? 11 : 12,
+            color: iconColor,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$count',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w900,
+              fontSize: isCompact ? 10.5 : 11,
+              height: 1,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1435,6 +1668,18 @@ class _InlineRequestListState extends State<_InlineRequestList> {
   }
 }
 
+class _RequestPlateSegments {
+  const _RequestPlateSegments({
+    required this.region,
+    required this.letters,
+    required this.numbers,
+  });
+
+  final String region;
+  final String letters;
+  final String numbers;
+}
+
 class _InlineRequestTile extends StatelessWidget {
   const _InlineRequestTile({
     required this.request,
@@ -1467,10 +1712,86 @@ class _InlineRequestTile extends StatelessWidget {
     return color == null || color.isEmpty ? 'Farbe unbekannt' : color;
   }
 
-  String get _plate {
-    final plate = request.displayPlate?.trim();
-    final rawPlate = plate == null || plate.isEmpty ? request.plateKey : plate;
-    return _formatPlate(rawPlate);
+  String get _personName {
+    final name = isIncoming
+        ? request.senderDisplayName?.trim()
+        : request.receiverDisplayName?.trim();
+
+    if (name != null && name.isNotEmpty) {
+      return _shortDisplayName(name);
+    }
+
+    return isIncoming ? 'Neue Anfrage' : 'Gesendete Anfrage';
+  }
+
+  String get _countryCode {
+    final country = request.countryCode.trim().toUpperCase();
+    return country.isEmpty ? 'DE' : country;
+  }
+
+  _RequestPlateSegments get _plateSegments {
+    return _parsePlateSegments(
+      request.displayPlate?.trim().isNotEmpty == true
+          ? request.displayPlate!.trim()
+          : request.plateKey,
+      _countryCode,
+    );
+  }
+
+  String get _requestReasonKey {
+    final key = request.requestReason?.trim().toLowerCase();
+
+    if (key != null && key.isNotEmpty) {
+      return key;
+    }
+
+    final message = request.message.toLowerCase();
+    if (message.contains('kompliment') ||
+        message.contains('schönes auto') ||
+        message.contains('positiv aufgefallen')) {
+      return 'compliment';
+    }
+    if (message.contains('treffen') || message.contains('ausfahrt')) {
+      return 'meet_and_drive';
+    }
+    if (message.contains('kennenlernen')) {
+      return 'get_to_know';
+    }
+    return 'vehicle_question';
+  }
+
+  String get _requestReasonTitle {
+    return switch (_requestReasonKey) {
+      'compliment' => 'Kompliment zum Fahrzeug',
+      'meet_and_drive' => 'Treffen & Ausfahrt',
+      'get_to_know' => 'Kennenlernen',
+      _ => 'Frage zum Fahrzeug',
+    };
+  }
+
+  IconData get _requestReasonIcon {
+    return switch (_requestReasonKey) {
+      'compliment' => Icons.thumb_up_alt_outlined,
+      'meet_and_drive' => Icons.groups_2_outlined,
+      'get_to_know' => Icons.favorite_outline_rounded,
+      _ => Icons.help_outline_rounded,
+    };
+  }
+
+  String get _requestMessage {
+    final message = request.message.trim();
+    return message.isEmpty ? _incomingMessage : message;
+  }
+
+  DateTime get _effectiveExpiresAt {
+    return request.expiresAt ??
+        request.createdAt.add(const Duration(hours: 48));
+  }
+
+  String get _profileTargetUserId {
+    return isIncoming
+        ? request.senderUserId.trim()
+        : request.receiverUserId.trim();
   }
 
   String get _incomingMessage {
@@ -1509,36 +1830,90 @@ class _InlineRequestTile extends StatelessWidget {
     };
   }
 
-  static String _formatPlate(String value) {
-    final normalized = value.trim().toUpperCase();
+  static String _shortDisplayName(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+
+    if (parts.isEmpty) {
+      return name.trim();
+    }
+
+    final firstName = parts.first;
+    if (parts.length == 1) {
+      return firstName;
+    }
+
+    final initial = parts.last.characters.first.toUpperCase();
+    return '$firstName $initial.';
+  }
+
+  static _RequestPlateSegments _parsePlateSegments(
+    String value,
+    String countryCode,
+  ) {
+    final normalized = value
+        .trim()
+        .toUpperCase()
+        .replaceAll('-', ' ')
+        .replaceAll(RegExp(r'\s+'), ' ');
 
     if (normalized.isEmpty) {
-      return '-';
+      return const _RequestPlateSegments(region: '', letters: '', numbers: '');
     }
 
-    if (normalized.contains('-') || normalized.contains(' ')) {
-      return normalized.replaceAll(RegExp(r'\s+'), ' ');
+    final tokens = normalized.split(' ');
+    if (countryCode == 'CH') {
+      return _RequestPlateSegments(
+        region: tokens.first,
+        letters: '',
+        numbers: tokens.length > 1 ? tokens.sublist(1).join('') : '',
+      );
     }
 
-    final match = RegExp(
-      r'^([A-ZÄÖÜ]{2,4})([0-9]{1,4})$',
+    if (tokens.length >= 3) {
+      return _RequestPlateSegments(
+        region: tokens[0],
+        letters: tokens[1],
+        numbers: tokens.sublist(2).join(''),
+      );
+    }
+
+    if (tokens.length == 2) {
+      final tailMatch = RegExp(
+        r'^([A-ZÄÖÜ]{1,3})([0-9]{1,4})$',
+      ).firstMatch(tokens[1]);
+
+      if (tailMatch != null) {
+        return _RequestPlateSegments(
+          region: tokens[0],
+          letters: tailMatch.group(1)!,
+          numbers: tailMatch.group(2)!,
+        );
+      }
+
+      return _RequestPlateSegments(
+        region: tokens[0],
+        letters: '',
+        numbers: tokens[1],
+      );
+    }
+
+    final compactMatch = RegExp(
+      r'^([A-ZÄÖÜ]{1,3})([A-ZÄÖÜ]{1,3})([0-9]{1,4})$',
     ).firstMatch(normalized);
 
-    if (match == null) {
-      return normalized;
+    if (compactMatch != null) {
+      return _RequestPlateSegments(
+        region: compactMatch.group(1)!,
+        letters: compactMatch.group(2)!,
+        numbers: compactMatch.group(3)!,
+      );
     }
 
-    final letters = match.group(1)!;
-    final numbers = match.group(2)!;
-    final regionLength = letters.length >= 4 ? 2 : 1;
-    final region = letters.substring(0, regionLength);
-    final serial = letters.substring(regionLength);
-
-    if (serial.isEmpty) {
-      return '$region $numbers';
-    }
-
-    return '$region-$serial $numbers';
+    return _RequestPlateSegments(region: normalized, letters: '', numbers: '');
   }
 
   @override
@@ -1548,209 +1923,564 @@ class _InlineRequestTile extends StatelessWidget {
     final statusLabel = request.isAccepted && !request.hasLinkedChat
         ? 'Angenommen'
         : request.statusLabel;
+    final plateSegments = _plateSegments;
+    final regionPresentation = registrationRegionPresentationFor(
+      countryCode: _countryCode,
+      plateCode: plateSegments.region,
+    );
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              color: CaRismaDesignTokens.card,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: CaRismaDesignTokens.surfaceDecoration(
+          radius: 24,
+          borderAlpha: 0.11,
+          darkShadowAlpha: 0.34,
+          blueShadowAlpha: 0.03,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _UserAvatarPlaceholder(size: 50, imageUrl: profilePhotoUrl),
-                const SizedBox(width: 14),
+                SizedBox(
+                  width: 58,
+                  child: Column(
+                    children: [
+                      _UserAvatarPlaceholder(
+                        size: 58,
+                        imageUrl: profilePhotoUrl,
+                      ),
+                      const SizedBox(height: 7),
+                      _ProfileViewBadge(
+                        onTap: () => _openRequestProfile(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Text(
-                              _brand,
+                              _personName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: CaRismaDesignTokens.textPrimary,
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 16.5,
+                                    fontSize: 16,
                                   ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Flexible(
-                            child: Text(
-                              _model,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: CaRismaDesignTokens.textSecondary
-                                        .withValues(alpha: 0.72),
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
-                          ),
+                          const SizedBox(width: 8),
+                          _RequestExpiryBadge(expiresAt: _effectiveExpiresAt),
                         ],
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 6),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Text(
-                              _color,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: CaRismaDesignTokens.textSecondary
-                                        .withValues(alpha: 0.58),
-                                    fontWeight: FontWeight.w700,
+                            child: SizedBox(
+                              height: 78,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  SizedBox(
+                                    height: 22,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: _RequestVehicleLine(
+                                        label: 'Marke',
+                                        value: _brand,
+                                      ),
+                                    ),
                                   ),
+                                  SizedBox(
+                                    height: 22,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: _RequestVehicleLine(
+                                        label: 'Modell',
+                                        value: _model,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    height: 22,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: _RequestVehicleLine(
+                                        label: 'Farbe',
+                                        value: _color,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Flexible(
-                            child: Text(
-                              _plate,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.end,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: CaRismaDesignTokens.textPrimary
-                                        .withValues(alpha: 0.85),
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _CompactReasonBadge(
+                                icon: _requestReasonIcon,
+                                label: _requestReasonTitle,
+                              ),
+                              const SizedBox(height: 6),
+                              Transform.translate(
+                                offset: const Offset(0, 1),
+                                child: _CompactRequestPlate(
+                                  countryCode: _countryCode,
+                                  region: plateSegments.region,
+                                  letters: plateSegments.letters,
+                                  numbers: plateSegments.numbers,
+                                  regionPresentation: regionPresentation,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      if (isIncoming) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          _incomingMessage,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: CaRismaDesignTokens.textSecondary
-                                    .withValues(alpha: 0.85),
-                                fontWeight: FontWeight.w700,
-                                height: 1.25,
-                              ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      if (canActOnRequest)
-                        isIncoming
-                            ? Row(
-                                children: [
-                                  Expanded(
-                                    child: _InlineRequestButton(
-                                      label: 'Annehmen',
-                                      icon: Icons.check_rounded,
-                                      isBusy: isBusy,
-                                      isPrimary: true,
-                                      onPressed: onAccept,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: _InlineRequestButton(
-                                      label: 'Ablehnen',
-                                      icon: Icons.close_rounded,
-                                      isBusy: isBusy,
-                                      isPrimary: false,
-                                      onPressed: onDecline,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Align(
-                                alignment: Alignment.centerRight,
-                                child: _InlineRequestButton(
-                                  label: 'Zurückziehen',
-                                  icon: Icons.undo_rounded,
-                                  isBusy: isBusy,
-                                  isPrimary: false,
-                                  onPressed: onWithdraw,
-                                ),
-                              )
-                      else
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final canOpenChat =
-                                request.isAccepted && request.hasLinkedChat;
-                            final useColumn =
-                                canOpenChat && constraints.maxWidth < 270;
-                            final status = _InlineRequestStatusPill(
-                              label: statusLabel,
-                              icon: Icons.info_outline_rounded,
-                            );
-
-                            if (!canOpenChat) {
-                              return Align(
-                                alignment: Alignment.centerLeft,
-                                child: status,
-                              );
-                            }
-
-                            final openChatButton = _InlineRequestButton(
-                              label: 'Chat öffnen',
-                              icon: Icons.forum_rounded,
-                              isBusy: isBusy,
-                              isPrimary: true,
-                              onPressed: onAccept,
-                            );
-
-                            if (useColumn) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: status,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  openChatButton,
-                                ],
-                              );
-                            }
-
-                            return Row(
-                              children: [
-                                Flexible(child: status),
-                                const SizedBox(width: 10),
-                                Expanded(child: openChatButton),
-                              ],
-                            );
-                          },
-                        ),
                     ],
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _RequestInfoPanel(
+              icon: Icons.chat_bubble_outline_rounded,
+              title: null,
+              subtitle: _requestMessage,
+              maxSubtitleLines: 3,
+            ),
+            const SizedBox(height: 12),
+            if (canActOnRequest)
+              isIncoming
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: _InlineRequestButton(
+                            label: 'Annehmen',
+                            icon: Icons.check_rounded,
+                            isBusy: isBusy,
+                            isPrimary: true,
+                            borderColor: CaRismaDesignTokens.success.withValues(
+                              alpha: 0.62,
+                            ),
+                            onPressed: onAccept,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _InlineRequestButton(
+                            label: 'Ablehnen',
+                            icon: Icons.close_rounded,
+                            isBusy: isBusy,
+                            isPrimary: false,
+                            borderColor: CaRismaDesignTokens.danger.withValues(
+                              alpha: 0.62,
+                            ),
+                            onPressed: onDecline,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Align(
+                      alignment: Alignment.center,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: _InlineRequestButton(
+                          label: 'Zurückziehen',
+                          icon: Icons.undo_rounded,
+                          isBusy: isBusy,
+                          isPrimary: false,
+                          borderColor: CaRismaDesignTokens.danger.withValues(
+                            alpha: 0.62,
+                          ),
+                          onPressed: onWithdraw,
+                        ),
+                      ),
+                    )
+            else
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final canOpenChat =
+                      request.isAccepted && request.hasLinkedChat;
+                  final useColumn = canOpenChat && constraints.maxWidth < 270;
+                  final status = _InlineRequestStatusPill(
+                    label: statusLabel,
+                    icon: Icons.info_outline_rounded,
+                  );
+
+                  if (!canOpenChat) {
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: status,
+                    );
+                  }
+
+                  final openChatButton = _InlineRequestButton(
+                    label: 'Chat öffnen',
+                    icon: Icons.forum_rounded,
+                    isBusy: isBusy,
+                    isPrimary: true,
+                    onPressed: onAccept,
+                  );
+
+                  if (useColumn) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Align(alignment: Alignment.centerLeft, child: status),
+                        const SizedBox(height: 8),
+                        openChatButton,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Flexible(child: status),
+                      const SizedBox(width: 10),
+                      Expanded(child: openChatButton),
+                    ],
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openRequestProfile(BuildContext context) {
+    final targetUserId = _profileTargetUserId;
+
+    if (targetUserId.isEmpty || targetUserId.startsWith('local-test-')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dieses Testprofil ist nur lokal sichtbar.'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(
+      context,
+    ).push(buildSocialProfileRoute(profileUserId: targetUserId));
+  }
+}
+
+class _RequestVehicleLine extends StatelessWidget {
+  const _RequestVehicleLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 48,
+          child: Text(
+            '$label:',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: CaRismaDesignTokens.textSecondary.withValues(alpha: 0.66),
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.92),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileViewBadge extends StatelessWidget {
+  const _ProfileViewBadge({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+        decoration: BoxDecoration(
+          color: CaRismaDesignTokens.controlSurface,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.42),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.person_search_outlined,
+              size: 14,
+              color: CaRismaDesignTokens.bluePrimary,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Profil\nansehen',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.90),
+                fontWeight: FontWeight.w900,
+                fontSize: 9.5,
+                height: 1.02,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestExpiryBadge extends StatelessWidget {
+  const _RequestExpiryBadge({required this.expiresAt});
+
+  final DateTime expiresAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = expiresAt.difference(DateTime.now());
+    final isExpired = remaining.isNegative;
+    final hoursLeft = isExpired ? 0 : (remaining.inMinutes / 60).ceil();
+    final isUrgent = !isExpired && hoursLeft <= 5;
+    final color = CaRismaDesignTokens.textSecondary.withValues(alpha: 0.86);
+
+    return Container(
+      width: 116,
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color:
+              (isUrgent || isExpired
+                      ? CaRismaDesignTokens.danger
+                      : Colors.white)
+                  .withValues(alpha: isUrgent || isExpired ? 0.42 : 0.10),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_outlined, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              isExpired ? 'Abgelaufen' : 'Noch $hoursLeft Std.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontSize: 10.5,
+                height: 1.0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactReasonBadge extends StatelessWidget {
+  const _CompactReasonBadge({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 116,
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: CaRismaDesignTokens.controlSurface,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.38),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 15, color: CaRismaDesignTokens.bluePrimary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10.5,
+                  height: 1.0,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactRequestPlate extends StatelessWidget {
+  const _CompactRequestPlate({
+    required this.countryCode,
+    required this.region,
+    required this.letters,
+    required this.numbers,
+    required this.regionPresentation,
+  });
+
+  final String countryCode;
+  final String region;
+  final String letters;
+  final String numbers;
+  final RegistrationRegionPresentationData regionPresentation;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 116,
+      height: 36,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: SizedBox(
+          width: 300,
+          height: 78,
+          child: CaRismaLicensePlatePreview(
+            countryCode: countryCode,
+            region: region,
+            letters: letters,
+            numbers: numbers,
+            regionPresentation: regionPresentation,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestInfoPanel extends StatelessWidget {
+  const _RequestInfoPanel({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.maxSubtitleLines = 2,
+  });
+
+  final IconData icon;
+  final String? title;
+  final String subtitle;
+  final int maxSubtitleLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = this.title?.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.28),
+              ),
+            ),
+            child: Icon(icon, size: 18, color: CaRismaDesignTokens.bluePrimary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title != null && title.isNotEmpty) ...[
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: CaRismaDesignTokens.textPrimary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                ],
+                Text(
+                  subtitle,
+                  maxLines: maxSubtitleLines,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary.withValues(
+                      alpha: title == null || title.isEmpty ? 0.92 : 0.84,
+                    ),
+                    fontWeight: title == null || title.isEmpty
+                        ? FontWeight.w800
+                        : FontWeight.w700,
+                    height: 1.22,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1769,7 +2499,9 @@ class _InlineRequestStatusPill extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.34),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1806,6 +2538,7 @@ class _InlineRequestButton extends StatelessWidget {
     required this.isBusy,
     required this.isPrimary,
     required this.onPressed,
+    this.borderColor,
   });
 
   final String label;
@@ -1813,6 +2546,7 @@ class _InlineRequestButton extends StatelessWidget {
   final bool isBusy;
   final bool isPrimary;
   final VoidCallback onPressed;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1838,33 +2572,30 @@ class _InlineRequestButton extends StatelessWidget {
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
     );
-
-    if (isPrimary) {
-      return FilledButton(
-        onPressed: isBusy ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: _carismaBlue,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: _carismaBlue.withValues(alpha: 0.32),
-          disabledForegroundColor: Colors.white.withValues(alpha: 0.62),
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          shape: shape,
-        ),
-        child: child,
-      );
-    }
+    final resolvedBorderColor =
+        borderColor ??
+        (isPrimary
+            ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.62)
+            : Colors.white.withValues(alpha: 0.16));
+    final foregroundColor = isPrimary
+        ? CaRismaDesignTokens.textPrimary
+        : CaRismaDesignTokens.textSecondary.withValues(alpha: 0.9);
 
     return OutlinedButton(
       onPressed: isBusy ? null : onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.white,
-        disabledForegroundColor: Colors.white.withValues(alpha: 0.42),
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        shape: shape,
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
-      ),
+      style:
+          OutlinedButton.styleFrom(
+            backgroundColor: CaRismaDesignTokens.controlSurface,
+            foregroundColor: foregroundColor,
+            disabledForegroundColor: Colors.white.withValues(alpha: 0.42),
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            shape: shape,
+            side: BorderSide(color: resolvedBorderColor),
+          ).copyWith(
+            overlayColor: WidgetStateProperty.all(Colors.transparent),
+            shadowColor: WidgetStateProperty.all(Colors.transparent),
+          ),
       child: child,
     );
   }

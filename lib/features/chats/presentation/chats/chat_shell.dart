@@ -23,6 +23,8 @@ enum _ChatMenuAction {
 enum _LocalChatTestMode { empty, activeChat, activeChatWithMessages }
 
 const _LocalChatTestMode _localChatTestMode = _LocalChatTestMode.empty;
+const bool _showLocalContactRequestSamples = true;
+const String _localContactRequestPrefix = 'local-contact-request-';
 const int _maxStoryReplyPreviewLength = 280;
 
 class ChatsScreen extends StatefulWidget {
@@ -51,6 +53,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   bool _isArchiveShortcutVisible = false;
   final Set<String> _busyRequestIds = <String>{};
   final Set<String> _busyChatSwipeActions = <String>{};
+  final Set<String> _hiddenLocalRequestIds = <String>{};
   List<ChatStoryRecord> _cachedStories = const <ChatStoryRecord>[];
   String _currentUserProfilePhotoUrl = '';
   Timer? _storyRefreshTimer;
@@ -188,6 +191,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
       );
     }
 
+    if (_showLocalContactRequestSamples) {
+      return Stream<List<ContactRequestRecord>>.value(
+        _visibleLocalContactRequestSamples(
+          userId,
+          (request) => request.receiverUserId == userId,
+        ),
+      );
+    }
+
     return _requestRepository.watchIncomingRequests(userId: userId);
   }
 
@@ -197,6 +209,15 @@ class _ChatsScreenState extends State<ChatsScreen> {
     if (userId.isEmpty) {
       return Stream<List<ContactRequestRecord>>.value(
         const <ContactRequestRecord>[],
+      );
+    }
+
+    if (_showLocalContactRequestSamples) {
+      return Stream<List<ContactRequestRecord>>.value(
+        _visibleLocalContactRequestSamples(
+          userId,
+          (request) => request.receiverUserId == userId,
+        ),
       );
     }
 
@@ -212,7 +233,99 @@ class _ChatsScreenState extends State<ChatsScreen> {
       );
     }
 
+    if (_showLocalContactRequestSamples) {
+      return Stream<List<ContactRequestRecord>>.value(
+        _visibleLocalContactRequestSamples(
+          userId,
+          (request) => request.senderUserId == userId,
+        ),
+      );
+    }
+
     return _requestRepository.watchOutgoingRequests(userId: userId);
+  }
+
+  List<ContactRequestRecord> _visibleLocalContactRequestSamples(
+    String currentUserId,
+    bool Function(ContactRequestRecord request) filter,
+  ) {
+    return _buildLocalContactRequestSamples(currentUserId)
+        .where(
+          (request) =>
+              request.isVisibleInRequestLists &&
+              !_hiddenLocalRequestIds.contains(request.id) &&
+              filter(request),
+        )
+        .toList(growable: false);
+  }
+
+  List<ContactRequestRecord> _buildLocalContactRequestSamples(
+    String currentUserId,
+  ) {
+    final now = DateTime.now();
+
+    return <ContactRequestRecord>[
+      ContactRequestRecord(
+        id: '${_localContactRequestPrefix}incoming',
+        senderUserId: 'local-test-sender',
+        receiverUserId: currentUserId,
+        countryCode: 'DE',
+        plateKey: 'HH-TA-2040',
+        displayPlate: 'HH-TA 2040',
+        vehicleBrand: 'BMW',
+        vehicleModel: 'X6',
+        vehicleColor: 'Schwarz',
+        vehicleLabel: 'BMW X6 in Schwarz',
+        requestReason: 'compliment',
+        senderDisplayName: 'CaRisma Nutzer',
+        receiverDisplayName: 'Du',
+        message:
+            'Hallo, dein BMW X6 ist mir positiv aufgefallen. Wirklich ein sehr schönes Auto.',
+        status: contact_requests.ContactRequestStatus.pending,
+        createdAt: now.subtract(const Duration(minutes: 12)),
+        updatedAt: now.subtract(const Duration(minutes: 12)),
+        expiresAt: now.add(const Duration(hours: 48)),
+      ),
+      ContactRequestRecord(
+        id: '${_localContactRequestPrefix}outgoing',
+        senderUserId: currentUserId,
+        receiverUserId: 'local-test-receiver',
+        countryCode: 'DE',
+        plateKey: 'B-CR-2026',
+        displayPlate: 'B-CR 2026',
+        vehicleBrand: 'Mercedes',
+        vehicleModel: 'GLS',
+        vehicleColor: 'Weiß',
+        vehicleLabel: 'Mercedes GLS in Weiß',
+        requestReason: 'vehicle_question',
+        senderDisplayName: 'Du',
+        receiverDisplayName: 'CaRisma Testnutzer',
+        message:
+            'Hallo, ich habe eine Frage zu deinem Mercedes GLS und würde mich gerne kurz mit dir darüber austauschen.',
+        status: contact_requests.ContactRequestStatus.pending,
+        createdAt: now.subtract(const Duration(minutes: 6)),
+        updatedAt: now.subtract(const Duration(minutes: 6)),
+        expiresAt: now.add(const Duration(hours: 48)),
+      ),
+    ];
+  }
+
+  bool _isLocalContactRequest(ContactRequestRecord request) {
+    return request.id.startsWith(_localContactRequestPrefix);
+  }
+
+  void _completeLocalRequestAction(
+    ContactRequestRecord request,
+    String message,
+  ) {
+    setState(() {
+      _hiddenLocalRequestIds.add(request.id);
+    });
+    _refreshChatsAndRequests();
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   List<_LocalChatMessage> _buildLocalChatMessages() {
@@ -458,9 +571,17 @@ class _ChatsScreenState extends State<ChatsScreen> {
     _chatStream = _watchChats();
     _archivedChatStream = _watchArchivedChats();
     _storyStream = _watchStories();
-    _incomingRequestStream = _watchIncomingRequests();
-    _incomingRequestStateStream = _watchIncomingRequestStates();
-    _outgoingRequestStream = _watchOutgoingRequests();
+    _incomingRequestStream = _reusableRequestStream(_watchIncomingRequests());
+    _incomingRequestStateStream = _reusableRequestStream(
+      _watchIncomingRequestStates(),
+    );
+    _outgoingRequestStream = _reusableRequestStream(_watchOutgoingRequests());
+  }
+
+  Stream<List<ContactRequestRecord>> _reusableRequestStream(
+    Stream<List<ContactRequestRecord>> stream,
+  ) {
+    return stream.isBroadcast ? stream : stream.asBroadcastStream();
   }
 
   Future<void> _cleanupExpiredOwnStory({bool showError = true}) async {
@@ -1982,6 +2103,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
     required String successMessage,
     required Future<void> Function() action,
   }) async {
+    if (_isLocalContactRequest(request)) {
+      _completeLocalRequestAction(request, successMessage);
+      return;
+    }
+
     if (_busyRequestIds.contains(request.id)) {
       return;
     }
@@ -2026,6 +2152,14 @@ class _ChatsScreenState extends State<ChatsScreen> {
   }
 
   Future<void> _acceptRequest(ContactRequestRecord request) async {
+    if (_isLocalContactRequest(request)) {
+      _completeLocalRequestAction(
+        request,
+        'Lokale Testanfrage wurde angenommen.',
+      );
+      return;
+    }
+
     if (_busyRequestIds.contains(request.id)) {
       return;
     }

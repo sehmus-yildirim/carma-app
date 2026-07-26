@@ -113,7 +113,7 @@ class FirestoreDocumentDefaults {
   static const int monthlyFreeRequestLimit = 2;
   static const int initialPaidCredits = 0;
 
-  static const int defaultRequestExpiryMinutes = 60;
+  static const int defaultRequestExpiryMinutes = 48 * 60;
   static const int defaultPlateLocationFreshnessMinutes = 60;
   static const int maxReportMessageLength = 160;
   static const int maxChatMessageLength = 1000;

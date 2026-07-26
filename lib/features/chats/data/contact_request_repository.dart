@@ -58,6 +58,7 @@ class ContactRequestRecord {
     this.vehicleModel,
     this.vehicleColor,
     this.vehicleLabel,
+    this.requestReason,
     this.updatedAt,
     this.expiresAt,
     this.chatId,
@@ -80,6 +81,7 @@ class ContactRequestRecord {
   final String? vehicleModel;
   final String? vehicleColor;
   final String? vehicleLabel;
+  final String? requestReason;
   final DateTime? updatedAt;
   final DateTime? expiresAt;
   final String? chatId;
@@ -198,6 +200,7 @@ class ContactRequestRecord {
     String? vehicleModel,
     String? vehicleColor,
     String? vehicleLabel,
+    String? requestReason,
     DateTime? updatedAt,
     DateTime? expiresAt,
     String? chatId,
@@ -220,6 +223,7 @@ class ContactRequestRecord {
       vehicleModel: vehicleModel ?? this.vehicleModel,
       vehicleColor: vehicleColor ?? this.vehicleColor,
       vehicleLabel: vehicleLabel ?? this.vehicleLabel,
+      requestReason: requestReason ?? this.requestReason,
       updatedAt: updatedAt ?? this.updatedAt,
       expiresAt: expiresAt ?? this.expiresAt,
       chatId: chatId ?? this.chatId,
@@ -249,6 +253,7 @@ class ContactRequestRecord {
       vehicleModel: data['vehicleModel'] as String?,
       vehicleColor: data['vehicleColor'] as String?,
       vehicleLabel: data['vehicleLabel'] as String?,
+      requestReason: data['requestReason'] as String?,
       updatedAt: _dateTimeFromValue(data['updatedAt']),
       expiresAt: _dateTimeFromValue(data['expiresAt']),
       chatId: data['chatId'] as String?,
