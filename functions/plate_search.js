@@ -126,6 +126,17 @@ function notFoundResult() {
   return {found: false};
 }
 
+async function loadVisibilitySettings(firestore, userId) {
+  try {
+    const snapshot = await firestore
+      .doc(`users/${userId}/settings/visibility`)
+      .get();
+    return snapshot.exists ? snapshot.data() || {} : {};
+  } catch (_) {
+    return {};
+  }
+}
+
 async function searchPlateDocument({
   firestore,
   requesterUserId,
@@ -173,6 +184,21 @@ async function searchPlateDocument({
     return notFoundResult();
   }
 
+  const visibilitySettings = await loadVisibilitySettings(
+    firestore,
+    ownerUserId,
+  );
+  const settingsAllowContactRequests =
+    visibilitySettings.allowContactRequests !== false;
+  const settingsPlateSearchVisibility =
+    safeString(visibilitySettings.plateSearchVisibility) || "contacts";
+  const settingsShowVehicle = visibilitySettings.showVehicle !== false;
+  const settingsShowPlate = visibilitySettings.showPlate !== false;
+  if (!settingsAllowContactRequests ||
+      settingsPlateSearchVisibility === "onlyMe") {
+    return notFoundResult();
+  }
+
   const locationUpdatedAt = dateFromValue(data.locationUpdatedAt);
   const storedLatitude = Number(data.latitude);
   const storedLongitude = Number(data.longitude);
@@ -208,15 +234,25 @@ async function searchPlateDocument({
       data.isVerified === true,
     distanceKm: Math.round(distanceKm * 100) / 100,
     plateKey,
-    displayPlate: safeString(data.displayPlate) || plateKey,
+    displayPlate: settingsShowPlate ?
+      safeString(data.displayPlate) || plateKey :
+      null,
     countryCode,
-    region: parts.region,
-    letters: parts.letters,
-    numbers: parts.numbers,
-    vehicleBrand: safeString(data.vehicleBrand) || null,
-    vehicleModel: safeString(data.vehicleModel) || null,
-    vehicleColor: safeString(data.vehicleColor) || null,
-    vehicleLabel: safeString(data.vehicleLabel) || null,
+    region: settingsShowPlate ? parts.region : null,
+    letters: settingsShowPlate ? parts.letters : null,
+    numbers: settingsShowPlate ? parts.numbers : null,
+    vehicleBrand: settingsShowVehicle ?
+      safeString(data.vehicleBrand) || null :
+      null,
+    vehicleModel: settingsShowVehicle ?
+      safeString(data.vehicleModel) || null :
+      null,
+    vehicleColor: settingsShowVehicle ?
+      safeString(data.vehicleColor) || null :
+      null,
+    vehicleLabel: settingsShowVehicle ?
+      safeString(data.vehicleLabel) || null :
+      null,
   };
 }
 

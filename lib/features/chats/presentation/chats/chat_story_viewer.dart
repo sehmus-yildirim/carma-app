@@ -681,7 +681,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                         borderRadius: BorderRadius.circular(24),
                         color: CaRismaDesignTokens.card,
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.34),
+                          color: Colors.white.withValues(alpha: 0.14),
                         ),
                       ),
                       child: Row(
@@ -1137,6 +1137,8 @@ class _StoryViewerSeenMiniChip extends StatelessWidget {
             child: InkWell(
               onTap: onTap,
               borderRadius: BorderRadius.circular(999),
+              splashFactory: NoSplash.splashFactory,
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
               child: Container(
                 height: 40,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1144,7 +1146,7 @@ class _StoryViewerSeenMiniChip extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                   color: CaRismaDesignTokens.controlSurface,
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.42),
+                    color: Colors.white.withValues(alpha: 0.16),
                   ),
                 ),
                 child: Row(
@@ -1420,7 +1422,7 @@ class _StoryViewerActionButton extends StatelessWidget {
             tooltip: tooltip,
             style: IconButton.styleFrom(
               backgroundColor: CaRismaDesignTokens.controlSurface,
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.42)),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
               shape: const CircleBorder(),
             ),
           ),

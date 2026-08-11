@@ -402,6 +402,22 @@ class PlateSearchService {
       return const PlateSearchResult(found: false);
     }
 
+    final visibilitySettings = await _loadVisibilitySettingsForUser(
+      ownerUserId,
+    );
+    final settingsAllowContactRequests =
+        visibilitySettings['allowContactRequests'] as bool? ?? true;
+    final settingsPlateSearchVisibility =
+        visibilitySettings['plateSearchVisibility'] as String? ?? 'contacts';
+    final settingsShowVehicle =
+        visibilitySettings['showVehicle'] as bool? ?? true;
+    final settingsShowPlate = visibilitySettings['showPlate'] as bool? ?? true;
+
+    if (!settingsAllowContactRequests ||
+        settingsPlateSearchVisibility == 'onlyMe') {
+      return const PlateSearchResult(found: false);
+    }
+
     if (locationUpdatedAt == null) {
       return const PlateSearchResult(found: false);
     }
@@ -450,15 +466,23 @@ class PlateSearchService {
           data['isVerified'] == true,
       distanceKm: distanceKm,
       plateKey: storedPlateKey,
-      displayPlate: data['displayPlate'] as String?,
+      displayPlate: settingsShowPlate ? data['displayPlate'] as String? : null,
       countryCode: normalizedCountryCode,
-      region: region?.trim().toUpperCase(),
-      letters: letters?.trim().toUpperCase(),
-      numbers: numbers?.trim().toUpperCase(),
-      vehicleBrand: data['vehicleBrand'] as String?,
-      vehicleModel: data['vehicleModel'] as String?,
-      vehicleColor: data['vehicleColor'] as String?,
-      vehicleLabel: data['vehicleLabel'] as String?,
+      region: settingsShowPlate ? region?.trim().toUpperCase() : null,
+      letters: settingsShowPlate ? letters?.trim().toUpperCase() : null,
+      numbers: settingsShowPlate ? numbers?.trim().toUpperCase() : null,
+      vehicleBrand: settingsShowVehicle
+          ? data['vehicleBrand'] as String?
+          : null,
+      vehicleModel: settingsShowVehicle
+          ? data['vehicleModel'] as String?
+          : null,
+      vehicleColor: settingsShowVehicle
+          ? data['vehicleColor'] as String?
+          : null,
+      vehicleLabel: settingsShowVehicle
+          ? data['vehicleLabel'] as String?
+          : null,
     );
   }
 
@@ -556,6 +580,55 @@ class PlateSearchService {
         plugin: 'carisma',
         code: 'invalid-argument',
         message: 'Bitte wähle einen Grund für deine Anfrage.',
+      );
+    }
+
+    final contactFilters = await _loadContactFilterSettingsForUser(
+      receiverUserId,
+    );
+    final requireVerifiedRequester =
+        contactFilters['requireVerifiedRequester'] as bool? ?? false;
+    final autoRejectUnverified =
+        contactFilters['autoRejectUnverified'] as bool? ?? false;
+    final quietModeUntil = _dateTimeFromValue(
+      contactFilters['contactRequestQuietModeUntil'],
+    );
+    final allowedContactReasons =
+        (contactFilters['allowedContactReasons'] as List<dynamic>?)
+            ?.whereType<String>()
+            .toSet() ??
+        const <String>{
+          'vehicle_question',
+          'compliment',
+          'meet_and_drive',
+          'get_to_know',
+        };
+
+    if (quietModeUntil != null && quietModeUntil.isAfter(DateTime.now())) {
+      throw FirebaseException(
+        plugin: 'carisma',
+        code: 'permission-denied',
+        message: 'Dieser Nutzer nimmt gerade keine neuen Kontaktanfragen an.',
+      );
+    }
+
+    if ((requireVerifiedRequester || autoRejectUnverified) &&
+        !senderSummary.isVerified) {
+      throw FirebaseException(
+        plugin: 'carisma',
+        code: 'permission-denied',
+        message:
+            'Dieser Nutzer erlaubt aktuell nur Anfragen von verifizierten Konten.',
+      );
+    }
+
+    if (normalizedRequestReason == null ||
+        normalizedRequestReason.isEmpty ||
+        !allowedContactReasons.contains(normalizedRequestReason)) {
+      throw FirebaseException(
+        plugin: 'carisma',
+        code: 'permission-denied',
+        message: 'Dieser Anfragegrund ist für diesen Nutzer nicht erlaubt.',
       );
     }
 
@@ -909,6 +982,7 @@ class PlateSearchService {
         return _ContactUserSummary(
           displayName: _fallbackDisplayName(),
           photoUrl: _auth.currentUser?.photoURL,
+          isVerified: false,
         );
       }
 
@@ -917,29 +991,71 @@ class PlateSearchService {
       final displayName = data['displayName'] as String? ?? '';
       final photoUrl =
           (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?);
+      final isVerified =
+          data['verificationStatus'] == 'verified' ||
+          data['isVerified'] == true;
 
       final fullName = '$firstName $lastName'.trim();
 
       if (fullName.isNotEmpty) {
-        return _ContactUserSummary(displayName: fullName, photoUrl: photoUrl);
+        return _ContactUserSummary(
+          displayName: fullName,
+          photoUrl: photoUrl,
+          isVerified: isVerified,
+        );
       }
 
       if (displayName.trim().isNotEmpty) {
         return _ContactUserSummary(
           displayName: displayName.trim(),
           photoUrl: photoUrl,
+          isVerified: isVerified,
         );
       }
 
       return _ContactUserSummary(
         displayName: _fallbackDisplayName(),
         photoUrl: photoUrl,
+        isVerified: isVerified,
       );
     } catch (_) {
       return _ContactUserSummary(
         displayName: _fallbackDisplayName(),
         photoUrl: _auth.currentUser?.photoURL,
+        isVerified: false,
       );
+    }
+  }
+
+  Future<Map<String, dynamic>> _loadVisibilitySettingsForUser(
+    String userId,
+  ) async {
+    try {
+      final snapshot = await _firestore
+          .doc(
+            '${CaRismaFirestorePaths.user(userId)}/'
+            '${CaRismaFirestoreCollections.settings}/visibility',
+          )
+          .get();
+      return snapshot.data() ?? const <String, dynamic>{};
+    } catch (_) {
+      return const <String, dynamic>{};
+    }
+  }
+
+  Future<Map<String, dynamic>> _loadContactFilterSettingsForUser(
+    String userId,
+  ) async {
+    try {
+      final snapshot = await _firestore
+          .doc(
+            '${CaRismaFirestorePaths.user(userId)}/'
+            '${CaRismaFirestoreCollections.settings}/contact_filters',
+          )
+          .get();
+      return snapshot.data() ?? const <String, dynamic>{};
+    } catch (_) {
+      return const <String, dynamic>{};
     }
   }
 
@@ -955,8 +1071,13 @@ class PlateSearchService {
 }
 
 class _ContactUserSummary {
-  const _ContactUserSummary({required this.displayName, this.photoUrl});
+  const _ContactUserSummary({
+    required this.displayName,
+    required this.isVerified,
+    this.photoUrl,
+  });
 
   final String displayName;
   final String? photoUrl;
+  final bool isVerified;
 }

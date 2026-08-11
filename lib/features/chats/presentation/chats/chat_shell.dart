@@ -43,6 +43,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
   final ChatStoryRepository _storyRepository = ChatStoryRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
   final ChatAttachmentStorage _attachmentStorage = ChatAttachmentStorage();
+  final UserSettingsRepository _userSettingsRepository =
+      UserSettingsRepository();
   final ImagePicker _imagePicker = ImagePicker();
 
   _ChatsView _selectedView = _ChatsView.chats;
@@ -51,6 +53,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   String _streamUserId = '';
   bool _isAddingOwnStory = false;
   bool _isArchiveShortcutVisible = false;
+  StoryPrivacySettings _storyPrivacySettings = const StoryPrivacySettings();
   final Set<String> _busyRequestIds = <String>{};
   final Set<String> _busyChatSwipeActions = <String>{};
   final Set<String> _hiddenLocalRequestIds = <String>{};
@@ -93,6 +96,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     _streamUserId = _effectiveUserId.trim();
     _assignStreamsForCurrentUser(clearStories: true);
     unawaited(_loadCurrentUserProfilePhotoUrl());
+    unawaited(_loadStoryPrivacySettings());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _cleanupExpiredOwnStory(showError: false);
@@ -123,6 +127,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
     _streamUserId = nextUserId;
     _assignStreamsForCurrentUser(clearStories: true);
     unawaited(_loadCurrentUserProfilePhotoUrl());
+    unawaited(_loadStoryPrivacySettings());
   }
 
   @override
@@ -159,6 +164,28 @@ class _ChatsScreenState extends State<ChatsScreen> {
     }
 
     return _storyRepository.watchVisibleStories(userId: userId);
+  }
+
+  Future<void> _loadStoryPrivacySettings() async {
+    final userId = _effectiveUserId.trim();
+
+    if (userId.isEmpty) {
+      return;
+    }
+
+    try {
+      final settings = await _userSettingsRepository.load(userId);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _storyPrivacySettings = settings.storyPrivacy;
+      });
+    } catch (_) {
+      // Story privacy defaults keep the existing Story behavior.
+    }
   }
 
   List<ChatStoryRecord> _visibleStoryRecords(
@@ -761,6 +788,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
       final vehicleStickerData = await _loadStoryVehicleStickerData(
         currentUserId,
       );
+      final initialVehicleSticker =
+          _storyPrivacySettings.defaultStoryVehicleData
+          ? _defaultVehicleStorySticker(vehicleStickerData)
+          : null;
 
       if (!mounted) {
         return;
@@ -772,6 +803,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
             mediaPath: captureResult.path,
             isVideo: captureResult.isVideo,
             vehicleStickerData: vehicleStickerData,
+            initialStickers: [?initialVehicleSticker],
           ),
         ),
       );
@@ -1033,8 +1065,19 @@ class _ChatsScreenState extends State<ChatsScreen> {
       return const <String>[];
     }
 
+    final storyPrivacy = _storyPrivacySettings;
+    final excludedUserIds = storyPrivacy.excludedStoryUserIds
+        .map((userId) => userId.trim())
+        .where((userId) => userId.isNotEmpty)
+        .toSet();
     final viewerUserIds = <String>{trimmedCurrentUserId};
-    if (_localChatTestMode != _LocalChatTestMode.empty) {
+
+    if (storyPrivacy.storyVisibility == 'onlyMe') {
+      return <String>[trimmedCurrentUserId];
+    }
+
+    if (_localChatTestMode != _LocalChatTestMode.empty &&
+        !excludedUserIds.contains('mock-user-id')) {
       viewerUserIds.add('mock-user-id');
     }
 
@@ -1047,6 +1090,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         final trimmedParticipant = participant.trim();
 
         if (trimmedParticipant.isEmpty ||
+            excludedUserIds.contains(trimmedParticipant) ||
             chat.isDeletedFor(trimmedParticipant)) {
           continue;
         }
@@ -1060,6 +1104,26 @@ class _ChatsScreenState extends State<ChatsScreen> {
           ..sort();
 
     return <String>[trimmedCurrentUserId, ...otherViewerUserIds.take(199)];
+  }
+
+  _StoryStickerDraft? _defaultVehicleStorySticker(
+    _StoryVehicleStickerData? vehicleStickerData,
+  ) {
+    if (vehicleStickerData == null || !vehicleStickerData.isComplete) {
+      return null;
+    }
+
+    final vehicleLabel = vehicleStickerData.vehicleLabel.trim().isEmpty
+        ? 'Fahrzeug'
+        : vehicleStickerData.vehicleLabel.trim();
+    final plateLabel = vehicleStickerData.plateLabel.trim();
+
+    return _StoryStickerDraft(
+      type: 'vehicle',
+      label: vehicleLabel,
+      payload: _vehicleStickerPayload(style: 'card', plateLabel: plateLabel),
+      alignment: const Alignment(0, 0.52),
+    );
   }
 
   Set<String> _storyVisibleOwnerIdsFor({
@@ -2500,17 +2564,23 @@ class _StoryDeleteDialog extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(false),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: CaRismaDesignTokens.controlSurface,
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.16),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
+                        style:
+                            OutlinedButton.styleFrom(
+                              backgroundColor:
+                                  CaRismaDesignTokens.controlSurface,
+                              foregroundColor: Colors.white,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.16),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ).copyWith(
+                              overlayColor: const WidgetStatePropertyAll(
+                                Colors.transparent,
+                              ),
+                            ),
                         child: const Text(
                           'Abbrechen',
                           style: TextStyle(fontWeight: FontWeight.w900),
@@ -2521,14 +2591,19 @@ class _StoryDeleteDialog extends StatelessWidget {
                     Expanded(
                       child: FilledButton(
                         onPressed: () => Navigator.of(context).pop(true),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
+                        style:
+                            FilledButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ).copyWith(
+                              overlayColor: const WidgetStatePropertyAll(
+                                Colors.transparent,
+                              ),
+                            ),
                         child: const Text(
                           'Löschen',
                           style: TextStyle(fontWeight: FontWeight.w900),
@@ -2720,20 +2795,28 @@ class _StoryStickerInfoSheet extends StatelessWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: _carismaBlue,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 13,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
+                                    style:
+                                        FilledButton.styleFrom(
+                                          backgroundColor: _carismaBlue,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 13,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                          ),
+                                          textStyle: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ).copyWith(
+                                          overlayColor:
+                                              const WidgetStatePropertyAll(
+                                                Colors.transparent,
+                                              ),
+                                        ),
                                   ),
                                 ),
                               if (hasPrimaryAction && hasSecondaryAction)
@@ -2751,24 +2834,32 @@ class _StoryStickerInfoSheet extends StatelessWidget {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      side: BorderSide(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.18,
+                                    style:
+                                        OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.white,
+                                          side: BorderSide(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.18,
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 13,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                          ),
+                                          textStyle: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ).copyWith(
+                                          overlayColor:
+                                              const WidgetStatePropertyAll(
+                                                Colors.transparent,
+                                              ),
                                         ),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 13,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
                                   ),
                                 ),
                             ],
@@ -2789,27 +2880,32 @@ class _StoryStickerInfoSheet extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(
-                                  color: _carismaBlueLight.withValues(
-                                    alpha: 0.32,
+                              style:
+                                  OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: BorderSide(
+                                      color: _carismaBlueLight.withValues(
+                                        alpha: 0.32,
+                                      ),
+                                    ),
+                                    backgroundColor: _carismaBlue.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 13,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ).copyWith(
+                                    overlayColor: const WidgetStatePropertyAll(
+                                      Colors.transparent,
+                                    ),
                                   ),
-                                ),
-                                backgroundColor: _carismaBlue.withValues(
-                                  alpha: 0.1,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 13,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
                             ),
                           ),
                         ],
@@ -3001,6 +3097,8 @@ class _PendingRequestTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(24),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             child: Row(

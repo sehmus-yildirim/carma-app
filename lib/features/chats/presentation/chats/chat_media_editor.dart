@@ -28,10 +28,12 @@ class _ChatImageEditorScreen extends StatefulWidget {
   const _ChatImageEditorScreen({
     required this.file,
     required this.nativeBridge,
+    required this.initialViewOnce,
   });
 
   final File file;
   final ChatNativeBridge nativeBridge;
+  final bool initialViewOnce;
 
   @override
   State<_ChatImageEditorScreen> createState() => _ChatImageEditorScreenState();
@@ -102,6 +104,7 @@ class _ChatImageEditorScreenState extends State<_ChatImageEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _isViewOnce = widget.initialViewOnce;
     unawaited(_loadSourceAspectRatio());
   }
 

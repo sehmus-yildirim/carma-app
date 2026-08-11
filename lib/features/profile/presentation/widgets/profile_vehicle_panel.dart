@@ -492,6 +492,8 @@ class _VehicleHeroGenerationControl extends StatelessWidget {
       child: InkWell(
         onTap: isPending ? null : onPressed,
         borderRadius: BorderRadius.circular(14),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
@@ -567,6 +569,22 @@ class _VehicleSelector extends StatelessWidget {
           return ChoiceChip(
             selected: isSelected,
             onSelected: (_) => onSelected(vehicle),
+            showCheckmark: false,
+            selectedColor: CaRismaDesignTokens.card,
+            backgroundColor: CaRismaDesignTokens.card,
+            side: BorderSide(
+              color: isSelected
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
+                  : Colors.white.withValues(alpha: 0.10),
+              width: isSelected ? 1.4 : 1,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            labelStyle: TextStyle(
+              color: Colors.white,
+              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
+            ),
             avatar: Icon(
               vehicle.isPrimary
                   ? Icons.star_rounded

@@ -38,10 +38,16 @@ import 'widgets/profile_vehicle_modification_sheet.dart';
 import 'widgets/profile_vehicle_panel.dart';
 import 'widgets/profile_vehicle_timeline_sheet.dart';
 
-Route<void> buildSocialProfileRoute({required String profileUserId}) {
+Route<void> buildSocialProfileRoute({
+  required String profileUserId,
+  bool readOnly = false,
+}) {
   return MaterialPageRoute<void>(
-    builder: (_) =>
-        SocialProfileScreen(profileUserId: profileUserId, isOwnProfile: false),
+    builder: (_) => SocialProfileScreen(
+      profileUserId: profileUserId,
+      isOwnProfile: false,
+      readOnly: readOnly,
+    ),
   );
 }
 
@@ -51,11 +57,13 @@ class SocialProfileScreen extends StatefulWidget {
     this.userState,
     this.profileUserId,
     this.isOwnProfile = true,
+    this.readOnly = false,
   });
 
   final AppUserState? userState;
   final String? profileUserId;
   final bool isOwnProfile;
+  final bool readOnly;
 
   @override
   State<SocialProfileScreen> createState() => _SocialProfileScreenState();
@@ -115,7 +123,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         : _followRepository
               .watchFollowing(profileUserId)
               .map((relationships) => relationships.length);
-    if (!_isOwnProfile &&
+    if (!widget.readOnly &&
+        !_isOwnProfile &&
         currentUserId.isNotEmpty &&
         profileUserId.isNotEmpty) {
       _followSummaryStream = _followRepository.watchSummary(
@@ -130,6 +139,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     FollowSummary summary,
   ) async {
     if (_isFollowActionBusy || _isOwnProfile) return;
+    if (widget.readOnly) return;
     final currentUserId = _currentUserId;
     final profileUserId = _userId;
     if (currentUserId.isEmpty || profileUserId.isEmpty) return;
@@ -175,6 +185,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     FollowSummary summary, {
     required bool followers,
   }) {
+    if (widget.readOnly) return false;
     if (_isOwnProfile) return true;
     final visibility = followers
         ? profile?.followersVisibility ?? 'onlyMe'
@@ -312,6 +323,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                           isFollowActionBusy: _isFollowActionBusy,
                           isCreatingStory: _isCreatingStory,
                           isOwnProfile: _isOwnProfile,
+                          isReadOnly: widget.readOnly,
                           activeStory: activeStory,
                           onAvatarTap: activeStory != null
                               ? () => _openProfileStory(
@@ -447,6 +459,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                             : 'Dieser Nutzer hat noch keine Beiträge geteilt.',
                       );
                 return CustomScrollView(
+                  physics: const ClampingScrollPhysics(),
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   slivers: [
@@ -456,7 +469,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                         CaRismaDesignTokens.mainScreenTopInset,
                         20,
                         CaRismaDesignTokens.mainScreenBottomInset +
-                            keyboardInset,
+                            keyboardInset +
+                            10,
                       ),
                       sliver: SliverList.list(
                         children: [
@@ -2068,6 +2082,7 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.isFollowActionBusy,
     required this.isCreatingStory,
     required this.isOwnProfile,
+    required this.isReadOnly,
     required this.activeStory,
     required this.onAvatarTap,
     required this.onAvatarLongPress,
@@ -2088,6 +2103,7 @@ class _ProfileHeroCard extends StatelessWidget {
   final bool isFollowActionBusy;
   final bool isCreatingStory;
   final bool isOwnProfile;
+  final bool isReadOnly;
   final ChatStoryRecord? activeStory;
   final VoidCallback? onAvatarTap;
   final VoidCallback? onAvatarLongPress;
@@ -2198,7 +2214,7 @@ class _ProfileHeroCard extends StatelessWidget {
                 ),
               ],
             ),
-          ] else ...[
+          ] else if (!isReadOnly) ...[
             const SizedBox(height: 18),
             Row(
               children: [
@@ -2777,6 +2793,7 @@ class _SocialAvatar extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -2905,6 +2922,7 @@ class _ProfilePhotoActionTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
           decoration: BoxDecoration(
@@ -2997,6 +3015,8 @@ class _ProfileStat extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(
@@ -3089,12 +3109,20 @@ class _ProfileTabButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 10),
-          decoration: isSelected
-              ? CaRismaDesignTokens.glowDecoration(radius: 18, glowAlpha: 0.24)
-              : BoxDecoration(borderRadius: BorderRadius.circular(18)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: CaRismaDesignTokens.card,
+            border: Border.all(
+              color: isSelected
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 1.4 : 1,
+            ),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -3325,6 +3353,8 @@ class _ProfilePostGrid extends StatelessWidget {
           child: InkWell(
             onTap: () => onOpenPost(post),
             borderRadius: BorderRadius.circular(13),
+            splashFactory: NoSplash.splashFactory,
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(13),
               child: DecoratedBox(

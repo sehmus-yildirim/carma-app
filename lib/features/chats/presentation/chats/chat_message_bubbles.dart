@@ -160,39 +160,70 @@ class _ChatMessageBubble extends StatelessWidget {
         ? 'Video'
         : 'Foto';
     final canOpen = !message.isMine && !isOpened;
+    final iconColor = isOpened
+        ? Colors.white.withValues(alpha: 0.48)
+        : Colors.white;
+    final borderColor = isOpened
+        ? Colors.white.withValues(alpha: 0.16)
+        : CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.54);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: canOpen ? () => onOpenViewOnceMedia(message) : null,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        constraints: const BoxConstraints(minWidth: 142),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: CaRismaDesignTokens.card,
           borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: isOpened
-                      ? Colors.white.withValues(alpha: 0.34)
-                      : CaRismaDesignTokens.blueBright,
-                ),
+                color: CaRismaDesignTokens.controlSurface,
+                border: Border.all(color: borderColor),
               ),
-              child: Text(
-                '1',
-                style: TextStyle(
-                  color: isOpened ? Colors.white54 : Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    isOpened
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    color: iconColor,
+                    size: 20,
+                  ),
+                  Positioned(
+                    right: 4,
+                    bottom: 3,
+                    child: Container(
+                      width: 13,
+                      height: 13,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: CaRismaDesignTokens.card,
+                        border: Border.all(color: borderColor, width: 1),
+                      ),
+                      child: Text(
+                        '1',
+                        style: TextStyle(
+                          color: iconColor,
+                          fontSize: 8,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 11),
@@ -302,18 +333,18 @@ class _ChatMessageBubble extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => onOpenLocation(location),
       child: Container(
-        width: 250,
-        padding: const EdgeInsets.all(13),
+        width: 236,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(17),
           color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
           border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white.withValues(alpha: 0.14),
@@ -321,7 +352,7 @@ class _ChatMessageBubble extends StatelessWidget {
               child: const Icon(
                 Icons.location_on_rounded,
                 color: Colors.white,
-                size: 26,
+                size: 24,
               ),
             ),
             const SizedBox(width: 12),
@@ -370,18 +401,18 @@ class _ChatMessageBubble extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => _copyContactPhoneNumber(context, contact),
       child: Container(
-        width: 250,
-        padding: const EdgeInsets.all(13),
+        width: 236,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(17),
           color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
           border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -393,7 +424,7 @@ class _ChatMessageBubble extends StatelessWidget {
               child: const Icon(
                 Icons.person_rounded,
                 color: Colors.white,
-                size: 25,
+                size: 23,
               ),
             ),
             const SizedBox(width: 12),
@@ -533,18 +564,18 @@ class _ChatMessageBubble extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => onToggleAudioMessage(message),
       child: Container(
-        width: 238,
-        padding: const EdgeInsets.all(13),
+        width: 226,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(17),
           color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
           border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
@@ -556,7 +587,7 @@ class _ChatMessageBubble extends StatelessWidget {
               child: Icon(
                 isAudioPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 color: Colors.white,
-                size: 29,
+                size: 27,
               ),
             ),
             const SizedBox(width: 12),
@@ -976,7 +1007,13 @@ class _ChatMessageBubble extends StatelessWidget {
         !isAudioMessage &&
         !isVideoMessage &&
         !_isStoryReactionMessage(message);
-    final bubblePadding = isImageMessage || isVideoMessage
+    final isStructuredVisualMessage =
+        isStructuredCardMessage ||
+        isDocumentMessage ||
+        isAudioMessage ||
+        isViewOnceMedia;
+    final bubblePadding =
+        isImageMessage || isVideoMessage || isStructuredVisualMessage
         ? const EdgeInsets.all(4)
         : isCompactTextMessage
         ? const EdgeInsets.fromLTRB(11, 6, 8, 5)
@@ -1019,7 +1056,7 @@ class _ChatMessageBubble extends StatelessWidget {
               bottomLeft: Radius.circular(message.isMine ? 20 : 5),
               bottomRight: Radius.circular(message.isMine ? 5 : 20),
             ),
-            gradient: message.isMine && !isStructuredCardMessage
+            gradient: message.isMine && !isStructuredVisualMessage
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -1030,13 +1067,13 @@ class _ChatMessageBubble extends StatelessWidget {
                     ],
                   )
                 : null,
-            color: isStructuredCardMessage
+            color: isStructuredVisualMessage
                 ? CaRismaDesignTokens.surface2.withValues(alpha: 0.90)
                 : message.isMine
                 ? null
                 : CaRismaDesignTokens.surface2.withValues(alpha: 0.86),
             border: Border.all(
-              color: message.isMine && !isStructuredCardMessage
+              color: message.isMine && !isStructuredVisualMessage
                   ? _myMessageBorder
                   : Colors.white.withValues(alpha: 0.08),
             ),

@@ -21,6 +21,7 @@ import '../../../shared/widgets/carisma_secondary_button.dart';
 import '../../../shared/widgets/carisma_section_title.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../chats/data/chat_native_bridge.dart';
+import '../../settings/data/user_settings_repository.dart';
 import '../data/report_repository.dart';
 import '../domain/report_draft.dart';
 
@@ -46,6 +47,8 @@ class _ReportScreenState extends State<ReportScreen> {
   final ImagePicker _imagePicker = ImagePicker();
   final ReportRepository _reportRepository = ReportRepository();
   final ChatNativeBridge _nativeBridge = ChatNativeBridge();
+  final UserSettingsRepository _userSettingsRepository =
+      UserSettingsRepository();
 
   final TextEditingController _regionController = TextEditingController();
   final TextEditingController _lettersController = TextEditingController();
@@ -154,6 +157,7 @@ class _ReportScreenState extends State<ReportScreen> {
       userId: widget.userState.userId,
     );
 
+    _loadDefaultPlateCountry();
     _loadLocation();
   }
 
@@ -223,6 +227,38 @@ class _ReportScreenState extends State<ReportScreen> {
     });
 
     _regionFocusNode.requestFocus();
+  }
+
+  Future<void> _loadDefaultPlateCountry() async {
+    final userId = widget.userState.userId.trim();
+
+    if (userId.isEmpty) {
+      return;
+    }
+
+    try {
+      final settings = await _userSettingsRepository.load(userId);
+      final defaultCountry = settings.appPreferences.defaultPlateCountry
+          .trim()
+          .toUpperCase();
+
+      if (!mounted ||
+          defaultCountry.isEmpty ||
+          defaultCountry == _countryCode ||
+          !const <String>{'DE', 'AT', 'CH'}.contains(defaultCountry)) {
+        return;
+      }
+
+      setState(() {
+        _countryCode = defaultCountry;
+        _regionController.clear();
+        _lettersController.clear();
+        _numbersController.clear();
+        _clearMessages();
+      });
+    } catch (_) {
+      // App preferences are comfort settings and must not block reports.
+    }
   }
 
   Future<void> _openRegionPicker() async {
@@ -696,8 +732,10 @@ class _ReportScreenState extends State<ReportScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             const contentTopInset = CaRismaDesignTokens.mainScreenTopInset;
-            const contentBottomInset = 16.0;
+            const contentBottomInset =
+                CaRismaDesignTokens.mainScreenBottomInset + 10;
             return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
               padding: const EdgeInsets.fromLTRB(
                 20,
@@ -1085,6 +1123,8 @@ class _SentReportNotificationCard extends StatelessWidget {
       child: InkWell(
         onTap: onOpen,
         borderRadius: BorderRadius.circular(22),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Row(
           children: [
             CaRismaBlueIconBox(
@@ -1165,6 +1205,8 @@ class _IncomingReportNotificationCard extends StatelessWidget {
       child: InkWell(
         onTap: onOpen,
         borderRadius: BorderRadius.circular(22),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1787,17 +1829,19 @@ class _CategoryCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(28),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
             padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
-              gradient: isSelected ? CaRismaDesignTokens.blueGradient : null,
+              color: CaRismaDesignTokens.card,
               border: Border.all(
                 color: isSelected
-                    ? Colors.white.withValues(alpha: 0.16)
-                    : Colors.transparent,
+                    ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
+                    : Colors.white.withValues(alpha: 0.08),
                 width: isSelected ? 1.5 : 1.0,
               ),
               boxShadow: isSelected
@@ -1996,6 +2040,8 @@ class _LocationModeButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           height: 54,
@@ -2260,6 +2306,8 @@ class _PrimaryActionButton extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(22),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           child: Ink(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

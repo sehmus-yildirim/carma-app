@@ -5,13 +5,21 @@ const {searchPlateDocument} = require("./plate_search");
 
 const now = new Date("2026-07-23T12:00:00.000Z");
 
-function fakeFirestore(data) {
+function fakeFirestore(data, settings = null) {
   return {
     lastPath: null,
+    paths: [],
     doc(path) {
       this.lastPath = path;
+      this.paths.push(path);
       return {
         async get() {
+          if (path.includes("/settings/visibility")) {
+            return {
+              exists: settings != null,
+              data: () => settings,
+            };
+          }
           return {
             exists: data != null,
             data: () => data,
@@ -19,6 +27,18 @@ function fakeFirestore(data) {
         },
       };
     },
+  };
+}
+
+function visibleSettings(overrides = {}) {
+  return {
+    profileVisibility: "contacts",
+    plateSearchVisibility: "contacts",
+    showVehicle: true,
+    showRegion: true,
+    showPlate: true,
+    allowContactRequests: true,
+    ...overrides,
   };
 }
 
@@ -63,7 +83,10 @@ function validInput(overrides = {}) {
 }
 
 test("returns only the dynamic public hit fields", async () => {
-  const firestore = fakeFirestore(validData({privateEmail: "hidden@test"}));
+  const firestore = fakeFirestore(
+    validData({privateEmail: "hidden@test"}),
+    visibleSettings(),
+  );
 
   const result = await searchPlateDocument({
     firestore,
@@ -72,7 +95,10 @@ test("returns only the dynamic public hit fields", async () => {
     now,
   });
 
-  assert.equal(firestore.lastPath, "plates/DE_FDRT2918");
+  assert.deepEqual(firestore.paths, [
+    "plates/DE_FDRT2918",
+    "users/target-user/settings/visibility",
+  ]);
   assert.deepEqual(result, {
     found: true,
     targetUid: "target-user",
@@ -96,10 +122,13 @@ test("returns only the dynamic public hit fields", async () => {
 
 test("keeps missing photo and unverified status private and neutral", async () => {
   const result = await searchPlateDocument({
-    firestore: fakeFirestore(validData({
-      profilePhotoUrl: null,
-      verificationStatus: "pending",
-    })),
+    firestore: fakeFirestore(
+      validData({
+        profilePhotoUrl: null,
+        verificationStatus: "pending",
+      }),
+      visibleSettings(),
+    ),
     requesterUserId: "searching-user",
     input: validInput(),
     now,
@@ -108,6 +137,56 @@ test("keeps missing photo and unverified status private and neutral", async () =
   assert.equal(result.found, true);
   assert.equal(result.profilePhotoUrl, null);
   assert.equal(result.isVerified, false);
+});
+
+test("hides vehicle and plate fields when visibility settings disallow them", async () => {
+  const result = await searchPlateDocument({
+    firestore: fakeFirestore(
+      validData(),
+      visibleSettings({showVehicle: false, showPlate: false}),
+    ),
+    requesterUserId: "searching-user",
+    input: validInput(),
+    now,
+  });
+
+  assert.equal(result.found, true);
+  assert.equal(result.displayPlate, null);
+  assert.equal(result.region, null);
+  assert.equal(result.letters, null);
+  assert.equal(result.numbers, null);
+  assert.equal(result.vehicleBrand, null);
+  assert.equal(result.vehicleModel, null);
+  assert.equal(result.vehicleColor, null);
+  assert.equal(result.vehicleLabel, null);
+});
+
+test("does not reveal users who paused plate discovery in settings", async () => {
+  const result = await searchPlateDocument({
+    firestore: fakeFirestore(
+      validData(),
+      visibleSettings({plateSearchVisibility: "onlyMe"}),
+    ),
+    requesterUserId: "searching-user",
+    input: validInput(),
+    now,
+  });
+
+  assert.deepEqual(result, {found: false});
+});
+
+test("does not reveal users who disabled contact requests in settings", async () => {
+  const result = await searchPlateDocument({
+    firestore: fakeFirestore(
+      validData(),
+      visibleSettings({allowContactRequests: false}),
+    ),
+    requesterUserId: "searching-user",
+    input: validInput(),
+    now,
+  });
+
+  assert.deepEqual(result, {found: false});
 });
 
 for (const [name, data, requesterUserId] of [
@@ -141,7 +220,7 @@ for (const [name, data, requesterUserId] of [
 ]) {
   test(`does not reveal ${name}`, async () => {
     const result = await searchPlateDocument({
-      firestore: fakeFirestore(data),
+      firestore: fakeFirestore(data, visibleSettings()),
       requesterUserId,
       input: validInput(),
       now,

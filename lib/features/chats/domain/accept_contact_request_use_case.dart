@@ -42,12 +42,11 @@ class AcceptContactRequestUseCase {
     ProfileConnectionRepository? profileConnectionRepository,
   }) : _contactRequestRepository = contactRequestRepository,
        _chatRepository = chatRepository,
-       _profileConnectionRepository =
-           profileConnectionRepository ?? ProfileConnectionRepository();
+       _profileConnectionRepository = profileConnectionRepository;
 
   final ContactRequestRepository _contactRequestRepository;
   final ChatRepository _chatRepository;
-  final ProfileConnectionRepository _profileConnectionRepository;
+  final ProfileConnectionRepository? _profileConnectionRepository;
 
   Future<AcceptContactRequestResult> call({
     required ContactRequestRecord request,
@@ -72,6 +71,10 @@ class AcceptContactRequestUseCase {
         chatId: chatId,
       );
       return _completeWithProfileConnection(result);
+    }
+
+    if (request.isExpiredByTime) {
+      throw StateError('Diese Kontaktanfrage ist abgelaufen.');
     }
 
     if (!request.isPending) {
@@ -110,7 +113,9 @@ class AcceptContactRequestUseCase {
     AcceptContactRequestResult result,
   ) async {
     try {
-      await _profileConnectionRepository.ensureAcceptedConnection(
+      final repository =
+          _profileConnectionRepository ?? ProfileConnectionRepository();
+      await repository.ensureAcceptedConnection(
         request: result.request,
         chat: result.chat,
       );

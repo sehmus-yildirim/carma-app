@@ -1,5 +1,6 @@
 import 'package:carisma/features/chats/data/chat_repository.dart';
 import 'package:carisma/features/chats/data/contact_request_repository.dart';
+import 'package:carisma/features/chats/domain/accept_contact_request_use_case.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -100,6 +101,40 @@ void main() {
         ),
         isTrue,
       );
+    });
+
+    test('rejects expired contact requests before creating a chat', () async {
+      final expiredRequest = ContactRequestRecord(
+        id: 'expired-request',
+        senderUserId: 'sender',
+        receiverUserId: 'receiver',
+        countryCode: 'DE',
+        plateKey: 'HHSY4700',
+        message: 'Hallo',
+        status: ContactRequestStatus.pending,
+        createdAt: DateTime.now().subtract(const Duration(hours: 49)),
+        expiresAt: DateTime.now().subtract(const Duration(hours: 1)),
+      );
+      final requestRepository = LocalContactRequestRepository(
+        seedRequests: [expiredRequest],
+      );
+      final chatRepository = LocalChatRepository();
+      final useCase = AcceptContactRequestUseCase(
+        contactRequestRepository: requestRepository,
+        chatRepository: chatRepository,
+      );
+
+      await expectLater(
+        useCase(request: expiredRequest),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'Diese Kontaktanfrage ist abgelaufen.',
+          ),
+        ),
+      );
+      expect(await chatRepository.loadChats(userId: 'sender'), isEmpty);
     });
   });
 }

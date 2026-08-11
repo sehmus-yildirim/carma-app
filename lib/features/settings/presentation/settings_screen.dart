@@ -15,6 +15,7 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../chats/data/chat_repository.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../data/notification_settings_repository.dart';
+import '../data/user_settings_repository.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -33,16 +34,24 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final NotificationSettingsRepository _notificationSettingsRepository =
       NotificationSettingsRepository();
+  final UserSettingsRepository _userSettingsRepository =
+      UserSettingsRepository();
 
   bool _notifyContactRequests = true;
   bool _notifyChats = true;
   bool _notifyReports = true;
   bool _notifyVerification = true;
+  VisibilitySettings _visibilitySettings = const VisibilitySettings();
+  ContactFilterSettings _contactFilterSettings = const ContactFilterSettings();
+  ChatPrivacySettings _chatPrivacySettings = const ChatPrivacySettings();
+  StoryPrivacySettings _storyPrivacySettings = const StoryPrivacySettings();
+  AppPreferenceSettings _appPreferenceSettings = const AppPreferenceSettings();
 
   @override
   void initState() {
     super.initState();
     _loadNotificationSettings();
+    _loadUserSettings();
   }
 
   void _showComingSoon(String title) {
@@ -260,10 +269,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           copiedMessage: 'Löschanfrage wurde kopiert.',
           buildDraft: (message) =>
               'Konto löschen anfordern\n'
+              'App: ${CaRismaAppConfig.appVersionLabel}\n'
               'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
               'UID: $uid\n'
               'Bestätigung: $message\n\n'
-              'Hinweis: Profil, Fahrzeugdaten, Verifizierungsdaten, Chatbezüge und gespeicherte Dateien müssen rechtlich korrekt geprüft und entfernt werden.',
+              'Hinweis: Profil, Fahrzeugdaten, Verifizierungsdaten, Storys, Chatbezüge, Hinweise, Sicherheitsfristen und gespeicherte Dateien müssen rechtlich korrekt geprüft und entfernt werden.',
         );
         return;
       case 'Datenexport anfordern':
@@ -275,6 +285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           copiedMessage: 'Datenexport-Anfrage wurde kopiert.',
           buildDraft: (message) =>
               'Datenexport anfordern\n'
+              'App: ${CaRismaAppConfig.appVersionLabel}\n'
               'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
               'UID: $uid\n'
               'Hinweis: $message',
@@ -309,7 +320,179 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Datenschutz: ${LegalVersions.privacy}\n'
               'Verantwortungsvolle Nutzung: ${LegalVersions.responsibleUse}\n'
               'Keine Notfallnutzung: ${LegalVersions.noEmergencyUse}\n\n'
-              'Eine vollständige Verwaltung der Einwilligungen wird für den Release mit Konto- und Rechtetexten verbunden.',
+              'Die beim Registrieren bestätigten Versionen werden serverseitig dem Konto zugeordnet. Änderungen an Rechtstexten müssen erneut geprüft und bei Bedarf mit einer neuen Zustimmung verbunden werden.',
+        );
+        return;
+      case 'Datenschutz-Präferenzen':
+        _showSettingsInfo(
+          title: 'Datenschutz-Präferenzen',
+          icon: Icons.privacy_tip_outlined,
+          body:
+              'Hier werden künftig feinere Datenschutzoptionen gebündelt: Sichtbarkeit, Kontaktaufnahme, Story-Freigaben und Chat-Privatsphäre.\n\n'
+              'Für den MVP sind die wichtigsten Punkte bereits in den eigenen Unterbereichen sichtbar. Serverseitige Regeln müssen für den Release passend erzwungen werden.',
+        );
+        return;
+      case 'Werbung & Tracking':
+        _showSettingsInfo(
+          title: 'Werbung & Tracking',
+          icon: Icons.ads_click_outlined,
+          body:
+              'CaRisma nutzt aktuell keine personalisierte Werbung und kein Werbetracking.\n\n'
+              'Falls später Analyse-, Werbe- oder Trackingfunktionen ergänzt werden, müssen sie hier transparent erklärt und rechtlich geprüft werden.',
+        );
+        return;
+      case 'App-Berechtigungen':
+        _showSettingsInfo(
+          title: 'App-Berechtigungen',
+          icon: Icons.tune_rounded,
+          body:
+              'CaRisma nutzt je nach Funktion Kamera, Mikrofon, Standort, Kontakte, Medien und Mitteilungen.\n\n'
+              'Die App kann Berechtigungen anfordern, wenn du die jeweilige Funktion benutzt. Den aktuellen Systemstatus verwaltest du in den Android-App-Einstellungen.\n\n'
+              'Wenn eine Funktion blockiert ist, prüfe dort die passende Freigabe und starte CaRisma danach neu.',
+        );
+        return;
+      case 'Profil-Sichtbarkeit':
+        _showSettingsInfo(
+          title: 'Profil-Sichtbarkeit',
+          icon: Icons.visibility_outlined,
+          body:
+              'Du bestimmst später, wer dein öffentliches Profil sehen darf.\n\n'
+              'Für den MVP gilt: Fremde Profile dürfen nur öffentliche Felder anzeigen. Private Daten wie E-Mail, Telefonnummer, Dokumente und genaue Standortdaten bleiben verborgen.',
+        );
+        return;
+      case 'Kennzeichen finden':
+        _showSettingsInfo(
+          title: 'Kennzeichen finden',
+          icon: Icons.search_rounded,
+          body:
+              'Diese Einstellung bereitet vor, wer dich über dein Kennzeichen finden darf.\n\n'
+              'Für den Release muss diese Auswahl serverseitig in der Kennzeichen-Suche erzwungen werden, damit deaktivierte Profile nicht gefunden werden.',
+        );
+        return;
+      case 'Öffentliche Fahrzeugdaten':
+        _showSettingsInfo(
+          title: 'Öffentliche Fahrzeugdaten',
+          icon: Icons.directions_car_outlined,
+          body:
+              'Fahrzeug, Region und Kennzeichen sollen nur angezeigt werden, wenn du die jeweilige Sichtbarkeit freigibst.\n\n'
+              'Sensible Konto-, Dokument- und Verifizierungsdaten werden nicht in öffentliche Profile kopiert.',
+        );
+        return;
+      case 'Kontaktanfragen erlauben':
+        _showSettingsInfo(
+          title: 'Kontaktanfragen erlauben',
+          icon: Icons.mark_chat_unread_outlined,
+          body:
+              'Hier kannst du später Kontaktanfragen pausieren oder wieder erlauben.\n\n'
+              'Damit das sicher wirkt, muss die Suche und Anfrage-Erstellung serverseitig prüfen, ob Kontaktanfragen erlaubt sind.',
+        );
+        return;
+      case 'Nur verifizierte Nutzer':
+        _showSettingsInfo(
+          title: 'Nur verifizierte Nutzer',
+          icon: Icons.verified_user_outlined,
+          body:
+              'Diese Option bereitet vor, dass nur verifizierte Nutzer dir Kontaktanfragen senden dürfen.\n\n'
+              'Für den Release muss diese Regel in der Anfrage-Function oder in den Firestore-Regeln verbindlich geprüft werden.',
+        );
+        return;
+      case 'Anfragegründe':
+        _showSettingsInfo(
+          title: 'Anfragegründe',
+          icon: Icons.chat_bubble_outline_rounded,
+          body:
+              'Du kannst später festlegen, welche Anfragegründe du zulassen möchtest.\n\n'
+              'Aktuell sind die Gründe sichtbar vorbereitet. Eine serverseitige Filterung muss vor Veröffentlichung ergänzt werden, falls Nutzer Gründe deaktivieren können.',
+        );
+        return;
+      case 'Automatisch ablehnen':
+        _showSettingsInfo(
+          title: 'Automatisch ablehnen',
+          icon: Icons.do_not_disturb_on_outlined,
+          body:
+              'Diese Option bereitet vor, Anfragen automatisch abzulehnen, wenn Mindestbedingungen fehlen, zum Beispiel Verifizierung oder erlaubter Anfragegrund.\n\n'
+              'Die Entscheidung darf später nicht allein in der App passieren, sondern muss serverseitig umgesetzt werden.',
+        );
+        return;
+      case 'Ruhemodus':
+        _showSettingsInfo(
+          title: 'Ruhemodus',
+          icon: Icons.nightlight_round,
+          body:
+              'Der Ruhemodus pausiert künftig neue Kontaktanfragen für eine gewählte Zeit.\n\n'
+              'Bis zur Backend-Anbindung ist dies eine vorbereitete Datenschutzoption und blockiert noch keine echten Anfragen.',
+        );
+        return;
+      case 'Lesebestätigungen':
+        _showSettingsInfo(
+          title: 'Lesebestätigungen',
+          icon: Icons.done_all_rounded,
+          body:
+              'Hier wird vorbereitet, ob andere Nutzer sehen dürfen, dass du Nachrichten gelesen hast.\n\n'
+              'Aktuell ist die Chat-Statuslogik aktiv. Eine Nutzeroption muss später mit den Chat-Regeln sauber verbunden werden.',
+        );
+        return;
+      case 'Online-Status':
+        _showSettingsInfo(
+          title: 'Online-Status',
+          icon: Icons.circle_outlined,
+          body:
+              'Online- und Zuletzt-aktiv-Anzeige ist für CaRisma vorbereitet, aber noch nicht als öffentliche Funktion aktiv.\n\n'
+              'Wenn sie später kommt, muss sie hier deaktivierbar sein.',
+        );
+        return;
+      case 'Medien automatisch speichern':
+        _showSettingsInfo(
+          title: 'Medien automatisch speichern',
+          icon: Icons.perm_media_outlined,
+          body:
+              'Diese Option bereitet vor, ob empfangene Chat-Medien automatisch lokal gespeichert werden.\n\n'
+              'Aktuell werden Medien nicht ungefragt als eigene Galerie-Automatik beworben.',
+        );
+        return;
+      case 'Einmal ansehen Standard':
+        _showSettingsInfo(
+          title: 'Einmal ansehen Standard',
+          icon: Icons.looks_one_outlined,
+          body:
+              'Hier kannst du später festlegen, ob Fotos und Videos standardmäßig als Einmal-ansehen gesendet werden.\n\n'
+              'Die konkrete Auswahl bleibt im Chat weiterhin sichtbar entscheidbar.',
+        );
+        return;
+      case 'Story-Sichtbarkeit':
+        _showSettingsInfo(
+          title: 'Story-Sichtbarkeit',
+          icon: Icons.auto_stories_outlined,
+          body:
+              'Diese Option bereitet vor, wer deine Story sehen darf.\n\n'
+              'Storys werden aktuell über berechtigte Viewer abgesichert. Eine sichtbare Nutzerliste muss später mit diesen Viewer-Regeln verbunden werden.',
+        );
+        return;
+      case 'Story-Nutzer ausschließen':
+        _showSettingsInfo(
+          title: 'Story-Nutzer ausschließen',
+          icon: Icons.person_remove_outlined,
+          body:
+              'Hier kannst du später einzelne Nutzer von deinen Storys ausschließen.\n\n'
+              'Die Sperre muss serverseitig mit Story-Viewern und blockierten Nutzern abgeglichen werden.',
+        );
+        return;
+      case 'Story-Antworten':
+        _showSettingsInfo(
+          title: 'Story-Antworten',
+          icon: Icons.reply_outlined,
+          body:
+              'Diese Einstellung bereitet vor, ob Kontakte auf deine Story antworten dürfen.\n\n'
+              'Antworten dürfen später nur für erlaubte Kontakte und aktive Chats möglich sein.',
+        );
+        return;
+      case 'Fahrzeugdaten in Storys':
+        _showSettingsInfo(
+          title: 'Fahrzeugdaten in Storys',
+          icon: Icons.directions_car_filled_outlined,
+          body:
+              'Du kannst später voreinstellen, ob Storys automatisch Fahrzeugdaten enthalten dürfen.\n\n'
+              'Aktuell entscheidest du beim Erstellen einer Story bewusst über Sticker und sichtbare Inhalte.',
         );
         return;
       case 'Missbrauch melden':
@@ -322,6 +505,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           copiedMessage: 'Missbrauchsmeldung wurde kopiert.',
           buildDraft: (message) =>
               'Missbrauch melden\n'
+              'Bereich: Sicherheit & Missbrauch\n'
+              'App: ${CaRismaAppConfig.appVersionLabel}\n'
               'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
               'UID: $uid\n'
               'Beschreibung: $message',
@@ -346,6 +531,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Verwarnungen, Einschränkungen und Sperren werden serverseitig geprüft und hier nachvollziehbar angezeigt.',
         );
         return;
+      case 'Gemeldete Vorfälle':
+        _showSettingsInfo(
+          title: 'Gemeldete Vorfälle',
+          icon: Icons.assignment_outlined,
+          body:
+              'Hier werden künftig deine gemeldeten Sicherheits- und Missbrauchsvorfälle nachvollziehbar angezeigt.\n\n'
+              'Aktuell werden keine Produktionsdaten lokal geladen. Für den Release braucht dieser Bereich eine sichere serverseitige Übersicht.',
+        );
+        return;
+      case 'Konto-Warnungen':
+        _showSettingsInfo(
+          title: 'Konto-Warnungen',
+          icon: Icons.warning_amber_rounded,
+          body:
+              'Warnungen, Einschränkungen und Sperrstatus sollen hier transparent erscheinen.\n\n'
+              'Der Status muss serverseitig gesetzt werden und darf nicht vom Client manipulierbar sein.',
+        );
+        return;
+      case 'Vertrauensstatus':
+        _showSettingsInfo(
+          title: 'Vertrauensstatus',
+          icon: Icons.verified_outlined,
+          body:
+              'Der Vertrauensstatus bündelt später Verifizierung, Missbrauchsfälle und Kontosicherheit.\n\n'
+              'Aktuell zeigt CaRisma Verifizierung und Sicherheitsinformationen getrennt an.',
+        );
+        return;
+      case 'Missbrauchsschutz':
+        _showSettingsInfo(
+          title: 'Missbrauchsschutz',
+          icon: Icons.security_rounded,
+          body:
+              'CaRisma schützt Kontaktanfragen, Hinweise und Chats durch Zugriffsschutz, Blockierungen, Limits und manuelle Prüfpfade.\n\n'
+              'Falsche Meldungen, Spam, Belästigung und Veröffentlichung fremder Daten können zu Einschränkungen oder Kontosperren führen.',
+        );
+        return;
       case 'Hilfe & FAQ':
         _showSettingsInfo(
           title: 'Hilfe & FAQ',
@@ -358,6 +579,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '4. Storys und Chats sind nur für angenommene Kontakte vorgesehen.',
         );
         return;
+      case 'Sprache':
+        _showSettingsInfo(
+          title: 'Sprache',
+          icon: Icons.language_rounded,
+          body:
+              'Deutsch ist aktuell die aktive Sprache.\n\n'
+              'Englisch und Türkisch sind sinnvoll vorbereitet, werden aber erst nach vollständiger Übersetzung und QA aktiviert.',
+        );
+        return;
+      case 'Designmodus':
+        _showSettingsInfo(
+          title: 'Designmodus',
+          icon: Icons.dark_mode_outlined,
+          body:
+              'CaRisma nutzt aktuell bewusst den dunklen Premium-Modus.\n\n'
+              'Systemmodus oder weitere Designs können später ergänzt werden, sollten aber das aktuelle CaRisma-Design nicht verwässern.',
+        );
+        return;
+      case 'Haptik & Töne':
+        _showSettingsInfo(
+          title: 'Haptik & Töne',
+          icon: Icons.vibration_rounded,
+          body:
+              'Vibration, Haptik und Nachrichtentöne sind als Komfortbereich vorbereitet.\n\n'
+              'Eine echte Einstellung muss später mit den jeweiligen Chat- und Benachrichtigungsevents verbunden werden.',
+        );
+        return;
+      case 'Entfernung & Standardland':
+        _showSettingsInfo(
+          title: 'Entfernung & Standardland',
+          icon: Icons.explore_outlined,
+          body:
+              'Entfernungen werden für CaRisma in Kilometern gedacht.\n\n'
+              'Das Standardland für Kennzeichen kann später auf Deutschland, Österreich oder Schweiz gesetzt werden. Bis dahin bleibt die Auswahl direkt im jeweiligen Bereich sichtbar.',
+        );
+        return;
       case 'Problem melden':
         _showCopyDraftDialog(
           title: 'Problem melden',
@@ -368,6 +625,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           copiedMessage: 'Problembericht wurde kopiert.',
           buildDraft: (message) =>
               'Problem melden\n'
+              'Bereich: Support\n'
+              'App: ${CaRismaAppConfig.appVersionLabel}\n'
               'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
               'UID: $uid\n'
               'Beschreibung: $message',
@@ -383,6 +642,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           copiedMessage: 'Verifizierungsanfrage wurde kopiert.',
           buildDraft: (message) =>
               'Verifizierungsproblem\n'
+              'Bereich: Profil & Verifizierung\n'
+              'App: ${CaRismaAppConfig.appVersionLabel}\n'
               'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
               'UID: $uid\n'
               'Beschreibung: $message',
@@ -397,6 +658,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           copiedMessage: 'Feedback wurde kopiert.',
           buildDraft: (message) =>
               'Feedback senden\n'
+              'Bereich: Support\n'
+              'App: ${CaRismaAppConfig.appVersionLabel}\n'
               'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
               'UID: $uid\n'
               'Feedback: $message',
@@ -452,6 +715,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _loadUserSettings() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      return;
+    }
+
+    try {
+      final settings = await _userSettingsRepository.load(userId);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _visibilitySettings = settings.visibility;
+        _contactFilterSettings = settings.contactFilters;
+        _chatPrivacySettings = settings.chatPrivacy;
+        _storyPrivacySettings = settings.storyPrivacy;
+        _appPreferenceSettings = settings.appPreferences;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Datenschutz- und Komforteinstellungen konnten nicht geladen werden.',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _saveNotificationSettings(String title) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
@@ -493,6 +790,117 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(
           content: Text(
             'Mitteilungseinstellung konnte nicht gespeichert werden.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveVisibilitySettings(
+    String title,
+    VisibilitySettings settings,
+  ) async {
+    await _saveUserSettings(
+      title: title,
+      applyValue: () => _visibilitySettings = settings,
+      save: (userId) =>
+          _userSettingsRepository.saveVisibility(userId, settings),
+    );
+  }
+
+  Future<void> _saveContactFilterSettings(
+    String title,
+    ContactFilterSettings settings,
+  ) async {
+    await _saveUserSettings(
+      title: title,
+      applyValue: () => _contactFilterSettings = settings,
+      save: (userId) =>
+          _userSettingsRepository.saveContactFilters(userId, settings),
+    );
+  }
+
+  Future<void> _saveChatPrivacySettings(
+    String title,
+    ChatPrivacySettings settings,
+  ) async {
+    await _saveUserSettings(
+      title: title,
+      applyValue: () => _chatPrivacySettings = settings,
+      save: (userId) =>
+          _userSettingsRepository.saveChatPrivacy(userId, settings),
+    );
+  }
+
+  Future<void> _saveStoryPrivacySettings(
+    String title,
+    StoryPrivacySettings settings,
+  ) async {
+    await _saveUserSettings(
+      title: title,
+      applyValue: () => _storyPrivacySettings = settings,
+      save: (userId) =>
+          _userSettingsRepository.saveStoryPrivacy(userId, settings),
+    );
+  }
+
+  Future<void> _saveAppPreferenceSettings(
+    String title,
+    AppPreferenceSettings settings,
+  ) async {
+    await _saveUserSettings(
+      title: title,
+      applyValue: () => _appPreferenceSettings = settings,
+      save: (userId) =>
+          _userSettingsRepository.saveAppPreferences(userId, settings),
+      suffix:
+          ' Die appweite Anwendung folgt, sobald die jeweilige Funktion angebunden ist.',
+    );
+  }
+
+  Future<void> _saveUserSettings({
+    required String title,
+    required VoidCallback applyValue,
+    required Future<void> Function(String userId) save,
+    String suffix = ' Wird nach Server-Anbindung erzwungen.',
+  }) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Melde dich erneut an, um diese Einstellung zu speichern.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(applyValue);
+
+    try {
+      await save(userId);
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$title gespeichert.$suffix')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      await _loadUserSettings();
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$title konnte nicht gespeichert werden. Bitte versuche es erneut.',
           ),
         ),
       );
@@ -888,6 +1296,214 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _openVisibilityAndDiscovery() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsSwitchScreen(
+          icon: Icons.visibility_outlined,
+          title: 'Sichtbarkeit & Auffindbarkeit',
+          description:
+              'Steuere gespeicherte Vorgaben für öffentliche Profil-, Fahrzeug- und Kennzeichendaten.',
+          note:
+              'Diese Einstellungen sind gespeichert. Suche, öffentliche Profile und Kontaktanfragen müssen sie serverseitig erzwingen.',
+          items: [
+            _SettingsSwitchItem(
+              icon: Icons.directions_car_outlined,
+              title: 'Fahrzeug öffentlich zeigen',
+              description: 'Marke und Modell dürfen öffentlich erscheinen.',
+              value: _visibilitySettings.showVehicle,
+              onChanged: (value) => _saveVisibilitySettings(
+                'Fahrzeug-Sichtbarkeit',
+                _visibilitySettings.copyWith(showVehicle: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.location_city_outlined,
+              title: 'Region öffentlich zeigen',
+              description: 'Stadt oder grobe Region darf sichtbar sein.',
+              value: _visibilitySettings.showRegion,
+              onChanged: (value) => _saveVisibilitySettings(
+                'Region-Sichtbarkeit',
+                _visibilitySettings.copyWith(showRegion: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.pin_outlined,
+              title: 'Kennzeichen öffentlich zeigen',
+              description: 'Kennzeichen darf in erlaubten Profilen erscheinen.',
+              value: _visibilitySettings.showPlate,
+              onChanged: (value) => _saveVisibilitySettings(
+                'Kennzeichen-Sichtbarkeit',
+                _visibilitySettings.copyWith(showPlate: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.mark_chat_unread_outlined,
+              title: 'Kontaktanfragen erlauben',
+              description: 'Neue Kontaktanfragen grundsätzlich zulassen.',
+              value: _visibilitySettings.allowContactRequests,
+              onChanged: (value) => _saveVisibilitySettings(
+                'Kontaktanfragen',
+                _visibilitySettings.copyWith(allowContactRequests: value),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openContactRequestFilters() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsSwitchScreen(
+          icon: Icons.filter_alt_outlined,
+          title: 'Kontaktanfragen-Filter',
+          description:
+              'Speichere Regeln, mit denen Kontaktanfragen später serverseitig geprüft werden.',
+          note:
+              'Gespeichert. Die Anfrage-Function muss diese Filter noch verbindlich anwenden.',
+          items: [
+            _SettingsSwitchItem(
+              icon: Icons.verified_user_outlined,
+              title: 'Nur verifizierte Nutzer',
+              description: 'Anfragen nur von verifizierten Konten zulassen.',
+              value: _contactFilterSettings.requireVerifiedRequester,
+              onChanged: (value) => _saveContactFilterSettings(
+                'Verifizierungsfilter',
+                _contactFilterSettings.copyWith(
+                  requireVerifiedRequester: value,
+                ),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.do_not_disturb_on_outlined,
+              title: 'Unverifizierte automatisch ablehnen',
+              description: 'Später ohne manuelle Prüfung abweisen.',
+              value: _contactFilterSettings.autoRejectUnverified,
+              onChanged: (value) => _saveContactFilterSettings(
+                'Automatische Ablehnung',
+                _contactFilterSettings.copyWith(autoRejectUnverified: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.nightlight_round,
+              title: 'Ruhemodus für Anfragen',
+              description: 'Neue Anfragen vorbereitet pausieren.',
+              value:
+                  _contactFilterSettings.contactRequestQuietModeUntil != null,
+              onChanged: (value) => _saveContactFilterSettings(
+                'Ruhemodus',
+                _contactFilterSettings.copyWith(
+                  contactRequestQuietModeUntil: value
+                      ? DateTime.now().add(const Duration(hours: 24))
+                      : null,
+                  clearQuietMode: !value,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openChatPrivacy() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsSwitchScreen(
+          icon: Icons.lock_outline_rounded,
+          title: 'Chat-Privatsphäre',
+          description:
+              'Steuere, welche Chat-Privatsphäre bereits im MVP wirksam ist.',
+          note:
+              'Lesebestätigungen und Einmal-Ansehen-Standard wirken im Chat. Online-Status und Auto-Speichern bleiben vorbereitet.',
+          items: [
+            _SettingsSwitchItem(
+              icon: Icons.done_all_rounded,
+              title: 'Lesebestätigungen',
+              description: 'Andere sollen deinen Gelesen-Status sehen dürfen.',
+              value: _chatPrivacySettings.readReceiptsEnabled,
+              onChanged: (value) => _saveChatPrivacySettings(
+                'Lesebestätigungen',
+                _chatPrivacySettings.copyWith(readReceiptsEnabled: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.circle_outlined,
+              title: 'Online-Status',
+              description:
+                  'Eigene Präsenz wird nur bei aktiver Option aktualisiert.',
+              value: _chatPrivacySettings.onlineStatusEnabled,
+              onChanged: (value) => _saveChatPrivacySettings(
+                'Online-Status',
+                _chatPrivacySettings.copyWith(onlineStatusEnabled: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.perm_media_outlined,
+              title: 'Medien automatisch speichern',
+              description:
+                  'Vorbereitet, bis lokales Auto-Speichern final angebunden ist.',
+              value: _chatPrivacySettings.autoSaveMedia,
+              onChanged: (value) => _saveChatPrivacySettings(
+                'Medien speichern',
+                _chatPrivacySettings.copyWith(autoSaveMedia: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.looks_one_outlined,
+              title: 'Einmal ansehen als Standard',
+              description: 'Fotos und Videos standardmäßig privat senden.',
+              value: _chatPrivacySettings.defaultViewOnceMedia,
+              onChanged: (value) => _saveChatPrivacySettings(
+                'Einmal ansehen',
+                _chatPrivacySettings.copyWith(defaultViewOnceMedia: value),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openStoryPrivacy() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsSwitchScreen(
+          icon: Icons.auto_stories_outlined,
+          title: 'Story-Einstellungen',
+          description: 'Steuere Story-Sichtbarkeit und Standard-Inhalte.',
+          note:
+              'Ausschlüsse und Fahrzeugdaten-Standard wirken beim Erstellen. Story-Antworten brauchen noch Story-Feld/Rules-Anbindung.',
+          items: [
+            _SettingsSwitchItem(
+              icon: Icons.reply_outlined,
+              title: 'Story-Antworten erlauben',
+              description:
+                  'Vorbereitet, bis Story-Antworten pro Story serverseitig geprüft werden.',
+              value: _storyPrivacySettings.storyRepliesEnabled,
+              onChanged: (value) => _saveStoryPrivacySettings(
+                'Story-Antworten',
+                _storyPrivacySettings.copyWith(storyRepliesEnabled: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.directions_car_filled_outlined,
+              title: 'Fahrzeugdaten standardmäßig',
+              description: 'Storys dürfen standardmäßig Fahrzeugdaten nutzen.',
+              value: _storyPrivacySettings.defaultStoryVehicleData,
+              onChanged: (value) => _saveStoryPrivacySettings(
+                'Story-Fahrzeugdaten',
+                _storyPrivacySettings.copyWith(defaultStoryVehicleData: value),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openPrivacy() {
     _openDetailPage(
       icon: Icons.privacy_tip_rounded,
@@ -915,12 +1531,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Einwilligungen verwalten',
           description: 'Datenschutz- und Kommunikationsfreigaben verwalten.',
         ),
+        _SettingsDetailItem(
+          icon: Icons.privacy_tip_outlined,
+          title: 'Datenschutz-Präferenzen',
+          description:
+              'Sichtbarkeit, Kontaktaufnahme und Privatsphäre bündeln.',
+        ),
+        _SettingsDetailItem(
+          icon: Icons.ads_click_outlined,
+          title: 'Werbung & Tracking',
+          description: 'Aktuellen Status zu Werbung und Tracking anzeigen.',
+        ),
       ],
       onItemTap: (title) {
         if (title == 'Datenexport anfordern' ||
             title == 'Gespeicherte Daten einsehen' ||
             title == 'Blockierte Nutzer' ||
-            title == 'Einwilligungen verwalten') {
+            title == 'Einwilligungen verwalten' ||
+            title == 'Datenschutz-Präferenzen' ||
+            title == 'Werbung & Tracking') {
           _openSettingsInfo(title);
           return;
         }
@@ -930,13 +1559,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _openSafety() {
+  void _openSafetyCenter() {
     _openDetailPage(
-      icon: Icons.shield_rounded,
-      title: 'Sicherheit & Missbrauch',
+      icon: Icons.health_and_safety_outlined,
+      title: 'Sicherheitscenter',
       description:
-          'Schutzfunktionen gegen falsche Meldungen, Belästigung und Missbrauch.',
+          'Behalte Blockierungen, Warnungen, Vorfälle und Schutzregeln im Blick.',
       items: const [
+        _SettingsDetailItem(
+          icon: Icons.block_rounded,
+          title: 'Blockierte Nutzer',
+          description: 'Blockierte Nutzer und Kennzeichen verwalten.',
+        ),
+        _SettingsDetailItem(
+          icon: Icons.assignment_outlined,
+          title: 'Gemeldete Vorfälle',
+          description: 'Gemeldete Sicherheitsfälle vorbereitet anzeigen.',
+        ),
+        _SettingsDetailItem(
+          icon: Icons.warning_amber_rounded,
+          title: 'Konto-Warnungen',
+          description: 'Warnungen, Sperren und Einschränkungen nachvollziehen.',
+        ),
+        _SettingsDetailItem(
+          icon: Icons.verified_outlined,
+          title: 'Vertrauensstatus',
+          description: 'Verifizierung und Kontovertrauen zusammenfassen.',
+        ),
         _SettingsDetailItem(
           icon: Icons.report_problem_outlined,
           title: 'Missbrauch melden',
@@ -945,32 +1594,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         _SettingsDetailItem(
           icon: Icons.rule_rounded,
-          title: 'Sicherheitsregeln',
-          description: 'Regeln für Kontaktanfragen, Hinweise und Verhalten.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.person_off_outlined,
-          title: 'Nutzer blockieren',
-          description: 'Blockierte Nutzer und Kennzeichen verwalten.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.gpp_maybe_outlined,
-          title: 'Sperrprüfung',
+          title: 'Missbrauchsschutz',
           description:
-              'Informationen zu Verwarnungen, Sperren und Missbrauchsfolgen.',
+              'Regeln, Limits und Schutz vor missbräuchlicher Nutzung.',
         ),
       ],
       onItemTap: (title) {
-        if (title == 'Missbrauch melden' ||
-            title == 'Sicherheitsregeln' ||
-            title == 'Nutzer blockieren' ||
-            title == 'Sperrprüfung') {
+        if (title == 'Blockierte Nutzer' ||
+            title == 'Gemeldete Vorfälle' ||
+            title == 'Konto-Warnungen' ||
+            title == 'Vertrauensstatus' ||
+            title == 'Missbrauch melden' ||
+            title == 'Missbrauchsschutz') {
           _openSettingsInfo(title);
           return;
         }
 
         _showComingSoon(title);
       },
+    );
+  }
+
+  void _openAppComfort() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsSwitchScreen(
+          icon: Icons.tune_rounded,
+          title: 'App-Komfort',
+          description:
+              'Speichere Komfortoptionen für Bedienung und DACH-Bereiche.',
+          note:
+              'Standardland wirkt in Suchen und Melden. Sprache/Theme bleiben bis zur i18n-/Theme-Migration vorbereitet.',
+          items: [
+            _SettingsSwitchItem(
+              icon: Icons.vibration_rounded,
+              title: 'Haptik aktivieren',
+              description: 'Vibration und haptisches Feedback vorbereiten.',
+              value: _appPreferenceSettings.hapticsEnabled,
+              onChanged: (value) => _saveAppPreferenceSettings(
+                'Haptik',
+                _appPreferenceSettings.copyWith(hapticsEnabled: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.volume_up_outlined,
+              title: 'Nachrichtentöne',
+              description: 'Töne für Chat- und Anfrageereignisse vorbereiten.',
+              value: _appPreferenceSettings.messageSoundsEnabled,
+              onChanged: (value) => _saveAppPreferenceSettings(
+                'Nachrichtentöne',
+                _appPreferenceSettings.copyWith(messageSoundsEnabled: value),
+              ),
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.language_rounded,
+              title: 'Sprache',
+              description: 'Deutsch aktiv. Englisch/Türkisch vorbereitet.',
+              value: _appPreferenceSettings.languageCode == 'de',
+              enabled: false,
+              onChanged: (_) {},
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.dark_mode_outlined,
+              title: 'Designmodus',
+              description: 'Dunkles CaRisma-Design ist aktuell fest aktiv.',
+              value: _appPreferenceSettings.themeMode == 'dark',
+              enabled: false,
+              onChanged: (_) {},
+            ),
+            _SettingsSwitchItem(
+              icon: Icons.explore_outlined,
+              title: 'Kilometer & DACH',
+              description:
+                  'Das gespeicherte Standardland startet Suchen und Melden.',
+              value:
+                  _appPreferenceSettings.distanceUnit == 'km' &&
+                  _appPreferenceSettings.defaultPlateCountry == 'DE',
+              enabled: false,
+              onChanged: (_) {},
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1067,8 +1772,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final contentTopInset = CaRismaDesignTokens.mainScreenTopInset;
-            final contentBottomInset = 16.0 + keyboardInset;
+            final contentBottomInset =
+                CaRismaDesignTokens.mainScreenBottomInset + 10 + keyboardInset;
             return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 20,
@@ -1128,6 +1835,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           description:
                               'Fahrzeug, Kennzeichen und Sichtbarkeit verwalten.',
                           onTap: _openProfileManagement,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _SettingsGroupCard(
+                      title: 'Privatsphäre',
+                      icon: Icons.visibility_outlined,
+                      children: [
+                        _SettingsRow(
+                          icon: Icons.visibility_outlined,
+                          title: 'Sichtbarkeit & Auffindbarkeit',
+                          description:
+                              'Profil, Kennzeichen, Fahrzeugdaten und Anfragen steuern.',
+                          onTap: _openVisibilityAndDiscovery,
+                        ),
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.filter_alt_outlined,
+                          title: 'Kontaktanfragen-Filter',
+                          description:
+                              'Verifizierung, Anfragegründe und Ruhemodus vorbereiten.',
+                          onTap: _openContactRequestFilters,
+                        ),
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.lock_outline_rounded,
+                          title: 'Chat-Privatsphäre',
+                          description:
+                              'Lesebestätigungen, Medien und Einmal-ansehen steuern.',
+                          onTap: _openChatPrivacy,
+                        ),
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.auto_stories_outlined,
+                          title: 'Story-Einstellungen',
+                          description:
+                              'Story-Sichtbarkeit, Antworten und Fahrzeugdaten vorbereiten.',
+                          onTap: _openStoryPrivacy,
                         ),
                       ],
                     ),
@@ -1202,6 +1947,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             );
                           },
                         ),
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.tune_rounded,
+                          title: 'App-Komfort',
+                          description:
+                              'Sprache, Design, Haptik und Standardland vorbereiten.',
+                          onTap: _openAppComfort,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -1218,11 +1971,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         const SizedBox(height: 10),
                         _SettingsRow(
-                          icon: Icons.shield_rounded,
-                          title: 'Sicherheit & Missbrauch',
+                          icon: Icons.tune_rounded,
+                          title: 'App-Berechtigungen',
                           description:
-                              'Missbrauch melden, Regeln ansehen und Nutzer blockieren.',
-                          onTap: _openSafety,
+                              'Kamera, Mikrofon, Standort, Kontakte, Medien und Mitteilungen.',
+                          onTap: () => _openSettingsInfo('App-Berechtigungen'),
+                        ),
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.health_and_safety_outlined,
+                          title: 'Sicherheitscenter',
+                          description:
+                              'Blockierungen, Vorfälle, Warnungen und Missbrauchsschutz.',
+                          onTap: _openSafetyCenter,
                         ),
                       ],
                     ),
@@ -1338,6 +2099,8 @@ class _SettingsRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Ink(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -1387,6 +2150,184 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
+class _SettingsSwitchItem {
+  const _SettingsSwitchItem({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool enabled;
+}
+
+class _SettingsSwitchScreen extends StatelessWidget {
+  const _SettingsSwitchScreen({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.items,
+    required this.note,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final List<_SettingsSwitchItem> items;
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return CaRismaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              CaRismaDesignTokens.mainScreenBottomInset + 10 + keyboardInset,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CaRismaSubPageHeader(
+                  icon: icon,
+                  title: title,
+                  onBack: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16.5,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                GlassCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: List.generate(items.length, (index) {
+                      final item = items[index];
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == items.length - 1 ? 0 : 10,
+                        ),
+                        child: _SettingsSwitchTile(item: item),
+                      );
+                    }),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                GlassCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: CaRismaDesignTokens.bluePrimary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          note,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.68),
+                            fontWeight: FontWeight.w700,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSwitchTile extends StatelessWidget {
+  const _SettingsSwitchTile({required this.item});
+
+  final _SettingsSwitchItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final textAlpha = item.enabled ? 1.0 : 0.52;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: [
+          CaRismaBlueIconBox(icon: item.icon, size: 44, iconSize: 22),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: textAlpha),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.66 * textAlpha),
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Switch.adaptive(
+            value: item.value,
+            onChanged: item.enabled ? item.onChanged : null,
+            activeThumbColor: CaRismaDesignTokens.bluePrimary,
+            activeTrackColor: CaRismaDesignTokens.bluePrimary.withValues(
+              alpha: 0.38,
+            ),
+            inactiveThumbColor: Colors.white.withValues(alpha: 0.72),
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AppVersionCard extends StatelessWidget {
   const _AppVersionCard();
 
@@ -1396,6 +2337,8 @@ class _AppVersionCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(28),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         onTap: () {
           final appInfo = [
             CaRismaAppConfig.appName,
@@ -1599,7 +2542,13 @@ class _BlockedChatsSettingsScreenState
                     }
 
                     return ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                      physics: const ClampingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                        20,
+                        8,
+                        20,
+                        CaRismaDesignTokens.mainScreenBottomInset + 10,
+                      ),
                       itemCount: blockedChats.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
@@ -1666,6 +2615,7 @@ class _BlockedChatsSettingsScreenState
                                     horizontal: 12,
                                     vertical: 10,
                                   ),
+                                  overlayColor: Colors.transparent,
                                 ),
                                 child: isBusy
                                     ? const SizedBox(
@@ -1821,8 +2771,14 @@ class _SettingsDetailScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              CaRismaDesignTokens.mainScreenBottomInset + 10 + keyboardInset,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -5497,6 +6453,8 @@ class _SettingsDetailTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Ink(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

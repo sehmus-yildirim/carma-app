@@ -99,6 +99,123 @@ service cloud.firestore {
         ]);
     }
 
+    function isValidUserSettingVisibility(userId, settingsId) {
+      return isOwner(userId)
+        && settingsId == 'visibility'
+        && request.resource.data.userId == userId
+        && request.resource.data.profileVisibility in ['contacts', 'onlyMe']
+        && request.resource.data.plateSearchVisibility in ['contacts', 'onlyMe']
+        && request.resource.data.showVehicle is bool
+        && request.resource.data.showRegion is bool
+        && request.resource.data.showPlate is bool
+        && request.resource.data.allowContactRequests is bool
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'profileVisibility',
+          'plateSearchVisibility',
+          'showVehicle',
+          'showRegion',
+          'showPlate',
+          'allowContactRequests',
+          'updatedAt',
+        ]);
+    }
+
+    function isValidUserSettingContactFilters(userId, settingsId) {
+      return isOwner(userId)
+        && settingsId == 'contact_filters'
+        && request.resource.data.userId == userId
+        && request.resource.data.requireVerifiedRequester is bool
+        && request.resource.data.allowedContactReasons is list
+        && request.resource.data.allowedContactReasons.size() <= 8
+        && request.resource.data.autoRejectUnverified is bool
+        && (
+          request.resource.data.contactRequestQuietModeUntil == null ||
+          request.resource.data.contactRequestQuietModeUntil is timestamp
+        )
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'requireVerifiedRequester',
+          'allowedContactReasons',
+          'autoRejectUnverified',
+          'contactRequestQuietModeUntil',
+          'updatedAt',
+        ]);
+    }
+
+    function isValidUserSettingChatPrivacy(userId, settingsId) {
+      return isOwner(userId)
+        && settingsId == 'chat_privacy'
+        && request.resource.data.userId == userId
+        && request.resource.data.readReceiptsEnabled is bool
+        && request.resource.data.onlineStatusEnabled is bool
+        && request.resource.data.autoSaveMedia is bool
+        && request.resource.data.defaultViewOnceMedia is bool
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'readReceiptsEnabled',
+          'onlineStatusEnabled',
+          'autoSaveMedia',
+          'defaultViewOnceMedia',
+          'updatedAt',
+        ]);
+    }
+
+    function isValidUserSettingStoryPrivacy(userId, settingsId) {
+      return isOwner(userId)
+        && settingsId == 'story_privacy'
+        && request.resource.data.userId == userId
+        && request.resource.data.storyVisibility in ['contacts', 'onlyMe']
+        && request.resource.data.excludedStoryUserIds is list
+        && request.resource.data.excludedStoryUserIds.size() <= 100
+        && request.resource.data.storyRepliesEnabled is bool
+        && request.resource.data.defaultStoryVehicleData is bool
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'storyVisibility',
+          'excludedStoryUserIds',
+          'storyRepliesEnabled',
+          'defaultStoryVehicleData',
+          'updatedAt',
+        ]);
+    }
+
+    function isValidUserSettingAppPreferences(userId, settingsId) {
+      return isOwner(userId)
+        && settingsId == 'app_preferences'
+        && request.resource.data.userId == userId
+        && request.resource.data.languageCode in ['de', 'en', 'tr']
+        && request.resource.data.themeMode in ['dark', 'system']
+        && request.resource.data.hapticsEnabled is bool
+        && request.resource.data.messageSoundsEnabled is bool
+        && request.resource.data.distanceUnit == 'km'
+        && request.resource.data.defaultPlateCountry in ['DE', 'AT', 'CH']
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'languageCode',
+          'themeMode',
+          'hapticsEnabled',
+          'messageSoundsEnabled',
+          'distanceUnit',
+          'defaultPlateCountry',
+          'updatedAt',
+        ]);
+    }
+
+    function isValidUserSettingsWrite(userId, settingsId) {
+      return isValidNotificationSettingsWrite(userId, settingsId)
+        || isValidUserSettingVisibility(userId, settingsId)
+        || isValidUserSettingContactFilters(userId, settingsId)
+        || isValidUserSettingChatPrivacy(userId, settingsId)
+        || isValidUserSettingStoryPrivacy(userId, settingsId)
+        || isValidUserSettingAppPreferences(userId, settingsId);
+    }
+
     function isNullableStringWithMax(value, maxLength) {
       return value == null || (value is string && value.size() <= maxLength);
     }
@@ -1135,6 +1252,62 @@ service cloud.firestore {
       return request.auth.uid + '_' + request.resource.data.plateKey;
     }
 
+    function contactRequestVisibilityAllowsCreate() {
+      let receiverUserId = request.resource.data.receiverUserId;
+      return !exists(
+          /databases/$(database)/documents/users/$(receiverUserId)/settings/visibility
+        )
+        || get(
+          /databases/$(database)/documents/users/$(receiverUserId)/settings/visibility
+        ).data.allowContactRequests != false;
+    }
+
+    function requesterIsVerifiedForContactFilter() {
+      return exists(
+          /databases/$(database)/documents/public_profiles/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/public_profiles/$(request.auth.uid)
+        ).data.isVerified == true;
+    }
+
+    function contactRequestFiltersAllowCreate() {
+      let receiverUserId = request.resource.data.receiverUserId;
+      return !exists(
+          /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+        )
+        || (
+          (
+            get(
+              /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+            ).data.contactRequestQuietModeUntil == null
+            || get(
+              /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+            ).data.contactRequestQuietModeUntil <= request.time
+          )
+          && (
+            get(
+              /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+            ).data.requireVerifiedRequester != true
+            || requesterIsVerifiedForContactFilter()
+          )
+          && (
+            get(
+              /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+            ).data.autoRejectUnverified != true
+            || requesterIsVerifiedForContactFilter()
+          )
+          && (
+            !(request.resource.data.requestReason is string)
+            || get(
+              /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+            ).data.allowedContactReasons.hasAny([
+              request.resource.data.requestReason
+            ])
+          )
+        );
+    }
+
     function isValidContactRequestCreate(requestId) {
       return isSignedIn()
         && requestId == contactRequestDocumentId()
@@ -1148,7 +1321,9 @@ service cloud.firestore {
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.expiresAt is timestamp
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.isDeleted == false
+        && contactRequestVisibilityAllowsCreate()
+        && contactRequestFiltersAllowCreate();
     }
 
     function isValidContactRequestAccept(requestId) {
@@ -1158,11 +1333,13 @@ service cloud.firestore {
           (
             request.auth.uid == resource.data.receiverUserId
             && resource.data.status == 'pending'
+            && resource.data.expiresAt > request.time
             && changedOnly(['status', 'updatedAt'])
           ) ||
           (
             request.auth.uid == resource.data.receiverUserId
             && resource.data.status == 'pending'
+            && resource.data.expiresAt > request.time
             && request.resource.data.chatId == 'request_' + requestId
             && changedOnly(['status', 'updatedAt', 'chatId'])
           ) ||
@@ -1220,6 +1397,10 @@ service cloud.firestore {
         && chatId == 'request_' + requestId
         && request.resource.data.requestId == requestId
         && contactRequestData.status in ['pending', 'accepted']
+        && (
+          contactRequestData.status == 'accepted' ||
+          contactRequestData.expiresAt > request.time
+        )
         && request.resource.data.participants is list
         && request.resource.data.participants.size() == 2
         && request.resource.data.participants.hasAll([
@@ -3009,7 +3190,7 @@ service cloud.firestore {
 
       match /settings/{settingsId} {
         allow read: if isOwner(userId);
-        allow create, update: if isValidNotificationSettingsWrite(
+        allow create, update: if isValidUserSettingsWrite(
           userId,
           settingsId,
         );

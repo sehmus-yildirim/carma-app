@@ -342,18 +342,87 @@ class _ChatsOverview extends StatelessWidget {
           SizedBox(height: isKeyboardOpen ? 8 : 14),
         ],
         Expanded(
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
+          child: _ChatListScrollViewport(
+            alwaysScrollable: selectedListView == _ChatListView.messages,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: listChildren,
             ),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.only(
-              bottom: CaRismaDesignTokens.mainScreenBottomInset + 12,
-            ),
-            children: listChildren,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ChatListScrollViewport extends StatefulWidget {
+  const _ChatListScrollViewport({
+    required this.child,
+    required this.alwaysScrollable,
+  });
+
+  final Widget child;
+  final bool alwaysScrollable;
+
+  @override
+  State<_ChatListScrollViewport> createState() =>
+      _ChatListScrollViewportState();
+}
+
+class _ChatListScrollViewportState extends State<_ChatListScrollViewport> {
+  final GlobalKey _contentKey = GlobalKey();
+  double _contentHeight = 0;
+
+  void _scheduleMeasure() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      final renderObject = _contentKey.currentContext?.findRenderObject();
+      final nextHeight = renderObject is RenderBox
+          ? renderObject.size.height
+          : 0.0;
+
+      if ((nextHeight - _contentHeight).abs() > 0.5) {
+        setState(() {
+          _contentHeight = nextHeight;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final navigationGap = MediaQuery.of(context).viewInsets.bottom > 0
+            ? 12.0
+            : CaRismaDesignTokens.mainScreenBottomInset + 12;
+        final availableHeight = constraints.maxHeight - navigationGap;
+        final needsNavigationGap = _contentHeight > availableHeight;
+        final bottomPadding = needsNavigationGap ? navigationGap : 10.0;
+        final canScroll =
+            _contentHeight + bottomPadding > constraints.maxHeight + 0.5;
+        final physics = widget.alwaysScrollable
+            ? const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              )
+            : canScroll
+            ? const ClampingScrollPhysics()
+            : const NeverScrollableScrollPhysics();
+
+        _scheduleMeasure();
+
+        return SingleChildScrollView(
+          physics: physics,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            child: KeyedSubtree(key: _contentKey, child: widget.child),
+          ),
+        );
+      },
     );
   }
 }
@@ -1238,12 +1307,6 @@ class _StoryBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewCountLabel = viewCount > 99 ? '99+' : '$viewCount';
     final isNewStory = hasStory && !isViewed && !isOwnStory;
-    final ageLabel = _storyBubbleAgeLabel(createdAt);
-    final statusLabel = isNewStory
-        ? ageLabel == null
-              ? 'Neu'
-              : 'Neu · $ageLabel'
-        : ageLabel ?? 'Gesehen';
     final ringGradient = hasStory
         ? isNewStory || isOwnStory
               ? const LinearGradient(
@@ -1266,6 +1329,8 @@ class _StoryBubble extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Column(
           children: [
             Stack(
@@ -1465,50 +1530,11 @@ class _StoryBubble extends StatelessWidget {
                 height: 1.05,
               ),
             ),
-            if (!isOwnStory) ...[
-              const SizedBox(height: 2),
-              Text(
-                statusLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: isNewStory
-                      ? _carismaBlueLight
-                      : Colors.white.withValues(alpha: 0.58),
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
-}
-
-String? _storyBubbleAgeLabel(DateTime? createdAt) {
-  if (createdAt == null) {
-    return null;
-  }
-
-  final difference = DateTime.now().difference(createdAt);
-
-  if (difference.isNegative || difference.inMinutes < 1) {
-    return 'Jetzt';
-  }
-
-  if (difference.inHours < 1) {
-    return '${difference.inMinutes}m';
-  }
-
-  if (difference.inDays < 1) {
-    return '${difference.inHours}h';
-  }
-
-  return '${difference.inDays}T';
 }
 
 class _StoryVideoBubblePlaceholder extends StatelessWidget {
@@ -1919,8 +1945,11 @@ class _InlineRequestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profilePhotoUrl = request.profilePhotoUrl(isIncoming: isIncoming);
-    final canActOnRequest = request.isPending;
-    final statusLabel = request.isAccepted && !request.hasLinkedChat
+    final isExpired = request.isExpiredByTime;
+    final canActOnRequest = request.isPending && !isExpired;
+    final statusLabel = isExpired
+        ? 'Abgelaufen'
+        : request.isAccepted && !request.hasLinkedChat
         ? 'Angenommen'
         : request.statusLabel;
     final plateSegments = _plateSegments;
@@ -2179,9 +2208,9 @@ class _InlineRequestTile extends StatelessWidget {
       return;
     }
 
-    Navigator.of(
-      context,
-    ).push(buildSocialProfileRoute(profileUserId: targetUserId));
+    Navigator.of(context).push(
+      buildSocialProfileRoute(profileUserId: targetUserId, readOnly: true),
+    );
   }
 }
 

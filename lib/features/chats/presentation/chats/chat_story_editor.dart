@@ -1688,11 +1688,13 @@ class _StoryDraftEditorScreen extends StatefulWidget {
     required this.mediaPath,
     required this.isVideo,
     this.vehicleStickerData,
+    this.initialStickers = const <_StoryStickerDraft>[],
   });
 
   final String mediaPath;
   final bool isVideo;
   final _StoryVehicleStickerData? vehicleStickerData;
+  final List<_StoryStickerDraft> initialStickers;
 
   @override
   State<_StoryDraftEditorScreen> createState() =>
@@ -1758,6 +1760,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _stickers.addAll(widget.initialStickers);
     _textController.addListener(_handleTextChanged);
     if (widget.isVideo) {
       _initializeDraftVideo();
@@ -4229,6 +4232,8 @@ class _StoryStatusChoiceChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Container(
           padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
           decoration: BoxDecoration(
@@ -4285,6 +4290,8 @@ class _StoryVehicleStickerChoice extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -4460,16 +4467,10 @@ class _StoryStickerIcon extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.34),
-        color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.18),
-        border: Border.all(
-          color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.48),
-        ),
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
-      child: Icon(
-        icon,
-        color: CaRismaDesignTokens.bluePrimary,
-        size: size * 0.52,
-      ),
+      child: Icon(icon, color: Colors.white, size: size * 0.52),
     );
   }
 }

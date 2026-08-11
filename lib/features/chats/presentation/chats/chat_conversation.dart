@@ -104,6 +104,8 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       FirestoreContactRequestRepository();
   final ChatAttachmentStorage _attachmentStorage = ChatAttachmentStorage();
   final ChatNativeBridge _nativeBridge = ChatNativeBridge();
+  final UserSettingsRepository _userSettingsRepository =
+      UserSettingsRepository();
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _messageFocusNode = FocusNode();
@@ -120,6 +122,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _isFinishingVoiceMemo = false;
   bool _stopVoiceMemoWhenReady = false;
   bool _cancelVoiceMemoWhenReady = false;
+  bool _readReceiptsEnabled = true;
+  bool _onlineStatusEnabled = false;
+  bool _defaultViewOnceMedia = false;
   bool _isVoiceMemoLocked = false;
   bool _isAttachmentPanelVisible = false;
   bool _isChatStatusLoading = false;
@@ -261,14 +266,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     _messageController.addListener(_handleMessageChanged);
     _messageFocusNode.addListener(_handleMessageFocusChanged);
     _scheduleScrollToBottom(animated: false);
+    unawaited(_loadChatPrivacySettings());
 
     if (_hasFirestoreChat) {
       _watchCurrentChatStatus();
-      _markChatRead();
       _watchMessages();
       _watchTypingStatus();
-      _watchReadReceipts();
-      _startPresenceTracking();
     }
   }
 
@@ -316,6 +319,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   bool get _isOtherUserOnline {
+    if (!_onlineStatusEnabled) {
+      return false;
+    }
+
     if (widget.isOnline) {
       return true;
     }
@@ -327,6 +334,68 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
     }
 
     return DateTime.now().difference(activeAt) <= _onlineStatusWindow;
+  }
+
+  Future<void> _loadChatPrivacySettings() async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+
+    if (currentUserId.isEmpty) {
+      return;
+    }
+
+    try {
+      final settings = await _userSettingsRepository.load(currentUserId);
+      final chatPrivacy = settings.chatPrivacy;
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _readReceiptsEnabled = chatPrivacy.readReceiptsEnabled;
+        _onlineStatusEnabled = chatPrivacy.onlineStatusEnabled;
+        _defaultViewOnceMedia = chatPrivacy.defaultViewOnceMedia;
+
+        if (!_readReceiptsEnabled) {
+          _otherLastReadAt = null;
+          _messages = _messages
+              .map((message) => message.copyWith(isReadByOther: false))
+              .toList();
+        }
+
+        if (!_onlineStatusEnabled) {
+          _otherLastActiveAt = null;
+        }
+      });
+
+      if (!_hasFirestoreChat) {
+        return;
+      }
+
+      if (_readReceiptsEnabled) {
+        unawaited(_markChatRead());
+        _watchReadReceipts();
+      } else {
+        await _readReceiptSubscription?.cancel();
+        _readReceiptSubscription = null;
+      }
+
+      if (_onlineStatusEnabled) {
+        _startPresenceTracking();
+      } else {
+        await _presenceSubscription?.cancel();
+        _presenceSubscription = null;
+        _presenceTimer?.cancel();
+        _presenceTimer = null;
+      }
+    } catch (_) {
+      if (!_hasFirestoreChat) {
+        return;
+      }
+
+      unawaited(_markChatRead());
+      _watchReadReceipts();
+    }
   }
 
   Future<String> _requireSendableCurrentChat({
@@ -698,6 +767,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   Future<void> _markChatRead({DateTime? latestIncomingMessageAt}) async {
+    if (!_readReceiptsEnabled) {
+      return;
+    }
+
     final chatId = widget.chatId?.trim();
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -837,6 +910,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   void _startPresenceTracking() {
+    if (!_onlineStatusEnabled) {
+      return;
+    }
+
     final chatId = widget.chatId?.trim();
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -872,6 +949,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   Future<void> _updatePresence() async {
+    if (!_onlineStatusEnabled) {
+      return;
+    }
+
     final chatId = widget.chatId?.trim();
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -890,6 +971,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   }
 
   void _watchReadReceipts() {
+    if (!_readReceiptsEnabled) {
+      _readReceiptSubscription?.cancel();
+      _readReceiptSubscription = null;
+      return;
+    }
+
     final chatId = widget.chatId?.trim();
     final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -1128,7 +1215,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                   isReadByOther: _isMineMessageReadByOther(
                     isMine: isMine,
                     createdAt: record.createdAt,
-                    otherLastReadAt: otherLastReadAt,
+                    otherLastReadAt: _readReceiptsEnabled
+                        ? otherLastReadAt
+                        : null,
                   ),
                   replyToText: record.replyToText,
                   replyToSenderName: repliedMessage == null
@@ -1275,6 +1364,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         builder: (_) => _ChatImageEditorScreen(
           file: imageFile,
           nativeBridge: _nativeBridge,
+          initialViewOnce: _defaultViewOnceMedia,
         ),
       ),
     );
@@ -1317,7 +1407,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         .push<_ChatVideoPreviewResult>(
           MaterialPageRoute<_ChatVideoPreviewResult>(
             fullscreenDialog: true,
-            builder: (_) => _ChatVideoPreviewDialog(file: videoFile),
+            builder: (_) => _ChatVideoPreviewDialog(
+              file: videoFile,
+              initialViewOnce: _defaultViewOnceMedia,
+            ),
           ),
         );
 
@@ -5207,9 +5300,13 @@ class _ChatProfileEmptyRow extends StatelessWidget {
 }
 
 class _ChatVideoPreviewDialog extends StatefulWidget {
-  const _ChatVideoPreviewDialog({required this.file});
+  const _ChatVideoPreviewDialog({
+    required this.file,
+    required this.initialViewOnce,
+  });
 
   final File file;
+  final bool initialViewOnce;
 
   @override
   State<_ChatVideoPreviewDialog> createState() =>
@@ -5226,6 +5323,7 @@ class _ChatVideoPreviewDialogState extends State<_ChatVideoPreviewDialog> {
   @override
   void initState() {
     super.initState();
+    _isViewOnce = widget.initialViewOnce;
     _controller = VideoPlayerController.file(widget.file)
       ..addListener(_handlePlayerChanged);
     _initialize();
