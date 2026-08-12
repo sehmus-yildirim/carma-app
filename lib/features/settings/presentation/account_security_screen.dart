@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../auth/data/auth_service.dart';
+import '../../auth/presentation/mfa_screens.dart';
 import '../data/user_settings_repository.dart';
 
 class AccountSecurityScreen extends StatefulWidget {
@@ -211,13 +212,21 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                 ),
               ],
               _AccountDivider(),
-              const _AccountActionTile(
+              _AccountActionTile(
                 icon: Icons.security_rounded,
                 title: 'Zwei-Faktor-Schutz',
-                description:
-                    'Noch nicht eingerichtet. Die Aktivierung folgt erst mit vollständig konfiguriertem Firebase MFA.',
+                description: account.isEmailVerified
+                    ? 'SMS-Schutz aktivieren und registrierte Faktoren verwalten.'
+                    : 'Bestätige zuerst deine E-Mail Adresse.',
                 compactIcon: true,
-                enabled: false,
+                onTap: () => _openPage(
+                  MfaManagementScreen(
+                    initialAccount: account,
+                    accountGateway: _accountGateway,
+                    onOpenSupport: widget.onOpenSupport,
+                  ),
+                  refreshAfterwards: true,
+                ),
               ),
               _AccountDivider(),
               _AccountActionTile(
@@ -225,6 +234,7 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                 title: 'Sicherheitsaktivitäten',
                 description:
                     'Serverseitig bestätigte Konto- und Sitzungsaktionen ansehen.',
+                compactIcon: true,
                 enabled: account.userId.isNotEmpty,
                 onTap: account.userId.isEmpty
                     ? null
@@ -924,12 +934,6 @@ class _AccountSessionsScreenState extends State<AccountSessionsScreen> {
               value: formatAccountDateTime(widget.account.lastSignInTime),
             ),
           ],
-        ),
-        const SizedBox(height: 14),
-        const _AccountNotice(
-          icon: Icons.info_outline_rounded,
-          text:
-              'CaRisma zeigt keine erfundenen Geräte an. Firebase unterstützt hier sicher das Widerrufen aller Sitzungen; eine einzelne Geräteliste ist noch nicht vorhanden.',
         ),
         if (_error != null) ...[
           const SizedBox(height: 14),
@@ -2065,6 +2069,14 @@ String _securityActivityLabel(String eventType) {
     'email_verification_requested' => 'E-Mail Bestätigung angefordert',
     'email_change_requested' => 'E-Mail Änderung angefordert',
     'password_reset_requested' => 'Passwort-Zurücksetzung angefordert',
+    'mfa_recovery_requested' => 'MFA-Wiederherstellung angefordert',
+    'mfa_recovery_case_opened' => 'Recovery-Fall sicher eröffnet',
+    'mfa_recovery_approved' => 'MFA-Wiederherstellung genehmigt',
+    'mfa_recovery_sessions_revoked' => 'Sitzungen für Recovery widerrufen',
+    'mfa_recovery_factor_removed' => 'Zweiter Faktor sicher entfernt',
+    'mfa_recovery_rejected' => 'MFA-Wiederherstellung abgelehnt',
+    'mfa_recovery_completed' => 'MFA-Wiederherstellung abgeschlossen',
+    'mfa_recovery_failed' => 'MFA-Wiederherstellung nicht abgeschlossen',
     'login' => 'Neue Anmeldung',
     _ => 'Sicherheitsaktion',
   };
@@ -2077,6 +2089,14 @@ IconData _securityActivityIcon(String eventType) {
     'email_verification_requested' => Icons.mark_email_read_outlined,
     'email_change_requested' => Icons.alternate_email_rounded,
     'password_reset_requested' => Icons.password_rounded,
+    'mfa_recovery_requested' => Icons.restore_rounded,
+    'mfa_recovery_case_opened' => Icons.support_agent_rounded,
+    'mfa_recovery_approved' => Icons.fact_check_outlined,
+    'mfa_recovery_sessions_revoked' => Icons.phonelink_erase_rounded,
+    'mfa_recovery_factor_removed' => Icons.no_encryption_outlined,
+    'mfa_recovery_rejected' => Icons.gpp_bad_outlined,
+    'mfa_recovery_completed' => Icons.verified_user_outlined,
+    'mfa_recovery_failed' => Icons.error_outline_rounded,
     'login' => Icons.login_rounded,
     _ => Icons.shield_outlined,
   };
@@ -2090,6 +2110,7 @@ String _securityPlatformLabel(String platform) {
     'windows' => 'Windows',
     'macos' => 'Mac',
     'linux' => 'Linux',
+    'server' => 'CaRisma-Sicherheit',
     _ => 'Plattform nicht verfügbar',
   };
 }

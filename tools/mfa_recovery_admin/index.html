@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>CaRisma MFA Recovery Admin</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #0a0d12; color: #f7f8fa; }
+      main { width: min(1080px, calc(100% - 32px)); margin: 32px auto 72px; }
+      header, section, article, dialog { background: #121419; border: 1px solid #2b3039; border-radius: 8px; }
+      header, section { padding: 20px; margin-bottom: 16px; }
+      h1, h2, p { margin-top: 0; }
+      h1 { font-size: 24px; }
+      h2 { font-size: 17px; }
+      .muted { color: #aeb5c1; }
+      .row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+      label { display: grid; gap: 7px; color: #cbd1da; flex: 1 1 260px; }
+      input, button, select { min-height: 44px; border-radius: 6px; border: 1px solid #343a45; background: #0a0d12; color: #fff; padding: 0 13px; font: inherit; }
+      button { cursor: pointer; border-color: #1a5cba; font-weight: 700; }
+      button.danger { border-color: #d34444; color: #ff8c8c; }
+      button:disabled { cursor: not-allowed; opacity: .45; }
+      #cases { display: grid; gap: 12px; }
+      article { padding: 16px; }
+      .case-head { display: flex; justify-content: space-between; gap: 16px; }
+      .badge { border: 1px solid #1a5cba; border-radius: 999px; padding: 5px 10px; white-space: nowrap; }
+      dl { display: grid; grid-template-columns: 160px 1fr; gap: 8px 12px; }
+      dt { color: #9ea6b3; }
+      dd { margin: 0; overflow-wrap: anywhere; }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+      #message { min-height: 24px; }
+      #message.error { color: #ff8c8c; }
+      #message.success { color: #62d98b; }
+      dialog { color: #fff; padding: 20px; width: min(480px, calc(100% - 32px)); }
+      dialog::backdrop { background: rgb(0 0 0 / .75); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>CaRisma MFA Recovery</h1>
+        <p class="muted">Internes Verwaltungswerkzeug. Keine Adminrechte können hier vergeben werden.</p>
+        <div id="session" class="row">
+          <label>Admin-E-Mail <input id="email" type="email" autocomplete="username"></label>
+          <label>Passwort <input id="password" type="password" autocomplete="current-password"></label>
+          <button id="signIn">Anmelden</button>
+          <button id="signOut" hidden>Abmelden</button>
+        </div>
+      </header>
+
+      <section id="workspace" hidden>
+        <h2>Recovery-Fall anhand interner UID öffnen</h2>
+        <div class="row">
+          <label>Ziel-UID <input id="targetUid" autocomplete="off" placeholder="Keine E-Mail eingeben"></label>
+          <button id="openCase">Fall öffnen</button>
+          <button id="reload">Aktualisieren</button>
+        </div>
+      </section>
+
+      <p id="message" aria-live="polite"></p>
+      <section id="caseSection" hidden>
+        <h2>Recovery-Fälle</h2>
+        <div id="cases"></div>
+      </section>
+    </main>
+
+    <dialog id="confirmationDialog">
+      <form method="dialog">
+        <h2 id="confirmationTitle">Aktion bestätigen</h2>
+        <p>Gib exakt <strong id="confirmationPhrase"></strong> ein.</p>
+        <input id="confirmationInput" autocomplete="off">
+        <div class="actions">
+          <button value="cancel">Abbrechen</button>
+          <button id="confirmationSubmit" value="confirm">Bestätigen</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

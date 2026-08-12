@@ -9,9 +9,11 @@ import '../../../shared/widgets/carisma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
+import '../data/mfa_service.dart';
 import '../data/user_profile_repository.dart';
 import '../data/search_credit_repository.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
+import 'mfa_screens.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -33,6 +35,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
+  final FirebaseMfaService _mfaService = FirebaseMfaService();
   final UserProfileRepository _userProfileRepository = UserProfileRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
   final SearchCreditRepository _searchCreditRepository =
@@ -149,6 +152,8 @@ class _LoginScreenState extends State<LoginScreen> {
       ).showSnackBar(SnackBar(content: Text(_successMessage!)));
 
       widget.onLoginSuccess?.call();
+    } on FirebaseAuthMultiFactorException catch (error) {
+      await _resolveMfaLogin(error);
     } on FirebaseAuthException catch (error) {
       if (!mounted) {
         return;
@@ -246,6 +251,11 @@ class _LoginScreenState extends State<LoginScreen> {
       ).showSnackBar(SnackBar(content: Text(_successMessage!)));
 
       widget.onLoginSuccess?.call();
+    } on FirebaseAuthMultiFactorException catch (error) {
+      await _resolveMfaLogin(
+        error,
+        verifiedMessage: 'Google-Anmeldung erfolgreich.',
+      );
     } on FirebaseAuthException catch (error) {
       if (!mounted) {
         return;
@@ -279,6 +289,75 @@ class _LoginScreenState extends State<LoginScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _resolveMfaLogin(
+    FirebaseAuthMultiFactorException error, {
+    String verifiedMessage = 'Erfolgreich eingeloggt.',
+  }) async {
+    try {
+      final challenge = _mfaService.challengeFromException(error);
+      final credential = await Navigator.of(context).push<UserCredential>(
+        MaterialPageRoute<UserCredential>(
+          builder: (_) => MfaSignInChallengeScreen(
+            challenge: challenge,
+            mfaGateway: _mfaService,
+          ),
+        ),
+      );
+
+      if (credential == null) {
+        await _authService.signOut();
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = 'Die Zwei-Faktor-Anmeldung wurde abgebrochen.';
+          _successMessage = null;
+        });
+        return;
+      }
+
+      final user = credential.user;
+      if (user == null) {
+        throw FirebaseAuthException(code: 'missing-user');
+      }
+      await _prepareFirestoreUser(user);
+      if (!mounted) return;
+
+      setState(() {
+        _successMessage = _loginSuccessMessage(
+          user,
+          verifiedMessage: verifiedMessage,
+        );
+        _errorMessage = null;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_successMessage!)));
+      widget.onLoginSuccess?.call();
+    } on FirebaseAuthException catch (mfaError) {
+      await _authService.signOut();
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = mfaErrorMessage(mfaError);
+        _successMessage = null;
+      });
+    } on FirebaseException {
+      await _authService.signOut();
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Die Anmeldung konnte nach der Sicherheitsprüfung nicht abgeschlossen werden.';
+        _successMessage = null;
+      });
+    } catch (_) {
+      await _authService.signOut();
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Die Zwei-Faktor-Anmeldung konnte gerade nicht abgeschlossen werden.';
+        _successMessage = null;
+      });
     }
   }
 

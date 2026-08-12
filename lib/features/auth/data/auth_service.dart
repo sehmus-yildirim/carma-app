@@ -222,7 +222,7 @@ class AuthService implements AccountAuthGateway {
 
   @override
   Future<void> deleteCurrentUser({String? currentPassword}) async {
-    final user = await _reauthenticateCurrentUser(
+    final user = await reauthenticateCurrentUser(
       currentPassword: currentPassword,
     );
     await user.getIdToken(true);
@@ -240,7 +240,7 @@ class AuthService implements AccountAuthGateway {
 
   @override
   Future<void> revokeAllSessions({String? currentPassword}) async {
-    final user = await _reauthenticateCurrentUser(
+    final user = await reauthenticateCurrentUser(
       currentPassword: currentPassword,
     );
     await user.getIdToken(true);
@@ -256,7 +256,7 @@ class AuthService implements AccountAuthGateway {
     await _signOutBestEffort();
   }
 
-  Future<User> _reauthenticateCurrentUser({String? currentPassword}) async {
+  Future<User> reauthenticateCurrentUser({String? currentPassword}) async {
     final user = await reloadCurrentUser();
     if (user == null) {
       throw FirebaseAuthException(code: 'missing-user');
@@ -371,8 +371,7 @@ class AuthService implements AccountAuthGateway {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    await _firebaseAuth.signOut();
+    await _signOutBestEffort();
   }
 
   static bool _emailsMatch(String first, String second) {

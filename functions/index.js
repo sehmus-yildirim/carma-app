@@ -22,6 +22,14 @@ const {
   requestAccountDeletion,
   revokeAccountSessions,
 } = require("./account_security");
+const {
+  getMfaRecoveryStatus,
+  listMfaRecoveryCases,
+  markMfaRecoveryIdentityVerified,
+  openMfaRecoveryCase,
+  requestMfaRecovery,
+  reviewMfaRecovery,
+} = require("./mfa_recovery");
 
 initializeApp();
 
@@ -44,6 +52,11 @@ const vehicleHeroRequestWindowMs = 24 * 60 * 60 * 1000;
 const maxVehicleHeroRequestsPerWindow = 3;
 const maxVehicleHeroImageBytes = 15 * 1024 * 1024;
 const vehicleHeroRequestTimeoutMs = 90 * 1000;
+// Keep disabled until Android debug/release providers are verified in Firebase.
+const mfaRecoveryAppCheckOptions = {
+  enforceAppCheck: false,
+  consumeAppCheckToken: false,
+};
 
 exports.searchPlate = onCall(
   {
@@ -134,6 +147,89 @@ exports.revokeAccountSessions = onCall(
     memory: "256MiB",
   },
   async (request) => revokeAccountSessions({
+    firestore: db,
+    authAdmin: getAuth(),
+    authContext: request.auth,
+    input: request.data,
+  }),
+);
+
+exports.requestMfaRecovery = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    ...mfaRecoveryAppCheckOptions,
+  },
+  async (request) => requestMfaRecovery({
+    firestore: db,
+    authAdmin: getAuth(),
+    authContext: request.auth,
+    input: request.data,
+  }),
+);
+
+exports.getMfaRecoveryStatus = onCall(
+  {
+    timeoutSeconds: 15,
+    memory: "256MiB",
+    ...mfaRecoveryAppCheckOptions,
+  },
+  async (request) => getMfaRecoveryStatus({
+    firestore: db,
+    authAdmin: getAuth(),
+    authContext: request.auth,
+  }),
+);
+
+exports.listMfaRecoveryCases = onCall(
+  {
+    timeoutSeconds: 15,
+    memory: "256MiB",
+    ...mfaRecoveryAppCheckOptions,
+  },
+  async (request) => listMfaRecoveryCases({
+    firestore: db,
+    authAdmin: getAuth(),
+    authContext: request.auth,
+    input: request.data,
+  }),
+);
+
+exports.openMfaRecoveryCase = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    ...mfaRecoveryAppCheckOptions,
+  },
+  async (request) => openMfaRecoveryCase({
+    firestore: db,
+    authAdmin: getAuth(),
+    authContext: request.auth,
+    input: request.data,
+  }),
+);
+
+exports.markMfaRecoveryIdentityVerified = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    ...mfaRecoveryAppCheckOptions,
+  },
+  async (request) => markMfaRecoveryIdentityVerified({
+    firestore: db,
+    authAdmin: getAuth(),
+    authContext: request.auth,
+    input: request.data,
+  }),
+);
+
+exports.reviewMfaRecovery = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    ...mfaRecoveryAppCheckOptions,
+  },
+  async (request) => reviewMfaRecovery({
     firestore: db,
     authAdmin: getAuth(),
     authContext: request.auth,

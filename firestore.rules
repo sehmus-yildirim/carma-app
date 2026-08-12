@@ -3483,6 +3483,23 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /mfa_recovery_requests/{userId} {
+      // Users receive their reduced status through getMfaRecoveryStatus.
+      // Direct reads include internal approval metadata and stay admin-only.
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+
+      match /audit/{auditId} {
+        allow read: if isAdmin();
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /admin_claim_audit/{auditId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
     match /plates/{plateId} {
       allow get: if isSignedIn()
         && (

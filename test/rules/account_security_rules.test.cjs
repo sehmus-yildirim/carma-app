@@ -93,6 +93,68 @@ describe('account security rules', () => {
     await assertFails(getDoc(deletion));
   });
 
+  test('recovery internals are admin readable and server writable only', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'mfa_recovery_requests', userId), {
+        requestId: 'recovery-1',
+        userId,
+        status: 'pending',
+        requestedAt: new Date(),
+        updatedAt: new Date(),
+      });
+      await setDoc(doc(
+        context.firestore(),
+        'mfa_recovery_requests',
+        userId,
+        'audit',
+        'audit-1',
+      ), {
+        requestId: 'recovery-1',
+        eventType: 'mfa_recovery_requested',
+        actorUserId: userId,
+        result: 'succeeded',
+        occurredAt: new Date(),
+      });
+    });
+
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderId).firestore();
+    const admin = testEnv.authenticatedContext('security-admin', {
+      admin: true,
+    }).firestore();
+    const requestPath = ['mfa_recovery_requests', userId];
+    const auditPath = [...requestPath, 'audit', 'audit-1'];
+
+    await assertFails(getDoc(doc(owner, ...requestPath)));
+    await assertSucceeds(getDoc(doc(admin, ...requestPath)));
+    await assertFails(getDoc(doc(outsider, ...requestPath)));
+    await assertFails(setDoc(doc(owner, ...requestPath), {status: 'completed'}));
+    await assertSucceeds(getDoc(doc(admin, ...auditPath)));
+    await assertFails(getDoc(doc(owner, ...auditPath)));
+    await assertFails(setDoc(doc(admin, ...auditPath), {result: 'forged'}));
+  });
+
+  test('admin claim audit is admin readable and never client writable', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'admin_claim_audit', 'claim-1'), {
+        action: 'admin_claim_granted',
+        actorUserId: 'security-admin',
+        targetUserId: 'second-admin',
+        occurredAt: new Date(),
+      });
+    });
+
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const admin = testEnv.authenticatedContext('security-admin', {
+      admin: true,
+    }).firestore();
+    const audit = doc(admin, 'admin_claim_audit', 'claim-1');
+
+    await assertSucceeds(getDoc(audit));
+    await assertFails(getDoc(doc(owner, 'admin_claim_audit', 'claim-1')));
+    await assertFails(setDoc(audit, {action: 'forged'}));
+  });
+
   test('requested deletion blocks Firestore and Storage actions', async () => {
     const imagePath = `profile_photos/${userId}/profile.jpg`;
     await testEnv.withSecurityRulesDisabled(async (context) => {
