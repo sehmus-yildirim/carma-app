@@ -1,6 +1,7 @@
 const {createHash, randomUUID} = require("node:crypto");
 const {GoogleGenAI, Modality} = require("@google/genai");
 const {initializeApp} = require("firebase-admin/app");
+const {getAuth} = require("firebase-admin/auth");
 const {
   FieldPath,
   Timestamp,
@@ -17,6 +18,10 @@ const {
 } = require("./report_submission");
 const {runReportCleanup} = require("./report_cleanup");
 const {searchPlateDocument} = require("./plate_search");
+const {
+  requestAccountDeletion,
+  revokeAccountSessions,
+} = require("./account_security");
 
 initializeApp();
 
@@ -50,6 +55,7 @@ exports.searchPlate = onCall(
     if (userId.length === 0) {
       throw new HttpsError("unauthenticated", "Bitte melde dich neu an.");
     }
+    await ensureAccountOperational(userId);
 
     try {
       return await searchPlateDocument({
@@ -80,6 +86,7 @@ exports.submitPlateHint = onCall(
     if (userId.length === 0) {
       throw new HttpsError("unauthenticated", "Bitte melde dich neu an.");
     }
+    await ensureAccountOperational(userId);
 
     try {
       return await submitPlateHintTransaction({
@@ -104,6 +111,34 @@ exports.submitPlateHint = onCall(
       );
     }
   },
+);
+
+exports.requestAccountDeletion = onCall(
+  {
+    timeoutSeconds: 540,
+    memory: "512MiB",
+  },
+  async (request) => requestAccountDeletion({
+    firestore: db,
+    authAdmin: getAuth(),
+    bucket: getStorage().bucket(),
+    authContext: request.auth,
+    input: request.data,
+    logger,
+  }),
+);
+
+exports.revokeAccountSessions = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => revokeAccountSessions({
+    firestore: db,
+    authAdmin: getAuth(),
+    authContext: request.auth,
+    input: request.data,
+  }),
 );
 
 async function deleteRejectedReportImage({userId, input}) {
@@ -135,6 +170,17 @@ function errorType(error) {
   return "UnknownError";
 }
 
+async function ensureAccountOperational(userId) {
+  const snapshot = await db.doc(`account_deletions/${userId}`).get();
+  const status = safeString(snapshot.data()?.status);
+  if (["requested", "processing", "completed"].includes(status)) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Dein Konto wird gerade gelöscht. Neue Aktionen sind nicht möglich.",
+    );
+  }
+}
+
 exports.requestVehicleHeroImage = onCall(
   {
     timeoutSeconds: 150,
@@ -148,6 +194,7 @@ exports.requestVehicleHeroImage = onCall(
         "Bitte melde dich neu an.",
       );
     }
+    await ensureAccountOperational(userId);
 
     const vehicleId = safeString(request.data?.vehicleId);
     if (!isSafeVehicleId(vehicleId)) {

@@ -838,6 +838,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         ownerDisplayName: displayName,
         ownerPhotoUrl: profilePhotoUrl,
         viewerUserIds: viewerUserIds,
+        repliesEnabled: _storyPrivacySettings.storyRepliesEnabled,
         imageUrl: draft.isVideo ? '' : upload.url,
         imagePath: draft.isVideo ? '' : upload.path,
         mediaType: draft.isVideo ? 'video' : 'image',
@@ -1293,6 +1294,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
     if (!currentStory.hasRenderableMedia ||
         !_canCurrentUserViewStory(currentStory, currentUserId)) {
       throw StateError('story_not_visible');
+    }
+
+    if (!currentStory.repliesEnabled) {
+      throw StateError('story_replies_disabled');
     }
 
     if (trimmedText.length > FirestoreDocumentDefaults.maxChatMessageLength) {
@@ -1759,7 +1764,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
     final title = stickerLabel.isEmpty ? 'Standort' : stickerLabel;
     final coordinateLabel =
         '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
-    final canReply = story.ownerUserId != _effectiveUserId.trim();
+    final canReply =
+        story.repliesEnabled && story.ownerUserId != _effectiveUserId.trim();
 
     if (!mounted) {
       return;
@@ -1851,7 +1857,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
     final normalizedLink = _normalizeStoryLink(rawLink);
     final stickerLabel = story.stickerLabel.trim();
     final title = stickerLabel.isEmpty ? 'Link' : stickerLabel;
-    final canReply = story.ownerUserId != _effectiveUserId.trim();
+    final canReply =
+        story.repliesEnabled && story.ownerUserId != _effectiveUserId.trim();
 
     if (!mounted || rawLink.isEmpty) {
       return;
@@ -1936,7 +1943,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
   Future<void> _showStoryHashtagStickerSheet(ChatStoryRecord story) async {
     final payload = story.stickerPayload.trim();
     final hashtag = payload.startsWith('#') ? payload : '#$payload';
-    final canReply = story.ownerUserId != _effectiveUserId.trim();
+    final canReply =
+        story.repliesEnabled && story.ownerUserId != _effectiveUserId.trim();
 
     if (!mounted || payload.isEmpty) {
       return;
@@ -2007,6 +2015,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
       if (plateLabel.isNotEmpty) plateLabel,
     ].join(' - ');
     final canReply =
+        story.repliesEnabled &&
         story.ownerUserId != _effectiveUserId.trim() &&
         vehicleReplyText.isNotEmpty;
 
@@ -2073,7 +2082,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
     final statusLabel = story.stickerLabel.trim().isEmpty
         ? story.stickerPayload.trim()
         : story.stickerLabel.trim();
-    final canReply = story.ownerUserId != _effectiveUserId.trim();
+    final canReply =
+        story.repliesEnabled && story.ownerUserId != _effectiveUserId.trim();
 
     if (!mounted || statusLabel.isEmpty) {
       return;

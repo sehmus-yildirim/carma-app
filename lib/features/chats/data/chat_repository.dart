@@ -686,6 +686,23 @@ class FirestoreChatRepository implements ChatRepository {
     return _firestore.collection(CaRismaFirestoreCollections.chats);
   }
 
+  Future<bool> _readReceiptsEnabledFor(String userId) async {
+    final trimmedUserId = userId.trim();
+
+    if (trimmedUserId.isEmpty) {
+      return true;
+    }
+
+    final snapshot = await _firestore
+        .doc(
+          '${CaRismaFirestorePaths.user(trimmedUserId)}/'
+          '${CaRismaFirestoreCollections.settings}/chat_privacy',
+        )
+        .get();
+
+    return snapshot.data()?['readReceiptsEnabled'] as bool? ?? true;
+  }
+
   @override
   Future<List<ChatRecord>> loadChats({required String userId}) async {
     final snapshot = await _chatsCollection
@@ -939,6 +956,10 @@ class FirestoreChatRepository implements ChatRepository {
       return;
     }
 
+    if (!await _readReceiptsEnabledFor(trimmedUserId)) {
+      return;
+    }
+
     await _chatsCollection.doc(trimmedChatId).set({
       'lastReadAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
       'manualUnreadBy': {trimmedUserId: false},
@@ -1138,6 +1159,17 @@ class FirestoreChatRepository implements ChatRepository {
       return;
     }
 
+    final settingsSnapshot = await _firestore
+        .doc(
+          '${CaRismaFirestorePaths.user(trimmedUserId)}/'
+          '${CaRismaFirestoreCollections.settings}/chat_privacy',
+        )
+        .get();
+
+    if (settingsSnapshot.data()?['onlineStatusEnabled'] != true) {
+      return;
+    }
+
     await _chatsCollection.doc(trimmedChatId).set({
       'onlineAtBy': {trimmedUserId: FieldValue.serverTimestamp()},
     }, SetOptions(merge: true));
@@ -1243,6 +1275,9 @@ class FirestoreChatRepository implements ChatRepository {
       ChatMessageType.contact => 'Kontakt',
       _ => trimmedText,
     };
+    final readReceiptsEnabled = await _readReceiptsEnabledFor(
+      trimmedSenderUserId,
+    );
 
     final now = DateTime.now();
     final timestamp = Timestamp.fromDate(now);
@@ -1292,7 +1327,8 @@ class FirestoreChatRepository implements ChatRepository {
       transaction.set(chatDocument, {
         'lastMessage': lastMessageText,
         'lastMessageAt': timestamp,
-        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        if (readReceiptsEnabled)
+          'lastReadAtBy': {trimmedSenderUserId: timestamp},
         'manualUnreadBy': {trimmedSenderUserId: false},
         'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
@@ -1366,6 +1402,9 @@ class FirestoreChatRepository implements ChatRepository {
       trimmedChatId,
     ).doc(trimmedMessageId);
     final messageText = trimmedCaption.isEmpty ? 'Foto' : trimmedCaption;
+    final readReceiptsEnabled = await _readReceiptsEnabledFor(
+      trimmedSenderUserId,
+    );
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(trimmedChatId);
@@ -1397,7 +1436,8 @@ class FirestoreChatRepository implements ChatRepository {
       transaction.set(chatDocument, {
         'lastMessage': messageText,
         'lastMessageAt': timestamp,
-        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        if (readReceiptsEnabled)
+          'lastReadAtBy': {trimmedSenderUserId: timestamp},
         'manualUnreadBy': {trimmedSenderUserId: false},
         'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
@@ -1489,6 +1529,9 @@ class FirestoreChatRepository implements ChatRepository {
       trimmedChatId,
     ).doc(trimmedMessageId);
     final messageText = 'Dokument: $trimmedFileName';
+    final readReceiptsEnabled = await _readReceiptsEnabledFor(
+      trimmedSenderUserId,
+    );
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(trimmedChatId);
@@ -1521,7 +1564,8 @@ class FirestoreChatRepository implements ChatRepository {
       transaction.set(chatDocument, {
         'lastMessage': messageText,
         'lastMessageAt': timestamp,
-        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        if (readReceiptsEnabled)
+          'lastReadAtBy': {trimmedSenderUserId: timestamp},
         'manualUnreadBy': {trimmedSenderUserId: false},
         'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
@@ -1620,6 +1664,9 @@ class FirestoreChatRepository implements ChatRepository {
       trimmedChatId,
     ).doc(trimmedMessageId);
     const messageText = 'Sprachnachricht';
+    final readReceiptsEnabled = await _readReceiptsEnabledFor(
+      trimmedSenderUserId,
+    );
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(trimmedChatId);
@@ -1653,7 +1700,8 @@ class FirestoreChatRepository implements ChatRepository {
       transaction.set(chatDocument, {
         'lastMessage': messageText,
         'lastMessageAt': timestamp,
-        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        if (readReceiptsEnabled)
+          'lastReadAtBy': {trimmedSenderUserId: timestamp},
         'manualUnreadBy': {trimmedSenderUserId: false},
         'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)
@@ -1757,6 +1805,9 @@ class FirestoreChatRepository implements ChatRepository {
       trimmedChatId,
     ).doc(trimmedMessageId);
     final messageText = trimmedCaption.isEmpty ? 'Video' : trimmedCaption;
+    final readReceiptsEnabled = await _readReceiptsEnabledFor(
+      trimmedSenderUserId,
+    );
 
     await _firestore.runTransaction((transaction) async {
       final chatDocument = _chatsCollection.doc(trimmedChatId);
@@ -1792,7 +1843,8 @@ class FirestoreChatRepository implements ChatRepository {
       transaction.set(chatDocument, {
         'lastMessage': messageText,
         'lastMessageAt': timestamp,
-        'lastReadAtBy': {trimmedSenderUserId: timestamp},
+        if (readReceiptsEnabled)
+          'lastReadAtBy': {trimmedSenderUserId: timestamp},
         'manualUnreadBy': {trimmedSenderUserId: false},
         'manualUnreadUpdatedAtBy': {trimmedSenderUserId: timestamp},
         if (participantIds.isNotEmpty)

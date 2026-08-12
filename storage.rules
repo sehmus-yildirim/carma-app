@@ -2,8 +2,23 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    function isChatParticipant(chatId) {
+    function hasBlockedAccountDeletion(userId) {
+      let deletionPath = /databases/(default)/documents/account_deletions/$(userId);
+      return firestore.exists(deletionPath)
+        && firestore.get(deletionPath).data.status in [
+          'requested',
+          'processing',
+          'completed'
+        ];
+    }
+
+    function isSignedIn() {
       return request.auth != null
+        && !hasBlockedAccountDeletion(request.auth.uid);
+    }
+
+    function isChatParticipant(chatId) {
+      return isSignedIn()
         && firestore.exists(
           /databases/(default)/documents/chats/$(chatId)
         )
@@ -71,13 +86,14 @@ service firebase.storage {
     }
 
     function canReadStoryMedia(userId, fileName) {
-      return request.auth != null
+      return isSignedIn()
         && storyExists(userId)
         && isCurrentStoryMedia(userId, fileName)
         && (
           request.auth.uid == userId
           || (
             request.auth.uid in storyDocument(userId).viewerUserIds
+            && storyDocument(userId).isActive == true
             && storyDocument(userId).expiresAt > request.time
           )
         );
@@ -100,7 +116,7 @@ service firebase.storage {
     }
 
     function canReadStoryMediaById(userId, storyId, fileName) {
-      return request.auth != null
+      return isSignedIn()
         && storyExistsById(storyId)
         && storyDocumentById(storyId).ownerUserId == userId
         && (
@@ -113,6 +129,7 @@ service firebase.storage {
           request.auth.uid == userId
           || (
             request.auth.uid in storyDocumentById(storyId).viewerUserIds
+            && storyDocumentById(storyId).isActive == true
             && storyDocumentById(storyId).expiresAt > request.time
           )
         );
@@ -120,7 +137,7 @@ service firebase.storage {
 
     function canReadPublicProfilePost(userId, postId, fileName) {
       let postPath = /databases/(default)/documents/users/$(userId)/social_posts/$(postId);
-      return request.auth != null
+      return isSignedIn()
         && hasActiveProfileConnection(userId)
         && firestore.exists(
           /databases/(default)/documents/public_profiles/$(userId)
@@ -159,7 +176,7 @@ service firebase.storage {
     }
 
     function hasActiveProfileConnection(targetUserId) {
-      return request.auth != null
+      return isSignedIn()
         && (
           request.auth.uid == targetUserId
           || hasActiveProfileConnectionById(
@@ -175,7 +192,7 @@ service firebase.storage {
 
     function canReadVehicleGalleryImage(userId, vehicleId, fileName) {
       let mediaPath = /databases/(default)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)/gallery/$(fileName);
-      return request.auth != null
+      return isSignedIn()
         && hasActiveProfileConnection(userId)
         && firestore.exists(
           /databases/(default)/documents/public_profiles/$(userId)
@@ -192,7 +209,7 @@ service firebase.storage {
 
     function canReadVehicleHeroImage(userId, vehicleId, fileName) {
       let vehiclePath = /databases/(default)/documents/public_profiles/$(userId)/vehicles/$(vehicleId);
-      return request.auth != null
+      return isSignedIn()
         && hasActiveProfileConnection(userId)
         && firestore.exists(
           /databases/(default)/documents/public_profiles/$(userId)
@@ -334,7 +351,7 @@ service firebase.storage {
     }
 
     function reportNotificationAllowsImageRead(reportId, userId, fileName) {
-      return request.auth != null
+      return isSignedIn()
         && firestore.exists(
           /databases/(default)/documents/users/$(request.auth.uid)/report_notifications/$(reportId)
         )
@@ -344,7 +361,7 @@ service firebase.storage {
     }
 
     function sentReportNotificationAllowsImageRead(reportId, userId, fileName) {
-      return request.auth != null
+      return isSignedIn()
         && firestore.exists(
           /databases/(default)/documents/users/$(request.auth.uid)/sent_report_notifications/$(reportId)
         )
@@ -355,132 +372,132 @@ service firebase.storage {
 
     match /chat_images/{chatId}/{userId}/{fileName} {
       allow read: if isUndeletedChatParticipant(chatId);
-      allow create: if request.auth != null
+      allow create: if isSignedIn()
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
         && isValidChatImageUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId
         && isChatParticipant(chatId);
     }
 
     match /chat_documents/{chatId}/{userId}/{fileName} {
       allow read: if isUndeletedChatParticipant(chatId);
-      allow create: if request.auth != null
+      allow create: if isSignedIn()
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
         && isValidChatDocumentUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId
         && isChatParticipant(chatId);
     }
 
     match /chat_voice_memos/{chatId}/{userId}/{fileName} {
       allow read: if isUndeletedChatParticipant(chatId);
-      allow create: if request.auth != null
+      allow create: if isSignedIn()
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
         && isValidChatVoiceMemoUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId
         && isChatParticipant(chatId);
     }
 
     match /chat_videos/{chatId}/{userId}/{fileName} {
       allow read: if isUndeletedChatParticipant(chatId);
-      allow create: if request.auth != null
+      allow create: if isSignedIn()
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
         && isValidChatVideoUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId
         && isChatParticipant(chatId);
     }
 
     match /chat_stories/{userId}/{fileName} {
-      allow read: if request.auth != null
+      allow read: if isSignedIn()
         && (
           request.auth.uid == userId
           || canReadStoryMedia(userId, fileName)
         );
-      allow create, update: if request.auth != null
+      allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && (
           isValidStoryImageUpload(fileName)
           || isValidStoryVideoUpload(fileName)
         );
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
 
     match /chat_stories/{userId}/{storyId}/{fileName} {
-      allow read: if request.auth != null
+      allow read: if isSignedIn()
         && (
           request.auth.uid == userId
           || canReadStoryMediaById(userId, storyId, fileName)
         );
-      allow create, update: if request.auth != null
+      allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && storyId.matches('^[0-9]{12,24}$')
         && (
           isValidStoryItemImageUpload(fileName)
           || isValidStoryItemVideoUpload(fileName)
         );
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
 
     match /report_images/{reportId}/{userId}/{fileName} {
       allow read: if reportNotificationAllowsImageRead(reportId, userId, fileName)
         || sentReportNotificationAllowsImageRead(reportId, userId, fileName);
-      allow create: if request.auth != null
+      allow create: if isSignedIn()
         && request.auth.uid == userId
         && isValidReportImageUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
 
     match /profile_photos/{userId}/{fileName} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && isValidProfilePhotoUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
 
     match /profile_posts/{userId}/{postId}/{fileName} {
-      allow read: if request.auth != null
+      allow read: if isSignedIn()
         && (
           request.auth.uid == userId
           || canReadPublicProfilePost(userId, postId, fileName)
         );
-      allow create, update: if request.auth != null
+      allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && isValidProfilePostImageUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
 
     match /vehicle_gallery/{userId}/{vehicleId}/{fileName} {
-      allow read: if request.auth != null
+      allow read: if isSignedIn()
         && (
           request.auth.uid == userId
           || canReadVehicleGalleryImage(userId, vehicleId, fileName)
         );
-      allow create, update: if request.auth != null
+      allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && isValidVehicleGalleryMediaUpload(fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
 
     match /vehicle_heroes/{userId}/{vehicleId}/{fileName} {
-      allow read: if request.auth != null
+      allow read: if isSignedIn()
         && (
           request.auth.uid == userId
           || canReadVehicleHeroImage(userId, vehicleId, fileName)
@@ -489,12 +506,12 @@ service firebase.storage {
     }
 
     match /profile_documents/{userId}/{documentType}/{fileName} {
-      allow read: if request.auth != null
+      allow read: if isSignedIn()
         && (request.auth.uid == userId || request.auth.token.admin == true);
-      allow create, update: if request.auth != null
+      allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && isValidProfileDocumentUpload(documentType, fileName);
-      allow delete: if request.auth != null
+      allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
 

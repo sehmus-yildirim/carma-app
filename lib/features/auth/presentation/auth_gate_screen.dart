@@ -8,6 +8,8 @@ import '../../../shared/widgets/carisma_primary_button.dart';
 import '../../home/presentation/app_shell.dart';
 import '../../onboarding/presentation/onboarding_flow_screen.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../settings/data/app_runtime_preferences.dart';
+import '../../settings/data/user_settings_repository.dart';
 import '../data/auth_service.dart';
 import '../data/legal_consent_repository.dart';
 import '../data/search_credit_repository.dart';
@@ -41,6 +43,8 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       SearchCreditRepository();
   final LegalConsentRepository _legalConsentRepository =
       LegalConsentRepository();
+  final UserSettingsRepository _userSettingsRepository =
+      UserSettingsRepository();
 
   final Set<String> _onboardingCompletedUserIds = <String>{};
   final Set<String> _verificationDismissedUserIds = <String>{};
@@ -278,6 +282,8 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         userId: user.uid,
       ),
     );
+    final settings = await _userSettingsRepository.load(user.uid);
+    AppRuntimePreferences.instance.apply(settings.appPreferences);
   }
 
   Future<void> _retryProvisioning(User user) async {

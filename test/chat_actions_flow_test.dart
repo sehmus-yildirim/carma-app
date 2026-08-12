@@ -108,6 +108,14 @@ void main() {
       );
       final repository = LocalChatRepository(seedChats: [blockedChat]);
 
+      expect(await repository.watchBlockedChats(userId: 'sender').first, [
+        blockedChat,
+      ]);
+      expect(
+        await repository.watchBlockedChats(userId: 'receiver').first,
+        isEmpty,
+      );
+
       await expectLater(
         repository.unblockChat(chatId: blockedChat.id, userId: 'receiver'),
         throwsStateError,
@@ -120,6 +128,10 @@ void main() {
 
       expect(unblocked.status, ChatStatus.active);
       expect(unblocked.blockedBy, isEmpty);
+      expect(
+        await repository.watchBlockedChats(userId: 'sender').first,
+        isEmpty,
+      );
       expect(await repository.loadChats(userId: 'sender'), hasLength(1));
       expect(await repository.loadChats(userId: 'receiver'), hasLength(1));
     });

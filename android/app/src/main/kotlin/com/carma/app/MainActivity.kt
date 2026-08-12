@@ -16,6 +16,7 @@ import android.os.Environment
 import android.provider.ContactsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.speech.RecognizerIntent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -75,9 +76,110 @@ class MainActivity : FlutterActivity() {
                     "playVoiceMemo" -> playVoiceMemo(call.argument<String>("url"), result)
                     "stopVoiceMemoPlayback" -> stopVoiceMemoPlayback(result)
                     "recognizePlateSpeech" -> recognizePlateSpeech(result)
+                    "getAppPermissionStatuses" -> getAppPermissionStatuses(result)
+                    "openAppSettings" -> openAppSettings(result)
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun getAppPermissionStatuses(result: MethodChannel.Result) {
+        val statuses = mapOf(
+            "platform" to "android",
+            "sdkInt" to Build.VERSION.SDK_INT,
+            "camera" to permissionState(Manifest.permission.CAMERA),
+            "microphone" to permissionState(Manifest.permission.RECORD_AUDIO),
+            "location" to locationPermissionState(),
+            "media" to mediaPermissionState(),
+            "contacts" to "notRequired",
+        )
+        result.success(statuses)
+    }
+
+    private fun openAppSettings(result: MethodChannel.Result) {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:$packageName"),
+        ).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+        }
+
+        try {
+            startActivity(intent)
+            result.success(true)
+        } catch (error: Exception) {
+            result.error(
+                "app_settings_unavailable",
+                "Android app settings could not be opened.",
+                null,
+            )
+        }
+    }
+
+    private fun permissionState(permission: String): String {
+        return if (
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        ) {
+            "granted"
+        } else {
+            "denied"
+        }
+    }
+
+    private fun locationPermissionState(): String {
+        val fineGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarseGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return if (fineGranted || coarseGranted) "granted" else "denied"
+    }
+
+    private fun mediaPermissionState(): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val imagesGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_MEDIA_IMAGES,
+            ) == PackageManager.PERMISSION_GRANTED
+            val videosGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_MEDIA_VIDEO,
+            ) == PackageManager.PERMISSION_GRANTED
+            val selectedGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            ) == PackageManager.PERMISSION_GRANTED
+
+            return when {
+                imagesGranted && videosGranted -> "granted"
+                selectedGranted || imagesGranted || videosGranted -> "restricted"
+                else -> "denied"
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val imagesGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_MEDIA_IMAGES,
+            ) == PackageManager.PERMISSION_GRANTED
+            val videosGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_MEDIA_VIDEO,
+            ) == PackageManager.PERMISSION_GRANTED
+
+            return when {
+                imagesGranted && videosGranted -> "granted"
+                imagesGranted || videosGranted -> "restricted"
+                else -> "denied"
+            }
+        }
+
+        return permissionState(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
     private fun pickPhoneContact(result: MethodChannel.Result) {

@@ -1,6 +1,132 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../shared/firebase/carisma_firestore_paths.dart';
+import '../../../shared/legal/legal_versions.dart';
+import '../../../shared/models/legal_consent.dart';
+
+class DataRightsRequestDraftBuilder {
+  const DataRightsRequestDraftBuilder._();
+
+  static const String deletionConfirmation = 'KONTO LÖSCHEN';
+
+  static bool isDeletionConfirmed({
+    required String confirmationText,
+    required bool acceptedConsequences,
+  }) {
+    return acceptedConsequences &&
+        confirmationText.trim().toUpperCase() == deletionConfirmation;
+  }
+
+  static String buildExportRequest({
+    required String appVersion,
+    required String userId,
+    String? email,
+    String? note,
+  }) {
+    final normalizedEmail = _availableValue(email);
+    final normalizedNote = note?.trim();
+
+    return 'Datenexport anfordern\n'
+        'App: $appVersion\n'
+        'Konto: $normalizedEmail\n'
+        'UID: $userId\n'
+        'Hinweis: ${normalizedNote?.isNotEmpty == true ? normalizedNote : 'Kein zusätzlicher Hinweis.'}\n\n'
+        'Dies ist eine Anfrage. Die Exportdatei wird nicht automatisch in der App erstellt.';
+  }
+
+  static String buildDeletionRequest({
+    required String appVersion,
+    required String userId,
+    required String confirmationText,
+    required bool acceptedConsequences,
+    String? email,
+  }) {
+    if (!isDeletionConfirmed(
+      confirmationText: confirmationText,
+      acceptedConsequences: acceptedConsequences,
+    )) {
+      throw ArgumentError('Die Kontolöschung wurde nicht eindeutig bestätigt.');
+    }
+
+    return 'Konto löschen anfordern\n'
+        'App: $appVersion\n'
+        'Konto: ${_availableValue(email)}\n'
+        'UID: $userId\n'
+        'Bestätigung: $deletionConfirmation\n\n'
+        'Dies ist eine Löschanfrage. Eine Löschung erfolgt erst nach sicherer Prüfung und unter Beachtung gesetzlicher Aufbewahrungsfristen.';
+  }
+
+  static String _availableValue(String? value) {
+    final normalized = value?.trim() ?? '';
+    return normalized.isEmpty ? 'Nicht verfügbar' : normalized;
+  }
+}
+
+class LegalConsentVersionStatus {
+  const LegalConsentVersionStatus({
+    required this.type,
+    required this.label,
+    required this.currentVersion,
+    this.acceptedVersion,
+    this.acceptedAt,
+  });
+
+  final LegalConsentType type;
+  final String label;
+  final String currentVersion;
+  final String? acceptedVersion;
+  final DateTime? acceptedAt;
+
+  bool get isAvailable => acceptedVersion?.trim().isNotEmpty == true;
+  bool get isCurrent => isAvailable && acceptedVersion == currentVersion;
+}
+
+class LegalConsentStatusResolver {
+  const LegalConsentStatusResolver._();
+
+  static List<LegalConsentVersionStatus> resolve(
+    Iterable<LegalConsent> consents,
+  ) {
+    final latestByType = <LegalConsentType, LegalConsent>{};
+    for (final consent in consents) {
+      final current = latestByType[consent.type];
+      if (current == null || consent.acceptedAt.isAfter(current.acceptedAt)) {
+        latestByType[consent.type] = consent;
+      }
+    }
+
+    return LegalConsentType.values
+        .map((type) {
+          final accepted = latestByType[type];
+          return LegalConsentVersionStatus(
+            type: type,
+            label: _labelFor(type),
+            currentVersion: _currentVersionFor(type),
+            acceptedVersion: accepted?.version,
+            acceptedAt: accepted?.acceptedAt,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  static String _labelFor(LegalConsentType type) {
+    return switch (type) {
+      LegalConsentType.terms => 'AGB',
+      LegalConsentType.privacy => 'Datenschutz',
+      LegalConsentType.responsibleUse => 'Verantwortungsvolle Nutzung',
+      LegalConsentType.noEmergencyUse => 'Keine Notfallnutzung',
+    };
+  }
+
+  static String _currentVersionFor(LegalConsentType type) {
+    return switch (type) {
+      LegalConsentType.terms => LegalVersions.terms,
+      LegalConsentType.privacy => LegalVersions.privacy,
+      LegalConsentType.responsibleUse => LegalVersions.responsibleUse,
+      LegalConsentType.noEmergencyUse => LegalVersions.noEmergencyUse,
+    };
+  }
+}
 
 class VisibilitySettings {
   const VisibilitySettings({
@@ -392,5 +518,67 @@ class UserSettingsRepository {
       '${CaRismaFirestorePaths.user(userId)}/'
       '${CaRismaFirestoreCollections.settings}/$settingsId',
     );
+  }
+}
+
+class AccountSecurityActivity {
+  const AccountSecurityActivity({
+    required this.id,
+    required this.eventType,
+    required this.occurredAt,
+    required this.platform,
+    required this.status,
+  });
+
+  final String id;
+  final String eventType;
+  final DateTime occurredAt;
+  final String platform;
+  final String status;
+
+  factory AccountSecurityActivity.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final occurredAt = data['occurredAt'];
+    return AccountSecurityActivity(
+      id: snapshot.id,
+      eventType: data['eventType'] as String? ?? 'unknown',
+      occurredAt: occurredAt is Timestamp
+          ? occurredAt.toDate()
+          : DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      platform: data['platform'] as String? ?? 'unknown',
+      status: data['status'] as String? ?? 'unknown',
+    );
+  }
+}
+
+class AccountSecurityRepository {
+  AccountSecurityRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
+
+  Stream<List<AccountSecurityActivity>> watchActivities(String userId) {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) {
+      return Stream<List<AccountSecurityActivity>>.value(
+        const <AccountSecurityActivity>[],
+      );
+    }
+
+    return _firestore
+        .collection(
+          '${CaRismaFirestorePaths.user(normalizedUserId)}/'
+          'security_activities',
+        )
+        .orderBy('occurredAt', descending: true)
+        .limit(30)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(AccountSecurityActivity.fromFirestore)
+              .toList(growable: false),
+        );
   }
 }

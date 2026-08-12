@@ -30,6 +30,7 @@ class ChatStoryRecord {
     required this.ownerDisplayName,
     this.ownerPhotoUrl,
     this.viewerUserIds = const <String>[],
+    this.repliesEnabled = true,
     required this.imageUrl,
     required this.imagePath,
     this.mediaType = 'image',
@@ -65,6 +66,7 @@ class ChatStoryRecord {
   final String ownerDisplayName;
   final String? ownerPhotoUrl;
   final List<String> viewerUserIds;
+  final bool repliesEnabled;
   final String imageUrl;
   final String imagePath;
   final String mediaType;
@@ -238,6 +240,7 @@ class ChatStoryRepository {
     required String ownerDisplayName,
     String? ownerPhotoUrl,
     required Iterable<String> viewerUserIds,
+    bool repliesEnabled = true,
     required String imageUrl,
     required String imagePath,
     String mediaType = 'image',
@@ -325,6 +328,7 @@ class ChatStoryRepository {
           ? null
           : trimmedOwnerPhotoUrl,
       'viewerUserIds': safeViewerUserIds,
+      'repliesEnabled': repliesEnabled,
       'viewerNameBy': <String, String>{
         trimmedOwnerUserId: trimmedOwnerDisplayName,
       },
@@ -579,6 +583,7 @@ class ChatStoryRepository {
       ownerDisplayName: data['ownerDisplayName'] as String? ?? 'CaRisma Nutzer',
       ownerPhotoUrl: data['ownerPhotoUrl'] as String?,
       viewerUserIds: _stringListFromValue(data['viewerUserIds']),
+      repliesEnabled: data['repliesEnabled'] as bool? ?? true,
       imageUrl: imageUrl,
       imagePath: imagePath,
       mediaType: safeMediaType,

@@ -11,6 +11,10 @@ String _storyReplyErrorMessage(Object error) {
     return 'Diese Story ist nicht mehr sichtbar.';
   }
 
+  if (errorText.contains('story_replies_disabled')) {
+    return 'Antworten auf diese Story sind deaktiviert.';
+  }
+
   if (errorText.contains('story_reply_too_long')) {
     return 'Antwort ist zu lang.';
   }

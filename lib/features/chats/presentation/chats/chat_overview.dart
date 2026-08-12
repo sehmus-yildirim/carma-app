@@ -1679,7 +1679,7 @@ class _InlineRequestListState extends State<_InlineRequestList> {
     return Column(
       children: [
         for (final request in widget.requests) ...[
-          _InlineRequestTile(
+          _CollapsibleInlineRequestTile(
             request: request,
             isIncoming: widget.isIncoming,
             isBusy: widget.busyRequestIds.contains(request.id),
@@ -1690,6 +1690,179 @@ class _InlineRequestListState extends State<_InlineRequestList> {
           const SizedBox(height: 10),
         ],
       ],
+    );
+  }
+}
+
+class _CollapsibleInlineRequestTile extends StatefulWidget {
+  const _CollapsibleInlineRequestTile({
+    required this.request,
+    required this.isIncoming,
+    required this.isBusy,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onWithdraw,
+  });
+
+  final ContactRequestRecord request;
+  final bool isIncoming;
+  final bool isBusy;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  final VoidCallback onWithdraw;
+
+  @override
+  State<_CollapsibleInlineRequestTile> createState() =>
+      _CollapsibleInlineRequestTileState();
+}
+
+class _CollapsibleInlineRequestTileState
+    extends State<_CollapsibleInlineRequestTile> {
+  bool _isExpanded = false;
+
+  String get _personName {
+    final rawName = widget.isIncoming
+        ? widget.request.senderDisplayName?.trim()
+        : widget.request.receiverDisplayName?.trim();
+    if (rawName != null && rawName.isNotEmpty) {
+      return _InlineRequestTile._shortDisplayName(rawName);
+    }
+    return widget.isIncoming ? 'Neue Anfrage' : 'Gesendete Anfrage';
+  }
+
+  DateTime get _expiresAt {
+    return widget.request.expiresAt ??
+        widget.request.createdAt.add(const Duration(hours: 48));
+  }
+
+  void _setExpanded(bool value) {
+    if (_isExpanded == value) {
+      return;
+    }
+    setState(() {
+      _isExpanded = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: _isExpanded
+            ? _InlineRequestTile(
+                key: ValueKey('expanded-${widget.request.id}'),
+                request: widget.request,
+                isIncoming: widget.isIncoming,
+                isBusy: widget.isBusy,
+                onAccept: widget.onAccept,
+                onDecline: widget.onDecline,
+                onWithdraw: widget.onWithdraw,
+                onCollapse: () => _setExpanded(false),
+              )
+            : _CompactInlineRequestTile(
+                key: ValueKey('compact-${widget.request.id}'),
+                personName: _personName,
+                profilePhotoUrl: widget.request.profilePhotoUrl(
+                  isIncoming: widget.isIncoming,
+                ),
+                expiresAt: _expiresAt,
+                onExpand: () => _setExpanded(true),
+              ),
+      ),
+    );
+  }
+}
+
+class _CompactInlineRequestTile extends StatelessWidget {
+  const _CompactInlineRequestTile({
+    super.key,
+    required this.personName,
+    required this.profilePhotoUrl,
+    required this.expiresAt,
+    required this.onExpand,
+  });
+
+  final String personName;
+  final String? profilePhotoUrl;
+  final DateTime expiresAt;
+  final VoidCallback onExpand;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: CaRismaDesignTokens.surfaceDecoration(
+        radius: 24,
+        borderAlpha: 0.11,
+        darkShadowAlpha: 0.34,
+        blueShadowAlpha: 0.03,
+      ),
+      child: Row(
+        children: [
+          _UserAvatarPlaceholder(size: 50, imageUrl: profilePhotoUrl),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              personName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: CaRismaDesignTokens.textPrimary,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _RequestExpiryBadge(expiresAt: expiresAt),
+          const SizedBox(width: 6),
+          _RequestExpansionButton(isExpanded: false, onTap: onExpand),
+        ],
+      ),
+    );
+  }
+}
+
+class _RequestExpansionButton extends StatelessWidget {
+  const _RequestExpansionButton({
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: isExpanded ? 'Anfrage einklappen' : 'Anfrage öffnen',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: CaRismaDesignTokens.controlSurface,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            ),
+            child: Icon(
+              isExpanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: Colors.white.withValues(alpha: 0.78),
+              size: 23,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1708,12 +1881,14 @@ class _RequestPlateSegments {
 
 class _InlineRequestTile extends StatelessWidget {
   const _InlineRequestTile({
+    super.key,
     required this.request,
     required this.isIncoming,
     required this.isBusy,
     required this.onAccept,
     required this.onDecline,
     required this.onWithdraw,
+    required this.onCollapse,
   });
 
   final ContactRequestRecord request;
@@ -1722,6 +1897,7 @@ class _InlineRequestTile extends StatelessWidget {
   final VoidCallback onAccept;
   final VoidCallback onDecline;
   final VoidCallback onWithdraw;
+  final VoidCallback onCollapse;
 
   String get _brand {
     final brand = request.vehicleBrand?.trim();
@@ -1995,7 +2171,7 @@ class _InlineRequestTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
                             child: Text(
@@ -2012,6 +2188,11 @@ class _InlineRequestTile extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           _RequestExpiryBadge(expiresAt: _effectiveExpiresAt),
+                          const SizedBox(width: 6),
+                          _RequestExpansionButton(
+                            isExpanded: true,
+                            onTap: onCollapse,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),

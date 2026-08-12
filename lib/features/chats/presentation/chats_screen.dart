@@ -30,6 +30,7 @@ import '../data/contact_request_repository.dart';
 import '../data/contact_request_repository.dart' as contact_requests;
 import '../domain/accept_contact_request_use_case.dart';
 import '../../settings/data/user_settings_repository.dart';
+import '../../settings/data/app_runtime_preferences.dart';
 import '../../profile/data/profile_connection_repository.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../profile/presentation/social_profile_screen.dart';

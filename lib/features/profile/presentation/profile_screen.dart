@@ -32,10 +32,17 @@ import '../../../shared/widgets/carisma_switch_row.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 
+enum ProfileEditorEntry { overview, documents }
+
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.userState});
+  const ProfileScreen({
+    super.key,
+    required this.userState,
+    this.initialEntry = ProfileEditorEntry.overview,
+  });
 
   final AppUserState userState;
+  final ProfileEditorEntry initialEntry;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -77,6 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasUnsavedChanges = false;
   bool _isSaving = false;
   bool _isApplyingSavedProfile = false;
+  bool _initialEntryHandled = false;
 
   bool _isSubmittedForVerification = false;
   bool _isVerified = false;
@@ -279,7 +287,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final profile = await _profileRepository.getProfile(firebaseUser.uid);
 
-    if (!mounted || profile == null || _hasUnsavedChanges) {
+    if (!mounted || _hasUnsavedChanges) {
+      return;
+    }
+
+    if (profile == null) {
+      _handleInitialEntry();
       return;
     }
 
@@ -374,6 +387,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       _isApplyingSavedProfile = false;
     }
+
+    _handleInitialEntry();
+  }
+
+  void _handleInitialEntry() {
+    if (_initialEntryHandled ||
+        widget.initialEntry != ProfileEditorEntry.documents ||
+        !mounted) {
+      return;
+    }
+    _initialEntryHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openVerificationScreen();
+    });
   }
 
   String? _documentTitleForStoredType(String typeName) {

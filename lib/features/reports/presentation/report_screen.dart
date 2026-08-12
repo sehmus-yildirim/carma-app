@@ -732,8 +732,7 @@ class _ReportScreenState extends State<ReportScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             const contentTopInset = CaRismaDesignTokens.mainScreenTopInset;
-            const contentBottomInset =
-                CaRismaDesignTokens.mainScreenBottomInset + 10;
+            const contentBottomInset = 10.0;
             return SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
@@ -1822,85 +1821,81 @@ class _CategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(28),
-          splashFactory: NoSplash.splashFactory,
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              color: CaRismaDesignTokens.card,
-              border: Border.all(
-                color: isSelected
-                    ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
-                    : Colors.white.withValues(alpha: 0.08),
-                width: isSelected ? 1.5 : 1.0,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: CaRismaDesignTokens.bluePrimary.withValues(
-                          alpha: 0.30,
-                        ),
-                        blurRadius: 24,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : null,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            color: CaRismaDesignTokens.card,
+            border: Border.all(
+              color: isSelected
+                  ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
+                  : Colors.white.withValues(alpha: 0.08),
+              width: isSelected ? 1.5 : 1.0,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    CaRismaBlueIconBox(icon: item.icon, size: 34, iconSize: 19),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          item.title,
-                          maxLines: 1,
-                          softWrap: false,
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                                height: 1.08,
-                              ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: CaRismaDesignTokens.bluePrimary.withValues(
+                        alpha: 0.30,
+                      ),
+                      blurRadius: 24,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CaRismaBlueIconBox(icon: item.icon, size: 34, iconSize: 19),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        item.title,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          height: 1.08,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Expanded(
-                  child: Text(
-                    item.subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12.5,
-                      height: 1.14,
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Expanded(
+                child: Text(
+                  item.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    height: 1.14,
+                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

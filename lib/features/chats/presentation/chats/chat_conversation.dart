@@ -131,6 +131,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
   bool _isOtherUserTyping = false;
   bool _isCurrentUserTyping = false;
   bool _forceScrollToBottomOnNextMessages = false;
+  bool _receivedInitialMessageSnapshot = false;
   int _voiceMemoRecordingSeconds = 0;
   int _messageScrollRequestGeneration = 0;
   _LocalChatMessage? _replyingToMessage;
@@ -1159,6 +1160,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
         .listen(
           (records) {
             final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
+            final previousMessageIds = _messages
+                .map((message) => message.messageId)
+                .whereType<String>()
+                .toSet();
             final otherLastReadAt = _otherLastReadAt;
             final recordsById = {
               for (final record in records) record.id: record,
@@ -1166,6 +1171,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             final visibleRecords = records
                 .where((record) => !record.isDeletedFor(currentUserId))
                 .toList();
+            final hasNewIncomingMessage = visibleRecords.any(
+              (record) =>
+                  record.senderUserId != currentUserId &&
+                  !previousMessageIds.contains(record.id),
+            );
             final previousMessageCount = _messages.length;
             final shouldKeepBottom = _isNearMessageBottom;
             final lastRecordIsMine =
@@ -1191,6 +1201,11 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             if (!mounted) {
               return;
             }
+
+            if (_receivedInitialMessageSnapshot && hasNewIncomingMessage) {
+              unawaited(AppRuntimePreferences.instance.playMessageSound());
+            }
+            _receivedInitialMessageSnapshot = true;
 
             setState(() {
               _messages = visibleRecords.map((record) {

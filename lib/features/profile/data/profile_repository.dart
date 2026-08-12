@@ -18,6 +18,15 @@ class ProfileRepository {
     return _firestore.doc(CaRismaFirestorePaths.publicProfile(uid));
   }
 
+  DocumentReference<Map<String, dynamic>> _visibilitySettingsDocument(
+    String uid,
+  ) {
+    return _firestore.doc(
+      '${CaRismaFirestorePaths.user(uid)}/'
+      '${CaRismaFirestoreCollections.settings}/visibility',
+    );
+  }
+
   Stream<UserProfile?> watchProfile(String uid) {
     return _profileDocument(uid).snapshots().map((document) {
       if (!document.exists) {
@@ -52,6 +61,7 @@ class ProfileRepository {
     if (snapshot.exists) {
       final data = snapshot.data() ?? <String, dynamic>{};
       final existingProfile = UserProfile.fromFirestore(snapshot);
+      final visibility = await _loadVisibilitySettings(user.uid);
       final hasVerificationStatus =
           (data['verificationStatus'] as String?)?.trim().isNotEmpty == true;
       final existingDisplayName = existingProfile.displayName.trim();
@@ -89,6 +99,21 @@ class ProfileRepository {
           existingProfile,
           displayName: effectiveDisplayName,
           photoUrl: effectivePhotoUrl,
+          publicRegion: _visibleRegion(existingProfile, visibility),
+          showVehicleOnPublicProfile: _visibilityBool(
+            visibility,
+            'showVehicle',
+            existingProfile.showVehicleOnPublicProfile,
+          ),
+          showPlateOnPublicProfile: _visibilityBool(
+            visibility,
+            'showPlate',
+            existingProfile.showPlateOnPublicProfile,
+          ),
+          profileAccessEnabled: _profileAccessEnabled(
+            visibility,
+            existingProfile.profileAccessEnabled,
+          ),
         ),
       );
       await batch.commit();
@@ -115,6 +140,7 @@ class ProfileRepository {
   }
 
   Future<void> saveProfile(UserProfile profile) async {
+    final visibility = await _loadVisibilitySettings(profile.uid);
     final batch = _firestore.batch();
     batch.set(_profileDocument(profile.uid), {
       ...profile.toFirestore(),
@@ -124,7 +150,24 @@ class ProfileRepository {
     }, SetOptions(merge: true));
     batch.set(
       _publicProfileDocument(profile.uid),
-      _publicProfileDataFor(profile),
+      _publicProfileDataFor(
+        profile,
+        publicRegion: _visibleRegion(profile, visibility),
+        showVehicleOnPublicProfile: _visibilityBool(
+          visibility,
+          'showVehicle',
+          profile.showVehicleOnPublicProfile,
+        ),
+        showPlateOnPublicProfile: _visibilityBool(
+          visibility,
+          'showPlate',
+          profile.showPlateOnPublicProfile,
+        ),
+        profileAccessEnabled: _profileAccessEnabled(
+          visibility,
+          profile.profileAccessEnabled,
+        ),
+      ),
     );
     await batch.commit();
   }
@@ -147,9 +190,29 @@ class ProfileRepository {
     final snapshot = await document.get();
     if (!snapshot.exists) return;
 
-    await _publicProfileDocument(
-      uid,
-    ).set(_publicProfileDataFor(UserProfile.fromFirestore(snapshot)));
+    final profile = UserProfile.fromFirestore(snapshot);
+    final visibility = await _loadVisibilitySettings(uid);
+
+    await _publicProfileDocument(uid).set(
+      _publicProfileDataFor(
+        profile,
+        publicRegion: _visibleRegion(profile, visibility),
+        showVehicleOnPublicProfile: _visibilityBool(
+          visibility,
+          'showVehicle',
+          profile.showVehicleOnPublicProfile,
+        ),
+        showPlateOnPublicProfile: _visibilityBool(
+          visibility,
+          'showPlate',
+          profile.showPlateOnPublicProfile,
+        ),
+        profileAccessEnabled: _profileAccessEnabled(
+          visibility,
+          profile.profileAccessEnabled,
+        ),
+      ),
+    );
   }
 
   Future<void> updatePublicProfile({
@@ -171,16 +234,35 @@ class ProfileRepository {
 
     final document = _profileDocument(uid);
     final snapshot = await document.get();
+    final visibility = await _loadVisibilitySettings(uid);
+    final effectiveShowVehicle = _visibilityBool(
+      visibility,
+      'showVehicle',
+      showVehicleOnPublicProfile,
+    );
+    final effectiveShowPlate = _visibilityBool(
+      visibility,
+      'showPlate',
+      showPlateOnPublicProfile,
+    );
+    final effectiveProfileAccess = _profileAccessEnabled(
+      visibility,
+      profileAccessEnabled ?? profile.profileAccessEnabled,
+    );
+    final effectivePublicRegion = _visibleRegion(
+      profile,
+      visibility,
+      requestedRegion: publicRegion,
+    );
     final data = <String, Object?>{
       'uid': uid,
       'displayName': displayName.trim(),
       'publicBio': _trimmedOrNull(publicBio),
-      'publicRegion': _trimmedOrNull(publicRegion),
-      'showVehicleOnPublicProfile': showVehicleOnPublicProfile,
-      'showPlateOnPublicProfile': showPlateOnPublicProfile,
+      'publicRegion': effectivePublicRegion,
+      'showVehicleOnPublicProfile': effectiveShowVehicle,
+      'showPlateOnPublicProfile': effectiveShowPlate,
       'isPrivateProfile': isPrivateProfile ?? profile.isPrivateProfile,
-      'profileAccessEnabled':
-          profileAccessEnabled ?? profile.profileAccessEnabled,
+      'profileAccessEnabled': effectiveProfileAccess,
       'followersVisibility': followersVisibility ?? profile.followersVisibility,
       'followingVisibility': followingVisibility ?? profile.followingVisibility,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -211,11 +293,11 @@ class ProfileRepository {
         profile,
         displayName: displayName,
         publicBio: publicBio,
-        publicRegion: publicRegion,
-        showVehicleOnPublicProfile: showVehicleOnPublicProfile,
-        showPlateOnPublicProfile: showPlateOnPublicProfile,
+        publicRegion: effectivePublicRegion,
+        showVehicleOnPublicProfile: effectiveShowVehicle,
+        showPlateOnPublicProfile: effectiveShowPlate,
         isPrivateProfile: isPrivateProfile,
-        profileAccessEnabled: profileAccessEnabled,
+        profileAccessEnabled: effectiveProfileAccess,
         followersVisibility: followersVisibility,
         followingVisibility: followingVisibility,
       ),
@@ -235,6 +317,76 @@ class ProfileRepository {
       'photoUrl': _trimmedOrNull(photoUrl),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> applyVisibilitySettings({
+    required String uid,
+    required String profileVisibility,
+    required bool showVehicle,
+    required bool showRegion,
+    required bool showPlate,
+    required bool allowContactRequests,
+  }) async {
+    final normalizedUid = uid.trim();
+    if (normalizedUid.isEmpty) {
+      throw ArgumentError('Nutzer-ID darf nicht leer sein.');
+    }
+    final document = _profileDocument(normalizedUid);
+    final snapshot = await document.get();
+    if (!snapshot.exists) return;
+
+    final profile = UserProfile.fromFirestore(snapshot);
+    final profileAccessEnabled = profileVisibility != 'onlyMe';
+    final publicData = _publicProfileDataFor(
+      profile,
+      showVehicleOnPublicProfile: showVehicle,
+      showPlateOnPublicProfile: showPlate,
+      profileAccessEnabled: profileAccessEnabled,
+      isPrivateProfile: true,
+    );
+    publicData['publicRegion'] = showRegion
+        ? _trimmedOrNull(profile.publicRegion)
+        : null;
+
+    final batch = _firestore.batch();
+    batch.set(document, {
+      'showVehicleOnPublicProfile': showVehicle,
+      'showPlateOnPublicProfile': showPlate,
+      'allowContactRequests': allowContactRequests,
+      'profileAccessEnabled': profileAccessEnabled,
+      'isPrivateProfile': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(_publicProfileDocument(normalizedUid), publicData);
+    await batch.commit();
+  }
+
+  Future<Map<String, dynamic>?> _loadVisibilitySettings(String uid) async {
+    final snapshot = await _visibilitySettingsDocument(uid).get();
+    return snapshot.data();
+  }
+
+  bool _visibilityBool(
+    Map<String, dynamic>? settings,
+    String field,
+    bool fallback,
+  ) {
+    return settings?[field] as bool? ?? fallback;
+  }
+
+  bool _profileAccessEnabled(Map<String, dynamic>? settings, bool fallback) {
+    final visibility = settings?['profileVisibility'] as String?;
+    return visibility == null ? fallback : visibility != 'onlyMe';
+  }
+
+  String? _visibleRegion(
+    UserProfile profile,
+    Map<String, dynamic>? settings, {
+    String? requestedRegion,
+  }) {
+    final showRegion = settings?['showRegion'] as bool?;
+    if (showRegion == false) return null;
+    return _trimmedOrNull(requestedRegion ?? profile.publicRegion);
   }
 
   String? _trimmedOrNull(String? value) {

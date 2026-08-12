@@ -73,7 +73,13 @@ async function seedContactRequestChat({ requestId, status }) {
   return { chatId, message };
 }
 
-async function sendTextMessage({ db, chatId, messageId, text }) {
+async function sendTextMessage({
+  db,
+  chatId,
+  messageId,
+  text,
+  includeReadReceipt = true,
+}) {
   const timestamp = Timestamp.fromMillis(Date.now());
   const batch = writeBatch(db);
 
@@ -93,7 +99,9 @@ async function sendTextMessage({ db, chatId, messageId, text }) {
     {
       lastMessage: text,
       lastMessageAt: timestamp,
-      lastReadAtBy: { [senderUserId]: timestamp },
+      ...(includeReadReceipt
+        ? { lastReadAtBy: { [senderUserId]: timestamp } }
+        : {}),
       manualUnreadBy: { [senderUserId]: false },
       manualUnreadUpdatedAtBy: { [senderUserId]: timestamp },
       archivedBy: {
@@ -110,6 +118,93 @@ async function sendTextMessage({ db, chatId, messageId, text }) {
   );
 
   return batch.commit();
+}
+
+async function seedUserSetting(userId, settingsId, data) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'users', userId, 'settings', settingsId),
+      {
+        userId,
+        updatedAt: Timestamp.fromMillis(Date.now()),
+        ...data,
+      },
+    );
+  });
+}
+
+function chatPrivacySetting(userId, overrides = {}) {
+  return {
+    userId,
+    readReceiptsEnabled: true,
+    onlineStatusEnabled: false,
+    autoSaveMedia: false,
+    defaultViewOnceMedia: false,
+    updatedAt: Timestamp.fromMillis(Date.now()),
+    ...overrides,
+  };
+}
+
+function storyPrivacySetting(userId, overrides = {}) {
+  return {
+    userId,
+    storyVisibility: 'contacts',
+    excludedStoryUserIds: [],
+    storyRepliesEnabled: true,
+    defaultStoryVehicleData: false,
+    updatedAt: Timestamp.fromMillis(Date.now()),
+    ...overrides,
+  };
+}
+
+function storyDocument(storyId, overrides = {}) {
+  const createdAt = Timestamp.fromMillis(Date.now());
+  return {
+    ownerUserId: senderUserId,
+    ownerDisplayName: 'Sender S.',
+    ownerPhotoUrl: null,
+    viewerUserIds: [senderUserId, receiverUserId],
+    repliesEnabled: true,
+    viewerNameBy: { [senderUserId]: 'Sender S.' },
+    viewerPhotoUrlBy: { [senderUserId]: null },
+    viewedAtBy: { [senderUserId]: createdAt },
+    imageUrl: 'https://example.invalid/story.jpg',
+    imagePath: `chat_stories/${senderUserId}/${storyId}/media.jpg`,
+    mediaType: 'image',
+    videoUrl: '',
+    videoPath: '',
+    videoIsMuted: false,
+    text: '',
+    textColorValue: 4294967295,
+    textFontFamily: 'standard',
+    textIsBold: true,
+    textIsItalic: false,
+    textIsUnderline: false,
+    textAlign: 'center',
+    textAlignmentX: 0.5,
+    textAlignmentY: 0.58,
+    filterType: 'normal',
+    stickerType: '',
+    stickerLabel: '',
+    stickerPayload: '',
+    stickerAlignmentX: 0.5,
+    stickerAlignmentY: 0.76,
+    stickers: [],
+    createdAt,
+    updatedAt: createdAt,
+    expiresAt: Timestamp.fromMillis(createdAt.toMillis() + 60 * 60 * 1000),
+    isActive: true,
+    ...overrides,
+  };
+}
+
+async function seedStory(storyId, overrides = {}) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), 'chat_stories', storyId),
+      storyDocument(storyId, overrides),
+    );
+  });
 }
 
 function imageMessage(chatId, messageId, overrides = {}) {
@@ -165,6 +260,228 @@ after(async () => {
 });
 
 describe('Chat Firestore and Storage rules', () => {
+  test('keep chat privacy settings private to their owner', async () => {
+    const ownerDb = testEnv.authenticatedContext(senderUserId).firestore();
+    const outsiderDb = testEnv.authenticatedContext(outsiderUserId).firestore();
+    const settingPath = [
+      'users',
+      senderUserId,
+      'settings',
+      'chat_privacy',
+    ];
+
+    await assertSucceeds(
+      setDoc(
+        doc(ownerDb, ...settingPath),
+        chatPrivacySetting(senderUserId),
+      ),
+    );
+    await assertFails(getDoc(doc(outsiderDb, ...settingPath)));
+    await assertFails(
+      setDoc(
+        doc(outsiderDb, ...settingPath),
+        chatPrivacySetting(senderUserId, { readReceiptsEnabled: false }),
+      ),
+    );
+  });
+
+  test('enforce disabled read receipts while still allowing messages', async () => {
+    const chatId = 'chat-read-receipts';
+    await seedChat(chatId);
+    await seedUserSetting(
+      senderUserId,
+      'chat_privacy',
+      chatPrivacySetting(senderUserId, { readReceiptsEnabled: false }),
+    );
+    const senderDb = testEnv.authenticatedContext(senderUserId).firestore();
+    const timestamp = Timestamp.fromMillis(Date.now());
+
+    await assertFails(
+      updateDoc(doc(senderDb, 'chats', chatId), {
+        lastReadAtBy: { [senderUserId]: timestamp },
+        manualUnreadBy: { [senderUserId]: false },
+        manualUnreadUpdatedAtBy: { [senderUserId]: timestamp },
+      }),
+    );
+    await assertSucceeds(
+      sendTextMessage({
+        db: senderDb,
+        chatId,
+        messageId: 'message-without-read-receipt',
+        text: 'Ohne Lesebestätigung',
+        includeReadReceipt: false,
+      }),
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(
+          senderDb,
+          'users',
+          senderUserId,
+          'settings',
+          'chat_privacy',
+        ),
+        chatPrivacySetting(senderUserId, { readReceiptsEnabled: true }),
+      ),
+    );
+    const enabledTimestamp = Timestamp.fromMillis(Date.now());
+    await assertSucceeds(
+      updateDoc(doc(senderDb, 'chats', chatId), {
+        lastReadAtBy: { [senderUserId]: enabledTimestamp },
+        manualUnreadBy: { [senderUserId]: false },
+        manualUnreadUpdatedAtBy: { [senderUserId]: enabledTimestamp },
+      }),
+    );
+  });
+
+  test('only allow online presence when the user enabled it', async () => {
+    const chatId = 'chat-presence';
+    await seedChat(chatId);
+    await seedUserSetting(
+      senderUserId,
+      'chat_privacy',
+      chatPrivacySetting(senderUserId, { onlineStatusEnabled: false }),
+    );
+    const senderDb = testEnv.authenticatedContext(senderUserId).firestore();
+
+    await assertFails(
+      updateDoc(doc(senderDb, 'chats', chatId), {
+        onlineAtBy: { [senderUserId]: Timestamp.fromMillis(Date.now()) },
+      }),
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(
+          senderDb,
+          'users',
+          senderUserId,
+          'settings',
+          'chat_privacy',
+        ),
+        chatPrivacySetting(senderUserId, { onlineStatusEnabled: true }),
+      ),
+    );
+    await assertSucceeds(
+      updateDoc(doc(senderDb, 'chats', chatId), {
+        onlineAtBy: { [senderUserId]: Timestamp.fromMillis(Date.now()) },
+      }),
+    );
+  });
+
+  test('enforce story audience exclusions and reply privacy', async () => {
+    const senderDb = testEnv.authenticatedContext(senderUserId).firestore();
+    const onlyMeStoryId = '1711111111111';
+
+    await assertSucceeds(
+      setDoc(
+        doc(
+          senderDb,
+          'users',
+          senderUserId,
+          'settings',
+          'story_privacy',
+        ),
+        storyPrivacySetting(senderUserId, {
+          storyVisibility: 'onlyMe',
+          storyRepliesEnabled: false,
+        }),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(senderDb, 'chat_stories', onlyMeStoryId),
+        storyDocument(onlyMeStoryId, { repliesEnabled: false }),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(senderDb, 'chat_stories', onlyMeStoryId),
+        storyDocument(onlyMeStoryId, {
+          viewerUserIds: [senderUserId],
+          repliesEnabled: true,
+        }),
+      ),
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(senderDb, 'chat_stories', onlyMeStoryId),
+        storyDocument(onlyMeStoryId, {
+          viewerUserIds: [senderUserId],
+          repliesEnabled: false,
+        }),
+      ),
+    );
+
+    const contactsStoryId = '1722222222222';
+    await assertSucceeds(
+      setDoc(
+        doc(
+          senderDb,
+          'users',
+          senderUserId,
+          'settings',
+          'story_privacy',
+        ),
+        storyPrivacySetting(senderUserId, {
+          excludedStoryUserIds: [receiverUserId],
+        }),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(senderDb, 'chat_stories', contactsStoryId),
+        storyDocument(contactsStoryId),
+      ),
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(senderDb, 'chat_stories', contactsStoryId),
+        storyDocument(contactsStoryId, {
+          viewerUserIds: [senderUserId, outsiderUserId],
+        }),
+      ),
+    );
+  });
+
+  test('deny inactive and expired stories and media to viewers', async () => {
+    const inactiveStoryId = '1733333333333';
+    const expiredStoryId = '1744444444444';
+    await seedStory(inactiveStoryId, { isActive: false });
+    await seedStory(expiredStoryId, {
+      createdAt: Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000),
+      updatedAt: Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000),
+      expiresAt: Timestamp.fromMillis(Date.now() - 60 * 60 * 1000),
+    });
+    const receiverContext = testEnv.authenticatedContext(receiverUserId);
+    const ownerContext = testEnv.authenticatedContext(senderUserId);
+
+    await assertFails(
+      getDoc(
+        doc(receiverContext.firestore(), 'chat_stories', inactiveStoryId),
+      ),
+    );
+    await assertFails(
+      getDoc(
+        doc(receiverContext.firestore(), 'chat_stories', expiredStoryId),
+      ),
+    );
+    await assertSucceeds(
+      getDoc(doc(ownerContext.firestore(), 'chat_stories', inactiveStoryId)),
+    );
+
+    const mediaPath =
+      `chat_stories/${senderUserId}/${inactiveStoryId}/media.jpg`;
+    await assertSucceeds(
+      uploadBytes(
+        ref(ownerContext.storage(), mediaPath),
+        new Uint8Array([1, 2, 3]),
+        { contentType: 'image/jpeg' },
+      ),
+    );
+    await assertFails(getBytes(ref(receiverContext.storage(), mediaPath)));
+    await assertSucceeds(getBytes(ref(ownerContext.storage(), mediaPath)));
+  });
+
   test('lock manual messages and uploads until the request is accepted', async () => {
     const requestId = 'pending-request';
     const { chatId, message } = await seedContactRequestChat({

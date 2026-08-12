@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/legal/legal_versions.dart';
@@ -12,10 +11,20 @@ import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/carisma_switch_row.dart';
 import '../../../shared/widgets/glass_card.dart';
+import '../../auth/data/auth_service.dart';
 import '../../chats/data/chat_repository.dart';
-import '../../profile/presentation/profile_screen.dart';
+import '../../profile/data/profile_repository.dart';
+import '../data/app_permission_service.dart';
+import '../data/app_runtime_preferences.dart';
 import '../data/notification_settings_repository.dart';
+import '../data/support_request_repository.dart';
 import '../data/user_settings_repository.dart';
+import 'account_security_screen.dart';
+import 'data_rights_settings_screens.dart';
+import 'licenses_settings_screen.dart';
+import 'profile_verification_settings_screen.dart';
+import 'privacy_comfort_settings_screens.dart';
+import 'support_settings_screens.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -36,6 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       NotificationSettingsRepository();
   final UserSettingsRepository _userSettingsRepository =
       UserSettingsRepository();
+  final ProfileRepository _profileRepository = ProfileRepository();
 
   bool _notifyContactRequests = true;
   bool _notifyChats = true;
@@ -98,22 +108,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: '$title\n\n$body'));
-                Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$title wurde kopiert.')),
-                );
-              },
-              child: const Text(
-                'Kopieren',
-                style: TextStyle(
-                  color: CaRismaDesignTokens.bluePrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text(
                 'Schließen',
@@ -129,16 +123,326 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showCopyDraftDialog({
+  void _showAccountDeletionRequestDialog() {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitte melde dich erneut an.')),
+      );
+      return;
+    }
+    final account = AuthAccountSnapshot.fromUser(firebaseUser);
+    final deletionScrollController = ScrollController();
+    final passwordController = TextEditingController();
+    final confirmationFieldKey = GlobalKey();
+    var acceptedConsequences = false;
+    var confirmationText = '';
+    var isDeleting = false;
+    String? deletionError;
+
+    void revealConfirmationField() {
+      Future<void>.delayed(const Duration(milliseconds: 280), () {
+        final fieldContext = confirmationFieldKey.currentContext;
+        if (fieldContext == null || !fieldContext.mounted) return;
+        Scrollable.ensureVisible(
+          fieldContext,
+          alignment: 0.05,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+      });
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final confirmed = DataRightsRequestDraftBuilder.isDeletionConfirmed(
+              confirmationText: confirmationText,
+              acceptedConsequences: acceptedConsequences,
+            );
+
+            return AlertDialog(
+              backgroundColor: CaRismaDesignTokens.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(
+                  color: CaRismaDesignTokens.danger.withValues(alpha: 0.34),
+                ),
+              ),
+              title: const Row(
+                children: [
+                  Icon(
+                    Icons.delete_forever_rounded,
+                    color: CaRismaDesignTokens.danger,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Konto löschen',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                controller: deletionScrollController,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _SettingsDialogStatusCard(
+                      icon: Icons.warning_amber_rounded,
+                      iconColor: CaRismaDesignTokens.danger,
+                      title: 'Diese Aktion ist weitreichend',
+                      body:
+                          'Betroffen sind Profil, Fahrzeuge und Kennzeichen, Chats und Anfragen, Hinweise, Storys und Medien. Gesetzliche Aufbewahrungsfristen können eine sofortige vollständige Löschung einzelner Daten verhindern.',
+                    ),
+                    const SizedBox(height: 12),
+                    if (account.hasPasswordProvider) ...[
+                      TextField(
+                        controller: passwordController,
+                        onTap: revealConfirmationField,
+                        enabled: !isDeleting,
+                        obscureText: true,
+                        cursorColor: CaRismaDesignTokens.danger,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Aktuelles Passwort',
+                          labelStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.62),
+                          ),
+                          filled: true,
+                          fillColor: CaRismaDesignTokens.controlSurface,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: const BorderSide(
+                              color: CaRismaDesignTokens.danger,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ] else if (account.isGoogleOnly) ...[
+                      const _SettingsDialogStatusCard(
+                        icon: Icons.security_rounded,
+                        iconColor: CaRismaDesignTokens.bluePrimary,
+                        title: 'Google-Anmeldung bestätigen',
+                        body:
+                            'Vor der Löschung öffnet sich Google einmal zur sicheren Bestätigung deiner Anmeldung.',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Container(
+                      key: confirmationFieldKey,
+                      decoration: BoxDecoration(
+                        color: CaRismaDesignTokens.controlSurface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      child: CheckboxListTile(
+                        value: acceptedConsequences,
+                        onChanged: (value) => setDialogState(
+                          () => acceptedConsequences = value ?? false,
+                        ),
+                        activeColor: CaRismaDesignTokens.danger,
+                        checkColor: Colors.white,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: const Text(
+                          'Ich habe die Folgen der Löschanfrage verstanden.',
+                          maxLines: 2,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: CaRismaDesignTokens.controlSurface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: CaRismaDesignTokens.danger,
+                          width: 1.4,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 11, 16, 0),
+                            child: Text(
+                              'Zur Bestätigung:',
+                              style: TextStyle(
+                                color: CaRismaDesignTokens.danger,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          TextField(
+                            onTap: revealConfirmationField,
+                            scrollPadding: const EdgeInsets.only(bottom: 120),
+                            onChanged: (value) => setDialogState(() {
+                              confirmationText = value;
+                              deletionError = null;
+                            }),
+                            enabled: !isDeleting,
+                            cursorColor: CaRismaDesignTokens.danger,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'KONTO LÖSCHEN',
+                              hintStyle: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.42),
+                                fontWeight: FontWeight.w800,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 0, 16, 11),
+                            child: Text(
+                              'Hier ins Feld schreiben',
+                              style: TextStyle(
+                                color: CaRismaDesignTokens.danger,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (deletionError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        deletionError!,
+                        style: const TextStyle(
+                          color: CaRismaDesignTokens.danger,
+                          fontWeight: FontWeight.w800,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Text(
+                      'Dein Anmeldekonto wird dauerhaft gelöscht. Die vollständige Bereinigung verbleibender App-Daten erfolgt unter Beachtung gesetzlicher Aufbewahrungsfristen.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.58),
+                        fontWeight: FontWeight.w700,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    'Abbrechen',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: confirmed && !isDeleting
+                      ? () async {
+                          setDialogState(() {
+                            isDeleting = true;
+                            deletionError = null;
+                          });
+                          try {
+                            await AuthService().deleteCurrentUser(
+                              currentPassword: passwordController.text,
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          } on FirebaseAuthException catch (error) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() {
+                              deletionError = accountAuthErrorMessage(error);
+                              isDeleting = false;
+                            });
+                          } catch (_) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() {
+                              deletionError =
+                                  'Das Konto konnte gerade nicht gelöscht werden.';
+                              isDeleting = false;
+                            });
+                          }
+                        }
+                      : null,
+                  child: isDeleting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: CaRismaDesignTokens.danger,
+                          ),
+                        )
+                      : Text(
+                          'Konto löschen',
+                          style: TextStyle(
+                            color: confirmed
+                                ? CaRismaDesignTokens.danger
+                                : Colors.white.withValues(alpha: 0.30),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      deletionScrollController.dispose();
+      passwordController.dispose();
+    });
+  }
+
+  void _showStatusOverviewDialog({
     required String title,
     required IconData icon,
-    required String hint,
-    required String emptyMessage,
-    required String copiedMessage,
-    required String Function(String message) buildDraft,
+    required String intro,
+    required List<_SettingsStatusLine> items,
   }) {
-    final controller = TextEditingController();
-
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -146,6 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           backgroundColor: CaRismaDesignTokens.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
           ),
           title: Row(
             children: [
@@ -162,73 +467,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLines: 5,
-            minLines: 3,
-            cursorColor: CaRismaDesignTokens.bluePrimary,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                color: Colors.white.withValues(alpha: 0.42),
-                fontWeight: FontWeight.w700,
-              ),
-              filled: true,
-              fillColor: CaRismaDesignTokens.controlSurface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.12),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.12),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: const BorderSide(
-                  color: CaRismaDesignTokens.bluePrimary,
-                ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    intro,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontWeight: FontWeight.w700,
+                      height: 1.38,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ...items.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _SettingsDialogStatusCard(
+                        icon: item.icon,
+                        iconColor: item.statusColor,
+                        title: item.title,
+                        body: item.body,
+                        status: item.status,
+                        statusColor: item.statusColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(
-                'Abbrechen',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.72),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                final message = controller.text.trim();
-                if (message.isEmpty) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(emptyMessage)));
-                  return;
-                }
-
-                Clipboard.setData(ClipboardData(text: buildDraft(message)));
-                Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(copiedMessage)));
-              },
               child: const Text(
-                'Kopieren',
+                'Schließen',
                 style: TextStyle(
                   color: CaRismaDesignTokens.bluePrimary,
                   fontWeight: FontWeight.w900,
@@ -241,13 +517,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _openSettingsInfo(String title) {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    final email = firebaseUser?.email?.trim();
-    final uid = firebaseUser?.uid.trim().isNotEmpty == true
-        ? firebaseUser!.uid.trim()
-        : widget.userState.userId;
+  void _showLegalConsentStatusDialog() {
+    final statuses = LegalConsentStatusResolver.resolve(
+      widget.userState.legalConsents,
+    );
 
+    _showStatusOverviewDialog(
+      title: 'Einwilligungen',
+      icon: Icons.fact_check_outlined,
+      intro:
+          'Hier siehst du die aktuell gültige Version und die zuletzt in deinem Konto gespeicherte Zustimmung.',
+      items: statuses
+          .map((status) {
+            final acceptedAt = status.acceptedAt;
+            final acceptedDate = acceptedAt == null
+                ? null
+                : '${acceptedAt.day.toString().padLeft(2, '0')}.${acceptedAt.month.toString().padLeft(2, '0')}.${acceptedAt.year}';
+            final acceptedVersion = status.isAvailable
+                ? status.acceptedVersion!
+                : 'Noch nicht verfügbar';
+            final statusText = status.isCurrent
+                ? 'Aktuell'
+                : status.isAvailable
+                ? 'Prüfung nötig'
+                : 'Nicht verfügbar';
+            final statusColor = status.isCurrent
+                ? CaRismaDesignTokens.success
+                : status.isAvailable
+                ? CaRismaDesignTokens.danger
+                : CaRismaDesignTokens.textMuted;
+
+            return _SettingsStatusLine(
+              icon: status.isCurrent
+                  ? Icons.verified_rounded
+                  : Icons.info_outline_rounded,
+              title: status.label,
+              body:
+                  'Aktuell gültig: ${status.currentVersion}\nBestätigt: $acceptedVersion${acceptedDate == null ? '' : ' am $acceptedDate'}',
+              status: statusText,
+              statusColor: statusColor,
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
+  void _showPrivacyPreferencesStatusDialog() {
+    String enabledLabel(bool value) => value ? 'Aktiv' : 'Deaktiviert';
+    String visibilityLabel(String value) => switch (value) {
+      'public' => 'Öffentlich',
+      'onlyMe' => 'Nur ich',
+      _ => 'Kontakte',
+    };
+
+    _showStatusOverviewDialog(
+      title: 'Datenschutz-Präferenzen',
+      icon: Icons.privacy_tip_outlined,
+      intro:
+          'Diese Vorgaben werden im privaten Settings-Bereich deines Kontos gespeichert. Kennzeichensuche, Chat- und Story-Codepfade lesen die jeweils unterstützten Werte; Schutz bleibt zusätzlich von der serverseitigen Prüfung abhängig.',
+      items: [
+        _SettingsStatusLine(
+          icon: Icons.visibility_outlined,
+          title: 'Sichtbarkeit',
+          body:
+              'Profil: ${visibilityLabel(_visibilitySettings.profileVisibility)} · Kennzeichen-Suche: ${visibilityLabel(_visibilitySettings.plateSearchVisibility)}',
+          status: 'Gespeichert',
+          statusColor: CaRismaDesignTokens.bluePrimary,
+        ),
+        _SettingsStatusLine(
+          icon: Icons.directions_car_outlined,
+          title: 'Öffentliche Fahrzeugdaten',
+          body:
+              'Fahrzeug ${enabledLabel(_visibilitySettings.showVehicle)} · Region ${enabledLabel(_visibilitySettings.showRegion)} · Kennzeichen ${enabledLabel(_visibilitySettings.showPlate)}',
+          status: 'Gespeichert',
+          statusColor: CaRismaDesignTokens.bluePrimary,
+        ),
+        _SettingsStatusLine(
+          icon: Icons.mark_chat_read_outlined,
+          title: 'Chat-Privatsphäre',
+          body:
+              'Lesebestätigungen ${enabledLabel(_chatPrivacySettings.readReceiptsEnabled)} · Einmal-Ansehen als Standard ${enabledLabel(_chatPrivacySettings.defaultViewOnceMedia)}',
+          status: 'In App verwendet',
+          statusColor: CaRismaDesignTokens.success,
+        ),
+        _SettingsStatusLine(
+          icon: Icons.auto_stories_outlined,
+          title: 'Story-Sichtbarkeit',
+          body:
+              '${visibilityLabel(_storyPrivacySettings.storyVisibility)} · ${_storyPrivacySettings.excludedStoryUserIds.length} ausgeschlossene Nutzer · Antworten ${enabledLabel(_storyPrivacySettings.storyRepliesEnabled)}',
+          status: 'In App verwendet',
+          statusColor: CaRismaDesignTokens.success,
+        ),
+        _SettingsStatusLine(
+          icon: Icons.person_add_alt_1_outlined,
+          title: 'Kontaktanfragen',
+          body:
+              'Anfragen ${enabledLabel(_visibilitySettings.allowContactRequests)} · Nur verifizierte Nutzer ${enabledLabel(_contactFilterSettings.requireVerifiedRequester)}',
+          status: 'Serverseitig geprüft',
+          statusColor: CaRismaDesignTokens.success,
+        ),
+      ],
+    );
+  }
+
+  void _openSettingsInfo(String title) {
     switch (title) {
       case 'Aktive Geräte':
         _showSettingsInfo(
@@ -259,47 +632,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'Konto löschen':
-        _showCopyDraftDialog(
-          title: 'Konto löschen',
-          icon: Icons.delete_forever_rounded,
-          hint:
-              'Schreibe kurz, dass du dein Konto löschen möchtest. Beispiel: Ich möchte mein Konto vollständig löschen.',
-          emptyMessage:
-              'Bitte bestätige kurz, dass du dein Konto löschen möchtest.',
-          copiedMessage: 'Löschanfrage wurde kopiert.',
-          buildDraft: (message) =>
-              'Konto löschen anfordern\n'
-              'App: ${CaRismaAppConfig.appVersionLabel}\n'
-              'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
-              'UID: $uid\n'
-              'Bestätigung: $message\n\n'
-              'Hinweis: Profil, Fahrzeugdaten, Verifizierungsdaten, Storys, Chatbezüge, Hinweise, Sicherheitsfristen und gespeicherte Dateien müssen rechtlich korrekt geprüft und entfernt werden.',
-        );
+        _showAccountDeletionRequestDialog();
         return;
       case 'Datenexport anfordern':
-        _showCopyDraftDialog(
-          title: 'Datenexport',
-          icon: Icons.file_download_outlined,
-          hint: 'Optionaler Hinweis, z. B. welche Daten du brauchst',
-          emptyMessage: 'Schreibe kurz, welche Daten du anfordern möchtest.',
-          copiedMessage: 'Datenexport-Anfrage wurde kopiert.',
-          buildDraft: (message) =>
-              'Datenexport anfordern\n'
-              'App: ${CaRismaAppConfig.appVersionLabel}\n'
-              'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
-              'UID: $uid\n'
-              'Hinweis: $message',
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const DataExportRequestScreen(),
+          ),
         );
         return;
       case 'Gespeicherte Daten einsehen':
-        _showSettingsInfo(
-          title: 'Gespeicherte Daten',
-          icon: Icons.manage_accounts_outlined,
-          body:
-              'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
-              'UID: $uid\n'
-              'Suchkontingent: ${widget.userState.searchCredit.remaining} von ${widget.userState.searchCredit.limit} verfügbar.\n\n'
-              'Profil-, Fahrzeug-, Chat- und Hinweis-Daten werden in den jeweiligen App-Bereichen angezeigt.',
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                StoredDataOverviewScreen(userState: widget.userState),
+          ),
         );
         return;
       case 'Blockierte Nutzer':
@@ -311,26 +658,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'Einwilligungen verwalten':
-        _showSettingsInfo(
-          title: 'Einwilligungen',
-          icon: Icons.fact_check_outlined,
-          body:
-              'Aktuelle Versionen:\n'
-              'AGB: ${LegalVersions.terms}\n'
-              'Datenschutz: ${LegalVersions.privacy}\n'
-              'Verantwortungsvolle Nutzung: ${LegalVersions.responsibleUse}\n'
-              'Keine Notfallnutzung: ${LegalVersions.noEmergencyUse}\n\n'
-              'Die beim Registrieren bestätigten Versionen werden serverseitig dem Konto zugeordnet. Änderungen an Rechtstexten müssen erneut geprüft und bei Bedarf mit einer neuen Zustimmung verbunden werden.',
-        );
+        _showLegalConsentStatusDialog();
         return;
       case 'Datenschutz-Präferenzen':
-        _showSettingsInfo(
-          title: 'Datenschutz-Präferenzen',
-          icon: Icons.privacy_tip_outlined,
-          body:
-              'Hier werden künftig feinere Datenschutzoptionen gebündelt: Sichtbarkeit, Kontaktaufnahme, Story-Freigaben und Chat-Privatsphäre.\n\n'
-              'Für den MVP sind die wichtigsten Punkte bereits in den eigenen Unterbereichen sichtbar. Serverseitige Regeln müssen für den Release passend erzwungen werden.',
-        );
+        _showPrivacyPreferencesStatusDialog();
         return;
       case 'Werbung & Tracking':
         _showSettingsInfo(
@@ -342,13 +673,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'App-Berechtigungen':
-        _showSettingsInfo(
-          title: 'App-Berechtigungen',
-          icon: Icons.tune_rounded,
-          body:
-              'CaRisma nutzt je nach Funktion Kamera, Mikrofon, Standort, Kontakte, Medien und Mitteilungen.\n\n'
-              'Die App kann Berechtigungen anfordern, wenn du die jeweilige Funktion benutzt. Den aktuellen Systemstatus verwaltest du in den Android-App-Einstellungen.\n\n'
-              'Wenn eine Funktion blockiert ist, prüfe dort die passende Freigabe und starte CaRisma danach neu.',
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const _AppPermissionsSettingsScreen(),
+          ),
         );
         return;
       case 'Profil-Sichtbarkeit':
@@ -496,21 +824,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'Missbrauch melden':
-        _showCopyDraftDialog(
-          title: 'Missbrauch melden',
-          icon: Icons.report_problem_outlined,
-          hint:
-              'Beschreibe kurz den Vorfall, z. B. falsche Anfrage, Belästigung oder missbräuchliche Nutzung.',
-          emptyMessage: 'Beschreibe kurz, was passiert ist.',
-          copiedMessage: 'Missbrauchsmeldung wurde kopiert.',
-          buildDraft: (message) =>
-              'Missbrauch melden\n'
-              'Bereich: Sicherheit & Missbrauch\n'
-              'App: ${CaRismaAppConfig.appVersionLabel}\n'
-              'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
-              'UID: $uid\n'
-              'Beschreibung: $message',
-        );
+        _openSupportRequest(SupportRequestType.problem);
         return;
       case 'Sicherheitsregeln':
         _showSettingsInfo(
@@ -616,54 +930,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'Problem melden':
-        _showCopyDraftDialog(
-          title: 'Problem melden',
-          icon: Icons.bug_report_outlined,
-          hint:
-              'Was wolltest du tun? Was ist passiert? In welchem Bereich warst du?',
-          emptyMessage: 'Beschreibe kurz das Problem.',
-          copiedMessage: 'Problembericht wurde kopiert.',
-          buildDraft: (message) =>
-              'Problem melden\n'
-              'Bereich: Support\n'
-              'App: ${CaRismaAppConfig.appVersionLabel}\n'
-              'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
-              'UID: $uid\n'
-              'Beschreibung: $message',
-        );
+        _openSupportRequest(SupportRequestType.problem);
         return;
       case 'Verifizierungsproblem':
-        _showCopyDraftDialog(
-          title: 'Verifizierungsproblem',
-          icon: Icons.verified_user_outlined,
-          hint:
-              'Beschreibe, welches Dokument oder welcher Schritt nicht funktioniert.',
-          emptyMessage: 'Beschreibe kurz dein Verifizierungsproblem.',
-          copiedMessage: 'Verifizierungsanfrage wurde kopiert.',
-          buildDraft: (message) =>
-              'Verifizierungsproblem\n'
-              'Bereich: Profil & Verifizierung\n'
-              'App: ${CaRismaAppConfig.appVersionLabel}\n'
-              'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
-              'UID: $uid\n'
-              'Beschreibung: $message',
-        );
+        _openSupportRequest(SupportRequestType.verification);
         return;
       case 'Feedback senden':
-        _showCopyDraftDialog(
-          title: 'Feedback senden',
-          icon: Icons.feedback_outlined,
-          hint: 'Was gefällt dir, was fehlt dir oder was sollte besser werden?',
-          emptyMessage: 'Schreibe kurz dein Feedback.',
-          copiedMessage: 'Feedback wurde kopiert.',
-          buildDraft: (message) =>
-              'Feedback senden\n'
-              'Bereich: Support\n'
-              'App: ${CaRismaAppConfig.appVersionLabel}\n'
-              'Konto: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}\n'
-              'UID: $uid\n'
-              'Feedback: $message',
-        );
+        _openSupportRequest(SupportRequestType.feedback);
         return;
       default:
         _showComingSoon(title);
@@ -734,6 +1007,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _storyPrivacySettings = settings.storyPrivacy;
         _appPreferenceSettings = settings.appPreferences;
       });
+      AppRuntimePreferences.instance.apply(settings.appPreferences);
     } catch (_) {
       if (!mounted) {
         return;
@@ -803,8 +1077,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _saveUserSettings(
       title: title,
       applyValue: () => _visibilitySettings = settings,
-      save: (userId) =>
-          _userSettingsRepository.saveVisibility(userId, settings),
+      save: (userId) => Future.wait([
+        _userSettingsRepository.saveVisibility(userId, settings),
+        _profileRepository.applyVisibilitySettings(
+          uid: userId,
+          profileVisibility: settings.profileVisibility,
+          showVehicle: settings.showVehicle,
+          showRegion: settings.showRegion,
+          showPlate: settings.showPlate,
+          allowContactRequests: settings.allowContactRequests,
+        ),
+      ]),
+      suffix: ' Die Änderung ist jetzt aktiv.',
     );
   }
 
@@ -850,11 +1134,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ) async {
     await _saveUserSettings(
       title: title,
-      applyValue: () => _appPreferenceSettings = settings,
+      applyValue: () {
+        _appPreferenceSettings = settings;
+        AppRuntimePreferences.instance.apply(settings);
+      },
       save: (userId) =>
           _userSettingsRepository.saveAppPreferences(userId, settings),
-      suffix:
-          ' Die appweite Anwendung folgt, sobald die jeweilige Funktion angebunden ist.',
+      suffix: ' Die Änderung ist jetzt aktiv.',
     );
   }
 
@@ -962,228 +1248,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     widget.onLogout();
   }
 
-  void _showAccountLoginInfo() {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    final email = firebaseUser?.email?.trim();
-    final userId = firebaseUser?.uid.trim();
-    final emailVerified = firebaseUser?.emailVerified == true;
-
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: CaRismaDesignTokens.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Text(
-            'E-Mail / Login',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-          ),
-          content: Text(
-            [
-              'E-Mail: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}',
-              'Status: ${emailVerified ? 'verifiziert' : 'nicht verifiziert'}',
-              'UID: ${userId?.isNotEmpty == true ? userId : widget.userState.userId}',
-            ].join('\n'),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
-              fontWeight: FontWeight.w700,
-              height: 1.45,
-            ),
-          ),
-          actions: [
-            if (!emailVerified)
-              TextButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  _sendEmailVerificationLink();
-                },
-                child: const Text(
-                  'Bestätigen',
-                  style: TextStyle(
-                    color: CaRismaDesignTokens.bluePrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            TextButton(
-              onPressed: () {
-                final accountInfo = [
-                  'E-Mail: ${email?.isNotEmpty == true ? email : 'Nicht verfügbar'}',
-                  'Status: ${emailVerified ? 'verifiziert' : 'nicht verifiziert'}',
-                  'UID: ${userId?.isNotEmpty == true ? userId : widget.userState.userId}',
-                ].join('\n');
-
-                Clipboard.setData(ClipboardData(text: accountInfo));
-                Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Kontodaten wurden kopiert.')),
-                );
-              },
-              child: const Text(
-                'Kopieren',
-                style: TextStyle(
-                  color: CaRismaDesignTokens.bluePrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text(
-                'Schließen',
-                style: TextStyle(
-                  color: CaRismaDesignTokens.bluePrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _sendEmailVerificationLink() async {
-    final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email?.trim();
-
-    if (user == null || email == null || email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Für dieses Konto ist keine E-Mail-Adresse hinterlegt.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    await user.reload();
-    final refreshedUser = FirebaseAuth.instance.currentUser;
-
-    if (refreshedUser?.emailVerified == true) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Deine E-Mail-Adresse ist bestätigt.')),
-      );
-      return;
-    }
-
-    try {
-      await refreshedUser?.sendEmailVerification();
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bestätigungslink wurde an $email gesendet.')),
-      );
-    } on FirebaseAuthException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_mapEmailVerificationError(error))),
-      );
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Der Bestätigungslink konnte gerade nicht gesendet werden.',
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _sendPasswordResetLink() async {
-    final email = FirebaseAuth.instance.currentUser?.email?.trim();
-
-    if (email == null || email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Für dieses Konto ist keine E-Mail-Adresse hinterlegt.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ein Link zum Zurücksetzen wurde an $email gesendet.'),
-        ),
-      );
-    } on FirebaseAuthException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_mapPasswordResetError(error))));
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Der Link zum Zurücksetzen konnte gerade nicht gesendet werden.',
-          ),
-        ),
-      );
-    }
-  }
-
-  String _mapPasswordResetError(FirebaseAuthException error) {
-    switch (error.code) {
-      case 'invalid-email':
-        return 'Die E-Mail-Adresse ist ungültig.';
-      case 'user-disabled':
-        return 'Dieses Nutzerkonto wurde deaktiviert.';
-      case 'network-request-failed':
-        return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
-      default:
-        return error.message ??
-            'Der Link zum Zurücksetzen konnte gerade nicht gesendet werden.';
-    }
-  }
-
-  String _mapEmailVerificationError(FirebaseAuthException error) {
-    switch (error.code) {
-      case 'too-many-requests':
-        return 'Zu viele Anfragen. Bitte warte kurz und versuche es erneut.';
-      case 'network-request-failed':
-        return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
-      case 'user-disabled':
-        return 'Dieses Nutzerkonto wurde deaktiviert.';
-      default:
-        return error.message ??
-            'Der Bestätigungslink konnte gerade nicht gesendet werden.';
-    }
-  }
-
   void _openDetailPage({
     required IconData icon,
     required String title,
@@ -1206,10 +1270,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _openLegalContent(String title) {
     if (title == 'Lizenzen') {
-      showLicensePage(
-        context: context,
-        applicationName: CaRismaAppConfig.appName,
-        applicationVersion: CaRismaAppConfig.appVersionLabel,
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const CaRismaLicensesScreen()),
       );
       return;
     }
@@ -1222,76 +1284,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _openAccountSecurity() {
-    _openDetailPage(
-      icon: Icons.admin_panel_settings_rounded,
-      title: 'Konto & Sicherheit',
-      description:
-          'Verwalte Login, Abmeldung und sicherheitsrelevante Kontoaktionen.',
-      items: const [
-        _SettingsDetailItem(
-          icon: Icons.mail_outline_rounded,
-          title: 'E-Mail / Login',
-          description: 'Angemeldete E-Mail und Konto-ID anzeigen.',
+    final currentUser = FirebaseAuth.instance.currentUser;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AccountSecurityScreen(
+          initialAccount: currentUser == null
+              ? null
+              : AuthAccountSnapshot.fromUser(currentUser),
+          onLogout: _confirmLogout,
+          onRequestAccountDeletion: () {
+            _showAccountDeletionRequestDialog();
+          },
+          onOpenSupport: _openSupport,
         ),
-        _SettingsDetailItem(
-          icon: Icons.lock_outline_rounded,
-          title: 'Passwort ändern',
-          description: 'Link zum Zurücksetzen per E-Mail senden.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.mark_email_read_outlined,
-          title: 'E-Mail bestätigen',
-          description: 'Bestätigungslink erneut senden.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.phonelink_lock_rounded,
-          title: 'Aktive Geräte',
-          description: 'Angemeldete Geräte und Sitzungen anzeigen.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.logout_rounded,
-          title: 'Abmelden',
-          description: 'Sicher vom aktuellen Gerät abmelden.',
-          isDestructive: true,
-        ),
-        _SettingsDetailItem(
-          icon: Icons.delete_forever_rounded,
-          title: 'Konto löschen',
-          description:
-              'Konto, Profil, Fahrzeugdaten und Verifizierungsdaten entfernen.',
-          isDestructive: true,
-        ),
-      ],
-      onItemTap: (title) {
-        if (title == 'E-Mail / Login') {
-          _showAccountLoginInfo();
-          return;
-        }
-
-        if (title == 'Passwort ändern') {
-          _sendPasswordResetLink();
-          return;
-        }
-
-        if (title == 'E-Mail bestätigen') {
-          _sendEmailVerificationLink();
-          return;
-        }
-
-        if (title == 'Abmelden') {
-          _confirmLogout();
-          return;
-        }
-
-        _openSettingsInfo(title);
-      },
+      ),
     );
   }
 
-  void _openProfileManagement() {
+  void _openProfileManagement(ProfileSettingsArea area) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ProfileScreen(userState: widget.userState),
+        builder: (_) => ProfileVerificationSettingsScreen(
+          userState: widget.userState,
+          area: area,
+        ),
       ),
     );
   }
@@ -1299,55 +1315,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openVisibilityAndDiscovery() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _SettingsSwitchScreen(
-          icon: Icons.visibility_outlined,
-          title: 'Sichtbarkeit & Auffindbarkeit',
-          description:
-              'Steuere gespeicherte Vorgaben für öffentliche Profil-, Fahrzeug- und Kennzeichendaten.',
-          note:
-              'Diese Einstellungen sind gespeichert. Suche, öffentliche Profile und Kontaktanfragen müssen sie serverseitig erzwingen.',
-          items: [
-            _SettingsSwitchItem(
-              icon: Icons.directions_car_outlined,
-              title: 'Fahrzeug öffentlich zeigen',
-              description: 'Marke und Modell dürfen öffentlich erscheinen.',
-              value: _visibilitySettings.showVehicle,
-              onChanged: (value) => _saveVisibilitySettings(
-                'Fahrzeug-Sichtbarkeit',
-                _visibilitySettings.copyWith(showVehicle: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.location_city_outlined,
-              title: 'Region öffentlich zeigen',
-              description: 'Stadt oder grobe Region darf sichtbar sein.',
-              value: _visibilitySettings.showRegion,
-              onChanged: (value) => _saveVisibilitySettings(
-                'Region-Sichtbarkeit',
-                _visibilitySettings.copyWith(showRegion: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.pin_outlined,
-              title: 'Kennzeichen öffentlich zeigen',
-              description: 'Kennzeichen darf in erlaubten Profilen erscheinen.',
-              value: _visibilitySettings.showPlate,
-              onChanged: (value) => _saveVisibilitySettings(
-                'Kennzeichen-Sichtbarkeit',
-                _visibilitySettings.copyWith(showPlate: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.mark_chat_unread_outlined,
-              title: 'Kontaktanfragen erlauben',
-              description: 'Neue Kontaktanfragen grundsätzlich zulassen.',
-              value: _visibilitySettings.allowContactRequests,
-              onChanged: (value) => _saveVisibilitySettings(
-                'Kontaktanfragen',
-                _visibilitySettings.copyWith(allowContactRequests: value),
-              ),
-            ),
-          ],
+        builder: (_) => VisibilitySettingsScreen(
+          initialSettings: _visibilitySettings,
+          onChanged: _saveVisibilitySettings,
         ),
       ),
     );
@@ -1356,53 +1326,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openContactRequestFilters() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _SettingsSwitchScreen(
-          icon: Icons.filter_alt_outlined,
-          title: 'Kontaktanfragen-Filter',
-          description:
-              'Speichere Regeln, mit denen Kontaktanfragen später serverseitig geprüft werden.',
-          note:
-              'Gespeichert. Die Anfrage-Function muss diese Filter noch verbindlich anwenden.',
-          items: [
-            _SettingsSwitchItem(
-              icon: Icons.verified_user_outlined,
-              title: 'Nur verifizierte Nutzer',
-              description: 'Anfragen nur von verifizierten Konten zulassen.',
-              value: _contactFilterSettings.requireVerifiedRequester,
-              onChanged: (value) => _saveContactFilterSettings(
-                'Verifizierungsfilter',
-                _contactFilterSettings.copyWith(
-                  requireVerifiedRequester: value,
-                ),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.do_not_disturb_on_outlined,
-              title: 'Unverifizierte automatisch ablehnen',
-              description: 'Später ohne manuelle Prüfung abweisen.',
-              value: _contactFilterSettings.autoRejectUnverified,
-              onChanged: (value) => _saveContactFilterSettings(
-                'Automatische Ablehnung',
-                _contactFilterSettings.copyWith(autoRejectUnverified: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.nightlight_round,
-              title: 'Ruhemodus für Anfragen',
-              description: 'Neue Anfragen vorbereitet pausieren.',
-              value:
-                  _contactFilterSettings.contactRequestQuietModeUntil != null,
-              onChanged: (value) => _saveContactFilterSettings(
-                'Ruhemodus',
-                _contactFilterSettings.copyWith(
-                  contactRequestQuietModeUntil: value
-                      ? DateTime.now().add(const Duration(hours: 24))
-                      : null,
-                  clearQuietMode: !value,
-                ),
-              ),
-            ),
-          ],
+        builder: (_) => ContactRequestSettingsScreen(
+          initialSettings: _contactFilterSettings,
+          onChanged: _saveContactFilterSettings,
         ),
       ),
     );
@@ -1470,35 +1396,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openStoryPrivacy() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _SettingsSwitchScreen(
-          icon: Icons.auto_stories_outlined,
-          title: 'Story-Einstellungen',
-          description: 'Steuere Story-Sichtbarkeit und Standard-Inhalte.',
-          note:
-              'Ausschlüsse und Fahrzeugdaten-Standard wirken beim Erstellen. Story-Antworten brauchen noch Story-Feld/Rules-Anbindung.',
-          items: [
-            _SettingsSwitchItem(
-              icon: Icons.reply_outlined,
-              title: 'Story-Antworten erlauben',
-              description:
-                  'Vorbereitet, bis Story-Antworten pro Story serverseitig geprüft werden.',
-              value: _storyPrivacySettings.storyRepliesEnabled,
-              onChanged: (value) => _saveStoryPrivacySettings(
-                'Story-Antworten',
-                _storyPrivacySettings.copyWith(storyRepliesEnabled: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.directions_car_filled_outlined,
-              title: 'Fahrzeugdaten standardmäßig',
-              description: 'Storys dürfen standardmäßig Fahrzeugdaten nutzen.',
-              value: _storyPrivacySettings.defaultStoryVehicleData,
-              onChanged: (value) => _saveStoryPrivacySettings(
-                'Story-Fahrzeugdaten',
-                _storyPrivacySettings.copyWith(defaultStoryVehicleData: value),
-              ),
-            ),
-          ],
+        builder: (_) => StoryPrivacySettingsScreen(
+          initialSettings: _storyPrivacySettings,
+          onChanged: _saveStoryPrivacySettings,
         ),
       ),
     );
@@ -1560,122 +1460,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _openSafetyCenter() {
-    _openDetailPage(
-      icon: Icons.health_and_safety_outlined,
-      title: 'Sicherheitscenter',
-      description:
-          'Behalte Blockierungen, Warnungen, Vorfälle und Schutzregeln im Blick.',
-      items: const [
-        _SettingsDetailItem(
-          icon: Icons.block_rounded,
-          title: 'Blockierte Nutzer',
-          description: 'Blockierte Nutzer und Kennzeichen verwalten.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.assignment_outlined,
-          title: 'Gemeldete Vorfälle',
-          description: 'Gemeldete Sicherheitsfälle vorbereitet anzeigen.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.warning_amber_rounded,
-          title: 'Konto-Warnungen',
-          description: 'Warnungen, Sperren und Einschränkungen nachvollziehen.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.verified_outlined,
-          title: 'Vertrauensstatus',
-          description: 'Verifizierung und Kontovertrauen zusammenfassen.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.report_problem_outlined,
-          title: 'Missbrauch melden',
-          description:
-              'Melde falsche Anfragen, Belästigung oder Fake-Hinweise.',
-        ),
-        _SettingsDetailItem(
-          icon: Icons.rule_rounded,
-          title: 'Missbrauchsschutz',
-          description:
-              'Regeln, Limits und Schutz vor missbräuchlicher Nutzung.',
-        ),
-      ],
-      onItemTap: (title) {
-        if (title == 'Blockierte Nutzer' ||
-            title == 'Gemeldete Vorfälle' ||
-            title == 'Konto-Warnungen' ||
-            title == 'Vertrauensstatus' ||
-            title == 'Missbrauch melden' ||
-            title == 'Missbrauchsschutz') {
-          _openSettingsInfo(title);
-          return;
-        }
-
-        _showComingSoon(title);
-      },
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            _SafetyCenterSettingsScreen(userState: widget.userState),
+      ),
     );
   }
 
   void _openAppComfort() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _SettingsSwitchScreen(
-          icon: Icons.tune_rounded,
-          title: 'App-Komfort',
-          description:
-              'Speichere Komfortoptionen für Bedienung und DACH-Bereiche.',
-          note:
-              'Standardland wirkt in Suchen und Melden. Sprache/Theme bleiben bis zur i18n-/Theme-Migration vorbereitet.',
-          items: [
-            _SettingsSwitchItem(
-              icon: Icons.vibration_rounded,
-              title: 'Haptik aktivieren',
-              description: 'Vibration und haptisches Feedback vorbereiten.',
-              value: _appPreferenceSettings.hapticsEnabled,
-              onChanged: (value) => _saveAppPreferenceSettings(
-                'Haptik',
-                _appPreferenceSettings.copyWith(hapticsEnabled: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.volume_up_outlined,
-              title: 'Nachrichtentöne',
-              description: 'Töne für Chat- und Anfrageereignisse vorbereiten.',
-              value: _appPreferenceSettings.messageSoundsEnabled,
-              onChanged: (value) => _saveAppPreferenceSettings(
-                'Nachrichtentöne',
-                _appPreferenceSettings.copyWith(messageSoundsEnabled: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.language_rounded,
-              title: 'Sprache',
-              description: 'Deutsch aktiv. Englisch/Türkisch vorbereitet.',
-              value: _appPreferenceSettings.languageCode == 'de',
-              enabled: false,
-              onChanged: (_) {},
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.dark_mode_outlined,
-              title: 'Designmodus',
-              description: 'Dunkles CaRisma-Design ist aktuell fest aktiv.',
-              value: _appPreferenceSettings.themeMode == 'dark',
-              enabled: false,
-              onChanged: (_) {},
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.explore_outlined,
-              title: 'Kilometer & DACH',
-              description:
-                  'Das gespeicherte Standardland startet Suchen und Melden.',
-              value:
-                  _appPreferenceSettings.distanceUnit == 'km' &&
-                  _appPreferenceSettings.defaultPlateCountry == 'DE',
-              enabled: false,
-              onChanged: (_) {},
-            ),
-          ],
+        builder: (_) => AppComfortSettingsScreen(
+          initialSettings: _appPreferenceSettings,
+          onChanged: _saveAppPreferenceSettings,
         ),
       ),
+    );
+  }
+
+  void _openSupportRequest(SupportRequestType type) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => SupportRequestScreen(type: type)),
     );
   }
 
@@ -1707,15 +1513,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ],
       onItemTap: (title) {
-        if (title == 'Hilfe & FAQ' ||
-            title == 'Problem melden' ||
-            title == 'Verifizierungsproblem' ||
-            title == 'Feedback senden') {
-          _openSettingsInfo(title);
-          return;
-        }
-
-        _showComingSoon(title);
+        final Widget screen = switch (title) {
+          'Hilfe & FAQ' => const SupportFaqScreen(),
+          'Problem melden' => const SupportRequestScreen(
+            type: SupportRequestType.problem,
+          ),
+          'Verifizierungsproblem' => const SupportRequestScreen(
+            type: SupportRequestType.verification,
+          ),
+          'Feedback senden' => const SupportRequestScreen(
+            type: SupportRequestType.feedback,
+          ),
+          _ => const SupportFaqScreen(),
+        };
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => screen));
       },
     );
   }
@@ -1766,263 +1579,258 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final contentTopInset = CaRismaDesignTokens.mainScreenTopInset + 8;
+    final contentBottomInset =
+        CaRismaDesignTokens.mainScreenBottomInset + keyboardInset;
 
     return CaRismaBackground(
       child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final contentTopInset = CaRismaDesignTokens.mainScreenTopInset;
-            final contentBottomInset =
-                CaRismaDesignTokens.mainScreenBottomInset + 10 + keyboardInset;
-            return SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: CustomScrollView(
+          physics: const ClampingScrollPhysics(),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 20,
                 contentTopInset,
                 20,
                 contentBottomInset,
               ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight:
-                      (constraints.maxHeight -
-                              contentTopInset -
-                              contentBottomInset)
-                          .clamp(0.0, double.infinity)
-                          .toDouble(),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SettingsGroupCard(
-                      title: 'Konto',
-                      icon: Icons.person_outline_rounded,
-                      children: [
-                        _SettingsRow(
-                          icon: Icons.admin_panel_settings_rounded,
-                          title: 'Konto & Sicherheit',
-                          description:
-                              'Login, Passwort, Abmeldung und Konto löschen.',
-                          onTap: _openAccountSecurity,
+              sliver: SliverList.list(
+                children: [
+                  _SettingsGroupCard(
+                    title: 'Konto',
+                    icon: Icons.person_outline_rounded,
+                    children: [
+                      _SettingsRow(
+                        icon: Icons.admin_panel_settings_rounded,
+                        title: 'Konto & Sicherheit',
+                        description:
+                            'Login, Passwort, Abmeldung und Konto löschen.',
+                        onTap: _openAccountSecurity,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _SettingsGroupCard(
+                    title: 'Profil & Verifizierung',
+                    icon: Icons.verified_user_outlined,
+                    children: [
+                      _SettingsRow(
+                        icon: Icons.person_rounded,
+                        title: 'Persönliche Daten',
+                        description:
+                            'Name, Profilbild und persönliche Angaben bearbeiten.',
+                        onTap: () => _openProfileManagement(
+                          ProfileSettingsArea.personalData,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _SettingsGroupCard(
-                      title: 'Profil & Verifizierung',
-                      icon: Icons.verified_user_outlined,
-                      children: [
-                        _SettingsRow(
-                          icon: Icons.person_rounded,
-                          title: 'Persönliche Daten',
-                          description:
-                              'Name, Profilbild und persönliche Angaben bearbeiten.',
-                          onTap: _openProfileManagement,
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.upload_file_rounded,
+                        title: 'Dokumente hochladen',
+                        description:
+                            'Ausweis, Führerschein und Fahrzeugschein einreichen.',
+                        onTap: () => _openProfileManagement(
+                          ProfileSettingsArea.documents,
                         ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.upload_file_rounded,
-                          title: 'Dokumente hochladen',
-                          description:
-                              'Ausweis, Führerschein und Fahrzeugschein einreichen.',
-                          onTap: _openProfileManagement,
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.directions_car_rounded,
+                        title: 'Fahrzeuge & Kennzeichen',
+                        description:
+                            'Fahrzeug, Kennzeichen und Sichtbarkeit verwalten.',
+                        onTap: () => _openProfileManagement(
+                          ProfileSettingsArea.vehicles,
                         ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.directions_car_rounded,
-                          title: 'Fahrzeuge & Kennzeichen',
-                          description:
-                              'Fahrzeug, Kennzeichen und Sichtbarkeit verwalten.',
-                          onTap: _openProfileManagement,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _SettingsGroupCard(
-                      title: 'Privatsphäre',
-                      icon: Icons.visibility_outlined,
-                      children: [
-                        _SettingsRow(
-                          icon: Icons.visibility_outlined,
-                          title: 'Sichtbarkeit & Auffindbarkeit',
-                          description:
-                              'Profil, Kennzeichen, Fahrzeugdaten und Anfragen steuern.',
-                          onTap: _openVisibilityAndDiscovery,
-                        ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.filter_alt_outlined,
-                          title: 'Kontaktanfragen-Filter',
-                          description:
-                              'Verifizierung, Anfragegründe und Ruhemodus vorbereiten.',
-                          onTap: _openContactRequestFilters,
-                        ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.lock_outline_rounded,
-                          title: 'Chat-Privatsphäre',
-                          description:
-                              'Lesebestätigungen, Medien und Einmal-ansehen steuern.',
-                          onTap: _openChatPrivacy,
-                        ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.auto_stories_outlined,
-                          title: 'Story-Einstellungen',
-                          description:
-                              'Story-Sichtbarkeit, Antworten und Fahrzeugdaten vorbereiten.',
-                          onTap: _openStoryPrivacy,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _SettingsGroupCard(
-                      title: 'App & Mitteilungen',
-                      icon: Icons.notifications_active_rounded,
-                      children: [
-                        CaRismaSwitchRow(
-                          icon: Icons.mark_chat_unread_outlined,
-                          title: 'Kontaktanfragen',
-                          description:
-                              'Neue eingehende oder angenommene Anfragen.',
-                          value: _notifyContactRequests,
-                          onChanged: (value) {
-                            _updateNotificationPreference(
-                              title: 'Kontaktanfragen',
-                              value: value,
-                              applyValue: (nextValue) {
-                                _notifyContactRequests = nextValue;
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        CaRismaSwitchRow(
-                          icon: Icons.chat_bubble_outline_rounded,
-                          title: 'Chats',
-                          description: 'Neue Nachrichten aus aktiven Chats.',
-                          value: _notifyChats,
-                          onChanged: (value) {
-                            _updateNotificationPreference(
-                              title: 'Chats',
-                              value: value,
-                              applyValue: (nextValue) {
-                                _notifyChats = nextValue;
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        CaRismaSwitchRow(
-                          icon: Icons.report_outlined,
-                          title: 'Anonyme Hinweise',
-                          description:
-                              'Neue sachliche Hinweise zu deinem Fahrzeug.',
-                          value: _notifyReports,
-                          onChanged: (value) {
-                            _updateNotificationPreference(
-                              title: 'Anonyme Hinweise',
-                              value: value,
-                              applyValue: (nextValue) {
-                                _notifyReports = nextValue;
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        CaRismaSwitchRow(
-                          icon: Icons.verified_user_outlined,
-                          title: 'Verifizierung',
-                          description:
-                              'Statusänderungen zu Konto- und Fahrzeugprüfung.',
-                          value: _notifyVerification,
-                          onChanged: (value) {
-                            _updateNotificationPreference(
-                              title: 'Verifizierung',
-                              value: value,
-                              applyValue: (nextValue) {
-                                _notifyVerification = nextValue;
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.tune_rounded,
-                          title: 'App-Komfort',
-                          description:
-                              'Sprache, Design, Haptik und Standardland vorbereiten.',
-                          onTap: _openAppComfort,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _SettingsGroupCard(
-                      title: 'Schutz & Daten',
-                      icon: Icons.shield_outlined,
-                      children: [
-                        _SettingsRow(
-                          icon: Icons.privacy_tip_rounded,
-                          title: 'Datenschutz',
-                          description:
-                              'Datenexport, gespeicherte Daten und Blockierungen.',
-                          onTap: _openPrivacy,
-                        ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.tune_rounded,
-                          title: 'App-Berechtigungen',
-                          description:
-                              'Kamera, Mikrofon, Standort, Kontakte, Medien und Mitteilungen.',
-                          onTap: () => _openSettingsInfo('App-Berechtigungen'),
-                        ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.health_and_safety_outlined,
-                          title: 'Sicherheitscenter',
-                          description:
-                              'Blockierungen, Vorfälle, Warnungen und Missbrauchsschutz.',
-                          onTap: _openSafetyCenter,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    _SettingsGroupCard(
-                      title: 'Hilfe & Rechtliches',
-                      icon: Icons.help_outline_rounded,
-                      children: [
-                        _SettingsRow(
-                          icon: Icons.support_agent_rounded,
-                          title: 'Support',
-                          description:
-                              'Hilfe, Problem melden, Verifizierungsproblem und Feedback.',
-                          onTap: _openSupport,
-                        ),
-                        const SizedBox(height: 10),
-                        _SettingsRow(
-                          icon: Icons.description_rounded,
-                          title: 'Rechtliches',
-                          description:
-                              'AGB, Datenschutz, Community-Richtlinien, Impressum, Lizenzen und Über CaRisma.',
-                          onTap: _openLegal,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    const _AppVersionCard(),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _SettingsGroupCard(
+                    title: 'Privatsphäre',
+                    icon: Icons.visibility_outlined,
+                    children: [
+                      _SettingsRow(
+                        icon: Icons.visibility_outlined,
+                        title: 'Sichtbarkeit',
+                        description:
+                            'Profil, Kennzeichen, Fahrzeugdaten und Anfragen steuern.',
+                        onTap: _openVisibilityAndDiscovery,
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.filter_alt_outlined,
+                        title: 'Kontaktanfragen',
+                        description:
+                            'Verifizierung, Anfragegründe und Ruhemodus vorbereiten.',
+                        onTap: _openContactRequestFilters,
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.lock_outline_rounded,
+                        title: 'Chat-Privatsphäre',
+                        description:
+                            'Lesebestätigungen, Medien und Einmal-ansehen steuern.',
+                        onTap: _openChatPrivacy,
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.auto_stories_outlined,
+                        title: 'Story-Einstellungen',
+                        description:
+                            'Story-Sichtbarkeit, Antworten und Fahrzeugdaten vorbereiten.',
+                        onTap: _openStoryPrivacy,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _SettingsGroupCard(
+                    title: 'App & Mitteilungen',
+                    icon: Icons.notifications_active_rounded,
+                    children: [
+                      CaRismaSwitchRow(
+                        icon: Icons.mark_chat_unread_outlined,
+                        title: 'Kontaktanfragen',
+                        description:
+                            'Neue eingehende oder angenommene Anfragen.',
+                        value: _notifyContactRequests,
+                        onChanged: (value) {
+                          _updateNotificationPreference(
+                            title: 'Kontaktanfragen',
+                            value: value,
+                            applyValue: (nextValue) {
+                              _notifyContactRequests = nextValue;
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      CaRismaSwitchRow(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        title: 'Chats',
+                        description: 'Neue Nachrichten aus aktiven Chats.',
+                        value: _notifyChats,
+                        onChanged: (value) {
+                          _updateNotificationPreference(
+                            title: 'Chats',
+                            value: value,
+                            applyValue: (nextValue) {
+                              _notifyChats = nextValue;
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      CaRismaSwitchRow(
+                        icon: Icons.report_outlined,
+                        title: 'Anonyme Hinweise',
+                        description:
+                            'Neue sachliche Hinweise zu deinem Fahrzeug.',
+                        value: _notifyReports,
+                        onChanged: (value) {
+                          _updateNotificationPreference(
+                            title: 'Anonyme Hinweise',
+                            value: value,
+                            applyValue: (nextValue) {
+                              _notifyReports = nextValue;
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      CaRismaSwitchRow(
+                        icon: Icons.verified_user_outlined,
+                        title: 'Verifizierung',
+                        description:
+                            'Statusänderungen zu Konto- und Fahrzeugprüfung.',
+                        value: _notifyVerification,
+                        onChanged: (value) {
+                          _updateNotificationPreference(
+                            title: 'Verifizierung',
+                            value: value,
+                            applyValue: (nextValue) {
+                              _notifyVerification = nextValue;
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.tune_rounded,
+                        title: 'App-Komfort',
+                        description:
+                            'Sprache, Design, Haptik und Standardland vorbereiten.',
+                        onTap: _openAppComfort,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _SettingsGroupCard(
+                    title: 'Schutz & Daten',
+                    icon: Icons.shield_outlined,
+                    children: [
+                      _SettingsRow(
+                        icon: Icons.privacy_tip_rounded,
+                        title: 'Datenschutz',
+                        description:
+                            'Datenexport, gespeicherte Daten und Blockierungen.',
+                        onTap: _openPrivacy,
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.tune_rounded,
+                        title: 'App-Berechtigungen',
+                        description:
+                            'Kamera, Mikrofon, Standort, Kontakte, Medien und Mitteilungen.',
+                        onTap: () => _openSettingsInfo('App-Berechtigungen'),
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.health_and_safety_outlined,
+                        title: 'Sicherheitscenter',
+                        description:
+                            'Blockierungen, Vorfälle, Warnungen und Missbrauchsschutz.',
+                        onTap: _openSafetyCenter,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _SettingsGroupCard(
+                    title: 'Hilfe & Rechtliches',
+                    icon: Icons.help_outline_rounded,
+                    children: [
+                      _SettingsRow(
+                        icon: Icons.support_agent_rounded,
+                        title: 'Support',
+                        description:
+                            'Hilfe, Problem melden, Verifizierungsproblem und Feedback.',
+                        onTap: _openSupport,
+                      ),
+                      const SizedBox(height: 10),
+                      _SettingsRow(
+                        icon: Icons.description_rounded,
+                        title: 'Rechtliches',
+                        description:
+                            'AGB, Datenschutz, Community-Richtlinien, Impressum, Lizenzen und Über CaRisma.',
+                        onTap: _openLegal,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const _AppVersionCard(),
+                ],
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _SettingsGroupCard extends StatelessWidget {
+class _SettingsGroupCard extends StatefulWidget {
   const _SettingsGroupCard({
     required this.title,
     required this.icon,
@@ -2034,45 +1842,97 @@ class _SettingsGroupCard extends StatelessWidget {
   final List<Widget> children;
 
   @override
+  State<_SettingsGroupCard> createState() => _SettingsGroupCardState();
+}
+
+class _SettingsGroupCardState extends State<_SettingsGroupCard> {
+  bool _isExpanded = false;
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 3,
-                height: 16,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      CaRismaDesignTokens.bluePrimary,
-                      CaRismaDesignTokens.bluePrimary,
-                    ],
-                  ),
+          Semantics(
+            button: true,
+            expanded: _isExpanded,
+            label: '${widget.title} ${_isExpanded ? 'einklappen' : 'öffnen'}',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggleExpanded,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 3,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            CaRismaDesignTokens.bluePrimary,
+                            CaRismaDesignTokens.bluePrimary,
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      widget.icon,
+                      color: CaRismaDesignTokens.bluePrimary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.3,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Colors.white.withValues(alpha: 0.72),
+                        size: 24,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.3,
-                  fontSize: 14,
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 16),
-          Column(children: children),
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _isExpanded
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Column(children: widget.children),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ),
         ],
       ),
     );
@@ -2157,7 +2017,6 @@ class _SettingsSwitchItem {
     required this.description,
     required this.value,
     required this.onChanged,
-    this.enabled = true,
   });
 
   final IconData icon;
@@ -2165,7 +2024,115 @@ class _SettingsSwitchItem {
   final String description;
   final bool value;
   final ValueChanged<bool> onChanged;
-  final bool enabled;
+}
+
+class _SettingsStatusLine {
+  const _SettingsStatusLine({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.status,
+    required this.statusColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final String status;
+  final Color statusColor;
+}
+
+class _SettingsDialogStatusCard extends StatelessWidget {
+  const _SettingsDialogStatusCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.iconColor = CaRismaDesignTokens.bluePrimary,
+    this.status,
+    this.statusColor = CaRismaDesignTokens.bluePrimary,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String body;
+  final String? status;
+  final Color statusColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14.5,
+                        ),
+                      ),
+                    ),
+                    if (status case final value?) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: statusColor.withValues(alpha: 0.42),
+                          ),
+                        ),
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  body,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.66),
+                    fontWeight: FontWeight.w700,
+                    height: 1.32,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SettingsSwitchScreen extends StatelessWidget {
@@ -2274,8 +2241,6 @@ class _SettingsSwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textAlpha = item.enabled ? 1.0 : 0.52;
-
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -2294,7 +2259,7 @@ class _SettingsSwitchTile extends StatelessWidget {
                 Text(
                   item.title,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: textAlpha),
+                    color: Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 15.5,
                   ),
@@ -2303,7 +2268,7 @@ class _SettingsSwitchTile extends StatelessWidget {
                 Text(
                   item.description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.66 * textAlpha),
+                    color: Colors.white.withValues(alpha: 0.66),
                     fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
@@ -2314,7 +2279,7 @@ class _SettingsSwitchTile extends StatelessWidget {
           const SizedBox(width: 10),
           Switch.adaptive(
             value: item.value,
-            onChanged: item.enabled ? item.onChanged : null,
+            onChanged: item.onChanged,
             activeThumbColor: CaRismaDesignTokens.bluePrimary,
             activeTrackColor: CaRismaDesignTokens.bluePrimary.withValues(
               alpha: 0.38,
@@ -2333,79 +2298,1097 @@ class _AppVersionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(28),
-        splashFactory: NoSplash.splashFactory,
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        onTap: () {
-          final appInfo = [
-            CaRismaAppConfig.appName,
-            CaRismaAppConfig.appVersionLabel,
-            'AGB: ${LegalVersions.terms}',
-            'Datenschutz: ${LegalVersions.privacy}',
-            'Verantwortungsvolle Nutzung: ${LegalVersions.responsibleUse}',
-            'Keine Notfallnutzung: ${LegalVersions.noEmergencyUse}',
-          ].join('\n');
-
-          Clipboard.setData(ClipboardData(text: appInfo));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('App-Informationen wurden kopiert.')),
-          );
-        },
-        child: GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      CaRismaDesignTokens.bluePrimary,
-                      CaRismaDesignTokens.bluePrimary,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: CaRismaDesignTokens.bluePrimary.withValues(
-                        alpha: 0.30,
-                      ),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
+    return SizedBox(
+      width: double.infinity,
+      child: GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    CaRismaDesignTokens.bluePrimary,
+                    CaRismaDesignTokens.bluePrimary,
                   ],
                 ),
-                child: const Icon(
-                  Icons.local_activity_rounded,
-                  color: Colors.white,
-                  size: 20,
+                boxShadow: [
+                  BoxShadow(
+                    color: CaRismaDesignTokens.bluePrimary.withValues(
+                      alpha: 0.30,
+                    ),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.local_activity_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Text(
+                '${CaRismaAppConfig.appName} · Version ${CaRismaAppConfig.appVersion}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.72),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppPermissionsSettingsScreen extends StatefulWidget {
+  const _AppPermissionsSettingsScreen();
+
+  @override
+  State<_AppPermissionsSettingsScreen> createState() =>
+      _AppPermissionsSettingsScreenState();
+}
+
+class _AppPermissionsSettingsScreenState
+    extends State<_AppPermissionsSettingsScreen>
+    with WidgetsBindingObserver {
+  final AppPermissionService _permissionService = AppPermissionService();
+
+  AppPermissionSnapshot? _snapshot;
+  String? _errorMessage;
+  bool _isLoading = true;
+  bool _isOpeningSettings = false;
+
+  static const List<_AppPermissionDefinition> _definitions = [
+    _AppPermissionDefinition(
+      kind: AppPermissionKind.camera,
+      icon: Icons.camera_alt_outlined,
+      title: 'Kamera',
+      description: 'Storys, Chatmedien und Meldefotos aufnehmen.',
+    ),
+    _AppPermissionDefinition(
+      kind: AppPermissionKind.microphone,
+      icon: Icons.mic_none_rounded,
+      title: 'Mikrofon',
+      description: 'Sprachmemos und Videos mit Ton aufnehmen.',
+    ),
+    _AppPermissionDefinition(
+      kind: AppPermissionKind.location,
+      icon: Icons.location_on_outlined,
+      title: 'Standort',
+      description:
+          'Kennzeichensuche im Radius, Standortnachrichten und Hinweisort.',
+    ),
+    _AppPermissionDefinition(
+      kind: AppPermissionKind.media,
+      icon: Icons.photo_library_outlined,
+      title: 'Fotos und Videos',
+      description: 'Aktiv ausgewählte Medien aus der Galerie verwenden.',
+    ),
+    _AppPermissionDefinition(
+      kind: AppPermissionKind.contacts,
+      icon: Icons.contact_phone_outlined,
+      title: 'Kontakte',
+      description:
+          'Nur einen aktiv ausgewählten Kontakt über den Android-Picker teilen.',
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_isOpeningSettings) {
+      _loadStatus();
+    }
+    if (state == AppLifecycleState.resumed && _isOpeningSettings) {
+      setState(() => _isOpeningSettings = false);
+      _loadStatus();
+    }
+  }
+
+  Future<void> _loadStatus() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final snapshot = await _permissionService.loadStatus();
+      if (!mounted) return;
+      setState(() {
+        _snapshot = snapshot;
+        _isLoading = false;
+      });
+    } on AppPermissionServiceException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.message;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openAndroidSettings() async {
+    if (_isOpeningSettings || _snapshot?.isAndroid != true) return;
+    setState(() => _isOpeningSettings = true);
+
+    try {
+      await _permissionService.openAndroidSettings();
+    } on AppPermissionServiceException catch (error) {
+      if (!mounted) return;
+      setState(() => _isOpeningSettings = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = _snapshot;
+    final isAndroid = snapshot?.isAndroid == true;
+
+    return CaRismaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                child: CaRismaSubPageHeader(
+                  icon: Icons.tune_rounded,
+                  title: 'App-Berechtigungen',
+                  onBack: () => Navigator.of(context).pop(),
+                ),
+              ),
               Expanded(
-                child: Text(
-                  CaRismaAppConfig.appVersionLabel,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontWeight: FontWeight.w800,
+                child: RefreshIndicator(
+                  color: CaRismaDesignTokens.bluePrimary,
+                  backgroundColor: CaRismaDesignTokens.card,
+                  onRefresh: _loadStatus,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: ClampingScrollPhysics(),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+                    children: [
+                      Text(
+                        'CaRisma fragt Berechtigungen erst an, wenn du die jeweilige Funktion verwendest. Hier kannst du nur den aktuellen Systemstatus prüfen.',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w700,
+                          height: 1.36,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      if (_isLoading && snapshot == null)
+                        const _AppPermissionLoadingCard()
+                      else if (_errorMessage case final error?)
+                        _AppPermissionErrorCard(
+                          message: error,
+                          onRetry: _loadStatus,
+                        )
+                      else
+                        GlassCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            children: List.generate(_definitions.length, (
+                              index,
+                            ) {
+                              final definition = _definitions[index];
+                              final state =
+                                  snapshot?.stateOf(definition.kind) ??
+                                  AppPermissionState.unavailable;
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: index == _definitions.length - 1
+                                      ? 0
+                                      : 10,
+                                ),
+                                child: _AppPermissionTile(
+                                  definition: definition,
+                                  state: state,
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      const SizedBox(height: 14),
+                      _AppPermissionActionButton(
+                        icon: Icons.refresh_rounded,
+                        label: _isLoading
+                            ? 'Status wird aktualisiert'
+                            : 'Status aktualisieren',
+                        enabled: !_isLoading,
+                        onTap: _loadStatus,
+                      ),
+                      const SizedBox(height: 10),
+                      _AppPermissionActionButton(
+                        icon: Icons.settings_outlined,
+                        label: isAndroid
+                            ? 'Android-Einstellungen öffnen'
+                            : 'Nur unter Android verfügbar',
+                        enabled: isAndroid && !_isOpeningSettings,
+                        isPrimary: true,
+                        onTap: _openAndroidSettings,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Kontakte werden über den Android-Picker ausgewählt. CaRisma benötigt dafür keinen vollständigen Zugriff auf dein Adressbuch. Mitteilungen sind derzeit nicht als Android-Push-Berechtigung angebunden.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.54),
+                          fontWeight: FontWeight.w700,
+                          height: 1.36,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.copy_rounded,
-                color: Colors.white.withValues(alpha: 0.58),
-                size: 20,
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AppPermissionDefinition {
+  const _AppPermissionDefinition({
+    required this.kind,
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final AppPermissionKind kind;
+  final IconData icon;
+  final String title;
+  final String description;
+}
+
+class _AppPermissionTile extends StatelessWidget {
+  const _AppPermissionTile({required this.definition, required this.state});
+
+  final _AppPermissionDefinition definition;
+  final AppPermissionState state;
+
+  String get _statusLabel => switch (state) {
+    AppPermissionState.granted => 'Erlaubt',
+    AppPermissionState.denied => 'Nicht erlaubt',
+    AppPermissionState.restricted => 'Eingeschränkt',
+    AppPermissionState.permanentlyDenied => 'Dauerhaft abgelehnt',
+    AppPermissionState.notDetermined => 'Noch nicht angefragt',
+    AppPermissionState.notRequired => 'Nicht erforderlich',
+    AppPermissionState.unavailable => 'Nicht verfügbar',
+  };
+
+  Color get _statusColor => switch (state) {
+    AppPermissionState.granted => CaRismaDesignTokens.success,
+    AppPermissionState.denied ||
+    AppPermissionState.permanentlyDenied => CaRismaDesignTokens.danger,
+    AppPermissionState.restricted ||
+    AppPermissionState.notRequired => CaRismaDesignTokens.bluePrimary,
+    AppPermissionState.notDetermined ||
+    AppPermissionState.unavailable => CaRismaDesignTokens.textMuted,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CaRismaBlueIconBox(icon: definition.icon, size: 44, iconSize: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  definition.title,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  definition.description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.64),
+                    fontWeight: FontWeight.w700,
+                    height: 1.28,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _statusColor.withValues(alpha: 0.46),
+                    ),
+                  ),
+                  child: Text(
+                    _statusLabel,
+                    style: TextStyle(
+                      color: _statusColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppPermissionActionButton extends StatelessWidget {
+  const _AppPermissionActionButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled
+        ? CaRismaDesignTokens.bluePrimary
+        : CaRismaDesignTokens.textMuted;
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: enabled ? onTap : null,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 54),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            color: CaRismaDesignTokens.controlSurface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: color.withValues(alpha: isPrimary ? 0.92 : 0.42),
+              width: isPrimary ? 1.3 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 21),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: enabled
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.42),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppPermissionLoadingCard extends StatelessWidget {
+  const _AppPermissionLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const GlassCard(
+      padding: EdgeInsets.all(22),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: CaRismaDesignTokens.bluePrimary,
+          strokeWidth: 2.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _AppPermissionErrorCard extends StatelessWidget {
+  const _AppPermissionErrorCard({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: CaRismaDesignTokens.danger,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.74),
+                fontWeight: FontWeight.w700,
+                height: 1.34,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onRetry,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: CaRismaDesignTokens.bluePrimary,
+            ),
+            tooltip: 'Erneut versuchen',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SafetyCenterSettingsScreen extends StatefulWidget {
+  const _SafetyCenterSettingsScreen({required this.userState});
+
+  final AppUserState userState;
+
+  @override
+  State<_SafetyCenterSettingsScreen> createState() =>
+      _SafetyCenterSettingsScreenState();
+}
+
+class _SafetyCenterSettingsScreenState
+    extends State<_SafetyCenterSettingsScreen> {
+  final FirestoreChatRepository _chatRepository = FirestoreChatRepository();
+  final Set<String> _busyChatIds = <String>{};
+
+  String get _currentUserId {
+    final authUserId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+    return authUserId.isNotEmpty ? authUserId : widget.userState.userId;
+  }
+
+  Future<void> _unblock(ChatRecord chat) async {
+    final userId = _currentUserId.trim();
+
+    if (userId.isEmpty || _busyChatIds.contains(chat.id)) return;
+
+    final shouldUnblock = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: CaRismaDesignTokens.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          'Kontakt entblocken?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        content: Text(
+          '${chat.displayNameFor(userId)} kann dir danach wieder Nachrichten senden.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.76),
+            fontWeight: FontWeight.w700,
+            height: 1.35,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            style: TextButton.styleFrom(
+              overlayColor: Colors.transparent,
+              foregroundColor: Colors.white.withValues(alpha: 0.78),
+            ),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: CaRismaDesignTokens.bluePrimary,
+              foregroundColor: Colors.white,
+              overlayColor: Colors.transparent,
+            ),
+            child: const Text('Entblocken'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldUnblock != true || !mounted) return;
+
+    setState(() => _busyChatIds.add(chat.id));
+
+    try {
+      await _chatRepository.unblockChat(chatId: chat.id, userId: userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Der Kontakt wurde entblockt.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Der Kontakt konnte nicht entblockt werden. Bitte versuche es erneut.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _busyChatIds.remove(chat.id));
+      }
+    }
+  }
+
+  String _accountStatusTitle() {
+    final status = widget.userState.accountStatus;
+
+    if (status.isSuspended) return 'Konto gesperrt';
+    if (status.isRestricted) return 'Konto eingeschränkt';
+    if (status.isDeleted) return 'Konto gelöscht';
+    return 'Konto aktiv';
+  }
+
+  String _accountStatusDescription() {
+    final status = widget.userState.accountStatus;
+    final reason = status.reason?.trim();
+    final parts = <String>['Status: ${status.stateLabel}'];
+
+    if (reason != null && reason.isNotEmpty) {
+      parts.add('Grund: $reason');
+    }
+    if (status.restrictedUntil != null) {
+      parts.add('Einschränkung bis ${_formatDateTime(status.restrictedUntil)}');
+    }
+    if (status.suspendedUntil != null) {
+      parts.add('Sperre bis ${_formatDateTime(status.suspendedUntil)}');
+    }
+
+    return parts.join('\n');
+  }
+
+  String _trustStatusDescription() {
+    final status = widget.userState.accountStatus;
+
+    if (status.isVerified) {
+      return 'Dein Konto ist verifiziert. Sicherheitswarnungen werden separat angezeigt.';
+    }
+    if (status.isVerificationPending) {
+      return 'Deine Verifizierung ist ausstehend. Der endgültige Vertrauensstatus folgt nach Prüfung.';
+    }
+    return 'Dein Konto ist noch nicht verifiziert. Private Dokumente bleiben geschützt und werden nur für die Prüfung verwendet.';
+  }
+
+  String _formatDateTime(DateTime? value) {
+    if (value == null) return 'Datum nicht verfügbar';
+
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$day.$month.${local.year}, $hour:$minute Uhr';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final userId = _currentUserId.trim();
+    final stream = userId.isEmpty
+        ? Stream<List<ChatRecord>>.value(const <ChatRecord>[])
+        : _chatRepository.watchBlockedChats(userId: userId);
+    final activeModerationActions = widget.userState.activeModerationActions;
+    final warningActions = activeModerationActions
+        .where(
+          (action) =>
+              action.type == ModerationActionType.warning ||
+              action.type == ModerationActionType.restriction ||
+              action.type == ModerationActionType.suspension ||
+              action.type == ModerationActionType.accountDeletion ||
+              action.type == ModerationActionType.manualReview,
+        )
+        .toList();
+    final incidentActions = activeModerationActions
+        .where(
+          (action) =>
+              action.type == ModerationActionType.reportConfirmed ||
+              action.type == ModerationActionType.reportDismissed,
+        )
+        .toList();
+
+    return CaRismaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              CaRismaDesignTokens.mainScreenBottomInset + 10 + keyboardInset,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CaRismaSubPageHeader(
+                  icon: Icons.health_and_safety_outlined,
+                  title: 'Sicherheitscenter',
+                  onBack: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Behalte Blockierungen, Warnungen, Vorfälle und Schutzregeln im Blick.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16.5,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                GlassCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: [
+                      _SecurityCenterInfoTile(
+                        icon: widget.userState.canUseApp
+                            ? Icons.verified_user_outlined
+                            : Icons.gpp_maybe_outlined,
+                        title: _accountStatusTitle(),
+                        description: _accountStatusDescription(),
+                        accentColor: widget.userState.canUseApp
+                            ? const Color(0xFF22C55E)
+                            : const Color(0xFFEF4444),
+                      ),
+                      const SizedBox(height: 10),
+                      _SecurityCenterInfoTile(
+                        icon: Icons.verified_outlined,
+                        title: 'Vertrauensstatus',
+                        description: _trustStatusDescription(),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _SecurityCenterSectionCard(
+                  icon: Icons.block_rounded,
+                  title: 'Blockierte Nutzer/Chats',
+                  child: StreamBuilder<List<ChatRecord>>(
+                    stream: stream,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 14),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: CaRismaDesignTokens.bluePrimary,
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return const _SecurityCenterInfoTile(
+                          icon: Icons.cloud_off_rounded,
+                          title: 'Blockierungen nicht geladen',
+                          description:
+                              'Bitte prüfe deine Verbindung und versuche es erneut.',
+                        );
+                      }
+
+                      final blockedChats =
+                          snapshot.data ?? const <ChatRecord>[];
+
+                      if (blockedChats.isEmpty) {
+                        return const _SecurityCenterInfoTile(
+                          icon: Icons.person_outline_rounded,
+                          title: 'Keine blockierten Nutzer',
+                          description:
+                              'Blockierte Kontakte und Chats werden hier angezeigt.',
+                        );
+                      }
+
+                      return Column(
+                        children: List.generate(blockedChats.length, (index) {
+                          final chat = blockedChats[index];
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: index == blockedChats.length - 1 ? 0 : 10,
+                            ),
+                            child: _SecurityBlockedChatTile(
+                              chat: chat,
+                              userId: userId,
+                              isBusy: _busyChatIds.contains(chat.id),
+                              onUnblock: () => _unblock(chat),
+                            ),
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _SecurityCenterSectionCard(
+                  icon: Icons.warning_amber_rounded,
+                  title: 'Warnungen & Vorfälle',
+                  child: Column(
+                    children: [
+                      if (warningActions.isEmpty)
+                        const _SecurityCenterInfoTile(
+                          icon: Icons.check_circle_outline_rounded,
+                          title: 'Keine Konto-Warnungen',
+                          description:
+                              'Aktuell liegen keine aktiven Warnungen, Einschränkungen oder Sperren vor.',
+                          accentColor: Color(0xFF22C55E),
+                        )
+                      else
+                        ...warningActions.map(
+                          (action) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _SecurityCenterInfoTile(
+                              icon: Icons.warning_amber_rounded,
+                              title: action.typeLabel,
+                              description:
+                                  '${action.reasonLabel}\n${_formatDateTime(action.createdAt)}',
+                              accentColor: const Color(0xFFEF4444),
+                            ),
+                          ),
+                        ),
+                      if (warningActions.isEmpty) const SizedBox(height: 10),
+                      _SecurityCenterInfoTile(
+                        icon: Icons.assignment_outlined,
+                        title: incidentActions.isEmpty
+                            ? 'Keine gemeldeten Vorfälle'
+                            : 'Gemeldete Vorfälle',
+                        description: incidentActions.isEmpty
+                            ? 'Es gibt aktuell keine sichtbaren Sicherheits- oder Missbrauchsvorfälle.'
+                            : incidentActions
+                                  .map(
+                                    (action) =>
+                                        '${action.typeLabel}: ${action.reasonLabel}',
+                                  )
+                                  .join('\n'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const _SecurityCenterSectionCard(
+                  icon: Icons.rule_rounded,
+                  title: 'Missbrauchsschutz',
+                  child: Column(
+                    children: [
+                      _SecurityCenterInfoTile(
+                        icon: Icons.edit_note_rounded,
+                        title: 'Sachlich bleiben',
+                        description:
+                            'Hinweise und Anfragen müssen echt, respektvoll und nachvollziehbar sein.',
+                      ),
+                      SizedBox(height: 10),
+                      _SecurityCenterInfoTile(
+                        icon: Icons.block_rounded,
+                        title: 'Blockierungen wirken sofort',
+                        description:
+                            'Blockierte Nutzer können in diesem Chat keine neuen Nachrichten oder Anhänge senden.',
+                      ),
+                      SizedBox(height: 10),
+                      _SecurityCenterInfoTile(
+                        icon: Icons.report_problem_outlined,
+                        title: 'Meldungen werden geprüft',
+                        description:
+                            'Missbrauch kann zu Einschränkungen oder einer Sperrung des Kontos führen.',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SecurityCenterSectionCard extends StatelessWidget {
+  const _SecurityCenterSectionCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 21),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityCenterInfoTile extends StatelessWidget {
+  const _SecurityCenterInfoTile({
+    required this.icon,
+    required this.title,
+    required this.description,
+    this.accentColor = CaRismaDesignTokens.bluePrimary,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: CaRismaDesignTokens.card,
+              border: Border.all(color: accentColor.withValues(alpha: 0.34)),
+            ),
+            child: Icon(icon, color: accentColor, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.66),
+                    fontWeight: FontWeight.w700,
+                    height: 1.28,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityBlockedChatTile extends StatelessWidget {
+  const _SecurityBlockedChatTile({
+    required this.chat,
+    required this.userId,
+    required this.isBusy,
+    required this.onUnblock,
+  });
+
+  final ChatRecord chat;
+  final String userId;
+  final bool isBusy;
+  final VoidCallback onUnblock;
+
+  String _formatBlockedAt(DateTime? value) {
+    if (value == null) return 'Blockiert';
+
+    final local = value.toLocal();
+    final day = local.day.toString().padLeft(2, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    return 'Blockiert seit $day.$month.${local.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = chat.profilePhotoUrlFor(userId)?.trim() ?? '';
+    final vehicle = <String>[
+      chat.vehicleModelLabel.trim(),
+      chat.displayPlate?.trim() ?? '',
+    ].where((value) => value.isNotEmpty).join(' · ');
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: [
+          _BlockedChatAvatar(
+            imageUrl: imageUrl,
+            label: chat.displayNameFor(userId),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  chat.displayNameFor(userId),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  vehicle.isEmpty ? _formatBlockedAt(chat.blockedAt) : vehicle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.64),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (vehicle.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    _formatBlockedAt(chat.blockedAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.48),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton(
+            onPressed: isBusy ? null : onUnblock,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: CaRismaDesignTokens.bluePrimary,
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              overlayColor: Colors.transparent,
+            ),
+            child: isBusy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: CaRismaDesignTokens.bluePrimary,
+                    ),
+                  )
+                : const Text(
+                    'Entblocken',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -6332,21 +7315,26 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
       'Über CaRisma' => _LegalContent(
         title: 'Über CaRisma',
         icon: Icons.info_outline_rounded,
-        description: 'Projekt- und App-Informationen zu CaRisma.',
+        description: 'Die sichere Fahrzeug-Community von CaRisma.',
         sections: [
           const _LegalSection(
-            title: 'Was ist CaRisma?',
+            title: 'Unsere Idee',
             body:
-                'CaRisma ist eine App zur geschützten Kommunikation rund um Fahrzeuge, Kennzeichen, Kontaktanfragen und sachliche Hinweise.',
+                'CaRisma verbindet Menschen über ihre Fahrzeuge, ohne private Kontaktdaten öffentlich preiszugeben. Kennzeichensuche, Kontaktanfragen, Chats, Storys und sachliche Fahrzeughinweise werden in einer geschützten Community zusammengeführt.',
           ),
           const _LegalSection(
-            title: 'Aktueller Stand',
+            title: 'Sicherheit und Verantwortung',
             body:
-                'Dieser Build befindet sich in aktiver Entwicklung. Die App wird Schritt für Schritt mit Firebase, sicheren Regeln und finaler Qualitätssicherung verbunden.',
+                'Datensparsamkeit, kontrollierte Kontaktaufnahme und ein respektvoller Umgang stehen im Mittelpunkt. Private Kontodaten, Dokumente und Verifizierungsunterlagen werden nicht in öffentliche Profile übernommen.',
+          ),
+          const _LegalSection(
+            title: 'Community',
+            body:
+                'CaRisma richtet sich an Fahrzeugbegeisterte, die sich austauschen, Fahrzeuge entdecken und sicher miteinander in Kontakt treten möchten. Missbrauch, Belästigung und die Veröffentlichung fremder Daten werden nicht toleriert.',
           ),
           _LegalSection(
             title: 'Version',
-            body: CaRismaAppConfig.appVersionLabel,
+            body: 'CaRisma ${CaRismaAppConfig.appVersion}',
           ),
           const _LegalSection(
             title: 'Rechtsversionen',
@@ -6406,13 +7394,11 @@ class _SettingsDetailItem {
     required this.icon,
     required this.title,
     required this.description,
-    this.isDestructive = false,
   });
 
   final IconData icon;
   final String title;
   final String description;
-  final bool isDestructive;
 }
 
 class _SettingsDetailTile extends StatelessWidget {
@@ -6423,31 +7409,6 @@ class _SettingsDetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = item.isDestructive
-        ? const Color(0xFFFF8A8A)
-        : Colors.white;
-
-    final iconBoxDecoration = item.isDestructive
-        ? BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFFFF4D4F).withValues(alpha: 0.30),
-                const Color(0xFFFF8A8A).withValues(alpha: 0.18),
-              ],
-            ),
-            border: Border.all(
-              color: const Color(0xFFFF8A8A).withValues(alpha: 0.30),
-            ),
-          )
-        : null;
-
-    final iconColor = item.isDestructive
-        ? const Color(0xFFFF8A8A)
-        : Colors.white;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -6460,22 +7421,11 @@ class _SettingsDetailTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             color: CaRismaDesignTokens.controlSurface,
-            border: Border.all(
-              color: item.isDestructive
-                  ? const Color(0xFFFF8A8A).withValues(alpha: 0.24)
-                  : Colors.white.withValues(alpha: 0.10),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
           ),
           child: Row(
             children: [
-              item.isDestructive
-                  ? Container(
-                      width: 44,
-                      height: 44,
-                      decoration: iconBoxDecoration,
-                      child: Icon(item.icon, color: iconColor, size: 22),
-                    )
-                  : CaRismaBlueIconBox(icon: item.icon, size: 44, iconSize: 22),
+              CaRismaBlueIconBox(icon: item.icon, size: 44, iconSize: 22),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
@@ -6484,7 +7434,7 @@ class _SettingsDetailTile extends StatelessWidget {
                     Text(
                       item.title,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: titleColor,
+                        color: Colors.white,
                         fontWeight: FontWeight.w900,
                         fontSize: 15.5,
                       ),
@@ -6504,9 +7454,7 @@ class _SettingsDetailTile extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(
                 Icons.chevron_right_rounded,
-                color: item.isDestructive
-                    ? const Color(0xFFFF8A8A).withValues(alpha: 0.60)
-                    : Colors.white.withValues(alpha: 0.66),
+                color: Colors.white.withValues(alpha: 0.66),
                 size: 26,
               ),
             ],

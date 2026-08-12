@@ -2,8 +2,23 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
+    function isAuthenticated() {
       return request.auth != null;
+    }
+
+    function hasBlockedAccountDeletion(userId) {
+      let deletionPath = /databases/$(database)/documents/account_deletions/$(userId);
+      return exists(deletionPath)
+        && get(deletionPath).data.status in [
+          'requested',
+          'processing',
+          'completed'
+        ];
+    }
+
+    function isSignedIn() {
+      return isAuthenticated()
+        && !hasBlockedAccountDeletion(request.auth.uid);
     }
 
     function isOwner(userId) {
@@ -12,6 +27,45 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    function userSettingPath(userId, settingsId) {
+      return /databases/$(database)/documents/users/$(userId)/settings/$(settingsId);
+    }
+
+    function readReceiptsEnabledFor(userId) {
+      let settingsPath = userSettingPath(userId, 'chat_privacy');
+      return !exists(settingsPath)
+        || get(settingsPath).data.readReceiptsEnabled == true;
+    }
+
+    function onlineStatusEnabledFor(userId) {
+      let settingsPath = userSettingPath(userId, 'chat_privacy');
+      return exists(settingsPath)
+        && get(settingsPath).data.onlineStatusEnabled == true;
+    }
+
+    function storyRepliesEnabledFor(userId) {
+      let settingsPath = userSettingPath(userId, 'story_privacy');
+      return !exists(settingsPath)
+        || get(settingsPath).data.storyRepliesEnabled == true;
+    }
+
+    function storyAudienceMatchesPrivacy(userId) {
+      let settingsPath = userSettingPath(userId, 'story_privacy');
+      let viewerUserIds = request.resource.data.viewerUserIds;
+      return !exists(settingsPath)
+        || (
+          get(settingsPath).data.storyVisibility == 'onlyMe'
+          && viewerUserIds.size() == 1
+          && userId in viewerUserIds
+        )
+        || (
+          get(settingsPath).data.storyVisibility == 'contacts'
+          && !viewerUserIds.hasAny(
+            get(settingsPath).data.excludedStoryUserIds
+          )
+        );
     }
 
     function changedOnly(fields) {
@@ -1633,7 +1687,8 @@ service cloud.firestore {
     }
 
     function hasValidCurrentUserReadAt() {
-      return request.resource.data.lastReadAtBy is map
+      return readReceiptsEnabledFor(request.auth.uid)
+        && request.resource.data.lastReadAtBy is map
         && request.resource.data.lastReadAtBy[request.auth.uid] is timestamp
         && changedOnlyNestedMapKey('lastReadAtBy', request.auth.uid);
     }
@@ -1696,6 +1751,33 @@ service cloud.firestore {
             && hasValidCurrentUserReadAt()
             && hasValidCurrentUserManualUnread(false)
             && hasValidParticipantArchiveClear()
+          ) ||
+          (
+            !readReceiptsEnabledFor(request.auth.uid)
+            && changedOnly([
+              'lastMessage',
+              'lastMessageAt',
+              'manualUnreadBy',
+              'manualUnreadUpdatedAtBy',
+              'updatedAt',
+            ])
+            && hasValidLastMessageFields()
+            && hasValidCurrentUserManualUnread(false)
+          ) ||
+          (
+            !readReceiptsEnabledFor(request.auth.uid)
+            && changedOnly([
+              'lastMessage',
+              'lastMessageAt',
+              'manualUnreadBy',
+              'manualUnreadUpdatedAtBy',
+              'archivedBy',
+              'archivedUpdatedAtBy',
+              'updatedAt',
+            ])
+            && hasValidLastMessageFields()
+            && hasValidCurrentUserManualUnread(false)
+            && hasValidParticipantArchiveClear()
           )
         );
     }
@@ -1738,6 +1820,7 @@ service cloud.firestore {
 
     function isValidChatPresenceUpdate() {
       return isSignedIn()
+        && onlineStatusEnabledFor(request.auth.uid)
         && isOpenUndeletedChatParticipant(resource.data)
         && changedOnly(['onlineAtBy'])
         && request.resource.data.onlineAtBy is map
@@ -1904,8 +1987,11 @@ service cloud.firestore {
         && chatAfter.data.lastMessage == request.resource.data.text
         && chatAfter.data.lastMessageAt == request.resource.data.createdAt
         && chatAfter.data.updatedAt == request.resource.data.updatedAt
-        && chatAfter.data.lastReadAtBy[request.auth.uid]
-          == request.resource.data.createdAt
+        && (
+          !readReceiptsEnabledFor(request.auth.uid)
+          || chatAfter.data.lastReadAtBy[request.auth.uid]
+            == request.resource.data.createdAt
+        )
         && chatAfter.data.manualUnreadBy[request.auth.uid] == false;
     }
 
@@ -2775,6 +2861,7 @@ service cloud.firestore {
         'ownerDisplayName',
         'ownerPhotoUrl',
         'viewerUserIds',
+        'repliesEnabled',
         'viewerNameBy',
         'viewerPhotoUrlBy',
         'viewedAtBy',
@@ -2829,6 +2916,10 @@ service cloud.firestore {
         && request.resource.data.viewerUserIds.size() > 0
         && request.resource.data.viewerUserIds.size() <= 200
         && request.auth.uid in request.resource.data.viewerUserIds
+        && storyAudienceMatchesPrivacy(request.auth.uid)
+        && request.resource.data.repliesEnabled is bool
+        && request.resource.data.repliesEnabled
+          == storyRepliesEnabledFor(request.auth.uid)
         && request.resource.data.viewedAtBy is map
         && request.resource.data.viewerNameBy is map
         && request.resource.data.viewedAtBy.keys().hasOnly([request.auth.uid])
@@ -2922,6 +3013,7 @@ service cloud.firestore {
     function isValidStoryViewUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.viewerUserIds
+        && resource.data.isActive == true
         && resource.data.expiresAt > request.time
         && changedOnly(['viewedAtBy', 'viewerNameBy', 'viewerPhotoUrlBy', 'updatedAt'])
         && request.resource.data.viewedAtBy is map
@@ -2952,6 +3044,7 @@ service cloud.firestore {
     function isValidStoryViewerPhotoUpdate() {
       return isSignedIn()
         && request.auth.uid in resource.data.viewerUserIds
+        && resource.data.isActive == true
         && resource.data.expiresAt > request.time
         && resource.data.viewedAtBy[request.auth.uid] is timestamp
         && changedOnly(['viewerPhotoUrlBy', 'updatedAt'])
@@ -3197,6 +3290,106 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      match /support_requests/{requestId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.userId == userId
+          && request.resource.data.requestId == requestId
+          && request.resource.data.type in [
+            'problem',
+            'verification',
+            'feedback'
+          ]
+          && request.resource.data.category is string
+          && request.resource.data.category.size() > 0
+          && request.resource.data.category.size() <= 80
+          && (
+            request.resource.data.affectedArea == null
+            || (
+              request.resource.data.affectedArea is string
+              && request.resource.data.affectedArea.size() <= 80
+            )
+          )
+          && request.resource.data.description is string
+          && request.resource.data.description.size() >= 20
+          && request.resource.data.description.size() <= 2000
+          && (
+            request.resource.data.reproductionSteps == null
+            || (
+              request.resource.data.reproductionSteps is string
+              && request.resource.data.reproductionSteps.size() <= 2000
+            )
+          )
+          && request.resource.data.allowContact is bool
+          && (
+            request.resource.data.accountEmail == null
+            || (
+              request.resource.data.accountEmail is string
+              && request.resource.data.accountEmail.size() <= 254
+            )
+          )
+          && request.resource.data.appVersion is string
+          && request.resource.data.appVersion.size() <= 40
+          && request.resource.data.status == 'received'
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.keys().hasOnly([
+            'requestId',
+            'userId',
+            'type',
+            'category',
+            'affectedArea',
+            'description',
+            'reproductionSteps',
+            'allowContact',
+            'accountEmail',
+            'appVersion',
+            'status',
+            'createdAt',
+            'updatedAt'
+          ]);
+        allow update, delete: if false;
+      }
+
+      match /data_rights_requests/{requestId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.userId == userId
+          && request.resource.data.requestId == requestId
+          && request.resource.data.type == 'export'
+          && request.resource.data.status == 'requested'
+          && (
+            request.resource.data.accountEmail == null
+            || (
+              request.resource.data.accountEmail is string
+              && request.resource.data.accountEmail.size() <= 254
+            )
+          )
+          && (
+            request.resource.data.note == null
+            || (
+              request.resource.data.note is string
+              && request.resource.data.note.size() <= 500
+            )
+          )
+          && request.resource.data.appVersion is string
+          && request.resource.data.appVersion.size() <= 40
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.keys().hasOnly([
+            'requestId',
+            'userId',
+            'type',
+            'status',
+            'accountEmail',
+            'note',
+            'appVersion',
+            'createdAt',
+            'updatedAt'
+          ]);
+        allow update, delete: if false;
+      }
+
       match /legal_consents/{consentId} {
         allow read, create: if isOwner(userId);
         allow update, delete: if false;
@@ -3279,6 +3472,15 @@ service cloud.firestore {
         allow create: if false;
         allow update, delete: if false;
       }
+
+      match /security_activities/{activityId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /account_deletions/{userId} {
+      allow read, write: if false;
     }
 
     match /plates/{plateId} {
@@ -3374,6 +3576,7 @@ service cloud.firestore {
           (
             request.auth.uid in resource.data.viewerUserIds
             && resource.data.isActive == true
+            && resource.data.expiresAt > request.time
           )
         );
 

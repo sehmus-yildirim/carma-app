@@ -645,7 +645,7 @@ class _VoiceMemoGestureButtonState extends State<_VoiceMemoGestureButton> {
       return;
     }
 
-    HapticFeedback.mediumImpact();
+    unawaited(AppRuntimePreferences.instance.mediumImpact());
     widget.onStart();
     widget.onLock();
   }
@@ -660,7 +660,7 @@ class _VoiceMemoGestureButtonState extends State<_VoiceMemoGestureButton> {
       _isCancelled = false;
       _isLocked = false;
     });
-    HapticFeedback.mediumImpact();
+    unawaited(AppRuntimePreferences.instance.mediumImpact());
     widget.onStart();
   }
 
@@ -675,7 +675,7 @@ class _VoiceMemoGestureButtonState extends State<_VoiceMemoGestureButton> {
         _isCancelled = true;
         _isPressing = false;
       });
-      HapticFeedback.lightImpact();
+      unawaited(AppRuntimePreferences.instance.lightImpact());
       widget.onCancel();
       return;
     }
@@ -685,7 +685,7 @@ class _VoiceMemoGestureButtonState extends State<_VoiceMemoGestureButton> {
         _isLocked = true;
         _isPressing = false;
       });
-      HapticFeedback.mediumImpact();
+      unawaited(AppRuntimePreferences.instance.mediumImpact());
       widget.onLock();
     }
   }

@@ -761,7 +761,7 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
     setState(() {
       _captureMode = nextMode;
     });
-    HapticFeedback.selectionClick();
+    unawaited(AppRuntimePreferences.instance.selectionClick());
   }
 
   void _handleCaptureModePointerDown(PointerDownEvent event) {
