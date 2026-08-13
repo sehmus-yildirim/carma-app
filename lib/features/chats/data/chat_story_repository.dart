@@ -426,7 +426,7 @@ class ChatStoryRepository {
     await _storiesCollection.doc(trimmedStoryId).update({
       FieldPath(['viewedAtBy', trimmedUserId]): FieldValue.serverTimestamp(),
       FieldPath(['viewerNameBy', trimmedUserId]): trimmedDisplayName.isEmpty
-          ? 'CaRisma Nutzer'
+          ? 'plaqa Nutzer'
           : trimmedDisplayName,
       if (trimmedPhotoUrl.isNotEmpty)
         FieldPath(['viewerPhotoUrlBy', trimmedUserId]): trimmedPhotoUrl,
@@ -580,7 +580,7 @@ class ChatStoryRepository {
     return ChatStoryRecord(
       id: snapshot.id,
       ownerUserId: data['ownerUserId'] as String? ?? '',
-      ownerDisplayName: data['ownerDisplayName'] as String? ?? 'CaRisma Nutzer',
+      ownerDisplayName: data['ownerDisplayName'] as String? ?? 'plaqa Nutzer',
       ownerPhotoUrl: data['ownerPhotoUrl'] as String?,
       viewerUserIds: _stringListFromValue(data['viewerUserIds']),
       repliesEnabled: data['repliesEnabled'] as bool? ?? true,

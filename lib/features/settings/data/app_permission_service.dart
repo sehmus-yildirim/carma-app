@@ -56,7 +56,7 @@ class AppPermissionSnapshot {
 
 class AppPermissionService {
   AppPermissionService({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('carisma/chat_tools');
+    : _channel = channel ?? const MethodChannel('plaqa/chat_tools');
 
   final MethodChannel _channel;
 

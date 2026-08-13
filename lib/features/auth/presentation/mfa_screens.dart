@@ -622,7 +622,7 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Ich stimme zu, dass CaRisma meine Telefonnummer zur sicheren SMS-Verifikation und zur Missbrauchsprävention verarbeitet.',
+                              'Ich stimme zu, dass plaqa meine Telefonnummer zur sicheren SMS-Verifikation und zur Missbrauchsprävention verarbeitet.',
                               style: _mfaSecondaryText(fontSize: 13),
                             ),
                           ),
@@ -1011,7 +1011,7 @@ class _MfaRecoveryScreenState extends State<MfaRecoveryScreen> {
           title: 'Kontrollierte Sicherheitsprüfung',
           child: Text(
             'Eine Anfrage deaktiviert den zweiten Faktor nicht automatisch. '
-            'CaRisma prüft sie manuell. Support fragt niemals nach Passwort '
+            'plaqa prüft sie manuell. Support fragt niemals nach Passwort '
             'oder SMS-Code.',
             style: TextStyle(
               color: CaRismaDesignTokens.textSecondary,
@@ -1080,7 +1080,7 @@ class MfaRecoveryInfoScreen extends StatelessWidget {
           icon: Icons.verified_user_outlined,
           title: 'Sicherer nächster Schritt',
           child: Text(
-            'Wenn CaRisma auf einem anderen Gerät noch angemeldet ist, öffne '
+            'Wenn plaqa auf einem anderen Gerät noch angemeldet ist, öffne '
             'dort Konto und Sicherheit und fordere die MFA-Wiederherstellung '
             'an. Andernfalls wende dich an den Support. Teile niemals Passwort '
             'oder SMS-Code.',

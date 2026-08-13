@@ -210,7 +210,7 @@ class _ContactPayload {
         .toList();
 
     if (lines.isEmpty ||
-        (lines.first != 'Kontakt' && lines.first != 'CaRisma Kontakt')) {
+        (lines.first != 'Kontakt' && lines.first != 'plaqa Kontakt')) {
       return null;
     }
 

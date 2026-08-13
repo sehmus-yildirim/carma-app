@@ -7,7 +7,7 @@ const allowedActions = new Set(['status', 'grant', 'revoke']);
 
 async function main() {
   const [action, targetUserId, confirmation] = process.argv.slice(2);
-  const operatorUserId = safeString(process.env.CARISMA_ADMIN_OPERATOR_UID);
+  const operatorUserId = safeString(process.env.PLAQA_ADMIN_OPERATOR_UID);
 
   if (!allowedActions.has(action) || !isUid(targetUserId)) {
     printUsage();
@@ -16,7 +16,7 @@ async function main() {
   }
   if (action !== 'status' && !isUid(operatorUserId)) {
     throw new Error(
-      'CARISMA_ADMIN_OPERATOR_UID muss die interne UID der handelnden Person enthalten.',
+      'PLAQA_ADMIN_OPERATOR_UID muss die interne UID der handelnden Person enthalten.',
     );
   }
   if (action === 'grant' && confirmation !== grantConfirmation) {
@@ -69,7 +69,7 @@ function printUsage() {
     `  node tools/set_admin_claim.js revoke <UID> "${revokeConfirmation}"`,
   );
   console.log(
-    'Für grant/revoke muss CARISMA_ADMIN_OPERATOR_UID gesetzt sein.',
+    'Für grant/revoke muss PLAQA_ADMIN_OPERATOR_UID gesetzt sein.',
   );
 }
 

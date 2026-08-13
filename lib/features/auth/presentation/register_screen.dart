@@ -181,7 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_acceptedResponsibleUse) {
       setState(() {
         _errorMessage =
-            'Bitte bestätige, dass du CaRisma verantwortungsvoll und nicht für Notfälle nutzt.';
+            'Bitte bestätige, dass du plaqa verantwortungsvoll und nicht für Notfälle nutzt.';
         _successMessage = null;
       });
       return;
@@ -679,7 +679,7 @@ class _RegistrationLegalCard extends StatelessWidget {
           _ConsentRow(
             value: acceptedResponsibleUse,
             onChanged: onResponsibleUseChanged,
-            text: 'Ich nutze CaRisma verantwortungsvoll.',
+            text: 'Ich nutze plaqa verantwortungsvoll.',
           ),
         ],
       ),

@@ -7,7 +7,7 @@ einer vertrauenswürdigen Verwaltungsumgebung geändert. Niemals einen
 Service-Account-Schlüssel in das Repository legen.
 
 ```powershell
-$env:CARISMA_ADMIN_OPERATOR_UID='UID_DER_HANDELNDEN_PERSON'
+$env:PLAQA_ADMIN_OPERATOR_UID='UID_DER_HANDELNDEN_PERSON'
 node tools/set_admin_claim.js status ZIEL_UID
 node tools/set_admin_claim.js grant ZIEL_UID "ADMINRECHT VERGEBEN"
 node tools/set_admin_claim.js revoke ZIEL_UID "ADMINRECHT ENTFERNEN"

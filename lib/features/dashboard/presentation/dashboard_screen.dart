@@ -71,7 +71,7 @@ class _DashboardContent extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
-                  'CaRisma zeigt keine persönlichen Daten öffentlich an. Erst nach Annahme einer Anfrage entsteht ein Chat.',
+                  'plaqa zeigt keine persönlichen Daten öffentlich an. Erst nach Annahme einer Anfrage entsteht ein Chat.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.76),
                     height: 1.4,
@@ -107,7 +107,7 @@ class _HomeHeader extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(18),
           child: Image.asset(
-            'assets/images/carisma_logo.png',
+            'assets/images/plaqa_logo.png',
             width: 54,
             height: 54,
             fit: BoxFit.contain,
@@ -127,7 +127,7 @@ class _HomeHeader extends StatelessWidget {
                 ),
               ),
               const Text(
-                'CaRisma',
+                'plaqa',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w900,

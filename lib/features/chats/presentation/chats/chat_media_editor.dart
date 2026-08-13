@@ -400,7 +400,7 @@ class _ChatImageEditorScreenState extends State<_ChatImageEditorScreen> {
     }
 
     final directory = await Directory.systemTemp.createTemp(
-      'carisma_chat_image_',
+      'plaqa_chat_image_',
     );
     final file = File(
       '${directory.path}${Platform.pathSeparator}chat_${DateTime.now().millisecondsSinceEpoch}.png',

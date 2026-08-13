@@ -2541,7 +2541,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
         ),
       ),
       _StoryVehicleStickerOption(
-        title: 'CaRisma Badge',
+        title: 'plaqa Badge',
         subtitle: '$vehicleLabel - $visiblePlateLabel',
         icon: Icons.verified_rounded,
         sticker: _StoryStickerDraft(
@@ -2734,8 +2734,7 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       if (widget.isVideo) {
         await ChatNativeBridge().saveVideoToGallery(
           url: widget.mediaPath,
-          fileName:
-              'carisma_story_${DateTime.now().millisecondsSinceEpoch}.mp4',
+          fileName: 'plaqa_story_${DateTime.now().millisecondsSinceEpoch}.mp4',
           contentType: 'video/mp4',
         );
 
@@ -2771,10 +2770,10 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       }
 
       final tempDirectory = await Directory.systemTemp.createTemp(
-        'carisma_story_',
+        'plaqa_story_',
       );
       final fileName =
-          'carisma_story_${DateTime.now().millisecondsSinceEpoch}.png';
+          'plaqa_story_${DateTime.now().millisecondsSinceEpoch}.png';
       final renderedFile = File(
         '${tempDirectory.path}${Platform.pathSeparator}$fileName',
       );
@@ -4687,7 +4686,7 @@ class _StoryVehicleBadgeSticker extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'CaRisma GARAGE',
+                  'plaqa GARAGE',
                   style: TextStyle(
                     color: CaRismaDesignTokens.bluePrimary,
                     fontSize: 10,

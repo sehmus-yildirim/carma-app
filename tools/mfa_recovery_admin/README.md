@@ -1,6 +1,6 @@
-# CaRisma MFA Recovery Admin
+# plaqa MFA Recovery Admin
 
-Dieses Werkzeug ist von der normalen CaRisma-App getrennt und wird nicht über
+Dieses Werkzeug ist von der normalen plaqa-App getrennt und wird nicht über
 deren Navigation ausgeliefert. Es vergibt keine Adminrechte. Jede Abfrage und
 jede Aktion läuft über Callable Functions, die ein serverseitiges `admin`
 Custom Claim verlangen.

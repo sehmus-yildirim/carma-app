@@ -414,7 +414,7 @@ class ProfileRepository {
     final safeDisplayName =
         _trimmedOrNull(displayName) ??
         _trimmedOrNull(profile.displayName) ??
-        'CaRisma Nutzer';
+        'plaqa Nutzer';
     final showVehicle =
         showVehicleOnPublicProfile ?? profile.showVehicleOnPublicProfile;
     final showPlate =

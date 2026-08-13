@@ -1,4 +1,4 @@
-import 'package:carisma/features/settings/data/data_rights_request_repository.dart';
+import 'package:plaqa/features/settings/data/data_rights_request_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

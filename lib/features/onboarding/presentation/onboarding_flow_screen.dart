@@ -65,7 +65,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
 
   String get _title {
     return switch (_currentStep) {
-      0 => 'Willkommen bei CaRisma',
+      0 => 'Willkommen bei plaqa',
       1 => 'Profil vorbereiten',
       2 => 'Fahrzeug hinzufügen',
       3 => 'Verifizierung verstehen',
@@ -142,7 +142,7 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                       const SizedBox(height: 18),
                       const Spacer(),
                       CaRismaPrimaryButton(
-                        label: _isLastStep ? 'CaRisma starten' : 'Weiter',
+                        label: _isLastStep ? 'plaqa starten' : 'Weiter',
                         icon: _isLastStep
                             ? Icons.check_circle_outline_rounded
                             : Icons.arrow_forward_rounded,
@@ -257,7 +257,7 @@ class _IntroStep extends StatelessWidget {
           icon: Icons.shield_rounded,
           title: 'Sicher kommunizieren rund ums Fahrzeug.',
           description:
-              'CaRisma hilft dir, Kennzeichen zu suchen, Kontaktanfragen zu verwalten und sachliche Hinweise zu senden — ohne deine privaten Daten unnötig offenzulegen.',
+              'plaqa hilft dir, Kennzeichen zu suchen, Kontaktanfragen zu verwalten und sachliche Hinweise zu senden — ohne deine privaten Daten unnötig offenzulegen.',
           points: [
             _HeroInfoPoint(
               icon: Icons.search_rounded,
@@ -276,7 +276,7 @@ class _IntroStep extends StatelessWidget {
         SizedBox(height: 12),
         CaRismaMessageCard(
           icon: Icons.info_outline_rounded,
-          message: 'Dieser Bereich wird für dein CaRisma-Konto vorbereitet.',
+          message: 'Dieser Bereich wird für dein plaqa-Konto vorbereitet.',
         ),
       ],
     );
@@ -320,7 +320,7 @@ class _VehicleStep extends StatelessWidget {
       icon: Icons.directions_car_filled_rounded,
       title: 'Dein Fahrzeug wird eindeutig zugeordnet.',
       description:
-          'Damit CaRisma vertrauenswürdig bleibt, müssen Kennzeichen und Fahrzeugdaten später nachvollziehbar zum Fahrzeughalter passen.',
+          'Damit plaqa vertrauenswürdig bleibt, müssen Kennzeichen und Fahrzeugdaten später nachvollziehbar zum Fahrzeughalter passen.',
       points: [
         _HeroInfoPoint(
           icon: Icons.pin_outlined,

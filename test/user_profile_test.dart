@@ -1,4 +1,4 @@
-import 'package:carisma/features/profile/data/user_profile.dart';
+import 'package:plaqa/features/profile/data/user_profile.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,7 +10,7 @@ void main() {
 
       final profile = UserProfile(
         uid: 'user-1',
-        email: 'carisma@example.com',
+        email: 'plaqa@example.com',
         firstName: 'Max',
         lastName: 'Muster',
         displayName: 'Max M.',
@@ -50,7 +50,7 @@ void main() {
 
       final profile = UserProfile(
         uid: 'user-1',
-        email: 'carisma@example.com',
+        email: 'plaqa@example.com',
         firstName: 'Max',
         lastName: 'Muster',
         displayName: 'Max M.',

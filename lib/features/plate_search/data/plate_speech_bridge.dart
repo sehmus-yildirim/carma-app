@@ -11,7 +11,7 @@ class PlateSpeechResult {
 }
 
 class PlateSpeechBridge {
-  static const MethodChannel _channel = MethodChannel('carisma/chat_tools');
+  static const MethodChannel _channel = MethodChannel('plaqa/chat_tools');
 
   Future<PlateSpeechResult?> recognizePlateSpeech() async {
     final result = await _channel.invokeMapMethod<String, Object?>(

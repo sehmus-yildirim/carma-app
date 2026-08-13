@@ -503,7 +503,7 @@ String mfaErrorMessage(FirebaseAuthException error) {
     'operation-not-allowed' || 'admin-restricted-operation' =>
       'Der SMS-Zwei-Faktor-Schutz ist aktuell nicht verfügbar.',
     'captcha-check-failed' || 'app-not-authorized' =>
-      'CaRisma konnte für den SMS-Versand nicht bestätigt werden. Bitte starte die App neu und versuche es erneut.',
+      'plaqa konnte für den SMS-Versand nicht bestätigt werden. Bitte starte die App neu und versuche es erneut.',
     'sms-region-not-allowed' || 'phone-number-not-allowed' =>
       'SMS-Anmeldungen sind für diese Region nicht freigegeben.',
     'multi-factor-info-not-found' =>

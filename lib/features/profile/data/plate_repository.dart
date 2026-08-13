@@ -206,7 +206,7 @@ class PlateRepository {
     final lastName = profile.lastName.trim();
 
     if (firstName.isEmpty && lastName.isEmpty) {
-      return 'CaRisma Nutzer';
+      return 'plaqa Nutzer';
     }
 
     if (lastName.isEmpty) {

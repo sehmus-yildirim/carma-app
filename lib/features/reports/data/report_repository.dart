@@ -89,7 +89,7 @@ class ReportRepository {
 
     if (imagePath == null || imagePath.isEmpty) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'not-found',
         message: 'Zu diesem Hinweis ist kein Foto hinterlegt.',
       );
@@ -129,7 +129,7 @@ class ReportRepository {
 
     if (reporter == null) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'unauthenticated',
         message: 'Bitte melde dich an, um einen Hinweis zu senden.',
       );
@@ -137,7 +137,7 @@ class ReportRepository {
 
     if (!draft.canSubmit || draft.category == null) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Der Hinweis ist noch nicht vollständig.',
       );
@@ -151,7 +151,7 @@ class ReportRepository {
 
     if (!const {'DE', 'AT', 'CH'}.contains(countryCode) || plateKey.isEmpty) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Bitte prüfe das Kennzeichen.',
       );
@@ -311,7 +311,7 @@ class ReportRepository {
     final lowerPath = localPath.toLowerCase();
     if (!lowerPath.endsWith('.jpg') && !lowerPath.endsWith('.jpeg')) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-image',
         message: 'Das Beweisfoto muss ein JPEG-Bild sein.',
       );
@@ -320,7 +320,7 @@ class ReportRepository {
     final file = File(localPath);
     if (!await file.exists()) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-image',
         message: 'Das ausgewählte Foto wurde nicht gefunden.',
       );
@@ -329,7 +329,7 @@ class ReportRepository {
     final size = await file.length();
     if (size <= 0 || size >= 10 * 1024 * 1024) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-image',
         message: 'Das Beweisfoto darf höchstens 10 MB groß sein.',
       );
@@ -363,7 +363,7 @@ class ReportRepository {
           longitude < -180 ||
           longitude > 180) {
         throw FirebaseException(
-          plugin: 'carisma',
+          plugin: 'plaqa',
           code: 'invalid-argument',
           message: 'Der Standort ist ungültig.',
         );
@@ -383,7 +383,7 @@ class ReportRepository {
     final manualAddress = draft.manualAddress?.trim() ?? '';
     if (manualAddress.length < 3 || manualAddress.length > 160) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Bitte gib eine gültige Adresse ein.',
       );

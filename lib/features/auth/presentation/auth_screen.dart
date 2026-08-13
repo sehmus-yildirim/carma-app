@@ -598,7 +598,7 @@ class _GlassTitle extends StatelessWidget {
         ).createShader(bounds);
       },
       child: Text(
-        'CaRisma',
+        'plaqa',
         textAlign: TextAlign.center,
         style: TextStyle(
           color: Colors.white,

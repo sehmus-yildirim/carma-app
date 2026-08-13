@@ -11,7 +11,7 @@ Stand: 2026-07-03
 
 ## Release Notes für Tester
 
-Erster geschlossener Android-Test von CaRisma.
+Erster geschlossener Android-Test von plaqa.
 
 Bitte teste:
 

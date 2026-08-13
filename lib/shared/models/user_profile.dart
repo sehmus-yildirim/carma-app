@@ -41,7 +41,7 @@ class UserProfile {
     final normalizedLastName = lastName.trim();
 
     if (normalizedFirstName.isEmpty && normalizedLastName.isEmpty) {
-      return 'CaRisma Nutzer';
+      return 'plaqa Nutzer';
     }
 
     if (normalizedFirstName.isEmpty) {

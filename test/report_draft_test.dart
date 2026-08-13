@@ -1,4 +1,4 @@
-import 'package:carisma/features/reports/domain/report_draft.dart';
+import 'package:plaqa/features/reports/domain/report_draft.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

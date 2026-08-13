@@ -304,7 +304,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         vehicleColor: 'Schwarz',
         vehicleLabel: 'BMW X6 in Schwarz',
         requestReason: 'compliment',
-        senderDisplayName: 'CaRisma Nutzer',
+        senderDisplayName: 'plaqa Nutzer',
         receiverDisplayName: 'Du',
         message:
             'Hallo, dein BMW X6 ist mir positiv aufgefallen. Wirklich ein sehr schönes Auto.',
@@ -326,7 +326,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         vehicleLabel: 'Mercedes GLS in Weiß',
         requestReason: 'vehicle_question',
         senderDisplayName: 'Du',
-        receiverDisplayName: 'CaRisma Testnutzer',
+        receiverDisplayName: 'plaqa Testnutzer',
         message:
             'Hallo, ich habe eine Frage zu deinem Mercedes GLS und würde mich gerne kurz mit dir darüber austauschen.',
         status: contact_requests.ContactRequestStatus.pending,
@@ -830,7 +830,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           : firebaseUser?.photoURL?.trim();
       final displayName = firebaseUser?.displayName?.trim().isNotEmpty == true
           ? firebaseUser!.displayName!.trim()
-          : 'CaRisma Nutzer';
+          : 'plaqa Nutzer';
 
       await _storyRepository.setOwnImageStory(
         storyId: storyId,
@@ -1043,7 +1043,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
       final displayName = currentUser?.displayName?.trim().isNotEmpty == true
           ? currentUser!.displayName!.trim()
-          : 'CaRisma Nutzer';
+          : 'plaqa Nutzer';
 
       await _storyRepository.markStoryViewed(
         storyId: story.id,
@@ -1363,7 +1363,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         : 'Foto-Story';
 
     final ownerName = story.ownerDisplayName.trim().isEmpty
-        ? 'CaRisma Nutzer'
+        ? 'plaqa Nutzer'
         : story.ownerDisplayName.trim();
 
     final preview = 'Story von $ownerName: $label';
@@ -1550,7 +1550,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                               currentStory.viewerNameBy[viewer.key]?.trim() ??
                               '';
                           final label = viewerName.isEmpty
-                              ? 'CaRisma Nutzer'
+                              ? 'plaqa Nutzer'
                               : viewerName;
                           final photoUrl = currentStory
                               .viewerPhotoUrlBy[viewer.key]
@@ -3149,7 +3149,7 @@ class _PendingRequestTile extends StatelessWidget {
                       Text(
                         (request.senderDisplayName?.trim().isNotEmpty ?? false)
                             ? request.senderDisplayName!.trim()
-                            : 'CaRisma Nutzer',
+                            : 'plaqa Nutzer',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
                               color: CaRismaDesignTokens.textPrimary,

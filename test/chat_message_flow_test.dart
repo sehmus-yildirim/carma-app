@@ -1,4 +1,4 @@
-import 'package:carisma/features/chats/data/chat_repository.dart';
+import 'package:plaqa/features/chats/data/chat_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -15,7 +15,7 @@ void main() {
         final message = await repository.sendTextMessage(
           chatId: ' ${chat.id} ',
           senderUserId: ' sender ',
-          text: ' Hallo CaRisma ',
+          text: ' Hallo plaqa ',
         );
         final messages = await repository.loadMessages(chatId: chat.id);
         final updatedChat = await repository.loadChat(chatId: chat.id);
@@ -24,8 +24,8 @@ void main() {
         expect(messages.single.id, message.id);
         expect(message.chatId, chat.id);
         expect(message.senderUserId, 'sender');
-        expect(message.text, 'Hallo CaRisma');
-        expect(updatedChat?.lastMessage, 'Hallo CaRisma');
+        expect(message.text, 'Hallo plaqa');
+        expect(updatedChat?.lastMessage, 'Hallo plaqa');
         expect(updatedChat?.lastMessageAt, message.createdAt);
         expect(updatedChat?.lastReadAtBy['sender'], message.createdAt);
       },

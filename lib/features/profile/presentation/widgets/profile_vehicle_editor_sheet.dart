@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../shared/plate/dach_plate_presentation.dart';
 import '../../../../shared/plate/plate_country_config.dart';
 import '../../../../shared/theme/carisma_design_tokens.dart';
+import '../../../../shared/widgets/carisma_license_plate_preview.dart';
+import '../../../../shared/widgets/carisma_primary_button.dart';
 import '../../data/profile_vehicle.dart';
 import '../../data/vehicle_catalog.dart';
 
@@ -36,6 +39,7 @@ Future<bool> showProfileVehicleEditorSheet(
   var showPlate = vehicle?.showPlate ?? false;
   var isPrimary = vehicle?.isPrimary ?? false;
   var isSaving = false;
+  var isDirty = false;
 
   final seriesController = TextEditingController(text: vehicle?.series ?? '');
   final regionController = TextEditingController(
@@ -50,11 +54,31 @@ Future<bool> showProfileVehicleEditorSheet(
   final mileageController = TextEditingController(
     text: vehicle?.mileage?.toString() ?? '',
   );
+  final yearController = TextEditingController(
+    text: vehicle?.year?.toString() ?? '',
+  );
+  final bodyStyleController = TextEditingController(
+    text: vehicle?.bodyStyle ?? '',
+  );
+  void markDirty() => isDirty = true;
+  for (final controller in [
+    seriesController,
+    regionController,
+    lettersController,
+    numbersController,
+    mileageController,
+    yearController,
+    bodyStyleController,
+  ]) {
+    controller.addListener(markDirty);
+  }
 
   try {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       useSafeArea: true,
       backgroundColor: const Color(0xFF0D1320),
       builder: (sheetContext) {
@@ -62,10 +86,57 @@ Future<bool> showProfileVehicleEditorSheet(
           builder: (context, setSheetState) {
             final plateConfig = plateConfigForCountry(countryCode);
 
+            void updateEditor(VoidCallback update) {
+              setSheetState(() {
+                update();
+                isDirty = true;
+              });
+            }
+
+            Future<void> closeEditor() async {
+              if (isSaving) return;
+              if (!isDirty) {
+                Navigator.of(sheetContext).pop(false);
+                return;
+              }
+              final discard = await showDialog<bool>(
+                context: sheetContext,
+                builder: (dialogContext) => AlertDialog(
+                  backgroundColor: CaRismaDesignTokens.card,
+                  title: const Text(
+                    'Änderungen verwerfen?',
+                    style: TextStyle(color: CaRismaDesignTokens.textPrimary),
+                  ),
+                  content: const Text(
+                    'Die Fahrzeugdaten wurden noch nicht gespeichert.',
+                    style: TextStyle(color: CaRismaDesignTokens.textSecondary),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Weiter bearbeiten'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      child: const Text(
+                        'Verwerfen',
+                        style: TextStyle(color: CaRismaDesignTokens.danger),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              if (discard == true && sheetContext.mounted) {
+                Navigator.of(sheetContext).pop(false);
+              }
+            }
+
             Future<void> submit() async {
               final region = regionController.text.trim().toUpperCase();
               final letters = lettersController.text.trim().toUpperCase();
               final numbers = numbersController.text.trim().toUpperCase();
+              final yearText = yearController.text.trim();
+              final year = int.tryParse(yearText);
               if (region.isEmpty ||
                   numbers.isEmpty ||
                   (plateConfig.usesLettersField && letters.isEmpty)) {
@@ -74,6 +145,17 @@ Future<bool> showProfileVehicleEditorSheet(
                     content: Text(
                       'Bitte fülle das Kennzeichen vollständig aus.',
                     ),
+                  ),
+                );
+                return;
+              }
+              if (yearText.isNotEmpty &&
+                  (year == null ||
+                      year < 1886 ||
+                      year > DateTime.now().year + 1)) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Bitte gib ein gültiges Baujahr ein.'),
                   ),
                 );
                 return;
@@ -98,9 +180,9 @@ Future<bool> showProfileVehicleEditorSheet(
                     status: status,
                     visibility: visibility,
                     showPlate: showPlate,
-                    year: vehicle?.year,
+                    year: year,
                     firstRegistration: vehicle?.firstRegistration,
-                    bodyStyle: vehicle?.bodyStyle,
+                    bodyStyle: bodyStyleController.text.trim(),
                     engineDescription: vehicle?.engineDescription,
                     displacementCcm: vehicle?.displacementCcm,
                     horsepower: vehicle?.horsepower,
@@ -128,209 +210,271 @@ Future<bool> showProfileVehicleEditorSheet(
                   ),
                 );
                 if (sheetContext.mounted) {
+                  isDirty = false;
                   Navigator.of(sheetContext).pop(true);
                 }
-              } catch (error) {
+              } catch (_) {
                 if (!sheetContext.mounted) return;
                 setSheetState(() => isSaving = false);
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  SnackBar(
+                  const SnackBar(
                     content: Text(
-                      'Fahrzeug konnte nicht gespeichert werden: $error',
+                      'Fahrzeug konnte nicht gespeichert werden. Bitte prüfe deine Angaben und versuche es erneut.',
                     ),
                   ),
                 );
               }
             }
 
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                14,
-                20,
-                20 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.24),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) async {
+                if (!didPop) await closeEditor();
+              },
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  14,
+                  20,
+                  20 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Spacer(),
+                          Container(
+                            width: 42,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.24),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: closeEditor,
+                                child: const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      vehicle == null
-                          ? 'Fahrzeug hinzufügen'
-                          : 'Fahrzeug bearbeiten',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
+                      const SizedBox(height: 18),
+                      Text(
+                        vehicle == null
+                            ? 'Fahrzeug hinzufügen'
+                            : 'Fahrzeug bearbeiten',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 18),
+                      _VehicleDropdown<String>(
+                        label: 'Marke',
+                        value: selectedBrand,
+                        values: VehicleCatalog.brands,
+                        labelFor: (value) => value,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() {
+                            selectedBrand = value;
+                            availableModels = _modelsForBrand(value, null);
+                            selectedModel = availableModels.first;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleDropdown<String>(
+                        label: 'Modell',
+                        value: selectedModel,
+                        values: availableModels,
+                        labelFor: (value) => value,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() => selectedModel = value);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleTextField(
+                        controller: seriesController,
+                        label: 'Baureihe (optional)',
+                        maxLength: 120,
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleDropdown<String>(
+                        label: 'Farbe',
+                        value: selectedColor,
+                        values: _vehicleColors,
+                        labelFor: (value) => value,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() => selectedColor = value);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _VehicleTextField(
+                              controller: yearController,
+                              label: 'Baujahr (optional)',
+                              maxLength: 4,
+                              numbersOnly: true,
+                            ),
                           ),
-                    ),
-                    const SizedBox(height: 18),
-                    _VehicleDropdown<String>(
-                      label: 'Marke',
-                      value: selectedBrand,
-                      values: VehicleCatalog.brands,
-                      labelFor: (value) => value,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setSheetState(() {
-                          selectedBrand = value;
-                          availableModels = _modelsForBrand(value, null);
-                          selectedModel = availableModels.first;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _VehicleDropdown<String>(
-                      label: 'Modell',
-                      value: selectedModel,
-                      values: availableModels,
-                      labelFor: (value) => value,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setSheetState(() => selectedModel = value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _VehicleTextField(
-                      controller: seriesController,
-                      label: 'Baureihe (optional)',
-                      maxLength: 120,
-                    ),
-                    const SizedBox(height: 10),
-                    _VehicleDropdown<String>(
-                      label: 'Farbe',
-                      value: selectedColor,
-                      values: _vehicleColors,
-                      labelFor: (value) => value,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setSheetState(() => selectedColor = value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _VehicleDropdown<PlateCountryConfig>(
-                      label: 'Land',
-                      value: plateConfig,
-                      values: plateCountryConfigs,
-                      labelFor: (value) => value.countryLabel,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setSheetState(() {
-                          countryCode = value.countryCode;
-                          regionController.clear();
-                          lettersController.clear();
-                          numbersController.clear();
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _VehicleTextField(
-                            controller: regionController,
-                            label: plateConfig.regionLabel,
-                            maxLength: plateConfig.regionMaxLength,
-                            upperCase: true,
-                          ),
-                        ),
-                        if (plateConfig.usesLettersField) ...[
                           const SizedBox(width: 8),
                           Expanded(
                             child: _VehicleTextField(
-                              controller: lettersController,
-                              label: 'Buchstaben',
-                              maxLength: plateConfig.lettersMaxLength,
+                              controller: bodyStyleController,
+                              label: 'Fahrzeugtyp (optional)',
+                              maxLength: 80,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleDropdown<PlateCountryConfig>(
+                        label: 'Land',
+                        value: plateConfig,
+                        values: plateCountryConfigs,
+                        labelFor: (value) => value.countryLabel,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() {
+                            countryCode = value.countryCode;
+                            regionController.clear();
+                            lettersController.clear();
+                            numbersController.clear();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      AnimatedBuilder(
+                        animation: Listenable.merge([
+                          regionController,
+                          lettersController,
+                          numbersController,
+                        ]),
+                        builder: (context, _) {
+                          final region = regionController.text;
+                          return CaRismaLicensePlatePreview(
+                            countryCode: countryCode,
+                            region: region,
+                            letters: lettersController.text,
+                            numbers: numbersController.text,
+                            regionPresentation:
+                                registrationRegionPresentationFor(
+                                  countryCode: countryCode,
+                                  plateCode: region,
+                                ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _VehicleTextField(
+                              controller: regionController,
+                              label: plateConfig.regionLabel,
+                              maxLength: plateConfig.regionMaxLength,
+                              upperCase: true,
+                            ),
+                          ),
+                          if (plateConfig.usesLettersField) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _VehicleTextField(
+                                controller: lettersController,
+                                label: 'Buchstaben',
+                                maxLength: plateConfig.lettersMaxLength,
+                                upperCase: true,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _VehicleTextField(
+                              controller: numbersController,
+                              label: 'Zahlen',
+                              maxLength: plateConfig.numbersMaxLength,
                               upperCase: true,
                             ),
                           ),
                         ],
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _VehicleTextField(
-                            controller: numbersController,
-                            label: 'Zahlen',
-                            maxLength: plateConfig.numbersMaxLength,
-                            upperCase: true,
-                          ),
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleTextField(
+                        controller: mileageController,
+                        label: 'Kilometerstand (optional)',
+                        maxLength: 8,
+                        numbersOnly: true,
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleDropdown<ProfileVehicleStatus>(
+                        label: 'Status',
+                        value: status,
+                        values: ProfileVehicleStatus.values
+                            .where(
+                              (value) => value != ProfileVehicleStatus.archived,
+                            )
+                            .toList(),
+                        labelFor: _statusLabel,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() => status = value);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleSwitch(
+                        title: 'Für Kontakte sichtbar',
+                        value: visibility == ProfileVehicleVisibility.contacts,
+                        onChanged: (value) => updateEditor(
+                          () => visibility = value
+                              ? ProfileVehicleVisibility.contacts
+                              : ProfileVehicleVisibility.onlyMe,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _VehicleTextField(
-                      controller: mileageController,
-                      label: 'Kilometerstand (optional)',
-                      maxLength: 8,
-                      numbersOnly: true,
-                    ),
-                    const SizedBox(height: 10),
-                    _VehicleDropdown<ProfileVehicleStatus>(
-                      label: 'Status',
-                      value: status,
-                      values: ProfileVehicleStatus.values
-                          .where(
-                            (value) => value != ProfileVehicleStatus.archived,
-                          )
-                          .toList(),
-                      labelFor: _statusLabel,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setSheetState(() => status = value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _VehicleSwitch(
-                      title: 'Für Kontakte sichtbar',
-                      value: visibility == ProfileVehicleVisibility.contacts,
-                      onChanged: (value) => setSheetState(
-                        () => visibility = value
-                            ? ProfileVehicleVisibility.contacts
-                            : ProfileVehicleVisibility.onlyMe,
                       ),
-                    ),
-                    _VehicleSwitch(
-                      title: 'Kennzeichen anzeigen',
-                      value: showPlate,
-                      onChanged: (value) =>
-                          setSheetState(() => showPlate = value),
-                    ),
-                    _VehicleSwitch(
-                      title: 'Als Hauptfahrzeug verwenden',
-                      value: isPrimary,
-                      onChanged: vehicle?.isPrimary == true
-                          ? null
-                          : (value) => setSheetState(() => isPrimary = value),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: isSaving ? null : submit,
-                        icon: isSaving
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.check_rounded),
-                        label: Text(isSaving ? 'Speichern...' : 'Speichern'),
+                      _VehicleSwitch(
+                        title: 'Kennzeichen anzeigen',
+                        value: showPlate,
+                        onChanged: (value) =>
+                            updateEditor(() => showPlate = value),
                       ),
-                    ),
-                  ],
+                      _VehicleSwitch(
+                        title: 'Als Hauptfahrzeug verwenden',
+                        value: isPrimary,
+                        onChanged: vehicle?.isPrimary == true
+                            ? null
+                            : (value) => updateEditor(() => isPrimary = value),
+                      ),
+                      const SizedBox(height: 16),
+                      CaRismaPrimaryButton(
+                        label: 'Fahrzeug speichern',
+                        loadingLabel: 'Wird gespeichert...',
+                        icon: Icons.check_rounded,
+                        isLoading: isSaving,
+                        surfaceOutlined: true,
+                        showShadow: false,
+                        onPressed: submit,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -345,6 +489,8 @@ Future<bool> showProfileVehicleEditorSheet(
     lettersController.dispose();
     numbersController.dispose();
     mileageController.dispose();
+    yearController.dispose();
+    bodyStyleController.dispose();
   }
 }
 

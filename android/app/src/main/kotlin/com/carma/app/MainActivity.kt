@@ -30,7 +30,7 @@ import java.net.URL
 import java.util.Locale
 
 class MainActivity : FlutterActivity() {
-    private val channelName = "carisma/chat_tools"
+    private val channelName = "plaqa/chat_tools"
     private val pickPhoneContactRequestCode = 4701
     private val pickDocumentRequestCode = 4702
     private val recordAudioPermissionRequestCode = 4703
@@ -357,7 +357,7 @@ class MainActivity : FlutterActivity() {
     ) {
         saveFileToMediaStore(
             url = url,
-            fileName = fileName?.ifBlank { null } ?: "carisma_image_${System.currentTimeMillis()}.jpg",
+            fileName = fileName?.ifBlank { null } ?: "plaqa_image_${System.currentTimeMillis()}.jpg",
             contentType = contentType?.ifBlank { null } ?: "image/jpeg",
             isImage = true,
             result = result,
@@ -372,7 +372,7 @@ class MainActivity : FlutterActivity() {
     ) {
         saveFileToMediaStore(
             url = url,
-            fileName = fileName?.ifBlank { null } ?: "carisma_video_${System.currentTimeMillis()}.mp4",
+            fileName = fileName?.ifBlank { null } ?: "plaqa_video_${System.currentTimeMillis()}.mp4",
             contentType = contentType?.ifBlank { null } ?: "video/mp4",
             isImage = true,
             result = result,
@@ -387,7 +387,7 @@ class MainActivity : FlutterActivity() {
     ) {
         saveFileToMediaStore(
             url = url,
-            fileName = fileName?.ifBlank { null } ?: "carisma_document_${System.currentTimeMillis()}",
+            fileName = fileName?.ifBlank { null } ?: "plaqa_document_${System.currentTimeMillis()}",
             contentType = contentType?.ifBlank { null } ?: "application/octet-stream",
             isImage = false,
             result = result,
@@ -443,12 +443,12 @@ class MainActivity : FlutterActivity() {
         }
         val relativePath = if (isImage) {
             if (isVideoMedia) {
-                Environment.DIRECTORY_MOVIES + "/CaRisma"
+                Environment.DIRECTORY_MOVIES + "/plaqa"
             } else {
-                Environment.DIRECTORY_PICTURES + "/CaRisma"
+                Environment.DIRECTORY_PICTURES + "/plaqa"
             }
         } else {
-            Environment.DIRECTORY_DOWNLOADS + "/CaRisma"
+            Environment.DIRECTORY_DOWNLOADS + "/plaqa"
         }
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, sanitizeFileName(fileName))
@@ -491,7 +491,7 @@ class MainActivity : FlutterActivity() {
         } else {
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         }
-        val targetDirectory = File(baseDirectory, "CaRisma").apply { mkdirs() }
+        val targetDirectory = File(baseDirectory, "plaqa").apply { mkdirs() }
         val targetFile = File(targetDirectory, sanitizeFileName(fileName))
 
         FileOutputStream(targetFile).use { output ->

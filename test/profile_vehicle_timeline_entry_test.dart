@@ -1,5 +1,5 @@
-import 'package:carisma/features/profile/data/profile_vehicle.dart';
-import 'package:carisma/features/profile/data/profile_vehicle_timeline_entry.dart';
+import 'package:plaqa/features/profile/data/profile_vehicle.dart';
+import 'package:plaqa/features/profile/data/profile_vehicle_timeline_entry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

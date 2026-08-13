@@ -1,4 +1,4 @@
-import 'package:carisma/features/chats/data/chat_repository.dart';
+import 'package:plaqa/features/chats/data/chat_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

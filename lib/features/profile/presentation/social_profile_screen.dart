@@ -2701,7 +2701,7 @@ class _FollowRelationshipTile extends StatelessWidget {
             : null,
       ),
       title: Text(
-        name.trim().isEmpty ? 'CaRisma Nutzer' : name.trim(),
+        name.trim().isEmpty ? 'plaqa Nutzer' : name.trim(),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -3711,7 +3711,7 @@ String _displayNameFor(profile_data.UserProfile? profile) {
   final lastName = profile?.lastName.trim() ?? '';
   final displayName = profile?.displayName.trim() ?? '';
   if (displayName.isNotEmpty) return displayName;
-  if (firstName.isEmpty && lastName.isEmpty) return 'CaRisma Nutzer';
+  if (firstName.isEmpty && lastName.isEmpty) return 'plaqa Nutzer';
   if (firstName.isEmpty) return '${lastName.characters.first.toUpperCase()}.';
   if (lastName.isEmpty) return firstName;
   return '$firstName ${lastName.characters.first.toUpperCase()}.';

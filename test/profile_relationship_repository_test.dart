@@ -1,5 +1,5 @@
-import 'package:carisma/features/profile/data/follow_repository.dart';
-import 'package:carisma/features/profile/data/profile_connection_repository.dart';
+import 'package:plaqa/features/profile/data/follow_repository.dart';
+import 'package:plaqa/features/profile/data/profile_connection_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

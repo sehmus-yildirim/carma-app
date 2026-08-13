@@ -1,4 +1,4 @@
-import 'package:carisma/features/settings/data/app_permission_service.dart';
+import 'package:plaqa/features/settings/data/app_permission_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -59,7 +59,7 @@ void main() {
   });
 
   group('AppPermissionService', () {
-    const channel = MethodChannel('carisma/test_app_permissions');
+    const channel = MethodChannel('plaqa/test_app_permissions');
 
     tearDown(() async {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

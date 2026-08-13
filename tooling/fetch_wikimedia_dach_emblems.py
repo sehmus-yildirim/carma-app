@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "assets" / "data" / "emblem_asset_manifest.json"
-USER_AGENT = "CaRismaAppData/1.0 (contact: info@carisma.de)"
+USER_AGENT = "PlaqaAppData/1.0 (contact: info@plaqa.de)"
 
 PAGES = {
     "DE": {

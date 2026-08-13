@@ -1,6 +1,6 @@
-import 'package:carisma/features/chats/data/chat_repository.dart';
-import 'package:carisma/features/chats/data/contact_request_repository.dart';
-import 'package:carisma/features/chats/domain/accept_contact_request_use_case.dart';
+import 'package:plaqa/features/chats/data/chat_repository.dart';
+import 'package:plaqa/features/chats/data/contact_request_repository.dart';
+import 'package:plaqa/features/chats/domain/accept_contact_request_use_case.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

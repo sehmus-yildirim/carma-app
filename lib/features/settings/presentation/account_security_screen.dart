@@ -142,11 +142,17 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                     ? 'Passwort ändern'
                     : 'Passwort verwalten',
                 description: account.hasPasswordProvider
-                    ? 'Zurücksetzungslink kontrolliert anfordern.'
+                    ? account.isEmailVerified
+                          ? 'Zurücksetzungslink kontrolliert anfordern.'
+                          : 'Bestätige zuerst deine E-Mail Adresse.'
                     : _providerManagedPasswordText(account),
-                enabled: account.hasPasswordProvider,
-                badge: account.hasPasswordProvider ? null : 'Extern',
-                onTap: account.hasPasswordProvider
+                enabled: account.hasPasswordProvider && account.isEmailVerified,
+                badge: !account.hasPasswordProvider
+                    ? 'Extern'
+                    : account.isEmailVerified
+                    ? null
+                    : 'E-Mail offen',
+                onTap: account.hasPasswordProvider && account.isEmailVerified
                     ? () => _openPage(
                         PasswordResetRequestScreen(
                           accountGateway: _accountGateway,
@@ -537,6 +543,13 @@ class _PasswordResetRequestScreenState
 
   Future<void> _sendResetLink() async {
     if (_isSending || _sent) {
+      return;
+    }
+    if (!widget.account.isEmailVerified) {
+      setState(() {
+        _message = 'Bestätige zuerst deine E-Mail Adresse.';
+        _messageIsError = true;
+      });
       return;
     }
     FocusScope.of(context).unfocus();
@@ -2017,6 +2030,7 @@ String accountAuthErrorMessage(FirebaseAuthException error) {
     'user-disabled' => 'Dieses Nutzerkonto wurde deaktiviert.',
     'email-mismatch' =>
       'Die eingegebene E-Mail Adresse gehört nicht zu diesem Konto.',
+    'email-not-verified' => 'Bestätige zuerst deine E-Mail Adresse.',
     'email-unchanged' =>
       'Die neue E-Mail Adresse entspricht deiner aktuellen Adresse.',
     'missing-password' => 'Bitte gib dein aktuelles Passwort ein.',
@@ -2071,7 +2085,9 @@ String _securityActivityLabel(String eventType) {
     'password_reset_requested' => 'Passwort-Zurücksetzung angefordert',
     'mfa_recovery_requested' => 'MFA-Wiederherstellung angefordert',
     'mfa_recovery_case_opened' => 'Recovery-Fall sicher eröffnet',
-    'mfa_recovery_approved' => 'MFA-Wiederherstellung genehmigt',
+    'mfa_recovery_identity_verified' => 'Identität für Recovery geprüft',
+    'mfa_recovery_first_approved' => 'Erste Recovery-Freigabe erteilt',
+    'mfa_recovery_second_approved' => 'Zweite Recovery-Freigabe erteilt',
     'mfa_recovery_sessions_revoked' => 'Sitzungen für Recovery widerrufen',
     'mfa_recovery_factor_removed' => 'Zweiter Faktor sicher entfernt',
     'mfa_recovery_rejected' => 'MFA-Wiederherstellung abgelehnt',
@@ -2091,7 +2107,9 @@ IconData _securityActivityIcon(String eventType) {
     'password_reset_requested' => Icons.password_rounded,
     'mfa_recovery_requested' => Icons.restore_rounded,
     'mfa_recovery_case_opened' => Icons.support_agent_rounded,
-    'mfa_recovery_approved' => Icons.fact_check_outlined,
+    'mfa_recovery_identity_verified' => Icons.badge_outlined,
+    'mfa_recovery_first_approved' => Icons.fact_check_outlined,
+    'mfa_recovery_second_approved' => Icons.verified_outlined,
     'mfa_recovery_sessions_revoked' => Icons.phonelink_erase_rounded,
     'mfa_recovery_factor_removed' => Icons.no_encryption_outlined,
     'mfa_recovery_rejected' => Icons.gpp_bad_outlined,
@@ -2110,7 +2128,7 @@ String _securityPlatformLabel(String platform) {
     'windows' => 'Windows',
     'macos' => 'Mac',
     'linux' => 'Linux',
-    'server' => 'CaRisma-Sicherheit',
+    'server' => 'plaqa-Sicherheit',
     _ => 'Plattform nicht verfügbar',
   };
 }

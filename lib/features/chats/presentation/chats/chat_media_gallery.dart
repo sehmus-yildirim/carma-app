@@ -251,7 +251,7 @@ class _ChatMediaGalleryScreenState extends State<_ChatMediaGalleryScreen> {
         icon: Icons.photo_library_outlined,
         title: 'Zugriff auf Fotos erlauben',
         message:
-            'Erlaube CaRisma den Zugriff, damit deine Galerie direkt angezeigt werden kann.',
+            'Erlaube plaqa den Zugriff, damit deine Galerie direkt angezeigt werden kann.',
         actionLabel: 'Erneut versuchen',
         onAction: _loadGallery,
         secondaryActionLabel: 'Einstellungen öffnen',

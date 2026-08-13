@@ -44,7 +44,7 @@ Bitte bereitstellen oder bestätigen:
 - Ob App Check genutzt werden soll:
 - Support-Kontakt für Auskunft, Löschung und Datenexport:
 
-### Datenarten in CaRisma
+### Datenarten in plaqa
 
 Bitte prüfen/bestätigen:
 
@@ -108,7 +108,7 @@ Bitte entscheiden:
 - Regeln für Kontaktanfragen:
 - Regeln für Chat und Story:
 - Regeln für anonyme Hinweise:
-- Notfall-Hinweis: CaRisma ersetzt keine Polizei, Feuerwehr oder Rettungsdienste.
+- Notfall-Hinweis: plaqa ersetzt keine Polizei, Feuerwehr oder Rettungsdienste.
 - Umgang mit Missbrauch, Sperrung und Löschung:
 - Verifizierungspflichten:
 - Haftungsgrenzen:

@@ -111,7 +111,7 @@ class _ChatOverflowMenu extends StatelessWidget {
   Future<void> _showVehicleDetails(BuildContext context) async {
     final safeTitle = title?.trim().isNotEmpty == true
         ? title!.trim()
-        : 'CaRisma Nutzer';
+        : 'plaqa Nutzer';
 
     final safeSubtitle = subtitle?.trim().isNotEmpty == true
         ? subtitle!.trim()

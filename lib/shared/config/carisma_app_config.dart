@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 class CaRismaAppConfig {
   const CaRismaAppConfig._();
 
-  static const String appName = 'CaRisma';
+  static const String appName = 'plaqa';
   static const String appVersion = '1.0.0';
   static const String buildLabel = 'Lokaler MVP';
 

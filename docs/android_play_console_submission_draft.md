@@ -13,11 +13,11 @@ Stand: 2026-07-03
 
 ## Kurzbeschreibung Entwurf
 
-CaRisma verbindet Fahrzeughalter geschützt über ihr Kennzeichen.
+plaqa verbindet Fahrzeughalter geschützt über ihr Kennzeichen.
 
 ## Vollständige Beschreibung Entwurf
 
-CaRisma hilft Fahrern, über ein Kennzeichen geschützt Kontakt aufzunehmen oder wichtige Hinweise zu senden. Nutzer können ein Profil mit Fahrzeugdaten anlegen, Kontaktanfragen senden, Hinweise melden und nach angenommener Anfrage miteinander chatten.
+plaqa hilft Fahrern, über ein Kennzeichen geschützt Kontakt aufzunehmen oder wichtige Hinweise zu senden. Nutzer können ein Profil mit Fahrzeugdaten anlegen, Kontaktanfragen senden, Hinweise melden und nach angenommener Anfrage miteinander chatten.
 
 Wichtige Funktionen:
 

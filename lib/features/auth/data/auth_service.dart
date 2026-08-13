@@ -177,6 +177,9 @@ class AuthService implements AccountAuthGateway {
     if (!snapshot.hasPasswordProvider) {
       throw FirebaseAuthException(code: 'password-managed-by-provider');
     }
+    if (!snapshot.isEmailVerified) {
+      throw FirebaseAuthException(code: 'email-not-verified');
+    }
     if (!_emailsMatch(snapshot.email, enteredEmail)) {
       throw FirebaseAuthException(code: 'email-mismatch');
     }

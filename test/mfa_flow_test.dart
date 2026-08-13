@@ -1,6 +1,6 @@
-import 'package:carisma/features/auth/data/auth_service.dart';
-import 'package:carisma/features/auth/data/mfa_service.dart';
-import 'package:carisma/features/auth/presentation/mfa_screens.dart';
+import 'package:plaqa/features/auth/data/auth_service.dart';
+import 'package:plaqa/features/auth/data/mfa_service.dart';
+import 'package:plaqa/features/auth/presentation/mfa_screens.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

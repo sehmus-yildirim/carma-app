@@ -94,7 +94,7 @@ class _DataExportRequestScreenState extends State<DataExportRequestScreen> {
               const CaRismaMessageCard(
                 icon: Icons.privacy_tip_outlined,
                 message:
-                    'Du kannst eine Kopie deiner bei CaRisma gespeicherten personenbezogenen Daten anfordern. Die Anfrage wird geprüft und sicher bereitgestellt.',
+                    'Du kannst eine Kopie deiner bei plaqa gespeicherten personenbezogenen Daten anfordern. Die Anfrage wird geprüft und sicher bereitgestellt.',
               ),
               const SizedBox(height: 12),
               GlassCard(

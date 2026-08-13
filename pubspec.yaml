@@ -1,5 +1,5 @@
-name: carisma
-description: "CaRisma is a modern social contact app for drivers and vehicle-related communication."
+name: plaqa
+description: "plaqa is a modern social contact app for drivers and vehicle-related communication."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -38,8 +38,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/carisma_logo.png
-    - assets/images/carisma_logo_transparent.png
+    - assets/images/plaqa_logo.png
+    - assets/images/plaqa_logo_transparent.png
     - assets/images/google_g_logo.png
     - assets/flags/
     - assets/coats/de/states/

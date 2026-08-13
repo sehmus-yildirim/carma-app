@@ -549,7 +549,7 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
       await Navigator.of(context).push(
         buildChatConversationRoute(
           chatId: isDemoChat ? '' : chatId,
-          displayName: result.displayName ?? 'CaRisma Nutzer',
+          displayName: result.displayName ?? 'plaqa Nutzer',
           profilePhotoUrl: result.profilePhotoUrl,
           vehicleModel: result.vehicleLabel?.trim().isNotEmpty == true
               ? result.vehicleLabel!.trim()
@@ -1379,7 +1379,7 @@ class _ResultCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      result.displayName ?? 'CaRisma Nutzer',
+                      result.displayName ?? 'plaqa Nutzer',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,

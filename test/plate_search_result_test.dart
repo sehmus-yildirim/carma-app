@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:carisma/features/plate_search/data/plate_search_result.dart';
-import 'package:carisma/features/plate_search/data/plate_search_service.dart';
-import 'package:carisma/shared/config/carisma_app_config.dart';
-import 'package:carisma/shared/plate/dach_plate_presentation.dart';
+import 'package:plaqa/features/plate_search/data/plate_search_result.dart';
+import 'package:plaqa/features/plate_search/data/plate_search_service.dart';
+import 'package:plaqa/shared/config/carisma_app_config.dart';
+import 'package:plaqa/shared/plate/dach_plate_presentation.dart';
 
 void main() {
   test('maps a dynamic production hit including DACH plate parts', () {

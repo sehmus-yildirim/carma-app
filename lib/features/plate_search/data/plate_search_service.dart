@@ -53,13 +53,13 @@ class PlateContactRequestResult {
 }
 
 class PlateSearchService {
-  static const String demoTargetUserId = 'carisma-demo-plate-user';
+  static const String demoTargetUserId = 'plaqa-demo-plate-user';
   static const String demoPlateKey = 'HHCR2026';
   static const String demoChatId = 'local-demo-hh-cr-2026';
   static const PlateSearchResult demoSearchResult = PlateSearchResult(
     found: true,
     targetUid: demoTargetUserId,
-    displayName: 'CaRisma Testnutzer',
+    displayName: 'plaqa Testnutzer',
     isVerified: true,
     distanceKm: 0.1,
     plateKey: demoPlateKey,
@@ -528,7 +528,7 @@ class PlateSearchService {
 
     if (sender == null) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'unauthenticated',
         message: 'Bitte melde dich an, um Kontakt anzufragen.',
       );
@@ -540,7 +540,7 @@ class PlateSearchService {
 
     if (receiverUserId.isEmpty || normalizedPlateKey.isEmpty) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Kontaktanfrage konnte nicht vorbereitet werden.',
       );
@@ -548,7 +548,7 @@ class PlateSearchService {
 
     if (receiverUserId == senderUserId) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Du kannst dich nicht selbst kontaktieren.',
       );
@@ -561,7 +561,7 @@ class PlateSearchService {
     final normalizedReceiverDisplayName =
         receiverDisplayName?.trim().isNotEmpty == true
         ? receiverDisplayName!.trim()
-        : 'CaRisma Nutzer';
+        : 'plaqa Nutzer';
     final normalizedVehicleBrand = vehicleBrand?.trim();
     final normalizedVehicleModel = vehicleModel?.trim();
     final normalizedVehicleColor = vehicleColor?.trim();
@@ -577,7 +577,7 @@ class PlateSearchService {
 
     if (normalizedMessage == null || normalizedMessage.isEmpty) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Bitte wähle einen Grund für deine Anfrage.',
       );
@@ -606,7 +606,7 @@ class PlateSearchService {
 
     if (quietModeUntil != null && quietModeUntil.isAfter(DateTime.now())) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'permission-denied',
         message: 'Dieser Nutzer nimmt gerade keine neuen Kontaktanfragen an.',
       );
@@ -615,7 +615,7 @@ class PlateSearchService {
     if ((requireVerifiedRequester || autoRejectUnverified) &&
         !senderSummary.isVerified) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'permission-denied',
         message:
             'Dieser Nutzer erlaubt aktuell nur Anfragen von verifizierten Konten.',
@@ -626,7 +626,7 @@ class PlateSearchService {
         normalizedRequestReason.isEmpty ||
         !allowedContactReasons.contains(normalizedRequestReason)) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'permission-denied',
         message: 'Dieser Anfragegrund ist für diesen Nutzer nicht erlaubt.',
       );
@@ -719,7 +719,7 @@ class PlateSearchService {
       final creditData = creditSnapshot.data();
       if (creditData == null) {
         throw FirebaseException(
-          plugin: 'carisma',
+          plugin: 'plaqa',
           code: 'failed-precondition',
           message: 'Der Anfrage-Credit konnte nicht geladen werden.',
         );
@@ -730,7 +730,7 @@ class PlateSearchService {
       ).normalizeForCurrentMonth();
       if (!currentCredit.hasRemaining) {
         throw FirebaseException(
-          plugin: 'carisma',
+          plugin: 'plaqa',
           code: 'resource-exhausted',
           message: 'Du hast keine Anfragen mehr verfügbar.',
         );
@@ -823,7 +823,7 @@ class PlateSearchService {
     if (normalizedMessage.length >
         FirestoreDocumentDefaults.maxChatMessageLength) {
       throw FirebaseException(
-        plugin: 'carisma',
+        plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Der automatische Nachrichtentext ist zu lang.',
       );
@@ -862,7 +862,7 @@ class PlateSearchService {
               status != FirestoreChatStatus.archived) ||
           deletedBy[senderUserId] == true) {
         throw FirebaseException(
-          plugin: 'carisma',
+          plugin: 'plaqa',
           code: 'failed-precondition',
           message: 'Der vorbereitete Chat ist noch nicht verfügbar.',
         );
@@ -1066,7 +1066,7 @@ class PlateSearchService {
       return authDisplayName.trim();
     }
 
-    return 'CaRisma Nutzer';
+    return 'plaqa Nutzer';
   }
 }
 

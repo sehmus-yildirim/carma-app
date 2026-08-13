@@ -182,7 +182,7 @@ Future<void> showProfileStoryViewer({
       userId: trimmedUserId,
       displayName: currentUser?.displayName?.trim().isNotEmpty == true
           ? currentUser!.displayName!.trim()
-          : 'CaRisma Nutzer',
+          : 'plaqa Nutzer',
       photoUrl: currentUser?.photoURL,
     );
   }
@@ -316,7 +316,7 @@ Future<ChatStoryRecord?> showProfileStoryComposer({
         ? firstName
         : firebaseUser?.displayName?.trim().isNotEmpty == true
         ? firebaseUser!.displayName!.trim()
-        : 'CaRisma Nutzer';
+        : 'plaqa Nutzer';
     final profilePhotoUrl = profile?.photoUrl?.trim() ?? '';
     final authPhotoUrl = firebaseUser?.photoURL?.trim() ?? '';
 
@@ -429,7 +429,7 @@ List<String> _profileStoryViewerUserIds({
 
 Route<void> buildChatConversationRoute({
   required String chatId,
-  String displayName = 'CaRisma Nutzer',
+  String displayName = 'plaqa Nutzer',
   String? profilePhotoUrl,
   String vehicleModel = 'Fahrzeug',
   String vehicleColor = '',

@@ -296,12 +296,12 @@ class _ChatsOverview extends StatelessWidget {
         ],
         if (showLocalChat) ...[
           _ActiveChatListTile(
-            title: 'CaRisma Nutzer',
+            title: 'plaqa Nutzer',
             subtitle: localMessages.isNotEmpty
                 ? localMessages.last.text
                 : 'BMW 1er',
             trailing: const _ChatOverflowMenu(
-              title: 'CaRisma Nutzer',
+              title: 'plaqa Nutzer',
               subtitle: 'BMW 1er - HH-HY 4747',
               vehicleLabel: 'BMW 1er',
               plateLabel: 'HH-HY 4747',

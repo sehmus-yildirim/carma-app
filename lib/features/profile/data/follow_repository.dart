@@ -51,9 +51,9 @@ class FollowRelationship {
       followerUserId: data['followerUserId'] as String? ?? '',
       followedUserId: data['followedUserId'] as String? ?? '',
       followerDisplayName:
-          data['followerDisplayName'] as String? ?? 'CaRisma Nutzer',
+          data['followerDisplayName'] as String? ?? 'plaqa Nutzer',
       followedDisplayName:
-          data['followedDisplayName'] as String? ?? 'CaRisma Nutzer',
+          data['followedDisplayName'] as String? ?? 'plaqa Nutzer',
       followerPhotoUrl: data['followerPhotoUrl'] as String?,
       followedPhotoUrl: data['followedPhotoUrl'] as String?,
       status: FollowRelationshipStatus.values.firstWhere(
@@ -214,9 +214,9 @@ class FollowRepository {
         'followerUserId': normalizedFollowerUserId,
         'followedUserId': normalizedFollowedUserId,
         'followerDisplayName':
-            followerProfile['displayName'] as String? ?? 'CaRisma Nutzer',
+            followerProfile['displayName'] as String? ?? 'plaqa Nutzer',
         'followedDisplayName':
-            followedProfile['displayName'] as String? ?? 'CaRisma Nutzer',
+            followedProfile['displayName'] as String? ?? 'plaqa Nutzer',
         'followerPhotoUrl': followerProfile['photoUrl'] as String?,
         'followedPhotoUrl': followedProfile['photoUrl'] as String?,
         'status': effectiveTargetIsPrivate

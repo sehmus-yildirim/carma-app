@@ -1,5 +1,5 @@
-import 'package:carisma/features/chats/data/chat_repository.dart';
-import 'package:carisma/features/chats/data/chat_story_repository.dart';
+import 'package:plaqa/features/chats/data/chat_repository.dart';
+import 'package:plaqa/features/chats/data/chat_story_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -108,7 +108,7 @@ void main() {
       final story = ChatStoryRecord(
         id: 'user-a',
         ownerUserId: 'user-a',
-        ownerDisplayName: 'CaRisma Nutzer',
+        ownerDisplayName: 'plaqa Nutzer',
         viewerUserIds: const ['user-a', 'user-b'],
         imageUrl: 'https://example.test/story.jpg',
         imagePath: 'chat_stories/user-a/202606091200.jpg',
@@ -126,7 +126,7 @@ void main() {
       final missingVideo = ChatStoryRecord(
         id: 'user-a',
         ownerUserId: 'user-a',
-        ownerDisplayName: 'CaRisma Nutzer',
+        ownerDisplayName: 'plaqa Nutzer',
         viewerUserIds: const ['user-a', 'user-b'],
         imageUrl: '',
         imagePath: '',
@@ -138,7 +138,7 @@ void main() {
       final video = ChatStoryRecord(
         id: 'user-a',
         ownerUserId: 'user-a',
-        ownerDisplayName: 'CaRisma Nutzer',
+        ownerDisplayName: 'plaqa Nutzer',
         viewerUserIds: const ['user-a', 'user-b'],
         imageUrl: '',
         imagePath: '',

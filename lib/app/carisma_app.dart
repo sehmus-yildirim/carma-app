@@ -9,7 +9,7 @@ class CaRismaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CaRisma',
+      title: 'plaqa',
       debugShowCheckedModeBanner: false,
       theme: CaRismaTheme.darkTheme(),
       scrollBehavior: const _CaRismaScrollBehavior(),

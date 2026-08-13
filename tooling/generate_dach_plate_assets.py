@@ -18,7 +18,7 @@ ASSETS = ROOT / "assets"
 DATA_DIR = ASSETS / "data"
 REPORT_DIR = ROOT / "tooling" / "reports"
 GENERATED_DART = ROOT / "lib" / "shared" / "plate" / "dach_registration_region_data.g.dart"
-USER_AGENT = "CaRismaAppData/1.0 (development-time generator)"
+USER_AGENT = "PlaqaAppData/1.0 (development-time generator)"
 
 DE_STATES = {
     "Baden-Württemberg": ("BW", "baden_wuerttemberg"),
@@ -249,7 +249,7 @@ def write_assets() -> list[dict[str, object]]:
 def asset_entry(path: str, kind: str, code: str, name: str, reference: str) -> dict[str, object]:
     return {
         "assetPath": path, "entityType": kind, "entityId": code,
-        "entityName": name, "sourceName": "CaRisma",
+        "entityName": name, "sourceName": "plaqa",
         "sourceReference": f"self-created {reference}",
         "license": "project-owned preview asset", "attributionRequired": False,
         "isOfficialOriginal": False, "isStylizedPreview": True,

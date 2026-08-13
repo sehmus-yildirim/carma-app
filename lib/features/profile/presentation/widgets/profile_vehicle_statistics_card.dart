@@ -52,7 +52,7 @@ class ProfileVehicleStatisticsCard extends StatelessWidget {
             ),
           _VehicleStatistic(
             icon: Icons.calendar_month_rounded,
-            label: 'Bei CaRisma seit',
+            label: 'Bei plaqa seit',
             value: _formatMembershipDate(vehicle.createdAt),
           ),
         ];

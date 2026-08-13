@@ -148,7 +148,7 @@ class _RequestContent extends StatelessWidget {
           const SizedBox(height: 8),
           ...incomingPreview.map(
             (request) => _RequestMiniTile(
-              title: _safeText(request.senderDisplayName, 'CaRisma Nutzer'),
+              title: _safeText(request.senderDisplayName, 'plaqa Nutzer'),
               subtitle:
                   'Kennzeichen: ${_safeText(request.displayPlate, request.plateKey)}',
               status: request.statusLabel,
@@ -161,7 +161,7 @@ class _RequestContent extends StatelessWidget {
           const SizedBox(height: 8),
           ...outgoingPreview.map(
             (request) => _RequestMiniTile(
-              title: _safeText(request.receiverDisplayName, 'CaRisma Nutzer'),
+              title: _safeText(request.receiverDisplayName, 'plaqa Nutzer'),
               subtitle:
                   'Kennzeichen: ${_safeText(request.displayPlate, request.plateKey)}',
               status: request.statusLabel,

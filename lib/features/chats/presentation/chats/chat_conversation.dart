@@ -6,7 +6,7 @@ class _ChatConversationScreen extends StatefulWidget {
   const _ChatConversationScreen({
     required this.initialMessages,
     this.chatId,
-    this.displayName = 'CaRisma Nutzer',
+    this.displayName = 'plaqa Nutzer',
     this.profilePhotoUrl,
     this.vehicleModel = 'BMW 1er',
     this.vehicleColor = 'Schwarz',
@@ -3598,7 +3598,7 @@ class _ChatProfileSheet extends StatelessWidget {
         url: imageUrl,
         fileName: message.fileName?.trim().isNotEmpty == true
             ? message.fileName!.trim()
-            : 'carisma_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'plaqa_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
         contentType: message.fileContentType?.trim().isNotEmpty == true
             ? message.fileContentType!.trim()
             : 'image/jpeg',
@@ -3637,7 +3637,7 @@ class _ChatProfileSheet extends StatelessWidget {
         url: fileUrl,
         fileName: message.fileName?.trim().isNotEmpty == true
             ? message.fileName!.trim()
-            : 'carisma_document_${DateTime.now().millisecondsSinceEpoch}',
+            : 'plaqa_document_${DateTime.now().millisecondsSinceEpoch}',
         contentType: message.fileContentType?.trim().isNotEmpty == true
             ? message.fileContentType!.trim()
             : 'application/octet-stream',
@@ -4307,7 +4307,7 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
           url: url,
           fileName: message.fileName?.trim().isNotEmpty == true
               ? message.fileName!.trim()
-              : 'carisma_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+              : 'plaqa_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
           contentType: message.fileContentType?.trim().isNotEmpty == true
               ? message.fileContentType!.trim()
               : 'image/jpeg',
@@ -4745,7 +4745,7 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
           url: url,
           fileName: message.fileName?.trim().isNotEmpty == true
               ? message.fileName!.trim()
-              : 'carisma_document_${DateTime.now().millisecondsSinceEpoch}',
+              : 'plaqa_document_${DateTime.now().millisecondsSinceEpoch}',
           contentType: message.fileContentType?.trim().isNotEmpty == true
               ? message.fileContentType!.trim()
               : 'application/octet-stream',

@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CaRisma'),
+        title: const Text('plaqa'),
         actions: [
           IconButton(
             onPressed: _signOut,

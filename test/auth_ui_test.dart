@@ -1,12 +1,12 @@
-import 'package:carisma/shared/widgets/carisma_auth_brand_header.dart';
-import 'package:carisma/shared/widgets/carisma_social_auth_button.dart';
-import 'package:carisma/features/legal/presentation/privacy_policy_screen.dart';
-import 'package:carisma/features/legal/presentation/terms_screen.dart';
+import 'package:plaqa/shared/widgets/carisma_auth_brand_header.dart';
+import 'package:plaqa/shared/widgets/carisma_social_auth_button.dart';
+import 'package:plaqa/features/legal/presentation/privacy_policy_screen.dart';
+import 'package:plaqa/features/legal/presentation/terms_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders the CaRisma auth brand and social providers', (
+  testWidgets('renders the plaqa auth brand and social providers', (
     tester,
   ) async {
     var googlePressed = false;
@@ -36,7 +36,7 @@ void main() {
       ),
     );
 
-    expect(find.text('CaRisma'), findsNothing);
+    expect(find.text('plaqa'), findsNothing);
     expect(find.text('Mit Google fortfahren'), findsOneWidget);
     expect(find.text('Mit Apple fortfahren'), findsOneWidget);
     expect(
@@ -55,7 +55,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/images/carisma_logo_transparent.png',
+                'assets/images/plaqa_logo_transparent.png',
       ),
       findsOneWidget,
     );

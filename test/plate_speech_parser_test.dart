@@ -1,4 +1,4 @@
-import 'package:carisma/shared/plate/plate_speech_parser.dart';
+import 'package:plaqa/shared/plate/plate_speech_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

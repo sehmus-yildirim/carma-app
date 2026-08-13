@@ -33,7 +33,7 @@ String _contactRequestDedupeKey({
 
 FirebaseException _duplicateContactRequestException() {
   return FirebaseException(
-    plugin: 'carisma',
+    plugin: 'plaqa',
     code: 'already-exists',
     message: 'Fuer dieses Kennzeichen existiert bereits eine Anfrage.',
   );

@@ -83,12 +83,12 @@ class _ActiveChatsScreen extends StatelessWidget {
           headerTitle: 'Aktive Chats',
           child: hasLocalActiveChat
               ? _ActiveChatListTile(
-                  title: 'CaRisma Nutzer',
+                  title: 'plaqa Nutzer',
                   subtitle: messages.isNotEmpty
                       ? 'Letzte Nachricht: ${messages.last.text}'
                       : 'BMW 1er',
                   trailing: const _ChatOverflowMenu(
-                    title: 'CaRisma Nutzer',
+                    title: 'plaqa Nutzer',
                     subtitle: 'BMW 1er - HH-HY 4747',
                     vehicleLabel: 'BMW 1er',
                     plateLabel: 'HH-HY 4747',

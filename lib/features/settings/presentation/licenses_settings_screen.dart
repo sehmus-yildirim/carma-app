@@ -46,7 +46,7 @@ class CaRismaLicensesScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'CaRisma',
+                                'plaqa',
                                 style: TextStyle(
                                   color: CaRismaDesignTokens.textPrimary,
                                   fontWeight: FontWeight.w900,
@@ -68,7 +68,7 @@ class CaRismaLicensesScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Die CaRisma-Anwendung, ihr Markenauftritt, ihre eigenen Inhalte und ihr individuelles Design sind urheberrechtlich geschützt. Eine Nutzung außerhalb der vorgesehenen App-Funktionen bedarf der vorherigen Erlaubnis des Rechteinhabers.',
+                      'Die plaqa-Anwendung, ihr Markenauftritt, ihre eigenen Inhalte und ihr individuelles Design sind urheberrechtlich geschützt. Eine Nutzung außerhalb der vorgesehenen App-Funktionen bedarf der vorherigen Erlaubnis des Rechteinhabers.',
                       style: TextStyle(
                         color: CaRismaDesignTokens.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -82,7 +82,7 @@ class CaRismaLicensesScreen extends StatelessWidget {
               const CaRismaMessageCard(
                 icon: Icons.balance_outlined,
                 message:
-                    'CaRisma verwendet Open-Source-Software. Deren Urheber- und Lizenzhinweise bleiben vollständig einsehbar.',
+                    'plaqa verwendet Open-Source-Software. Deren Urheber- und Lizenzhinweise bleiben vollständig einsehbar.',
               ),
               const SizedBox(height: 12),
               GestureDetector(

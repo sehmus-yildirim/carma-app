@@ -559,7 +559,7 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
           title: 'Design',
           value: 'Dunkel',
           description:
-              'Das aktuelle CaRisma-Design bleibt konsistent dunkel. Ein Hellmodus wird erst nach kompletter App-Migration angeboten.',
+              'Das aktuelle plaqa-Design bleibt konsistent dunkel. Ein Hellmodus wird erst nach kompletter App-Migration angeboten.',
         ),
         const SizedBox(height: 12),
         const CaRismaMessageCard(

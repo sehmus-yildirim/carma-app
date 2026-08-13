@@ -52,7 +52,7 @@ class ResolvedLocationPlace {
 }
 
 class ChatNativeBridge {
-  static const MethodChannel _channel = MethodChannel('carisma/chat_tools');
+  static const MethodChannel _channel = MethodChannel('plaqa/chat_tools');
   static const Map<String, String> _documentContentTypesByExtension = {
     'txt': 'text/plain',
     'md': 'text/markdown',

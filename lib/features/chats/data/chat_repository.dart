@@ -237,7 +237,7 @@ class ChatRecord {
       return trimmed;
     }
 
-    return 'CaRisma Nutzer';
+    return 'plaqa Nutzer';
   }
 
   String? profilePhotoUrlFor(String currentUserId) {

@@ -16,13 +16,13 @@ Future<void> main() async {
 }
 
 Future<void> _activateAndroidAppCheckIfConfigured() async {
-  const enabled = bool.fromEnvironment('CARISMA_ENABLE_APP_CHECK');
+  const enabled = bool.fromEnvironment('PLAQA_ENABLE_APP_CHECK');
   if (!enabled || kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
     return;
   }
 
   if (kDebugMode) {
-    const debugToken = String.fromEnvironment('CARISMA_APP_CHECK_DEBUG_TOKEN');
+    const debugToken = String.fromEnvironment('PLAQA_APP_CHECK_DEBUG_TOKEN');
     if (debugToken.isEmpty) {
       return;
     }

@@ -490,7 +490,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Bitte bestätige $email über den Link in deiner E-Mail. Du kannst CaRisma im MVP schon nutzen, solltest die Bestätigung aber zeitnah abschließen.',
+                        'Bitte bestätige $email über den Link in deiner E-Mail. Du kannst plaqa im MVP schon nutzen, solltest die Bestätigung aber zeitnah abschließen.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: CaRismaDesignTokens.textSecondary,

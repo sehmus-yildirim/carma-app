@@ -237,6 +237,10 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
   );
   await recursiveDeleteIfPresent(
     firestore,
+    firestore.doc(`mfa_recovery_requests/${userId}`),
+  );
+  await recursiveDeleteIfPresent(
+    firestore,
     firestore.doc(`public_profiles/${userId}`),
   );
   await recursiveDeleteIfPresent(

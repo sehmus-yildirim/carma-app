@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  cleanupAccountData,
   deleteStoragePrefixes,
   requestAccountDeletion,
   requireRecentAuthentication,
@@ -132,6 +133,65 @@ test("storage cleanup tolerates missing files and uses bounded pages", async () 
   assert.equal(pages, 1);
   assert.equal(deleted.length, 2);
 });
+
+test("account cleanup removes private MFA recovery data", async () => {
+  const recursivelyDeleted = [];
+  const firestore = fakeCleanupFirestore(recursivelyDeleted);
+  const bucket = {
+    async getFiles() {
+      return [[], null, {}];
+    },
+  };
+
+  await cleanupAccountData({
+    firestore,
+    bucket,
+    userId: "user-1",
+    now,
+  });
+
+  assert.deepEqual(recursivelyDeleted, [
+    "mfa_recovery_requests/user-1",
+    "public_profiles/user-1",
+    "users/user-1",
+  ]);
+});
+
+function fakeCleanupFirestore(recursivelyDeleted) {
+  const emptySnapshot = {docs: []};
+  const query = {
+    where() {
+      return this;
+    },
+    async get() {
+      return emptySnapshot;
+    },
+  };
+
+  return {
+    collection() {
+      return query;
+    },
+    doc(path) {
+      return {
+        path,
+        async get() {
+          return {exists: false};
+        },
+      };
+    },
+    async recursiveDelete(reference) {
+      recursivelyDeleted.push(reference.path);
+    },
+    batch() {
+      return {
+        delete() {},
+        set() {},
+        async commit() {},
+      };
+    },
+  };
+}
 
 function fakeFirestore(initialDocuments = {}) {
   const documents = new Map(Object.entries(initialDocuments));

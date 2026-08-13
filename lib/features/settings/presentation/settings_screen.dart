@@ -14,6 +14,7 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../auth/data/auth_service.dart';
 import '../../chats/data/chat_repository.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../data/app_permission_service.dart';
 import '../data/app_runtime_preferences.dart';
 import '../data/notification_settings_repository.dart';
@@ -687,7 +688,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Werbung & Tracking',
           icon: Icons.ads_click_outlined,
           body:
-              'CaRisma nutzt aktuell keine personalisierte Werbung und kein Werbetracking.\n\n'
+              'plaqa nutzt aktuell keine personalisierte Werbung und kein Werbetracking.\n\n'
               'Falls später Analyse-, Werbe- oder Trackingfunktionen ergänzt werden, müssen sie hier transparent erklärt und rechtlich geprüft werden.',
         );
         return;
@@ -784,7 +785,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Online-Status',
           icon: Icons.circle_outlined,
           body:
-              'Online- und Zuletzt-aktiv-Anzeige ist für CaRisma vorbereitet, aber noch nicht als öffentliche Funktion aktiv.\n\n'
+              'Online- und Zuletzt-aktiv-Anzeige ist für plaqa vorbereitet, aber noch nicht als öffentliche Funktion aktiv.\n\n'
               'Wenn sie später kommt, muss sie hier deaktivierbar sein.',
         );
         return;
@@ -850,7 +851,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Sicherheitsregeln',
           icon: Icons.rule_rounded,
           body:
-              'Nutze CaRisma nur für sachliche Kontaktaufnahme rund um Fahrzeuge.\n\n'
+              'Nutze plaqa nur für sachliche Kontaktaufnahme rund um Fahrzeuge.\n\n'
               'Nicht erlaubt sind Belästigung, falsche Meldungen, Drohungen, Spam, Veröffentlichung fremder Daten oder missbräuchliche Kennzeichen-Suchen.\n\n'
               'Bei Missbrauch können Funktionen eingeschränkt oder Konten gesperrt werden.',
         );
@@ -888,7 +889,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.verified_outlined,
           body:
               'Der Vertrauensstatus bündelt später Verifizierung, Missbrauchsfälle und Kontosicherheit.\n\n'
-              'Aktuell zeigt CaRisma Verifizierung und Sicherheitsinformationen getrennt an.',
+              'Aktuell zeigt plaqa Verifizierung und Sicherheitsinformationen getrennt an.',
         );
         return;
       case 'Missbrauchsschutz':
@@ -896,7 +897,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Missbrauchsschutz',
           icon: Icons.security_rounded,
           body:
-              'CaRisma schützt Kontaktanfragen, Hinweise und Chats durch Zugriffsschutz, Blockierungen, Limits und manuelle Prüfpfade.\n\n'
+              'plaqa schützt Kontaktanfragen, Hinweise und Chats durch Zugriffsschutz, Blockierungen, Limits und manuelle Prüfpfade.\n\n'
               'Falsche Meldungen, Spam, Belästigung und Veröffentlichung fremder Daten können zu Einschränkungen oder Kontosperren führen.',
         );
         return;
@@ -926,8 +927,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Designmodus',
           icon: Icons.dark_mode_outlined,
           body:
-              'CaRisma nutzt aktuell bewusst den dunklen Premium-Modus.\n\n'
-              'Systemmodus oder weitere Designs können später ergänzt werden, sollten aber das aktuelle CaRisma-Design nicht verwässern.',
+              'plaqa nutzt aktuell bewusst den dunklen Premium-Modus.\n\n'
+              'Systemmodus oder weitere Designs können später ergänzt werden, sollten aber das aktuelle plaqa-Design nicht verwässern.',
         );
         return;
       case 'Haptik & Töne':
@@ -944,7 +945,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Entfernung & Standardland',
           icon: Icons.explore_outlined,
           body:
-              'Entfernungen werden für CaRisma in Kilometern gedacht.\n\n'
+              'Entfernungen werden für plaqa in Kilometern gedacht.\n\n'
               'Das Standardland für Kennzeichen kann später auf Deutschland, Österreich oder Schweiz gesetzt werden. Bis dahin bleibt die Auswahl direkt im jeweiligen Bereich sichtbar.',
         );
         return;
@@ -1323,10 +1324,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openProfileManagement(ProfileSettingsArea area) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ProfileVerificationSettingsScreen(
-          userState: widget.userState,
-          area: area,
-        ),
+        builder: (_) => switch (area) {
+          ProfileSettingsArea.personalData => ProfileScreen(
+            userState: widget.userState,
+            initialEntry: ProfileEditorEntry.personalData,
+          ),
+          ProfileSettingsArea.documents => ProfileScreen(
+            userState: widget.userState,
+            initialEntry: ProfileEditorEntry.documents,
+          ),
+          ProfileSettingsArea.vehicles => ProfileVerificationSettingsScreen(
+            userState: widget.userState,
+            area: ProfileSettingsArea.vehicles,
+          ),
+        },
       ),
     );
   }
@@ -1508,7 +1519,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _openDetailPage(
       icon: Icons.support_agent_rounded,
       title: 'Support',
-      description: 'Hilfe, Feedback und Kontakt zum CaRisma-Support.',
+      description: 'Hilfe, Feedback und Kontakt zum plaqa-Support.',
       items: const [
         _SettingsDetailItem(
           icon: Icons.help_outline_rounded,
@@ -1528,7 +1539,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _SettingsDetailItem(
           icon: Icons.feedback_outlined,
           title: 'Feedback senden',
-          description: 'Teile Verbesserungsvorschläge für CaRisma.',
+          description: 'Teile Verbesserungsvorschläge für plaqa.',
         ),
       ],
       onItemTap: (title) {
@@ -1582,7 +1593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         _SettingsDetailItem(
           icon: Icons.info_outline_rounded,
-          title: 'Über CaRisma',
+          title: 'Über plaqa',
           description: 'App-Version, Zweck und Projektinformationen.',
         ),
         _SettingsDetailItem(
@@ -1832,7 +1843,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.description_rounded,
                         title: 'Rechtliches',
                         description:
-                            'AGB, Datenschutz, Community-Richtlinien, Impressum, Lizenzen und Über CaRisma.',
+                            'AGB, Datenschutz, Community-Richtlinien, Impressum, Lizenzen und Über plaqa.',
                         onTap: _openLegal,
                       ),
                     ],
@@ -2518,7 +2529,7 @@ class _AppPermissionsSettingsScreenState
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
                     children: [
                       Text(
-                        'CaRisma fragt Berechtigungen erst an, wenn du die jeweilige Funktion verwendest. Hier kannst du nur den aktuellen Systemstatus prüfen.',
+                        'plaqa fragt Berechtigungen erst an, wenn du die jeweilige Funktion verwendest. Hier kannst du nur den aktuellen Systemstatus prüfen.',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Colors.white.withValues(alpha: 0.72),
                           fontWeight: FontWeight.w700,
@@ -2579,7 +2590,7 @@ class _AppPermissionsSettingsScreenState
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'Kontakte werden über den Android-Picker ausgewählt. CaRisma benötigt dafür keinen vollständigen Zugriff auf dein Adressbuch. Mitteilungen sind derzeit nicht als Android-Push-Berechtigung angebunden.',
+                        'Kontakte werden über den Android-Picker ausgewählt. plaqa benötigt dafür keinen vollständigen Zugriff auf dein Adressbuch. Mitteilungen sind derzeit nicht als Android-Push-Berechtigung angebunden.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Colors.white.withValues(alpha: 0.54),
                           fontWeight: FontWeight.w700,
@@ -4034,13 +4045,13 @@ class _LegalContent {
         title: 'AGB',
         icon: Icons.description_outlined,
         description:
-            'Allgemeine Geschäftsbedingungen und Nutzungsbedingungen für CaRisma.',
+            'Allgemeine Geschäftsbedingungen und Nutzungsbedingungen für plaqa.',
         versionLabel: 'Aktuelle AGB-Version: ${LegalVersions.terms}',
         sections: [
           _LegalSection(
             title: 'Stand und Version',
             body:
-                r'''Allgemeine Geschäftsbedingungen und Nutzungsbedingungen für CaRisma
+                r'''Allgemeine Geschäftsbedingungen und Nutzungsbedingungen für plaqa
 
 Stand: [ANGABE ERGÄNZEN: Datum]
 Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
@@ -4049,9 +4060,9 @@ Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
             title: '1. Anbieter und Geltungsbereich',
             body: r'''1.1 Anbieter
 
-Anbieter der mobilen App „CaRisma“ ist:
+Anbieter der mobilen App „plaqa“ ist:
 
-CaRisma – Inhaber Sehmus Yildirim
+plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
 Bremer Straße 254e
 21077 Hamburg
@@ -4059,24 +4070,24 @@ Deutschland
 
 Rechtsform: Einzelunternehmen
 
-E-Mail: info@carisma.de
-Website: ca-risma.de
+E-Mail: info@plaqa.de
+Website: plaqa.de
 
-nachfolgend „CaRisma“, „Betreiber“ oder „wir“ genannt.
+nachfolgend „plaqa“, „Betreiber“ oder „wir“ genannt.
 
 1.2 Geltungsbereich
 
-Diese Allgemeinen Geschäftsbedingungen und Nutzungsbedingungen, nachfolgend „Nutzungsbedingungen“, gelten für die Registrierung und Nutzung der mobilen App CaRisma sowie der damit verbundenen Dienste.
+Diese Allgemeinen Geschäftsbedingungen und Nutzungsbedingungen, nachfolgend „Nutzungsbedingungen“, gelten für die Registrierung und Nutzung der mobilen App plaqa sowie der damit verbundenen Dienste.
 
-Sie regeln das Vertragsverhältnis zwischen CaRisma und den registrierten Nutzern.
+Sie regeln das Vertragsverhältnis zwischen plaqa und den registrierten Nutzern.
 
-Abweichende Bedingungen eines Nutzers gelten nur, wenn CaRisma ihrer Geltung ausdrücklich in Textform zugestimmt hat.
+Abweichende Bedingungen eines Nutzers gelten nur, wenn plaqa ihrer Geltung ausdrücklich in Textform zugestimmt hat.
 
 1.3 Einbeziehung der Nutzungsbedingungen
 
 Der Nutzer muss diesen Nutzungsbedingungen bei der Registrierung ausdrücklich zustimmen. Die Nutzungsbedingungen können vor der Zustimmung eingesehen und gespeichert werden.
 
-Mit Abschluss der Registrierung kommt zwischen CaRisma und dem Nutzer ein Nutzungsvertrag zustande.
+Mit Abschluss der Registrierung kommt zwischen plaqa und dem Nutzer ein Nutzungsvertrag zustande.
 
 1.4 Weitere rechtliche Informationen
 
@@ -4092,9 +4103,9 @@ Bei Widersprüchen zwischen diesen Nutzungsbedingungen und besonderen Bedingunge
           ),
           _LegalSection(
             title: '2. Gegenstand der App',
-            body: r'''2.1 Zweck von CaRisma
+            body: r'''2.1 Zweck von plaqa
 
-CaRisma ist eine mobile Kommunikationsplattform zur geschützten Kontaktaufnahme rund um Fahrzeuge und Kennzeichen.
+plaqa ist eine mobile Kommunikationsplattform zur geschützten Kontaktaufnahme rund um Fahrzeuge und Kennzeichen.
 
 Die App kann insbesondere folgende Funktionen bereitstellen:
 
@@ -4117,9 +4128,9 @@ Der konkrete Funktionsumfang richtet sich nach der jeweils verfügbaren App-Vers
 
 2.2 Keine Garantie für Kontakt oder Auffindbarkeit
 
-CaRisma schuldet die technische Bereitstellung der jeweils angebotenen Funktionen im Rahmen dieser Nutzungsbedingungen.
+plaqa schuldet die technische Bereitstellung der jeweils angebotenen Funktionen im Rahmen dieser Nutzungsbedingungen.
 
-CaRisma schuldet insbesondere nicht:
+plaqa schuldet insbesondere nicht:
 
 * dass ein bestimmtes Kennzeichen registriert oder auffindbar ist,
 * dass ein Suchergebnis angezeigt wird,
@@ -4133,9 +4144,9 @@ CaRisma schuldet insbesondere nicht:
 
 2.3 Keine Notfall- oder Behördendienstleistung
 
-CaRisma ist keine Notruf-, Warn-, Polizei-, Feuerwehr-, Rettungsdienst-, Pannenhilfe-, Abschlepp- oder Rechtsberatungs-App.
+plaqa ist keine Notruf-, Warn-, Polizei-, Feuerwehr-, Rettungsdienst-, Pannenhilfe-, Abschlepp- oder Rechtsberatungs-App.
 
-CaRisma:
+plaqa:
 
 * nimmt keine Notrufe entgegen,
 * alarmiert nicht automatisch Behörden oder Rettungskräfte,
@@ -4148,7 +4159,7 @@ CaRisma:
 
 Bei Unfällen, Straftaten, akuten Gefahren, medizinischen Notfällen, Brandgefahren oder dringenden Verkehrsbehinderungen müssen Nutzer unmittelbar die zuständigen Behörden, Rettungsdienste oder sonstigen zuständigen Stellen kontaktieren.
 
-Nutzer dürfen sich in dringenden Situationen nicht allein auf CaRisma verlassen.''',
+Nutzer dürfen sich in dringenden Situationen nicht allein auf plaqa verlassen.''',
           ),
           _LegalSection(
             title: '3. Registrierung und Benutzerkonto',
@@ -4178,7 +4189,7 @@ Der Nutzer darf insbesondere:
 
 3.3 Persönliche Nutzung und Zugangsschutz
 
-Das Benutzerkonto ist persönlich und darf nicht ohne Zustimmung von CaRisma übertragen, verkauft, vermietet oder Dritten dauerhaft überlassen werden.
+Das Benutzerkonto ist persönlich und darf nicht ohne Zustimmung von plaqa übertragen, verkauft, vermietet oder Dritten dauerhaft überlassen werden.
 
 Der Nutzer muss:
 
@@ -4192,7 +4203,7 @@ Handlungen, die über das Konto vorgenommen werden, werden dem Kontoinhaber zuge
 
 3.4 Sicherheitsmaßnahmen
 
-CaRisma darf angemessene Sicherheitsmaßnahmen verlangen, insbesondere:
+plaqa darf angemessene Sicherheitsmaßnahmen verlangen, insbesondere:
 
 * Bestätigung der E-Mail-Adresse,
 * erneute Anmeldung,
@@ -4208,7 +4219,7 @@ Bestehen konkrete Anhaltspunkte für einen unbefugten Zugriff, kann das Konto vo
             title: '4. Mindestalter und Nutzungsvoraussetzungen',
             body: r'''4.1 Mindestalter
 
-Die Nutzung von CaRisma ist nur Personen gestattet, die mindestens:
+Die Nutzung von plaqa ist nur Personen gestattet, die mindestens:
 
 [ANGABE ERGÄNZEN: Mindestalter] Jahre
 
@@ -4218,14 +4229,14 @@ alt sind.
 
 4.2 Minderjährige Nutzer
 
-Sofern eine Nutzung durch Minderjährige zugelassen wird, dürfen diese CaRisma nur nutzen, wenn:
+Sofern eine Nutzung durch Minderjährige zugelassen wird, dürfen diese plaqa nur nutzen, wenn:
 
 * die gesetzlichen Voraussetzungen erfüllt sind,
 * erforderliche Zustimmungen der Erziehungsberechtigten vorliegen,
 * sie die Bedeutung der Nutzung und der Datenverarbeitung verstehen können,
 * keine altersbedingten Einschränkungen des App Stores entgegenstehen.
 
-CaRisma kann einen angemessenen Alters- oder Zustimmungsnachweis verlangen, wenn konkrete Zweifel an der Erfüllung der Altersvoraussetzungen bestehen.
+plaqa kann einen angemessenen Alters- oder Zustimmungsnachweis verlangen, wenn konkrete Zweifel an der Erfüllung der Altersvoraussetzungen bestehen.
 
 4.3 Weitere Voraussetzungen
 
@@ -4243,7 +4254,7 @@ Einzelne Funktionen können ohne Standort-, Kamera-, Mikrofon-, Medien- oder Dat
             title: '5. Allgemeine Nutzerpflichten',
             body: r'''5.1 Rechtmäßige und verantwortungsvolle Nutzung
 
-Nutzer müssen CaRisma rechtmäßig, sachlich und verantwortungsvoll verwenden.
+Nutzer müssen plaqa rechtmäßig, sachlich und verantwortungsvoll verwenden.
 
 Sie dürfen die App ausschließlich im Rahmen der vorgesehenen Funktionen und Zwecke nutzen.
 
@@ -4291,7 +4302,7 @@ Nutzer dürfen andere Personen nicht:
 
 5.5 Umgang mit empfangenen Informationen
 
-Informationen, die Nutzer über CaRisma erhalten, dürfen nur für den jeweiligen zulässigen Kommunikationszweck verwendet werden.
+Informationen, die Nutzer über plaqa erhalten, dürfen nur für den jeweiligen zulässigen Kommunikationszweck verwendet werden.
 
 Insbesondere dürfen empfangene Kennzeichen-, Standort-, Profil- oder Kontaktdaten nicht:
 
@@ -4315,7 +4326,7 @@ Nutzer dürfen nur Fahrzeuge und Kennzeichen hinterlegen, die:
 
 6.2 Keine Halterauskunft
 
-CaRisma stellt keine amtliche Halterauskunft bereit.
+plaqa stellt keine amtliche Halterauskunft bereit.
 
 Ein in der App hinterlegtes Kennzeichen beweist nicht:
 
@@ -4340,9 +4351,9 @@ Unzulässig sind insbesondere:
 
 6.4 Prüfung und Nachweis
 
-CaRisma darf bei konkreten Zweifeln an einer Fahrzeugzuordnung einen angemessenen Nachweis verlangen.
+plaqa darf bei konkreten Zweifeln an einer Fahrzeugzuordnung einen angemessenen Nachweis verlangen.
 
-Kann eine erforderliche Berechtigung nicht nachgewiesen werden, darf CaRisma:
+Kann eine erforderliche Berechtigung nicht nachgewiesen werden, darf plaqa:
 
 * die Fahrzeugangabe entfernen,
 * das Kennzeichen sperren,
@@ -4374,7 +4385,7 @@ Kontaktanfragen dürfen nur bei einem berechtigten, nachvollziehbaren und sachli
 
 Die App darf nicht genutzt werden, um andere Nutzer aus bloßer Neugier, zu Werbezwecken, zur Partnersuche außerhalb des vorgesehenen Nutzungskonzepts oder gegen ihren erkennbaren Willen zu kontaktieren.
 
-[RECHTLICH PRÜFEN: Ob und in welchem Umfang CaRisma ausdrücklich auch soziale oder romantische Kontaktanbahnungen erlauben soll. Der zulässige Hauptzweck muss produktseitig und rechtlich einheitlich definiert werden.]
+[RECHTLICH PRÜFEN: Ob und in welchem Umfang plaqa ausdrücklich auch soziale oder romantische Kontaktanbahnungen erlauben soll. Der zulässige Hauptzweck muss produktseitig und rechtlich einheitlich definiert werden.]
 
 7.4 Keine wiederholten unerwünschten Anfragen
 
@@ -4389,7 +4400,7 @@ darf der Absender nicht durch weitere Konten, veränderte Kennzeichenangaben ode
 
 7.5 Anfragelimits
 
-CaRisma darf angemessene Anfragelimits, Wartezeiten, Spamfilter und Sicherheitsbeschränkungen einsetzen.
+plaqa darf angemessene Anfragelimits, Wartezeiten, Spamfilter und Sicherheitsbeschränkungen einsetzen.
 
 Diese können insbesondere von folgenden Umständen abhängen:
 
@@ -4446,7 +4457,7 @@ Nach der vorgesehenen Funktionsweise:
 
 Die zeitlich begrenzte Sichtbarkeit bedeutet nicht, dass Empfänger Storys nicht durch Screenshots, Bildschirmaufnahmen oder andere Mittel speichern können.
 
-CaRisma kann nicht garantieren, dass veröffentlichte Inhalte nach ihrer Anzeige nicht von anderen Nutzern gespeichert oder weiterverbreitet werden.
+plaqa kann nicht garantieren, dass veröffentlichte Inhalte nach ihrer Anzeige nicht von anderen Nutzern gespeichert oder weiterverbreitet werden.
 
 8.4 Inhalte Dritter
 
@@ -4462,15 +4473,15 @@ Ohne ausreichende Einwilligung oder sonstige Rechtsgrundlage dürfen Nutzer insb
 
 8.5 Keine allgemeine Vorabprüfung
 
-CaRisma ist nicht verpflichtet, sämtliche Nutzerinhalte vor ihrer Veröffentlichung oder Übermittlung allgemein zu kontrollieren.
+plaqa ist nicht verpflichtet, sämtliche Nutzerinhalte vor ihrer Veröffentlichung oder Übermittlung allgemein zu kontrollieren.
 
-CaRisma kann Inhalte jedoch nach einer Meldung, bei einem konkreten Verdacht, durch Stichproben oder durch technische Sicherheitsmechanismen prüfen, soweit dies rechtlich zulässig ist.''',
+plaqa kann Inhalte jedoch nach einer Meldung, bei einem konkreten Verdacht, durch Stichproben oder durch technische Sicherheitsmechanismen prüfen, soweit dies rechtlich zulässig ist.''',
           ),
           _LegalSection(
             title: '9. Verifizierung',
             body: r'''9.1 Zweck
 
-CaRisma kann eine freiwillige oder für bestimmte Funktionen erforderliche Verifizierung anbieten.
+plaqa kann eine freiwillige oder für bestimmte Funktionen erforderliche Verifizierung anbieten.
 
 Die Verifizierung kann sich insbesondere beziehen auf:
 
@@ -4492,7 +4503,7 @@ Nutzer dürfen:
 * keine Angaben manipulieren oder verdecken, soweit diese für die Prüfung erforderlich sind,
 * nur die ausdrücklich angeforderten Informationen übermitteln.
 
-Nicht benötigte Angaben sollen geschwärzt werden, soweit CaRisma dies im jeweiligen Verfahren zulässt.
+Nicht benötigte Angaben sollen geschwärzt werden, soweit plaqa dies im jeweiligen Verfahren zulässt.
 
 9.3 Bedeutung der Verifizierung
 
@@ -4508,7 +4519,7 @@ Sie ist keine Garantie dafür, dass:
 
 9.4 Ablehnung und Widerruf
 
-CaRisma darf eine Verifizierung ablehnen, zurücksetzen oder widerrufen, wenn:
+plaqa darf eine Verifizierung ablehnen, zurücksetzen oder widerrufen, wenn:
 
 * erforderliche Nachweise fehlen,
 * Angaben widersprüchlich sind,
@@ -4535,9 +4546,9 @@ Hinweise müssen:
 
 Ein Hinweis kann für den Empfänger ohne sichtbaren Absender oder unter einer pseudonymen Darstellung erscheinen.
 
-Dies bedeutet nicht, dass der Hinweis gegenüber CaRisma technisch vollständig anonym ist.
+Dies bedeutet nicht, dass der Hinweis gegenüber plaqa technisch vollständig anonym ist.
 
-CaRisma darf einen Hinweis intern mit Nutzerkonto, Nutzer-ID, Zeitstempel und Sicherheitsinformationen verknüpfen, soweit dies für:
+plaqa darf einen Hinweis intern mit Nutzerkonto, Nutzer-ID, Zeitstempel und Sicherheitsinformationen verknüpfen, soweit dies für:
 
 * Betrieb,
 * Sicherheit,
@@ -4568,9 +4579,9 @@ Verboten sind insbesondere:
 
 10.4 Keine Tatsachengarantie
 
-CaRisma prüft nicht zwingend jeden Hinweis vor der Übermittlung.
+plaqa prüft nicht zwingend jeden Hinweis vor der Übermittlung.
 
-CaRisma übernimmt keine Gewähr dafür, dass ein Hinweis:
+plaqa übernimmt keine Gewähr dafür, dass ein Hinweis:
 
 * zutreffend,
 * vollständig,
@@ -4621,12 +4632,12 @@ Nutzer dürfen Hinweise nicht ungeprüft als Beweis oder amtliche Feststellung b
           ),
           _LegalSection(
             title:
-                '16. Vortäuschung einer Verbindung zu CaRisma, Behörden, Rettungsdiensten oder anderen Organisationen;',
+                '16. Vortäuschung einer Verbindung zu plaqa, Behörden, Rettungsdiensten oder anderen Organisationen;',
             body: r'''''',
           ),
           _LegalSection(
             title:
-                '17. Nutzung von CaRisma für Notrufe oder zur Vortäuschung einer behördlichen Meldung;',
+                '17. Nutzung von plaqa für Notrufe oder zur Vortäuschung einer behördlichen Meldung;',
             body: r'''''',
           ),
           _LegalSection(
@@ -4636,7 +4647,7 @@ Nutzer dürfen Hinweise nicht ungeprüft als Beweis oder amtliche Feststellung b
 
 12.1 Meldefunktion
 
-Nutzer können Inhalte, Nachrichten, Hinweise oder Konten über die vorgesehene Meldefunktion oder über info@carisma.de melden.
+Nutzer können Inhalte, Nachrichten, Hinweise oder Konten über die vorgesehene Meldefunktion oder über info@plaqa.de melden.
 
 Eine Meldung sollte möglichst enthalten:
 
@@ -4649,7 +4660,7 @@ Meldungen dürfen nicht missbräuchlich, automatisiert oder wissentlich falsch e
 
 12.2 Prüfverfahren
 
-CaRisma kann gemeldete oder auffällige Inhalte und Vorgänge prüfen.
+plaqa kann gemeldete oder auffällige Inhalte und Vorgänge prüfen.
 
 Die Prüfung kann abhängig vom Einzelfall erfolgen durch:
 
@@ -4665,7 +4676,7 @@ Eine technische Kennzeichnung oder automatische Einschränkung ist nicht zwingen
 
 12.3 Mögliche Maßnahmen
 
-Bei einem Verstoß, einem begründeten Verdacht oder einer konkreten Gefährdung darf CaRisma unter Berücksichtigung der Umstände insbesondere:
+Bei einem Verstoß, einem begründeten Verdacht oder einer konkreten Gefährdung darf plaqa unter Berücksichtigung der Umstände insbesondere:
 
 * Inhalte ausblenden,
 * Inhalte entfernen,
@@ -4684,7 +4695,7 @@ Bei einem Verstoß, einem begründeten Verdacht oder einer konkreten Gefährdung
 
 12.4 Verhältnismäßigkeit
 
-Bei der Auswahl einer Maßnahme berücksichtigt CaRisma insbesondere:
+Bei der Auswahl einer Maßnahme berücksichtigt plaqa insbesondere:
 
 * Art und Schwere des Verstoßes,
 * Auswirkungen auf Betroffene,
@@ -4702,7 +4713,7 @@ Bei schweren Verstößen, akuten Gefahren, Straftaten, Stalking, Drohungen, Iden
 
 12.5 Information über Maßnahmen
 
-Soweit gesetzlich vorgeschrieben und keine gesetzlichen oder sicherheitsbezogenen Gründe entgegenstehen, informiert CaRisma den betroffenen Nutzer über:
+Soweit gesetzlich vorgeschrieben und keine gesetzlichen oder sicherheitsbezogenen Gründe entgegenstehen, informiert plaqa den betroffenen Nutzer über:
 
 * die getroffene Maßnahme,
 * den wesentlichen Grund,
@@ -4720,19 +4731,19 @@ Eine Begründung kann eingeschränkt werden, soweit dies erforderlich ist, um:
 
 Nutzer können gegen eine Moderations-, Einschränkungs- oder Sperrentscheidung Beschwerde einlegen:
 
-E-Mail: info@carisma.de
+E-Mail: info@plaqa.de
 
 [ANGABE ERGÄNZEN: In-App-Beschwerdeweg und Bearbeitungsfrist.]
 
 Die Beschwerde muss den betroffenen Vorgang und die Gründe enthalten, aus denen die Entscheidung nach Ansicht des Nutzers fehlerhaft ist.
 
-CaRisma prüft die Beschwerde sorgfältig und entscheidet unter Berücksichtigung der verfügbaren Informationen erneut.
+plaqa prüft die Beschwerde sorgfältig und entscheidet unter Berücksichtigung der verfügbaren Informationen erneut.
 
 [RECHTLICH PRÜFEN: Anforderungen des Digital Services Act an Begründungen, internes Beschwerdemanagement und außergerichtliche Streitbeilegung.]
 
 12.7 Behörden und rechtliche Schritte
 
-CaRisma darf Inhalte und Daten an Gerichte, Behörden, Strafverfolgungsstellen oder andere zuständige Stellen übermitteln, wenn:
+plaqa darf Inhalte und Daten an Gerichte, Behörden, Strafverfolgungsstellen oder andere zuständige Stellen übermitteln, wenn:
 
 * eine gesetzliche Verpflichtung besteht,
 * eine rechtmäßige behördliche oder gerichtliche Anordnung vorliegt,
@@ -4745,7 +4756,7 @@ Eine beliebige private Aufforderung führt nicht automatisch zur Offenlegung von
 
 13.1 Verfügbarkeit
 
-CaRisma bemüht sich um eine möglichst störungsfreie Verfügbarkeit.
+plaqa bemüht sich um eine möglichst störungsfreie Verfügbarkeit.
 
 Eine ununterbrochene, fehlerfreie und jederzeitige Verfügbarkeit wird jedoch nicht geschuldet.
 
@@ -4761,7 +4772,7 @@ Vorübergehende Einschränkungen können insbesondere entstehen durch:
 
 13.2 Wartung und Sicherheit
 
-CaRisma darf den Betrieb vorübergehend einschränken, soweit dies erforderlich ist für:
+plaqa darf den Betrieb vorübergehend einschränken, soweit dies erforderlich ist für:
 
 * Wartung,
 * Fehlerbehebung,
@@ -4774,7 +4785,7 @@ Planbare wesentliche Unterbrechungen werden, soweit zumutbar, vorab angekündigt
 
 13.3 Änderungen des Funktionsumfangs
 
-CaRisma darf kostenlose Funktionen aus sachlichen Gründen ändern, erweitern, ersetzen oder einstellen.
+plaqa darf kostenlose Funktionen aus sachlichen Gründen ändern, erweitern, ersetzen oder einstellen.
 
 Sachliche Gründe können insbesondere sein:
 
@@ -4795,7 +4806,7 @@ Bei einer erheblichen nachteiligen Änderung wird der Nutzer, soweit zumutbar un
 
 13.4 Keine Pflicht zur dauerhaften Fortführung
 
-Bei einem kostenlosen Dienst besteht kein Anspruch darauf, dass CaRisma oder eine bestimmte kostenlose Funktion zeitlich unbegrenzt angeboten wird.
+Bei einem kostenlosen Dienst besteht kein Anspruch darauf, dass plaqa oder eine bestimmte kostenlose Funktion zeitlich unbegrenzt angeboten wird.
 
 Gesetzliche Ansprüche und bereits wirksam erworbene Rechte bleiben unberührt.
 
@@ -4809,7 +4820,7 @@ Die derzeit angebotenen Grundfunktionen sind nach dem gegenwärtigen Planungssta
 
 14.2 Zukünftige kostenpflichtige Leistungen
 
-CaRisma kann zukünftig kostenpflichtige Funktionen, In-App-Käufe oder Abonnements anbieten.
+plaqa kann zukünftig kostenpflichtige Funktionen, In-App-Käufe oder Abonnements anbieten.
 
 Ein kostenpflichtiger Vertrag entsteht nur, wenn:
 
@@ -4832,7 +4843,7 @@ Käufe können über Google Play oder später den Apple App Store abgewickelt we
 
 Für Zahlung, Abrechnung, Rückerstattung und Verwaltung können ergänzend die Bedingungen des jeweiligen App Stores gelten.
 
-Zwingende Ansprüche des Nutzers gegenüber CaRisma werden dadurch nicht ausgeschlossen.
+Zwingende Ansprüche des Nutzers gegenüber plaqa werden dadurch nicht ausgeschlossen.
 
 14.5 Preisänderungen
 
@@ -4850,11 +4861,11 @@ Eine Preisänderung gilt nicht allein deshalb als angenommen, weil der Nutzer ih
 
 Der Nutzer behält seine bestehenden Rechte an den von ihm bereitgestellten Inhalten.
 
-CaRisma erwirbt kein Eigentum an Nutzerinhalten.
+plaqa erwirbt kein Eigentum an Nutzerinhalten.
 
 15.2 Erforderliches Nutzungsrecht
 
-Der Nutzer räumt CaRisma für die Dauer und den Umfang der Bereitstellung des jeweiligen Inhalts ein einfaches, nicht ausschließliches, grundsätzlich unentgeltliches, räumlich auf den Betrieb des Dienstes beschränktes Recht ein, den Inhalt technisch zu:
+Der Nutzer räumt plaqa für die Dauer und den Umfang der Bereitstellung des jeweiligen Inhalts ein einfaches, nicht ausschließliches, grundsätzlich unentgeltliches, räumlich auf den Betrieb des Dienstes beschränktes Recht ein, den Inhalt technisch zu:
 
 * speichern,
 * vervielfältigen,
@@ -4892,13 +4903,13 @@ Es kann im erforderlichen Umfang fortbestehen, wenn:
 
 15.4 Freistellung bei Rechtsverletzungen
 
-Verletzt ein Nutzer schuldhaft Rechte Dritter oder gesetzliche Pflichten, stellt er CaRisma von berechtigten Ansprüchen Dritter frei, soweit der Nutzer die Rechtsverletzung zu vertreten hat.
+Verletzt ein Nutzer schuldhaft Rechte Dritter oder gesetzliche Pflichten, stellt er plaqa von berechtigten Ansprüchen Dritter frei, soweit der Nutzer die Rechtsverletzung zu vertreten hat.
 
 Die Freistellung umfasst nur erforderliche und angemessene Kosten der Rechtsverteidigung.
 
-CaRisma wird den Nutzer über geltend gemachte Ansprüche unverzüglich informieren und ihm, soweit rechtlich und tatsächlich möglich, Gelegenheit zur Mitwirkung an der Verteidigung geben.
+plaqa wird den Nutzer über geltend gemachte Ansprüche unverzüglich informieren und ihm, soweit rechtlich und tatsächlich möglich, Gelegenheit zur Mitwirkung an der Verteidigung geben.
 
-Die Freistellung gilt nicht, soweit CaRisma die Rechtsverletzung selbst zu vertreten hat.
+Die Freistellung gilt nicht, soweit plaqa die Rechtsverletzung selbst zu vertreten hat.
 
 16. Datenschutz
 
@@ -4914,7 +4925,7 @@ Die Nutzung der App entbindet Nutzer nicht von eigenen datenschutzrechtlichen Pf
 
 17.1 Unbeschränkte Haftung
 
-CaRisma haftet unbeschränkt:
+plaqa haftet unbeschränkt:
 
 * bei Vorsatz und grober Fahrlässigkeit,
 * bei schuldhafter Verletzung von Leben, Körper oder Gesundheit,
@@ -4925,7 +4936,7 @@ CaRisma haftet unbeschränkt:
 
 17.2 Leicht fahrlässige Verletzung wesentlicher Vertragspflichten
 
-Bei leicht fahrlässiger Verletzung einer wesentlichen Vertragspflicht haftet CaRisma auf den vertragstypischen, bei Vertragsschluss vorhersehbaren Schaden.
+Bei leicht fahrlässiger Verletzung einer wesentlichen Vertragspflicht haftet plaqa auf den vertragstypischen, bei Vertragsschluss vorhersehbaren Schaden.
 
 Wesentliche Vertragspflichten sind solche Pflichten, deren Erfüllung die ordnungsgemäße Durchführung des Vertrags überhaupt erst ermöglicht und auf deren Einhaltung der Nutzer regelmäßig vertrauen darf.
 
@@ -4933,19 +4944,19 @@ Wesentliche Vertragspflichten sind solche Pflichten, deren Erfüllung die ordnun
 
 Im Übrigen ist die Haftung für leicht fahrlässig verursachte Schäden ausgeschlossen, soweit gesetzlich zulässig.
 
-Die Haftungsausschlüsse und -beschränkungen gelten entsprechend für gesetzliche Vertreter, Beschäftigte und Erfüllungsgehilfen von CaRisma.
+Die Haftungsausschlüsse und -beschränkungen gelten entsprechend für gesetzliche Vertreter, Beschäftigte und Erfüllungsgehilfen von plaqa.
 
 17.4 Nutzerinhalte und Nutzerangaben
 
-CaRisma macht sich Nutzerinhalte nicht allein dadurch zu eigen, dass sie über die App gespeichert oder übertragen werden.
+plaqa macht sich Nutzerinhalte nicht allein dadurch zu eigen, dass sie über die App gespeichert oder übertragen werden.
 
-Soweit CaRisma keine gesetzliche Prüfpflicht trifft und keine Kenntnis von einer konkreten Rechtsverletzung hat, haftet CaRisma für fremde Nutzerinhalte nur nach den jeweils anwendbaren gesetzlichen Vorschriften.
+Soweit plaqa keine gesetzliche Prüfpflicht trifft und keine Kenntnis von einer konkreten Rechtsverletzung hat, haftet plaqa für fremde Nutzerinhalte nur nach den jeweils anwendbaren gesetzlichen Vorschriften.
 
 Nach Kenntniserlangung werden erforderliche und zumutbare Maßnahmen geprüft.
 
 17.5 Keine Garantie für Nutzer und Fahrzeuge
 
-CaRisma übernimmt keine Garantie für:
+plaqa übernimmt keine Garantie für:
 
 * Identität, Vertrauenswürdigkeit oder Verhalten eines Nutzers,
 * Richtigkeit von Profil-, Fahrzeug- oder Kennzeichenangaben,
@@ -4961,17 +4972,17 @@ Eine Verifizierung beschränkt sich auf die im jeweiligen Verfahren geprüften M
 
 Nutzer handeln eigenverantwortlich.
 
-CaRisma ist grundsätzlich nicht Partei von Vereinbarungen, Treffen oder sonstigen Rechtsgeschäften zwischen Nutzern.
+plaqa ist grundsätzlich nicht Partei von Vereinbarungen, Treffen oder sonstigen Rechtsgeschäften zwischen Nutzern.
 
-CaRisma haftet nicht allein deshalb für das Verhalten eines Nutzers, weil der Kontakt über die App zustande gekommen ist.
+plaqa haftet nicht allein deshalb für das Verhalten eines Nutzers, weil der Kontakt über die App zustande gekommen ist.
 
-Eigene gesetzliche Pflichten von CaRisma bleiben unberührt.
+Eigene gesetzliche Pflichten von plaqa bleiben unberührt.
 
 17.7 Datenverlust
 
 Soweit der Nutzer für eine angemessene eigene Sicherung von Daten verantwortlich ist, ist die Haftung bei leicht fahrlässigem Datenverlust auf den Wiederherstellungsaufwand beschränkt, der bei ordnungsgemäßer und regelmäßiger Datensicherung typischerweise entstanden wäre.
 
-Diese Regelung gilt nicht für Daten, deren alleinige Sicherung nach dem Vertragszweck CaRisma obliegt, oder soweit eine eigene Sicherung durch den Nutzer nicht möglich oder nicht zumutbar ist.
+Diese Regelung gilt nicht für Daten, deren alleinige Sicherung nach dem Vertragszweck plaqa obliegt, oder soweit eine eigene Sicherung durch den Nutzer nicht möglich oder nicht zumutbar ist.
 
 18. Haftung und Verantwortung der Nutzer
 
@@ -4985,7 +4996,7 @@ Verletzt ein Nutzer schuldhaft diese Nutzungsbedingungen oder Rechte Dritter, is
 
 18.3 Meldung von Sicherheitsvorfällen
 
-Nutzer müssen CaRisma unverzüglich informieren, wenn sie Kenntnis erhalten von:
+Nutzer müssen plaqa unverzüglich informieren, wenn sie Kenntnis erhalten von:
 
 * unbefugtem Kontozugriff,
 * Identitätsmissbrauch,
@@ -4994,7 +5005,7 @@ Nutzer müssen CaRisma unverzüglich informieren, wenn sie Kenntnis erhalten von
 * Sicherheitslücken,
 * manipulierten oder gefälschten Verifizierungen.
 
-Die Meldung ist an info@carisma.de zu richten oder über die vorgesehene App-Funktion abzugeben.''',
+Die Meldung ist an info@plaqa.de zu richten oder über die vorgesehene App-Funktion abzugeben.''',
           ),
           _LegalSection(
             title: '19. Account-Löschung, Kündigung und Vertragsende',
@@ -5005,15 +5016,15 @@ Der Nutzer kann den unentgeltlichen Nutzungsvertrag jederzeit ohne Einhaltung ei
 Die Kündigung erfolgt durch:
 
 * Löschung des Kontos innerhalb der App oder
-* eine eindeutige Erklärung an info@carisma.de.
+* eine eindeutige Erklärung an info@plaqa.de.
 
 [ANGABE ERGÄNZEN: Genauer In-App-Pfad zur Kontolöschung.]
 
 Die bloße Deinstallation der App beendet den Nutzungsvertrag nicht zwingend und löscht das Benutzerkonto nicht automatisch.
 
-19.2 Ordentliche Kündigung durch CaRisma
+19.2 Ordentliche Kündigung durch plaqa
 
-CaRisma kann einen unentgeltlichen Nutzungsvertrag ordentlich mit angemessener Frist kündigen, soweit keine abweichenden gesetzlichen Vorgaben gelten.
+plaqa kann einen unentgeltlichen Nutzungsvertrag ordentlich mit angemessener Frist kündigen, soweit keine abweichenden gesetzlichen Vorgaben gelten.
 
 Die Kündigungsfrist beträgt:
 
@@ -5025,7 +5036,7 @@ Eine ordentliche Kündigung darf nicht treuwidrig oder diskriminierend erfolgen.
 
 Beide Parteien können den Vertrag aus wichtigem Grund ohne Einhaltung einer Frist kündigen.
 
-Ein wichtiger Grund für CaRisma kann insbesondere vorliegen bei:
+Ein wichtiger Grund für plaqa kann insbesondere vorliegen bei:
 
 * schwerwiegendem oder wiederholtem Verstoß gegen diese Bedingungen,
 * Stalking, Bedrohung oder Belästigung,
@@ -5080,9 +5091,9 @@ Die Kontolöschung beendet ein über einen App Store abgeschlossenes Abonnement 
             title: '20. App Stores und Drittanbieter',
             body: r'''20.1 App Stores
 
-CaRisma kann über Google Play und später über den Apple App Store bereitgestellt werden.
+plaqa kann über Google Play und später über den Apple App Store bereitgestellt werden.
 
-Der jeweilige App-Store-Anbieter ist nicht Vertragspartner des Nutzungsvertrags über die von CaRisma betriebenen App-Funktionen, soweit nicht ausdrücklich etwas anderes angegeben wird.
+Der jeweilige App-Store-Anbieter ist nicht Vertragspartner des Nutzungsvertrags über die von plaqa betriebenen App-Funktionen, soweit nicht ausdrücklich etwas anderes angegeben wird.
 
 Für:
 
@@ -5098,7 +5109,7 @@ können ergänzende Bedingungen des App Stores gelten.
 
 20.2 Drittanbieterdienste
 
-CaRisma kann technische Dienste Dritter einsetzen, insbesondere für:
+plaqa kann technische Dienste Dritter einsetzen, insbesondere für:
 
 * Authentifizierung,
 * Hosting,
@@ -5110,19 +5121,19 @@ CaRisma kann technische Dienste Dritter einsetzen, insbesondere für:
 
 Die Verfügbarkeit einzelner Funktionen kann von diesen Drittanbietern abhängen.
 
-CaRisma haftet für eigenes Auswahl-, Organisations- oder Überwachungsverschulden nach den gesetzlichen Bestimmungen. Eine darüber hinausgehende Garantie für die dauerhafte Verfügbarkeit unabhängiger Drittanbieterdienste wird nicht übernommen.
+plaqa haftet für eigenes Auswahl-, Organisations- oder Überwachungsverschulden nach den gesetzlichen Bestimmungen. Eine darüber hinausgehende Garantie für die dauerhafte Verfügbarkeit unabhängiger Drittanbieterdienste wird nicht übernommen.
 
 20.3 Externe Links
 
 Externe Links können zu Diensten Dritter führen. Für deren Inhalte und Leistungen ist grundsätzlich der jeweilige Anbieter verantwortlich.
 
-CaRisma prüft externe Angebote bei der Verlinkung im zumutbaren Umfang, übernimmt aber keine allgemeine dauerhafte Kontrollpflicht.''',
+plaqa prüft externe Angebote bei der Verlinkung im zumutbaren Umfang, übernimmt aber keine allgemeine dauerhafte Kontrollpflicht.''',
           ),
           _LegalSection(
             title: '21. Änderungen der Nutzungsbedingungen',
             body: r'''21.1 Änderungsgründe
 
-CaRisma darf diese Nutzungsbedingungen für die Zukunft ändern, wenn hierfür ein sachlicher Grund besteht.
+plaqa darf diese Nutzungsbedingungen für die Zukunft ändern, wenn hierfür ein sachlicher Grund besteht.
 
 Sachliche Gründe können insbesondere sein:
 
@@ -5149,22 +5160,22 @@ Die Mitteilung enthält:
 
 21.3 Erneute Zustimmung
 
-Soweit eine Änderung eine ausdrückliche Zustimmung erfordert, wird CaRisma diese einholen.
+Soweit eine Änderung eine ausdrückliche Zustimmung erfordert, wird plaqa diese einholen.
 
 Eine unterlassene Reaktion des Nutzers gilt nicht ohne Weiteres als Zustimmung.
 
-CaRisma kann die weitere Nutzung einer wesentlich geänderten oder neuen Funktion von einer ausdrücklichen Zustimmung zu den dafür erforderlichen Bedingungen abhängig machen.
+plaqa kann die weitere Nutzung einer wesentlich geänderten oder neuen Funktion von einer ausdrücklichen Zustimmung zu den dafür erforderlichen Bedingungen abhängig machen.
 
 21.4 Ablehnung einer Änderung
 
 Lehnt der Nutzer eine erforderliche Änderung ab, kann er den Nutzungsvertrag vor Inkrafttreten der Änderung beenden.
 
-CaRisma kann den Vertrag ordentlich kündigen, wenn eine Fortführung unter den bisherigen Bedingungen technisch, rechtlich oder wirtschaftlich nicht zumutbar ist. Bereits entstandene Rechte des Nutzers bleiben unberührt.''',
+plaqa kann den Vertrag ordentlich kündigen, wenn eine Fortführung unter den bisherigen Bedingungen technisch, rechtlich oder wirtschaftlich nicht zumutbar ist. Bereits entstandene Rechte des Nutzers bleiben unberührt.''',
           ),
           _LegalSection(
             title: '22. Verbraucherstreitbeilegung',
             body:
-                r'''CaRisma ist weder bereit noch verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.
+                r'''plaqa ist weder bereit noch verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.
 
 [RECHTLICH PRÜFEN: Beschäftigtenzahl am 31. Dezember des Vorjahres, mögliche gesetzliche Teilnahmeverpflichtungen sowie identische Formulierung in Impressum, Website und AGB.]
 
@@ -5199,7 +5210,7 @@ Bei freiwilligen Übersetzungen ist festzulegen, welche Sprachfassung im Fall vo
 
 24.3 Individualvereinbarungen
 
-Individuelle Vereinbarungen zwischen CaRisma und einem Nutzer haben Vorrang vor diesen Nutzungsbedingungen.
+Individuelle Vereinbarungen zwischen plaqa und einem Nutzer haben Vorrang vor diesen Nutzungsbedingungen.
 
 24.4 Unwirksame Bestimmungen
 
@@ -5207,7 +5218,7 @@ Sollte eine Bestimmung dieser Nutzungsbedingungen ganz oder teilweise unwirksam 
 
 An die Stelle der unwirksamen oder undurchführbaren Bestimmung treten die gesetzlichen Vorschriften.
 
-Eine unwirksame Klausel wird nicht automatisch durch eine für CaRisma wirtschaftlich möglichst günstige Regelung ersetzt.''',
+Eine unwirksame Klausel wird nicht automatisch durch eine für plaqa wirtschaftlich möglichst günstige Regelung ersetzt.''',
           ),
           _LegalSection(
             title: '25. Offene Punkte vor Veröffentlichung',
@@ -5227,7 +5238,7 @@ Eine unwirksame Klausel wird nicht automatisch durch eine für CaRisma wirtschaf
 11. Beschwerdeverfahren gegen Moderationsentscheidungen;
 12. In-App-Pfad zur Kontolöschung;
 13. Löschwirkung bei Chats, Storys, Hinweisen und Kontolöschung;
-14. Kündigungsfrist für eine ordentliche Kündigung durch CaRisma;
+14. Kündigungsfrist für eine ordentliche Kündigung durch plaqa;
 15. aktueller kostenloser Funktionsumfang;
 16. spätere Bedingungen für In-App-Käufe und Abonnements;
 17. DSA-Einstufung und daraus folgende Plattformpflichten;
@@ -5242,12 +5253,12 @@ Diese Nutzungsbedingungen sind vor Veröffentlichung durch einen Rechtsanwalt mi
       'Datenschutzerklärung' => const _LegalContent(
         title: 'Datenschutz',
         icon: Icons.privacy_tip_outlined,
-        description: 'Datenschutzerklärung für CaRisma.',
+        description: 'Datenschutzerklärung für plaqa.',
         versionLabel: 'Aktuelle Datenschutz-Version: ${LegalVersions.privacy}',
         sections: [
           _LegalSection(
             title: 'Stand und Version',
-            body: r'''Datenschutzerklärung für die mobile App „CaRisma“
+            body: r'''Datenschutzerklärung für die mobile App „plaqa“
 
 Stand: [ANGABE ERGÄNZEN: Datum der letzten Aktualisierung]
 Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
@@ -5255,9 +5266,9 @@ Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
           _LegalSection(
             title: '1. Geltungsbereich und Zweck dieser Datenschutzerklärung',
             body:
-                r'''Diese Datenschutzerklärung informiert darüber, wie personenbezogene Daten bei der Nutzung der mobilen App „CaRisma“, der zugehörigen Website und der damit verbundenen Dienste verarbeitet werden.
+                r'''Diese Datenschutzerklärung informiert darüber, wie personenbezogene Daten bei der Nutzung der mobilen App „plaqa“, der zugehörigen Website und der damit verbundenen Dienste verarbeitet werden.
 
-CaRisma ist eine mobile Anwendung zur geschützten Kontaktaufnahme rund um Fahrzeuge und Kennzeichen. Nutzer können insbesondere:
+plaqa ist eine mobile Anwendung zur geschützten Kontaktaufnahme rund um Fahrzeuge und Kennzeichen. Nutzer können insbesondere:
 
 * ein Benutzerkonto erstellen,
 * ein Profil anlegen,
@@ -5272,14 +5283,14 @@ CaRisma ist eine mobile Anwendung zur geschützten Kontaktaufnahme rund um Fahrz
 
 Diese Datenschutzerklärung beschreibt sowohl die Datenverarbeitung durch den Betreiber als auch die Verantwortung der Nutzer für Inhalte, die sie selbst eingeben, hochladen, veröffentlichen oder an andere Nutzer senden.
 
-Wichtig: CaRisma ist keine Notruf-, Polizei-, Feuerwehr-, Rettungsdienst-, Abschlepp-, Pannenhilfe- oder Rechtsberatungs-App. Bei Gefahr für Personen oder Sachen, bei Unfällen, Straftaten, akuten Verkehrsbehinderungen oder sonstigen Notfällen müssen unmittelbar die zuständigen Behörden, Rettungsdienste, Pannenhilfen oder sonstigen verantwortlichen Stellen kontaktiert werden.''',
+Wichtig: plaqa ist keine Notruf-, Polizei-, Feuerwehr-, Rettungsdienst-, Abschlepp-, Pannenhilfe- oder Rechtsberatungs-App. Bei Gefahr für Personen oder Sachen, bei Unfällen, Straftaten, akuten Verkehrsbehinderungen oder sonstigen Notfällen müssen unmittelbar die zuständigen Behörden, Rettungsdienste, Pannenhilfen oder sonstigen verantwortlichen Stellen kontaktiert werden.''',
           ),
           _LegalSection(
             title: '2. Verantwortlicher',
             body:
                 r'''Verantwortlicher im Sinne der Datenschutz-Grundverordnung ist:
 
-CaRisma – Inhaber Sehmus Yildirim
+plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
 Bremer Straße 254e
 21077 Hamburg
@@ -5287,17 +5298,17 @@ Deutschland
 
 Rechtsform: Einzelunternehmen
 
-E-Mail: info@carisma.de
-Website: ca-risma.de''',
+E-Mail: info@plaqa.de
+Website: plaqa.de''',
           ),
           _LegalSection(
             title: '3. Datenschutzkontakt',
             body:
                 r'''Anfragen zum Datenschutz, zu Betroffenenrechten oder zur Verarbeitung personenbezogener Daten können gerichtet werden an:
 
-E-Mail: info@carisma.de
+E-Mail: info@plaqa.de
 
-[ANGABE ERGÄNZEN: Falls eine separate Datenschutz-E-Mail eingerichtet wird, zum Beispiel datenschutz@carisma.de, hier eintragen.]
+[ANGABE ERGÄNZEN: Falls eine separate Datenschutz-E-Mail eingerichtet wird, zum Beispiel datenschutz@plaqa.de, hier eintragen.]
 
 [RECHTLICH PRÜFEN: Ob ein betrieblicher Datenschutzbeauftragter bestellt werden muss. Falls ein Datenschutzbeauftragter bestellt wird, sind dessen Kontaktdaten an dieser Stelle aufzunehmen.]''',
           ),
@@ -5404,7 +5415,7 @@ Art. 6 Abs. 1 lit. c DSGVO ist Rechtsgrundlage, wenn die Verarbeitung zur Erfül
 
 In seltenen Ausnahmefällen kann Art. 6 Abs. 1 lit. d DSGVO einschlägig sein, wenn die Verarbeitung zum Schutz lebenswichtiger Interessen einer Person erforderlich ist und keine andere geeignete Rechtsgrundlage rechtzeitig zur Verfügung steht.
 
-Dies begründet keine allgemeine Überwachungs-, Rettungs- oder Notfallpflicht von CaRisma.
+Dies begründet keine allgemeine Überwachungs-, Rettungs- oder Notfallpflicht von plaqa.
 
 6.6 Rechtsansprüche
 
@@ -5441,7 +5452,7 @@ Nutzer müssen bei der Registrierung richtige und aktuelle Angaben machen. Die V
             body:
                 r'''[ANGABE ERGÄNZEN: Wird ausschließlich E-Mail/Passwort verwendet oder zusätzlich Google Sign-In, Sign in with Apple oder ein anderer Anbieter?]
 
-Werden externe Anmeldedienste eingesetzt, können der jeweilige Anbieter und CaRisma Informationen austauschen, zum Beispiel:
+Werden externe Anmeldedienste eingesetzt, können der jeweilige Anbieter und plaqa Informationen austauschen, zum Beispiel:
 
 * externe Nutzerkennung,
 * Name,
@@ -5484,7 +5495,7 @@ Nutzer dürfen nur Daten zu Fahrzeugen hinterlegen, die sie rechtmäßig verwend
           _LegalSection(
             title: '10. Kennzeichen als personenbezogenes Datum',
             body:
-                r'''Ein Fahrzeugkennzeichen kann insbesondere in Verbindung mit weiteren Informationen einen Bezug zu einer identifizierbaren Person herstellen. Kennzeichen werden daher innerhalb von CaRisma grundsätzlich als schutzbedürftige Daten behandelt.
+                r'''Ein Fahrzeugkennzeichen kann insbesondere in Verbindung mit weiteren Informationen einen Bezug zu einer identifizierbaren Person herstellen. Kennzeichen werden daher innerhalb von plaqa grundsätzlich als schutzbedürftige Daten behandelt.
 
 Kennzeichen können verarbeitet werden, um:
 
@@ -5501,7 +5512,7 @@ Kennzeichen dürfen nicht dazu verwendet werden, Personen systematisch zu verfol
           _LegalSection(
             title: '11. Verifizierung und Verifizierungsdokumente',
             body:
-                r'''CaRisma kann eine freiwillige oder für bestimmte Funktionen erforderliche Verifizierung anbieten. Hierbei können Nutzer insbesondere folgende Dokumente oder Nachweise hochladen:
+                r'''plaqa kann eine freiwillige oder für bestimmte Funktionen erforderliche Verifizierung anbieten. Hierbei können Nutzer insbesondere folgende Dokumente oder Nachweise hochladen:
 
 * Identitätsnachweis,
 * Führerschein,
@@ -5649,7 +5660,7 @@ Im Chat sind insbesondere verboten:
 * strafbare oder sonstige rechtswidrige Inhalte,
 * Schadsoftware oder schädliche Dateien.
 
-Chatinhalte werden nicht allein deshalb automatisch als vertraulich oder rechtlich privilegiert behandelt, weil sie in einem privaten Chat versendet werden. Empfänger können Inhalte technisch speichern, fotografieren, weiterleiten oder anderweitig verwenden. CaRisma kann ein solches Verhalten nicht in jedem Fall verhindern.
+Chatinhalte werden nicht allein deshalb automatisch als vertraulich oder rechtlich privilegiert behandelt, weil sie in einem privaten Chat versendet werden. Empfänger können Inhalte technisch speichern, fotografieren, weiterleiten oder anderweitig verwenden. plaqa kann ein solches Verhalten nicht in jedem Fall verhindern.
 
 Bei einer Meldung, einem konkreten Missbrauchsverdacht, einer Sicherheitsprüfung oder einer rechtlichen Verpflichtung können gemeldete oder relevante Chatdaten durch hierzu berechtigte Personen geprüft werden, soweit dies erforderlich und rechtlich zulässig ist.
 
@@ -5719,7 +5730,7 @@ Nutzer dürfen nur Inhalte veröffentlichen, an denen sie die erforderlichen Rec
 * Melde- und Moderationsdaten,
 * technische Sicherheitsinformationen.
 
-Ein Hinweis kann für den Empfänger anonym oder pseudonym dargestellt werden. Dies bedeutet nicht, dass der Hinweis gegenüber CaRisma technisch anonym ist.
+Ein Hinweis kann für den Empfänger anonym oder pseudonym dargestellt werden. Dies bedeutet nicht, dass der Hinweis gegenüber plaqa technisch anonym ist.
 
 Zur Sicherheit, Missbrauchsabwehr und Nachweisführung können Hinweise intern insbesondere mit folgenden Informationen verknüpft werden:
 
@@ -5756,9 +5767,9 @@ Verboten sind insbesondere:
 * Veröffentlichung privater oder vertraulicher Informationen,
 * sonstige rechtswidrige oder missbräuchliche Meldungen.
 
-CaRisma prüft nicht zwingend jede Meldung vor der Zustellung und übernimmt keine Gewähr für deren Richtigkeit. Empfänger dürfen Hinweise nicht ungeprüft als Tatsachenbeweis verwenden.
+plaqa prüft nicht zwingend jede Meldung vor der Zustellung und übernimmt keine Gewähr für deren Richtigkeit. Empfänger dürfen Hinweise nicht ungeprüft als Tatsachenbeweis verwenden.
 
-Bei akuter Gefahr, einem Unfall, einer Straftat oder einer dringenden Verkehrsbehinderung ist unmittelbar die zuständige Stelle zu kontaktieren. CaRisma ersetzt insbesondere nicht Polizei, Feuerwehr, Rettungsdienst, Ordnungsbehörde, Pannenhilfe oder Abschleppdienst.''',
+Bei akuter Gefahr, einem Unfall, einer Straftat oder einer dringenden Verkehrsbehinderung ist unmittelbar die zuständige Stelle zu kontaktieren. plaqa ersetzt insbesondere nicht Polizei, Feuerwehr, Rettungsdienst, Ordnungsbehörde, Pannenhilfe oder Abschleppdienst.''',
           ),
           _LegalSection(
             title: '17. Standortdaten',
@@ -5784,7 +5795,7 @@ Abhängig von Gerät, Betriebssystem und Berechtigung können insbesondere verar
 * IP-basierte ungefähre Standortinformationen,
 * Metadaten einer aktiv geteilten Datei oder Aufnahme.
 
-CaRisma beabsichtigt nicht, ohne Funktionsbezug dauerhafte Bewegungsprofile zu erstellen. Standortdaten können jedoch zeitweise gespeichert werden, wenn dies für die konkrete Funktion, Sicherheit, Missbrauchsabwehr, Nachweisführung oder Rechtsverteidigung erforderlich ist.
+plaqa beabsichtigt nicht, ohne Funktionsbezug dauerhafte Bewegungsprofile zu erstellen. Standortdaten können jedoch zeitweise gespeichert werden, wenn dies für die konkrete Funktion, Sicherheit, Missbrauchsabwehr, Nachweisführung oder Rechtsverteidigung erforderlich ist.
 
 [TECHNISCH PRÜFEN: Ob Standortdaten im Hintergrund erhoben werden.]
 [TECHNISCH PRÜFEN: Ob exakte Koordinaten oder Geohashes gespeichert werden.]
@@ -5960,12 +5971,12 @@ Nutzer verstehen, dass ihre Inhalte je nach Funktion:
 * bei rechtlicher Erforderlichkeit gesichert und ausgewertet,
 * bei Vorliegen einer Rechtsgrundlage an zuständige Stellen übermittelt werden können.
 
-Diese Nutzerverantwortung entbindet CaRisma nicht von eigenen gesetzlichen Pflichten.''',
+Diese Nutzerverantwortung entbindet plaqa nicht von eigenen gesetzlichen Pflichten.''',
           ),
           _LegalSection(
             title: '23. Firebase und Google-Dienste',
             body:
-                r'''Für den Betrieb von CaRisma werden Dienste der Google-Gruppe beziehungsweise Firebase eingesetzt.
+                r'''Für den Betrieb von plaqa werden Dienste der Google-Gruppe beziehungsweise Firebase eingesetzt.
 
 Zum vorgesehenen oder möglichen technischen Umfang gehören:
 
@@ -6039,7 +6050,7 @@ Beim Download, bei Updates oder In-App-Käufen verarbeiten die jeweiligen Store-
 * Land und Währung,
 * technische Download- und Diagnosedaten.
 
-CaRisma erhält regelmäßig nicht alle vollständigen Zahlungsdaten, sondern insbesondere Informationen, die zur Bestätigung und Verwaltung eines Kaufs erforderlich sind.
+plaqa erhält regelmäßig nicht alle vollständigen Zahlungsdaten, sondern insbesondere Informationen, die zur Bestätigung und Verwaltung eines Kaufs erforderlich sind.
 
 [ANGABE ERGÄNZEN: Welche In-App-Käufe, Abonnements oder Zahlungsanbieter eingesetzt werden.]
 [RECHTLICH PRÜFEN: Eigener Abschnitt für Google Play Billing und später Apple In-App Purchase einschließlich Rollenverteilung.]''',
@@ -6142,7 +6153,7 @@ Eine pauschale unbegrenzte Vorratsspeicherung findet nicht statt. Gleichzeitig k
 
 [ANGABE ERGÄNZEN: In-App-Pfad, zum Beispiel „Einstellungen > Konto > Konto löschen“]
 
-oder per E-Mail an info@carisma.de beantragen.
+oder per E-Mail an info@plaqa.de beantragen.
 
 Vor einer Löschung kann eine Identitäts- oder Kontobestätigung erforderlich sein, um unberechtigte Löschanträge zu verhindern.
 
@@ -6166,7 +6177,7 @@ Die Kontolöschung kann insbesondere folgende Folgen haben:
             body:
                 r'''Nutzer können Auskunft über die zu ihrer Person verarbeiteten Daten verlangen. Soweit die Voraussetzungen vorliegen, kann außerdem ein Datenexport in einem strukturierten, gängigen und maschinenlesbaren Format verlangt werden.
 
-Anfragen können an info@carisma.de gerichtet werden.
+Anfragen können an info@plaqa.de gerichtet werden.
 
 Zur Verhinderung unberechtigter Datenzugriffe kann eine angemessene Identitätsprüfung erforderlich sein.
 
@@ -6225,7 +6236,7 @@ Die Beschwerde kann unabhängig von anderen verwaltungsrechtlichen oder gerichtl
           _LegalSection(
             title: '32. Minderjährige',
             body:
-                r'''CaRisma darf nur von Personen genutzt werden, die das festgelegte Mindestalter erreicht haben.
+                r'''plaqa darf nur von Personen genutzt werden, die das festgelegte Mindestalter erreicht haben.
 
 Mindestalter: [ANGABE ERGÄNZEN]
 
@@ -6233,7 +6244,7 @@ Mindestalter: [ANGABE ERGÄNZEN]
 
 Soweit die Verarbeitung auf einer Einwilligung in Bezug auf Dienste der Informationsgesellschaft beruht und der Nutzer das gesetzlich maßgebliche Alter noch nicht erreicht hat, kann die Zustimmung der Erziehungsberechtigten erforderlich sein.
 
-CaRisma richtet sich nicht gezielt an Kinder unter dem festgelegten Mindestalter. Werden konkrete Hinweise bekannt, dass ein unzulässig minderjähriger Nutzer ein Konto verwendet, kann das Konto eingeschränkt oder gelöscht werden.
+plaqa richtet sich nicht gezielt an Kinder unter dem festgelegten Mindestalter. Werden konkrete Hinweise bekannt, dass ein unzulässig minderjähriger Nutzer ein Konto verwendet, kann das Konto eingeschränkt oder gelöscht werden.
 
 [TECHNISCH PRÜFEN: Altersabfrage, Altersnachweis, elterliche Zustimmung und Umgang mit offensichtlich falschen Altersangaben.]''',
           ),
@@ -6286,8 +6297,7 @@ Werden zukünftig Entscheidungen im Sinne des Art. 22 DSGVO eingesetzt, wird die
           ),
           _LegalSection(
             title: '36. Keine Notfall-, Behörden- oder Rechtsberatungsfunktion',
-            body:
-                r'''CaRisma stellt eine Kommunikationsplattform bereit. CaRisma:
+            body: r'''plaqa stellt eine Kommunikationsplattform bereit. plaqa:
 
 * nimmt keine Notrufe entgegen,
 * alarmiert nicht automatisch Polizei, Feuerwehr oder Rettungsdienste,
@@ -6320,13 +6330,13 @@ Bei wesentlichen Änderungen werden Nutzer in angemessener Weise informiert. Sow
             body: r'''Diese Datenschutzerklärung soll dauerhaft abrufbar sein:
 
 * in der App unter „Einstellungen > Datenschutz“,
-* auf der Website unter [ANGABE ERGÄNZEN: vollständige URL, zum Beispiel https://ca-risma.de/datenschutz],
+* auf der Website unter [ANGABE ERGÄNZEN: vollständige URL, zum Beispiel https://plaqa.de/datenschutz],
 * gegebenenfalls über die Datenschutzangaben in Google Play und im Apple App Store.''',
           ),
           _LegalSection(
             title: '39. Abschließender Prüfungshinweis',
             body:
-                r'''Diese Datenschutzerklärung ist ein Entwurf auf Grundlage des derzeit beschriebenen Funktions- und Entwicklungsstands von CaRisma.
+                r'''Diese Datenschutzerklärung ist ein Entwurf auf Grundlage des derzeit beschriebenen Funktions- und Entwicklungsstands von plaqa.
 
 Vor Veröffentlichung müssen insbesondere:
 
@@ -6350,12 +6360,12 @@ Der Entwurf sollte vor Veröffentlichung durch einen Rechtsanwalt mit Schwerpunk
         title: 'Community-Richtlinien',
         icon: Icons.shield_outlined,
         description:
-            'Verhaltensregeln für eine sichere und verantwortungsvolle Nutzung von CaRisma.',
+            'Verhaltensregeln für eine sichere und verantwortungsvolle Nutzung von plaqa.',
         versionLabel: 'Aktuelle Version: ${LegalVersions.responsibleUse}',
         sections: [
           _LegalSection(
             title: 'Stand und Version',
-            body: r'''Community-Richtlinien und Verhaltensregeln für CaRisma
+            body: r'''Community-Richtlinien und Verhaltensregeln für plaqa
 
 Stand: [ANGABE ERGÄNZEN: Datum]
 Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
@@ -6363,13 +6373,13 @@ Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
           _LegalSection(
             title: '1. Zweck der Community-Richtlinien',
             body:
-                r'''CaRisma ist eine mobile App zur geschützten Kontaktaufnahme rund um Fahrzeuge und Kennzeichen.
+                r'''plaqa ist eine mobile App zur geschützten Kontaktaufnahme rund um Fahrzeuge und Kennzeichen.
 
-Diese Community-Richtlinien legen fest, wie Nutzer CaRisma verwenden dürfen, welche Inhalte und Verhaltensweisen unzulässig sind und welche Maßnahmen bei Verstößen ergriffen werden können.
+Diese Community-Richtlinien legen fest, wie Nutzer plaqa verwenden dürfen, welche Inhalte und Verhaltensweisen unzulässig sind und welche Maßnahmen bei Verstößen ergriffen werden können.
 
-Unser Ziel ist eine sichere, respektvolle und verantwortungsvolle Nutzung der App. Die Richtlinien sollen insbesondere verhindern, dass CaRisma für Belästigung, Stalking, Überwachung, Drohungen, Täuschung, Bloßstellung, falsche Anschuldigungen, Datenschutzverletzungen oder andere rechtswidrige Zwecke verwendet wird.
+Unser Ziel ist eine sichere, respektvolle und verantwortungsvolle Nutzung der App. Die Richtlinien sollen insbesondere verhindern, dass plaqa für Belästigung, Stalking, Überwachung, Drohungen, Täuschung, Bloßstellung, falsche Anschuldigungen, Datenschutzverletzungen oder andere rechtswidrige Zwecke verwendet wird.
 
-Die Community-Richtlinien gelten für sämtliche Funktionen und Inhalte von CaRisma, insbesondere für:
+Die Community-Richtlinien gelten für sämtliche Funktionen und Inhalte von plaqa, insbesondere für:
 
 * Benutzerkonten und Profile,
 * Fahrzeug- und Kennzeichendaten,
@@ -6383,7 +6393,7 @@ Die Community-Richtlinien gelten für sämtliche Funktionen und Inhalte von CaRi
 * Dokumente und Verifizierungsnachweise,
 * Blockier-, Melde- und Beschwerdefunktionen.
 
-Ergänzend gelten die Allgemeinen Geschäftsbedingungen, die Datenschutzerklärung und das Impressum von CaRisma.''',
+Ergänzend gelten die Allgemeinen Geschäftsbedingungen, die Datenschutzerklärung und das Impressum von plaqa.''',
           ),
           _LegalSection(
             title: '2. Grundprinzipien der Nutzung',
@@ -6393,7 +6403,7 @@ Behandeln Sie andere Nutzer respektvoll. Meinungsverschiedenheiten rechtfertigen
 
 2.2 Sicherheit
 
-Verwenden Sie CaRisma so, dass andere Personen weder gefährdet noch verängstigt oder unter Druck gesetzt werden.
+Verwenden Sie plaqa so, dass andere Personen weder gefährdet noch verängstigt oder unter Druck gesetzt werden.
 
 Unterlassen Sie jedes Verhalten, das als Nachstellung, Überwachung, Bedrohung oder Vorbereitung einer rechtswidrigen Handlung verstanden werden kann.
 
@@ -6437,7 +6447,7 @@ Kennzeichen dürfen nicht zur Überwachung, Verfolgung, Ausforschung, Veröffent
           _LegalSection(
             title: '3. Zulässige Nutzung',
             body:
-                r'''CaRisma darf insbesondere für folgende Zwecke verwendet werden:
+                r'''plaqa darf insbesondere für folgende Zwecke verwendet werden:
 
 3.1 Geschützte Kontaktaufnahme
 
@@ -6480,7 +6490,7 @@ Meldungen müssen sachlich erfolgen und dürfen nicht als Mittel zur Rache, Eins
           _LegalSection(
             title: '4. Verbotene Nutzung',
             body:
-                r'''Die folgenden Verhaltensweisen und Inhalte sind auf CaRisma untersagt.
+                r'''Die folgenden Verhaltensweisen und Inhalte sind auf plaqa untersagt.
 
 4.1 Stalking und Nachstellung
 
@@ -6495,7 +6505,7 @@ Verboten sind insbesondere:
 
 4.2 Überwachung von Personen oder Fahrzeugen
 
-CaRisma darf nicht verwendet werden, um:
+plaqa darf nicht verwendet werden, um:
 
 * Personen oder Fahrzeuge gezielt zu überwachen,
 * regelmäßige Standorte festzustellen,
@@ -6538,7 +6548,7 @@ Verboten sind:
 
 4.6 Erpressung und Nötigung
 
-CaRisma darf nicht verwendet werden, um eine Person durch Drohung, Druck oder Bloßstellung zu einer Handlung, Zahlung, Kontaktaufnahme oder Unterlassung zu zwingen.
+plaqa darf nicht verwendet werden, um eine Person durch Drohung, Druck oder Bloßstellung zu einer Handlung, Zahlung, Kontaktaufnahme oder Unterlassung zu zwingen.
 
 4.7 Falsche Anschuldigungen
 
@@ -6556,7 +6566,7 @@ Verboten sind insbesondere:
 
 * Verwendung einer fremden Identität,
 * Vortäuschung einer behördlichen oder geschäftlichen Funktion,
-* Vortäuschung einer Verbindung zu CaRisma,
+* Vortäuschung einer Verbindung zu plaqa,
 * Verwendung fremder Profilbilder,
 * Eintragung fremder Fahrzeuge oder Kennzeichen ohne Berechtigung,
 * gefälschte oder manipulierte Verifizierungsnachweise.
@@ -6646,7 +6656,7 @@ Verboten sind:
 
 4.16 Spam und Werbung
 
-Ohne ausdrückliche Freigabe von CaRisma und erforderliche Zustimmung der Empfänger sind nicht erlaubt:
+Ohne ausdrückliche Freigabe von plaqa und erforderliche Zustimmung der Empfänger sind nicht erlaubt:
 
 * Massenwerbung,
 * wiederholte Werbenachrichten,
@@ -6709,7 +6719,7 @@ Verboten sind:
 
 4.22 Nutzung als Notrufersatz
 
-CaRisma darf nicht anstelle offizieller Notfall- oder Behördendienste verwendet werden.
+plaqa darf nicht anstelle offizieller Notfall- oder Behördendienste verwendet werden.
 
 Bei akuter Gefahr müssen Nutzer unmittelbar die zuständigen offiziellen Stellen kontaktieren.''',
           ),
@@ -6776,11 +6786,11 @@ Im Chat dürfen keine rechtswidrigen, betrügerischen, gefährlichen, diskrimini
 
 Private Chatnachrichten dürfen nicht ohne Berechtigung veröffentlicht oder an unbeteiligte Dritte weitergegeben werden.
 
-Die Weitergabe an CaRisma, Rechtsberater, Behörden oder Gerichte kann zulässig sein, wenn sie zur Meldung, Beweissicherung oder Rechtsverfolgung erforderlich ist.
+Die Weitergabe an plaqa, Rechtsberater, Behörden oder Gerichte kann zulässig sein, wenn sie zur Meldung, Beweissicherung oder Rechtsverfolgung erforderlich ist.
 
 6.5 Blockierungen respektieren
 
-Wird ein Nutzer blockiert, darf er nicht versuchen, über andere Konten oder Kommunikationswege innerhalb von CaRisma erneut Kontakt aufzunehmen.
+Wird ein Nutzer blockiert, darf er nicht versuchen, über andere Konten oder Kommunikationswege innerhalb von plaqa erneut Kontakt aufzunehmen.
 
 6.6 Vorsicht bei persönlichen Treffen
 
@@ -6794,7 +6804,7 @@ Nutzer sollten:
 * bei auffälligem Verhalten den Kontakt beenden,
 * gefährliche Situationen vermeiden.
 
-CaRisma organisiert, überwacht oder kontrolliert solche Treffen nicht.''',
+plaqa organisiert, überwacht oder kontrolliert solche Treffen nicht.''',
           ),
           _LegalSection(
             title: '7. Regeln für Storys',
@@ -6877,7 +6887,7 @@ Nicht erlaubt sind beispielsweise:
 
 8.5 Keine öffentlichen Anschuldigungen
 
-CaRisma darf nicht zur öffentlichen Anprangerung oder Bloßstellung verwendet werden.
+plaqa darf nicht zur öffentlichen Anprangerung oder Bloßstellung verwendet werden.
 
 Bei einem vermuteten Rechtsverstoß müssen Nutzer die zuständigen offiziellen Stellen kontaktieren, sofern dies erforderlich ist.
 
@@ -6891,7 +6901,7 @@ Bei Gefahr, Unfall, Straftat oder akuter Verkehrsbehinderung müssen offizielle 
 
 Ein Hinweis kann dem Empfänger ohne sichtbaren Absender angezeigt werden.
 
-Dies bedeutet nicht, dass der Hinweis gegenüber CaRisma technisch vollständig anonym ist. Zur Missbrauchsabwehr und Nachweisführung kann der Vorgang intern einem Benutzerkonto und technischen Informationen zugeordnet werden.''',
+Dies bedeutet nicht, dass der Hinweis gegenüber plaqa technisch vollständig anonym ist. Zur Missbrauchsabwehr und Nachweisführung kann der Vorgang intern einem Benutzerkonto und technischen Informationen zugeordnet werden.''',
           ),
           _LegalSection(
             title: '9. Datenschutz und private Informationen',
@@ -6912,7 +6922,7 @@ Veröffentlichen oder versenden Sie ohne ausreichende Berechtigung keine:
 
 9.2 Keine unberechtigte Weitergabe
 
-Informationen, die Sie über CaRisma erhalten, dürfen nicht zweckwidrig weitergegeben, veröffentlicht oder verkauft werden.
+Informationen, die Sie über plaqa erhalten, dürfen nicht zweckwidrig weitergegeben, veröffentlicht oder verkauft werden.
 
 9.3 Verantwortungsvolle Behandlung von Kennzeichen
 
@@ -6986,7 +6996,7 @@ Sie ist keine Garantie für:
 Verstöße können gemeldet werden:
 
 * über die vorgesehene Meldefunktion innerhalb der App,
-* per E-Mail an info@carisma.de.
+* per E-Mail an info@plaqa.de.
 
 In-App-Meldeweg:
 [ANGABE ERGÄNZEN: genauer Menüpfad]
@@ -7006,7 +7016,7 @@ Eine Meldung sollte möglichst enthalten:
 
 11.3 Dringende Gefahren
 
-Bei unmittelbarer Gefahr wenden Sie sich nicht nur an CaRisma, sondern direkt an Polizei, Feuerwehr, Rettungsdienst oder andere zuständige Stellen.
+Bei unmittelbarer Gefahr wenden Sie sich nicht nur an plaqa, sondern direkt an Polizei, Feuerwehr, Rettungsdienst oder andere zuständige Stellen.
 
 11.4 Keine missbräuchlichen Meldungen
 
@@ -7018,7 +7028,7 @@ Der Missbrauch der Meldefunktion kann selbst zu Maßnahmen gegen das meldende Ko
             title: '12. Moderation und mögliche Maßnahmen',
             body: r'''12.1 Prüfung von Verstößen
 
-CaRisma kann Inhalte, Konten oder Vorgänge prüfen, wenn:
+plaqa kann Inhalte, Konten oder Vorgänge prüfen, wenn:
 
 * eine Meldung eingeht,
 * konkrete Hinweise auf einen Verstoß vorliegen,
@@ -7070,7 +7080,7 @@ Bei schweren Verstößen kann eine sofortige Sperrung ohne vorherige Warnung erf
 
 12.4 Keine allgemeine Vorabkontrolle
 
-CaRisma kontrolliert nicht zwingend sämtliche Inhalte vor der Veröffentlichung oder Übermittlung.
+plaqa kontrolliert nicht zwingend sämtliche Inhalte vor der Veröffentlichung oder Übermittlung.
 
 Die Möglichkeit einer Moderation entbindet Nutzer nicht von ihrer eigenen Verantwortung.
 
@@ -7078,7 +7088,7 @@ Die Möglichkeit einer Moderation entbindet Nutzer nicht von ihrer eigenen Veran
 
 Eine Weitergabe von Daten an Behörden erfolgt nur, wenn hierfür eine gesetzliche Grundlage besteht, eine rechtmäßige Anordnung vorliegt oder die Übermittlung anderweitig gesetzlich zulässig oder erforderlich ist.
 
-CaRisma entscheidet nicht selbst über Schuld oder Strafbarkeit einer Person.''',
+plaqa entscheidet nicht selbst über Schuld oder Strafbarkeit einer Person.''',
           ),
           _LegalSection(
             title: '13. Beschwerde gegen Maßnahmen',
@@ -7088,7 +7098,7 @@ Nutzer können gegen eine Warnung, Inhaltsentfernung, Funktionsbeschränkung ode
 
 Kontakt:
 
-E-Mail: info@carisma.de
+E-Mail: info@plaqa.de
 
 [ANGABE ERGÄNZEN: In-App-Beschwerdeweg]
 
@@ -7104,9 +7114,9 @@ Die Beschwerde sollte enthalten:
 
 13.3 Erneute Prüfung
 
-CaRisma prüft Beschwerden sachlich anhand der verfügbaren Informationen.
+plaqa prüft Beschwerden sachlich anhand der verfügbaren Informationen.
 
-Soweit erforderlich, kann CaRisma weitere Angaben oder Nachweise anfordern.
+Soweit erforderlich, kann plaqa weitere Angaben oder Nachweise anfordern.
 
 13.4 Ergebnis
 
@@ -7157,9 +7167,9 @@ Rechte des betroffenen Nutzers auf eine sachliche und verhältnismäßige Prüfu
           _LegalSection(
             title: '15. Keine Notfall- oder Behördenfunktion',
             body:
-                r'''CaRisma ist keine Notruf-, Polizei-, Feuerwehr-, Rettungsdienst-, Pannenhilfe-, Abschlepp- oder Rechtsberatungs-App.
+                r'''plaqa ist keine Notruf-, Polizei-, Feuerwehr-, Rettungsdienst-, Pannenhilfe-, Abschlepp- oder Rechtsberatungs-App.
 
-CaRisma garantiert insbesondere nicht:
+plaqa garantiert insbesondere nicht:
 
 * die sofortige Zustellung einer Nachricht,
 * die rechtzeitige Kenntnisnahme durch einen Empfänger,
@@ -7184,7 +7194,7 @@ müssen Nutzer unmittelbar die zuständigen offiziellen Stellen kontaktieren.'''
           _LegalSection(
             title: '16. Änderungen der Community-Richtlinien',
             body:
-                r'''CaRisma kann diese Community-Richtlinien ändern, insbesondere wenn:
+                r'''plaqa kann diese Community-Richtlinien ändern, insbesondere wenn:
 
 * neue Funktionen eingeführt werden,
 * neue Missbrauchsformen auftreten,
@@ -7202,14 +7212,14 @@ Soweit eine Änderung eine ausdrückliche Zustimmung zu geänderten Vertragsbedi
             title: '17. Kontakt und Verantwortlicher',
             body: r'''Anbieter und Betreiber:
 
-CaRisma – Inhaber Sehmus Yildirim
+plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
 
-E-Mail: info@carisma.de
-Website: ca-risma.de''',
+E-Mail: info@plaqa.de
+Website: plaqa.de''',
           ),
           _LegalSection(
             title: '18. Offene Punkte vor Veröffentlichung',
@@ -7246,12 +7256,12 @@ Diese Community-Richtlinien sind vor der Veröffentlichung durch einen Rechtsanw
         title: 'Impressum',
         icon: Icons.business_rounded,
         description:
-            'Anbieterkennzeichnung für die Veröffentlichung von CaRisma.',
+            'Anbieterkennzeichnung für die Veröffentlichung von plaqa.',
         sections: [
           _LegalSection(
             title: '1. Angaben gemäß § 5 DDG',
             body: '''
-CaRisma - Inhaber Sehmus Yildirim
+plaqa - Inhaber Sehmus Yildirim
 Sehmus Yildirim
 Bremer Straße 254e
 21077 Hamburg
@@ -7262,8 +7272,8 @@ Rechtsform: Einzelunternehmen''',
           _LegalSection(
             title: '2. Kontakt',
             body: '''
-E-Mail: info@carisma.de
-Website: ca-risma.de
+E-Mail: info@plaqa.de
+Website: plaqa.de
 
 Vor Veröffentlichung noch zu ergänzen oder zu prüfen:
 
@@ -7285,11 +7295,11 @@ Bremer Straße 254e
 21077 Hamburg
 Deutschland
 
-CaRisma bietet derzeit keine eigenen journalistisch-redaktionellen Inhalte an. Eine gesonderte Benennung eines Verantwortlichen nach dem Medienstaatsvertrag erfolgt daher derzeit nicht.
+plaqa bietet derzeit keine eigenen journalistisch-redaktionellen Inhalte an. Eine gesonderte Benennung eines Verantwortlichen nach dem Medienstaatsvertrag erfolgt daher derzeit nicht.
 
 Zu prüfen:
 
-Sollte CaRisma zukünftig eigene redaktionelle Nachrichten, Verkehrsmeldungen, Ratgeberartikel, Magazine oder vergleichbare journalistisch-redaktionelle Inhalte veröffentlichen, muss dieser Abschnitt rechtlich erneut geprüft und gegebenenfalls ergänzt werden.''',
+Sollte plaqa zukünftig eigene redaktionelle Nachrichten, Verkehrsmeldungen, Ratgeberartikel, Magazine oder vergleichbare journalistisch-redaktionelle Inhalte veröffentlichen, muss dieser Abschnitt rechtlich erneut geprüft und gegebenenfalls ergänzt werden.''',
           ),
           _LegalSection(
             title: '4. Verbraucherstreitbeilegung',
@@ -7312,7 +7322,7 @@ Diese Erklärung muss erneut geprüft werden, sobald feststeht:
           _LegalSection(
             title: '6. Inhalte von Nutzern',
             body: '''
-CaRisma ermöglicht Nutzern unter anderem, eigene Inhalte in Profilen, Storys, Chats und anonymen fahrzeugbezogenen Hinweisen zu veröffentlichen oder zu übermitteln.
+plaqa ermöglicht Nutzern unter anderem, eigene Inhalte in Profilen, Storys, Chats und anonymen fahrzeugbezogenen Hinweisen zu veröffentlichen oder zu übermitteln.
 
 Für rechtswidrige Inhalte von Nutzern besteht keine allgemeine Pflicht zur anlasslosen Überwachung.
 
@@ -7331,15 +7341,15 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
           ),
         ],
       ),
-      'Über CaRisma' => _LegalContent(
-        title: 'Über CaRisma',
+      'Über plaqa' => _LegalContent(
+        title: 'Über plaqa',
         icon: Icons.info_outline_rounded,
-        description: 'Die sichere Fahrzeug-Community von CaRisma.',
+        description: 'Die sichere Fahrzeug-Community von plaqa.',
         sections: [
           const _LegalSection(
             title: 'Unsere Idee',
             body:
-                'CaRisma verbindet Menschen über ihre Fahrzeuge, ohne private Kontaktdaten öffentlich preiszugeben. Kennzeichensuche, Kontaktanfragen, Chats, Storys und sachliche Fahrzeughinweise werden in einer geschützten Community zusammengeführt.',
+                'plaqa verbindet Menschen über ihre Fahrzeuge, ohne private Kontaktdaten öffentlich preiszugeben. Kennzeichensuche, Kontaktanfragen, Chats, Storys und sachliche Fahrzeughinweise werden in einer geschützten Community zusammengeführt.',
           ),
           const _LegalSection(
             title: 'Sicherheit und Verantwortung',
@@ -7349,11 +7359,11 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
           const _LegalSection(
             title: 'Community',
             body:
-                'CaRisma richtet sich an Fahrzeugbegeisterte, die sich austauschen, Fahrzeuge entdecken und sicher miteinander in Kontakt treten möchten. Missbrauch, Belästigung und die Veröffentlichung fremder Daten werden nicht toleriert.',
+                'plaqa richtet sich an Fahrzeugbegeisterte, die sich austauschen, Fahrzeuge entdecken und sicher miteinander in Kontakt treten möchten. Missbrauch, Belästigung und die Veröffentlichung fremder Daten werden nicht toleriert.',
           ),
           _LegalSection(
             title: 'Version',
-            body: 'CaRisma ${CaRismaAppConfig.appVersion}',
+            body: 'plaqa ${CaRismaAppConfig.appVersion}',
           ),
           const _LegalSection(
             title: 'Rechtsversionen',
@@ -7371,7 +7381,7 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
           _LegalSection(
             title: 'Flutter & Dart',
             body:
-                'CaRisma wird mit Flutter und Dart entwickelt. Die Lizenzinformationen werden über die App-Lizenzübersicht bereitgestellt.',
+                'plaqa wird mit Flutter und Dart entwickelt. Die Lizenzinformationen werden über die App-Lizenzübersicht bereitgestellt.',
           ),
           _LegalSection(
             title: 'Pakete',
@@ -7388,7 +7398,7 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
       _ => _LegalContent(
         title: title,
         icon: Icons.description_rounded,
-        description: 'Rechtliche Informationen zu CaRisma.',
+        description: 'Rechtliche Informationen zu plaqa.',
         sections: const [
           _LegalSection(
             title: 'Entwurf',

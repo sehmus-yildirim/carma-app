@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user == null) {
         throw FirebaseAuthException(
           code: 'missing-user',
-          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+          message: 'Das Benutzerkonto konnte nicht geladen werden.',
         );
       }
 
@@ -210,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user == null) {
         throw FirebaseAuthException(
           code: 'missing-user',
-          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+          message: 'Das Benutzerkonto konnte nicht geladen werden.',
         );
       }
 

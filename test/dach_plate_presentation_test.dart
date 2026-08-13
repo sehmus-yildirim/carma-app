@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:carisma/shared/plate/dach_plate_presentation.dart';
-import 'package:carisma/shared/plate/dach_registration_region_data.g.dart';
-import 'package:carisma/shared/widgets/carisma_license_plate_preview.dart';
-import 'package:carisma/shared/widgets/carisma_premium_license_plate_card.dart';
-import 'package:carisma/shared/widgets/carisma_region_identity_card.dart';
-import 'package:carisma/shared/widgets/fe_plate_text.dart';
+import 'package:plaqa/shared/plate/dach_plate_presentation.dart';
+import 'package:plaqa/shared/plate/dach_registration_region_data.g.dart';
+import 'package:plaqa/shared/widgets/carisma_license_plate_preview.dart';
+import 'package:plaqa/shared/widgets/carisma_premium_license_plate_card.dart';
+import 'package:plaqa/shared/widgets/carisma_region_identity_card.dart';
+import 'package:plaqa/shared/widgets/fe_plate_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

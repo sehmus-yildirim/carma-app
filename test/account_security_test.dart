@@ -1,5 +1,5 @@
-import 'package:carisma/features/auth/data/auth_service.dart';
-import 'package:carisma/features/settings/presentation/account_security_screen.dart';
+import 'package:plaqa/features/auth/data/auth_service.dart';
+import 'package:plaqa/features/settings/presentation/account_security_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +35,12 @@ void main() {
           ),
         ),
         'Die Kontoaktion konnte gerade nicht durchgeführt werden.',
+      );
+      expect(
+        accountAuthErrorMessage(
+          FirebaseAuthException(code: 'email-not-verified'),
+        ),
+        'Bestätige zuerst deine E-Mail Adresse.',
       );
     });
   });
@@ -155,6 +161,34 @@ void main() {
 
     expect(gateway.verificationCalls, 1);
     expect(find.textContaining('Bestätigungslink wurde an'), findsOneWidget);
+  });
+
+  testWidgets('password reset stays locked until email is verified', (
+    tester,
+  ) async {
+    final gateway = _FakeAccountAuthGateway(_unverifiedAccount);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AccountSecurityScreen(
+          accountGateway: gateway,
+          initialAccount: _unverifiedAccount,
+          onLogout: () {},
+          onRequestAccountDeletion: () {},
+          onOpenSupport: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Bestätige zuerst deine E-Mail Adresse.'), findsWidgets);
+    expect(find.text('E-Mail offen'), findsOneWidget);
+
+    await tester.tap(find.text('Passwort ändern'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Konto & Sicherheit'), findsOneWidget);
+    expect(find.text('Zurücksetzungslink senden'), findsNothing);
+    expect(gateway.passwordResetCalls, 0);
   });
 
   testWidgets('recovery keeps one clear support action', (tester) async {

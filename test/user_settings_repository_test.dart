@@ -1,5 +1,5 @@
-import 'package:carisma/features/settings/data/user_settings_repository.dart';
-import 'package:carisma/shared/models/legal_consent.dart';
+import 'package:plaqa/features/settings/data/user_settings_repository.dart';
+import 'package:plaqa/shared/models/legal_consent.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -92,7 +92,7 @@ void main() {
   group('Data rights requests', () {
     test('export request contains identity but no exported private data', () {
       final draft = DataRightsRequestDraftBuilder.buildExportRequest(
-        appVersion: 'CaRisma 1.0.0',
+        appVersion: 'plaqa 1.0.0',
         userId: 'user-1',
         email: 'user@example.com',
       );
@@ -122,7 +122,7 @@ void main() {
       );
       expect(
         () => DataRightsRequestDraftBuilder.buildDeletionRequest(
-          appVersion: 'CaRisma 1.0.0',
+          appVersion: 'plaqa 1.0.0',
           userId: 'user-1',
           confirmationText: '',
           acceptedConsequences: false,

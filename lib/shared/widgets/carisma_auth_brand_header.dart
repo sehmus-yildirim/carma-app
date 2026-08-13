@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/carisma_design_tokens.dart';
 
-const String _transparentLogoAsset =
-    'assets/images/carisma_logo_transparent.png';
+const String _transparentLogoAsset = 'assets/images/plaqa_logo_transparent.png';
 
 class CaRismaAuthBrandHeader extends StatelessWidget {
   const CaRismaAuthBrandHeader({super.key, this.logoHeight = 132});
