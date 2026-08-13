@@ -116,6 +116,32 @@ void main() {
     expect(find.textContaining('+49 ••• •• 567'), findsOneWidget);
   });
 
+  testWidgets('password fields can be shown and hidden', (tester) async {
+    final gateway = _FakeMfaGateway();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MfaEnrollmentScreen(
+          account: _verifiedAccount,
+          mfaGateway: gateway,
+        ),
+      ),
+    );
+
+    var passwordField = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(passwordField.obscureText, isTrue);
+
+    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.pump();
+    passwordField = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(passwordField.obscureText, isFalse);
+
+    await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+    await tester.pump();
+    passwordField = tester.widget<TextField>(find.byType(TextField).at(1));
+    expect(passwordField.obscureText, isTrue);
+  });
+
   testWidgets('registered factors stay masked and last removal warns user', (
     tester,
   ) async {
@@ -146,6 +172,46 @@ void main() {
     expect(find.text('Letzten Faktor entfernen?'), findsOneWidget);
     expect(
       find.textContaining('nicht mehr durch einen zweiten Faktor geschützt'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('password reauthentication removes the selected factor', (
+    tester,
+  ) async {
+    final factor = MfaFactorSnapshot(
+      uid: 'factor-1',
+      displayName: 'Mobiltelefon',
+      maskedPhoneNumber: maskPhoneNumber('+491701234567'),
+    );
+    final mfaGateway = _FakeMfaGateway(factors: [factor]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MfaManagementScreen(
+          initialAccount: _verifiedAccount,
+          accountGateway: _FakeAccountGateway(_verifiedAccount),
+          mfaGateway: mfaGateway,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Entfernen'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'sicheres-passwort');
+    await tester.tap(find.text('Bestätigen'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(mfaGateway.reauthenticateCalls, 1);
+    expect(mfaGateway.removedFactorUids, ['factor-1']);
+    expect(find.text('+49 ••• •• 567'), findsNothing);
+    expect(find.text('Nicht eingerichtet'), findsOneWidget);
+    expect(
+      find.text('Der Zwei-Faktor-Schutz wurde deaktiviert.'),
       findsOneWidget,
     );
   });
@@ -184,6 +250,41 @@ void main() {
     expect(gateway.signInCodeRequests, 1);
     expect(gateway.requestedFactorUids, ['factor-1']);
     expect(find.textContaining('Erneut senden in'), findsOneWidget);
+  });
+
+  testWidgets('removal challenge uses explicit removal actions', (
+    tester,
+  ) async {
+    final gateway = _FakeMfaGateway();
+    final challenge = MfaSignInChallenge.forTesting(
+      factors: [
+        MfaFactorSnapshot(
+          uid: 'factor-1',
+          displayName: 'Mobiltelefon',
+          maskedPhoneNumber: maskPhoneNumber('+491701234567'),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MfaSignInChallengeScreen(
+          challenge: challenge,
+          mfaGateway: gateway,
+          title: 'Entfernen bestätigen',
+          description:
+              'Tippe auf „SMS-Code zum Entfernen senden“ und bestätige den Code.',
+          sendCodeLabel: 'SMS-Code zum Entfernen senden',
+          confirmCodeLabel: 'Telefonnummer entfernen',
+        ),
+      ),
+    );
+
+    expect(find.text('SMS-Code zum Entfernen senden'), findsOneWidget);
+    await tester.tap(find.text('SMS-Code zum Entfernen senden'));
+    await tester.pumpAndSettle();
+    expect(find.text('Telefonnummer entfernen'), findsOneWidget);
+    expect(find.text('Sicher anmelden'), findsNothing);
   });
 
   testWidgets('sign-in challenge lets the user choose among phone factors', (
@@ -400,6 +501,7 @@ class _FakeMfaGateway implements MfaGateway {
   int signInCodeRequests = 0;
   int confirmSignInCalls = 0;
   int recoveryRequests = 0;
+  final List<String> removedFactorUids = [];
   MfaRecoverySnapshot recovery = const MfaRecoverySnapshot(
     status: MfaRecoveryStatus.none,
   );
@@ -453,6 +555,7 @@ class _FakeMfaGateway implements MfaGateway {
 
   @override
   Future<void> removeFactor(String factorUid) async {
+    removedFactorUids.add(factorUid);
     _factors.removeWhere((factor) => factor.uid == factorUid);
   }
 

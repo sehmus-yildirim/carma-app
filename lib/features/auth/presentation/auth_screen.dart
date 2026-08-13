@@ -273,7 +273,7 @@ class _AuthScreenState extends State<AuthScreen> {
       case 'weak-password':
         return 'Das Passwort ist zu schwach.';
       case 'operation-not-allowed':
-        return 'Diese Anmeldemethode ist in Firebase nicht aktiviert.';
+        return 'Diese Anmeldemethode ist aktuell nicht verfügbar.';
       case 'network-request-failed':
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
       case 'aborted-by-user':

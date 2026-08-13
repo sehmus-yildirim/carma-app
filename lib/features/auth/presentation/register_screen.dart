@@ -204,7 +204,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (user == null) {
         throw FirebaseAuthException(
           code: 'missing-user',
-          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+          message: 'Das Benutzerkonto konnte nicht geladen werden.',
         );
       }
 
@@ -293,7 +293,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (user == null) {
         throw FirebaseAuthException(
           code: 'missing-user',
-          message: 'Der Firebase-Nutzer konnte nicht geladen werden.',
+          message: 'Das Benutzerkonto konnte nicht geladen werden.',
         );
       }
 
@@ -360,13 +360,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 'weak-password':
         return 'Das Passwort ist zu schwach.';
       case 'operation-not-allowed':
-        return 'Diese Anmeldemethode ist in Firebase nicht aktiviert.';
+        return 'Diese Anmeldemethode ist aktuell nicht verfügbar.';
       case 'network-request-failed':
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
       case 'aborted-by-user':
         return 'Die Anmeldung wurde abgebrochen.';
       case 'missing-user':
-        return 'Der Firebase-Nutzer konnte nicht geladen werden.';
+        return 'Das Benutzerkonto konnte nicht geladen werden.';
       default:
         return error.message ??
             'Ein unbekannter Registrierungsfehler ist aufgetreten.';
@@ -404,14 +404,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _mapFirebaseError(FirebaseException error) {
     switch (error.code) {
       case 'permission-denied':
-        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
+        return 'Die Registrierung konnte nicht abgeschlossen werden. Bitte versuche es erneut.';
       case 'unavailable':
-        return 'Firestore ist gerade nicht erreichbar. Bitte versuche es erneut.';
+        return 'Der Kontodienst ist gerade nicht erreichbar. Bitte versuche es erneut.';
       case 'already-exists':
         return 'Die Zustimmung wurde bereits gespeichert.';
       default:
         return error.message ??
-            'Firebase konnte die Nutzerdaten gerade nicht speichern.';
+            'Die Kontodaten konnten gerade nicht gespeichert werden.';
     }
   }
 

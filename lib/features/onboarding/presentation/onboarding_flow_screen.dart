@@ -276,8 +276,7 @@ class _IntroStep extends StatelessWidget {
         SizedBox(height: 12),
         CaRismaMessageCard(
           icon: Icons.info_outline_rounded,
-          message:
-              'Aktuell ist dieser Flow lokal. Firebase, echte Konten und Speicherung verbinden wir später.',
+          message: 'Dieser Bereich wird für dein CaRisma-Konto vorbereitet.',
         ),
       ],
     );

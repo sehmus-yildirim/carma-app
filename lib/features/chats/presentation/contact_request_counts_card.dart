@@ -38,7 +38,7 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
         userId: '',
         incoming: [],
         outgoing: [],
-        error: 'Keine eingeloggte FirebaseAuth UID gefunden.',
+        error: 'Du bist derzeit nicht angemeldet.',
       );
     }
 

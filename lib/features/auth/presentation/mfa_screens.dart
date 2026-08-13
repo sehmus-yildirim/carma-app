@@ -49,10 +49,10 @@ class _MfaManagementScreenState extends State<MfaManagementScreen> {
     _loadStatus();
   }
 
-  Future<void> _loadStatus() async {
+  Future<void> _loadStatus({bool clearMessage = true}) async {
     setState(() {
       _isLoading = true;
-      _message = null;
+      if (clearMessage) _message = null;
     });
     try {
       final status = await _mfaGateway.loadStatus();
@@ -183,12 +183,17 @@ class _MfaManagementScreenState extends State<MfaManagementScreen> {
       await _mfaGateway.removeFactor(factor.uid);
       if (!mounted) return;
       setState(() {
+        _status = MfaStatusSnapshot(
+          factors: factors
+              .where((candidate) => candidate.uid != factor.uid)
+              .toList(growable: false),
+        );
         _message = removingLastFactor
             ? 'Der Zwei-Faktor-Schutz wurde deaktiviert.'
             : 'Das Mobiltelefon wurde entfernt.';
         _messageIsError = false;
       });
-      await _loadStatus();
+      await _loadStatus(clearMessage: false);
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -231,6 +236,11 @@ class _MfaManagementScreenState extends State<MfaManagementScreen> {
           builder: (_) => MfaSignInChallengeScreen(
             challenge: challenge,
             mfaGateway: _mfaGateway,
+            title: 'Entfernen bestätigen',
+            description:
+                'Tippe auf „SMS-Code zum Entfernen senden“ und bestätige den Code. Danach wird die Telefonnummer entfernt.',
+            sendCodeLabel: 'SMS-Code zum Entfernen senden',
+            confirmCodeLabel: 'Telefonnummer entfernen',
           ),
         ),
       );
@@ -247,64 +257,10 @@ class _MfaManagementScreenState extends State<MfaManagementScreen> {
   }
 
   Future<String?> _requestCurrentPassword() async {
-    final controller = TextEditingController();
-    try {
-      return await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: CaRismaDesignTokens.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              CaRismaDesignTokens.radiusPanel,
-            ),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          title: const Text(
-            'Anmeldung bestätigen',
-            style: TextStyle(
-              color: CaRismaDesignTokens.textPrimary,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          content: TextField(
-            controller: controller,
-            obscureText: true,
-            autofocus: true,
-            autocorrect: false,
-            enableSuggestions: false,
-            style: const TextStyle(color: CaRismaDesignTokens.textPrimary),
-            decoration: _mfaInputDecoration(
-              label: 'Aktuelles Passwort',
-              icon: Icons.lock_outline_rounded,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text(
-                'Abbrechen',
-                style: TextStyle(color: CaRismaDesignTokens.textSecondary),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                final value = controller.text;
-                if (value.isNotEmpty) Navigator.of(dialogContext).pop(value);
-              },
-              child: const Text(
-                'Bestätigen',
-                style: TextStyle(
-                  color: CaRismaDesignTokens.bluePrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      controller.dispose();
-    }
+    return showDialog<String>(
+      context: context,
+      builder: (_) => const _MfaPasswordDialog(),
+    );
   }
 
   @override
@@ -446,6 +402,7 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
   bool _consentAccepted = false;
+  bool _passwordVisible = false;
   bool _isSending = false;
   bool _isConfirming = false;
   MfaCodeDispatch? _dispatch;
@@ -504,6 +461,8 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
       _error = null;
       _maskedPhoneNumber = maskPhoneNumber(phoneNumber);
     });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     try {
       if (!resend) {
         await _reauthenticate();
@@ -611,7 +570,7 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
                         fontWeight: FontWeight.w800,
                       ),
                       decoration: _mfaInputDecoration(
-                        label: 'Telefonnummer, z. B. +49 170 1234567',
+                        label: 'z. B. +49 170 1234567',
                         icon: Icons.phone_iphone_rounded,
                       ),
                     ),
@@ -620,7 +579,7 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
                       TextField(
                         controller: _passwordController,
                         enabled: !_isSending,
-                        obscureText: true,
+                        obscureText: !_passwordVisible,
                         autocorrect: false,
                         enableSuggestions: false,
                         textInputAction: TextInputAction.done,
@@ -632,6 +591,12 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
                         decoration: _mfaInputDecoration(
                           label: 'Aktuelles Passwort',
                           icon: Icons.lock_outline_rounded,
+                          suffixIcon: _MfaPasswordVisibilityButton(
+                            visible: _passwordVisible,
+                            onTap: () => setState(
+                              () => _passwordVisible = !_passwordVisible,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -657,7 +622,7 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Ich stimme zu, dass meine Telefonnummer zur SMS-Verifikation an Firebase übermittelt und zur Missbrauchsprävention verarbeitet wird.',
+                              'Ich stimme zu, dass CaRisma meine Telefonnummer zur sicheren SMS-Verifikation und zur Missbrauchsprävention verarbeitet.',
                               style: _mfaSecondaryText(fontSize: 13),
                             ),
                           ),
@@ -697,7 +662,11 @@ class _MfaEnrollmentScreenState extends State<MfaEnrollmentScreen> {
         ],
         const SizedBox(height: 14),
         _MfaButton(
-          label: codeRequested ? 'Schutz aktivieren' : 'SMS-Code anfordern',
+          label: _isSending || _isConfirming
+              ? 'Warten'
+              : codeRequested
+              ? 'Schutz aktivieren'
+              : 'SMS-Code anfordern',
           icon: codeRequested
               ? Icons.verified_user_rounded
               : Icons.send_to_mobile_rounded,
@@ -727,10 +696,19 @@ class MfaSignInChallengeScreen extends StatefulWidget {
     super.key,
     required this.challenge,
     this.mfaGateway,
+    this.title = 'Anmeldung bestätigen',
+    this.description =
+        'Bestätige deine Anmeldung mit einem registrierten Mobiltelefon.',
+    this.sendCodeLabel = 'SMS-Code senden',
+    this.confirmCodeLabel = 'Sicher anmelden',
   });
 
   final MfaSignInChallenge challenge;
   final MfaGateway? mfaGateway;
+  final String title;
+  final String description;
+  final String sendCodeLabel;
+  final String confirmCodeLabel;
 
   @override
   State<MfaSignInChallengeScreen> createState() =>
@@ -785,6 +763,8 @@ class _MfaSignInChallengeScreenState extends State<MfaSignInChallengeScreen> {
       _isSending = true;
       _error = null;
     });
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
     try {
       await _mfaGateway.requestSignInCode(
         challenge: widget.challenge,
@@ -835,15 +815,15 @@ class _MfaSignInChallengeScreenState extends State<MfaSignInChallengeScreen> {
   Widget build(BuildContext context) {
     final codeSent = _dispatch != null;
     return _MfaPageFrame(
-      title: 'Anmeldung bestätigen',
+      title: widget.title,
       onBack: () => Navigator.of(context).pop(),
       children: [
-        const _MfaCard(
+        _MfaCard(
           icon: Icons.security_rounded,
           title: 'Zweiter Faktor erforderlich',
           child: Text(
-            'Bestätige deine Anmeldung mit einem registrierten Mobiltelefon.',
-            style: TextStyle(
+            widget.description,
+            style: const TextStyle(
               color: CaRismaDesignTokens.textSecondary,
               fontWeight: FontWeight.w700,
               height: 1.4,
@@ -933,7 +913,11 @@ class _MfaSignInChallengeScreenState extends State<MfaSignInChallengeScreen> {
         ],
         const SizedBox(height: 14),
         _MfaButton(
-          label: codeSent ? 'Sicher anmelden' : 'SMS-Code senden',
+          label: _isSending || _isConfirming
+              ? 'Warten'
+              : codeSent
+              ? widget.confirmCodeLabel
+              : widget.sendCodeLabel,
           icon: codeSent ? Icons.login_rounded : Icons.send_to_mobile_rounded,
           loading: codeSent ? _isConfirming : _isSending,
           onTap: codeSent ? _confirm : _sendCode,
@@ -1484,6 +1468,84 @@ class _MfaRoundButton extends StatelessWidget {
   }
 }
 
+class _MfaPasswordDialog extends StatefulWidget {
+  const _MfaPasswordDialog();
+
+  @override
+  State<_MfaPasswordDialog> createState() => _MfaPasswordDialogState();
+}
+
+class _MfaPasswordDialogState extends State<_MfaPasswordDialog> {
+  final TextEditingController _controller = TextEditingController();
+  bool _passwordVisible = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    final password = _controller.text;
+    if (password.isNotEmpty) Navigator.of(context).pop(password);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: CaRismaDesignTokens.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusPanel),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      title: const Text(
+        'Anmeldung bestätigen',
+        style: TextStyle(
+          color: CaRismaDesignTokens.textPrimary,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      content: TextField(
+        controller: _controller,
+        obscureText: !_passwordVisible,
+        autofocus: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _confirm(),
+        style: const TextStyle(color: CaRismaDesignTokens.textPrimary),
+        decoration: _mfaInputDecoration(
+          label: 'Aktuelles Passwort',
+          icon: Icons.lock_outline_rounded,
+          suffixIcon: _MfaPasswordVisibilityButton(
+            visible: _passwordVisible,
+            onTap: () => setState(() => _passwordVisible = !_passwordVisible),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text(
+            'Abbrechen',
+            style: TextStyle(color: CaRismaDesignTokens.textSecondary),
+          ),
+        ),
+        TextButton(
+          onPressed: _confirm,
+          child: const Text(
+            'Bestätigen',
+            style: TextStyle(
+              color: CaRismaDesignTokens.bluePrimary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MfaDialog extends StatelessWidget {
   const _MfaDialog({
     required this.title,
@@ -1539,6 +1601,7 @@ class _MfaDialog extends StatelessWidget {
 InputDecoration _mfaInputDecoration({
   required String label,
   required IconData icon,
+  Widget? suffixIcon,
 }) {
   final normalBorder = OutlineInputBorder(
     borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusInput),
@@ -1551,6 +1614,7 @@ InputDecoration _mfaInputDecoration({
       fontWeight: FontWeight.w700,
     ),
     prefixIcon: Icon(icon, color: CaRismaDesignTokens.bluePrimary),
+    suffixIcon: suffixIcon,
     filled: true,
     fillColor: CaRismaDesignTokens.controlSurface,
     border: normalBorder,
@@ -1563,6 +1627,37 @@ InputDecoration _mfaInputDecoration({
       ),
     ),
   );
+}
+
+class _MfaPasswordVisibilityButton extends StatelessWidget {
+  const _MfaPasswordVisibilityButton({
+    required this.visible,
+    required this.onTap,
+  });
+
+  final bool visible;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: visible ? 'Passwort ausblenden' : 'Passwort anzeigen',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(
+            visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            color: CaRismaDesignTokens.textSecondary,
+            size: 21,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 TextStyle _mfaSecondaryText({double fontSize = 14}) {

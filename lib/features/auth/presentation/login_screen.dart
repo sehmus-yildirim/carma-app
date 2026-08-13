@@ -374,11 +374,11 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'network-request-failed':
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
       case 'operation-not-allowed':
-        return 'Diese Anmeldemethode ist in Firebase nicht aktiviert.';
+        return 'Diese Anmeldemethode ist aktuell nicht verfügbar.';
       case 'aborted-by-user':
         return 'Die Anmeldung wurde abgebrochen.';
       case 'missing-user':
-        return 'Der Firebase-Nutzer konnte nicht geladen werden.';
+        return 'Das Benutzerkonto konnte nicht geladen werden.';
       default:
         return error.message ?? 'Ein unbekannter Login-Fehler ist aufgetreten.';
     }
@@ -400,12 +400,12 @@ class _LoginScreenState extends State<LoginScreen> {
   String _mapFirebaseError(FirebaseException error) {
     switch (error.code) {
       case 'permission-denied':
-        return 'Firestore-Zugriff verweigert. Bitte prüfe die Firebase Rules.';
+        return 'Die Anmeldung konnte nicht abgeschlossen werden. Bitte versuche es erneut.';
       case 'unavailable':
-        return 'Firestore ist gerade nicht erreichbar. Bitte versuche es erneut.';
+        return 'Der Kontodienst ist gerade nicht erreichbar. Bitte versuche es erneut.';
       default:
         return error.message ??
-            'Firebase konnte die Nutzerdaten gerade nicht speichern.';
+            'Die Kontodaten konnten gerade nicht gespeichert werden.';
     }
   }
 

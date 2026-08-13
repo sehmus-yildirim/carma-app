@@ -827,7 +827,7 @@ class _AccountSessionsScreenState extends State<AccountSessionsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Firebase kann alle Sitzungen widerrufen, aber nicht zuverlässig nur einzelne andere Geräte. Danach musst du dich auch hier neu anmelden.',
+              'Aus Sicherheitsgründen werden alle anderen Sitzungen gemeinsam abgemeldet. Danach musst du dich auch hier neu anmelden.',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.68),
                 height: 1.35,

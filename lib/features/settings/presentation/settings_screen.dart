@@ -138,6 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     var acceptedConsequences = false;
     var confirmationText = '';
     var isDeleting = false;
+    var passwordVisible = false;
     String? deletionError;
 
     void revealConfirmationField() {
@@ -208,7 +209,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         controller: passwordController,
                         onTap: revealConfirmationField,
                         enabled: !isDeleting,
-                        obscureText: true,
+                        obscureText: !passwordVisible,
+                        autocorrect: false,
+                        enableSuggestions: false,
                         cursorColor: CaRismaDesignTokens.danger,
                         style: const TextStyle(
                           color: Colors.white,
@@ -231,6 +234,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             borderRadius: BorderRadius.circular(18),
                             borderSide: const BorderSide(
                               color: CaRismaDesignTokens.danger,
+                            ),
+                          ),
+                          suffixIcon: IconButton(
+                            tooltip: passwordVisible
+                                ? 'Passwort ausblenden'
+                                : 'Passwort anzeigen',
+                            onPressed: isDeleting
+                                ? null
+                                : () => setDialogState(
+                                    () => passwordVisible = !passwordVisible,
+                                  ),
+                            icon: Icon(
+                              passwordVisible
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.white.withValues(alpha: 0.72),
                             ),
                           ),
                         ),
@@ -721,7 +740,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.verified_user_outlined,
           body:
               'Diese Option bereitet vor, dass nur verifizierte Nutzer dir Kontaktanfragen senden dürfen.\n\n'
-              'Für den Release muss diese Regel in der Anfrage-Function oder in den Firestore-Regeln verbindlich geprüft werden.',
+              'Für den Release muss diese Einstellung serverseitig verbindlich geprüft werden.',
         );
         return;
       case 'Anfragegründe':

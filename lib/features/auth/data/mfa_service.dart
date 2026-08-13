@@ -501,9 +501,9 @@ String mfaErrorMessage(FirebaseAuthException error) {
     'network-request-failed' =>
       'Netzwerkfehler. Bitte prüfe deine Internetverbindung.',
     'operation-not-allowed' || 'admin-restricted-operation' =>
-      'SMS-Zwei-Faktor-Schutz ist in Firebase noch nicht aktiviert.',
+      'Der SMS-Zwei-Faktor-Schutz ist aktuell nicht verfügbar.',
     'captcha-check-failed' || 'app-not-authorized' =>
-      'Die App konnte für den SMS-Versand nicht bestätigt werden. Prüfe die Firebase- und SHA-Konfiguration.',
+      'CaRisma konnte für den SMS-Versand nicht bestätigt werden. Bitte starte die App neu und versuche es erneut.',
     'sms-region-not-allowed' || 'phone-number-not-allowed' =>
       'SMS-Anmeldungen sind für diese Region nicht freigegeben.',
     'multi-factor-info-not-found' =>
