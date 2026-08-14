@@ -341,8 +341,12 @@ service firebase.storage {
 
     function isValidProfileDocumentUpload(documentType, fileName) {
       return documentType in [
-          'identityEvidence',
-          'vehicleEvidence'
+          'identityFront',
+          'identityBack',
+          'driverLicenseFront',
+          'driverLicenseBack',
+          'vehicleFront',
+          'vehicleBack'
         ]
         && (
           (

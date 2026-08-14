@@ -11,11 +11,14 @@ const {
   normalizeSubmissionInput,
   normalizeVehicleRelationship,
   plateDocumentId,
+  requiredDocumentKeys,
+  requiredExpirationKeys,
   submitProfileVerification,
+  validateDocumentExpirations,
   validateStoredDocuments,
 } = require('./profile_verification');
 
-test('accepts only the fixed two-document submission contract', () => {
+test('accepts only the fixed six-page submission contract', () => {
   assert.deepEqual(normalizeSubmissionInput('user-1', {
     requestId: 'user-1',
     vehicleId: 'vehicle-1',
@@ -73,8 +76,8 @@ test('validates review decisions and meaningful rejection reasons', () => {
 
 test('builds canonical private paths and canonical plate IDs', () => {
   assert.equal(
-    expectedDocumentPath('user-1', 'identityEvidence'),
-    'profile_documents/user-1/identityEvidence/identityEvidence.png',
+    expectedDocumentPath('user-1', 'identityFront'),
+    'profile_documents/user-1/identityFront/identityFront.png',
   );
   assert.equal(plateDocumentId({
     countryCode: 'de',
@@ -241,12 +244,11 @@ function validVerificationFiles(userId) {
 }
 
 function requiredPaths(userId) {
-  return ['identityEvidence', 'vehicleEvidence']
-    .map((key) => expectedDocumentPath(userId, key));
+  return requiredDocumentKeys.map((key) => expectedDocumentPath(userId, key));
 }
 
 function verificationDocuments(userId, relationship = 'authorizedUser') {
-  const paths = Object.fromEntries(['identityEvidence', 'vehicleEvidence']
+  const paths = Object.fromEntries(requiredDocumentKeys
     .map((key) => [key, expectedDocumentPath(userId, key)]));
   return {
     [`verification_requests/${userId}`]: {
@@ -254,9 +256,12 @@ function verificationDocuments(userId, relationship = 'authorizedUser') {
       userId,
       status: 'draft',
       documentStoragePaths: paths,
-      documentStatuses: {
-        identityEvidence: 'uploaded',
-        vehicleEvidence: 'uploaded',
+      documentStatuses: Object.fromEntries(
+          requiredDocumentKeys.map((key) => [key, 'uploaded']),
+      ),
+      documentExpiresAt: {
+        identity: new Date('2030-08-14T00:00:00Z'),
+        driverLicense: new Date('2031-08-14T00:00:00Z'),
       },
       vehicleId: 'vehicle-1',
       vehicleRelationship: relationship,
@@ -288,28 +293,41 @@ function verificationDocuments(userId, relationship = 'authorizedUser') {
   };
 }
 
-test('checks both stored files, mime type, size and actual image content', async () => {
-  const paths = {
-    identityEvidence: expectedDocumentPath('user-1', 'identityEvidence'),
-    vehicleEvidence: expectedDocumentPath('user-1', 'vehicleEvidence'),
-  };
+test('requires current expiration dates for identity and driver license', () => {
+  const now = new Date('2026-08-14T08:00:00Z');
+  const valid = Object.fromEntries(requiredExpirationKeys.map((key, index) => [
+    key,
+    new Date(`${2030 + index}-08-14T00:00:00Z`),
+  ]));
+  assert.deepEqual(validateDocumentExpirations(valid, now), valid);
+  assert.throws(() => validateDocumentExpirations({
+    ...valid,
+    identity: new Date('2025-08-14T00:00:00Z'),
+  }, now), /gültiges Ablaufdatum/);
+  assert.throws(() => validateDocumentExpirations({
+    identity: valid.identity,
+  }, now), /gültiges Ablaufdatum/);
+});
+
+test('checks all stored pages, mime type, size and image content', async () => {
+  const paths = Object.fromEntries(requiredDocumentKeys
+    .map((key) => [key, expectedDocumentPath('user-1', key)]));
   const validFile = {
     metadata: {contentType: 'image/png', size: '2048'},
     content: validPng(),
   };
   await validateStoredDocuments({
-    bucket: fakeBucket({
-      [paths.identityEvidence]: validFile,
-      [paths.vehicleEvidence]: validFile,
-    }),
+    bucket: fakeBucket(Object.fromEntries(requiredDocumentKeys
+      .map((key) => [paths[key], validFile]))),
     userId: 'user-1',
     paths,
   });
 
   await assert.rejects(validateStoredDocuments({
     bucket: fakeBucket({
-      [paths.identityEvidence]: validFile,
-      [paths.vehicleEvidence]: {
+      ...Object.fromEntries(requiredDocumentKeys
+        .map((key) => [paths[key], validFile])),
+      [paths.vehicleBack]: {
         metadata: {contentType: 'image/png', size: '2048'},
         content: Buffer.from([0x89, 0x50, 0x4e]),
       },
@@ -320,8 +338,9 @@ test('checks both stored files, mime type, size and actual image content', async
 
   await assert.rejects(validateStoredDocuments({
     bucket: fakeBucket({
-      [paths.identityEvidence]: validFile,
-      [paths.vehicleEvidence]: {
+      ...Object.fromEntries(requiredDocumentKeys
+        .map((key) => [paths[key], validFile])),
+      [paths.driverLicenseBack]: {
         metadata: {contentType: 'image/png', size: '2048'},
         content: validPng({withExif: true}),
       },
@@ -353,6 +372,11 @@ test('submits profile and vehicle verification atomically', async () => {
   assert.equal(firestore.documents.get(
     `verification_requests/${userId}`,
   ).status, 'pending');
+  assert.equal(firestore.documents.get(
+    `verification_requests/${userId}`,
+  ).verificationExpiresAt.getTime(), new Date(
+    '2030-08-14T00:00:00Z',
+  ).getTime());
   assert.equal(firestore.documents.get(
     `users/${userId}/profiles/main`,
   ).verificationStatus, 'pending');

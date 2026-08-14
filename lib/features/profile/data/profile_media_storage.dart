@@ -104,8 +104,12 @@ class ProfileMediaStorage {
     }
 
     if (!const {
-      'identityEvidence',
-      'vehicleEvidence',
+      'identityFront',
+      'identityBack',
+      'driverLicenseFront',
+      'driverLicenseBack',
+      'vehicleFront',
+      'vehicleBack',
     }.contains(trimmedDocumentType)) {
       throw ArgumentError('Dokumenttyp ist nicht zulässig.');
     }
@@ -165,7 +169,14 @@ class ProfileMediaStorage {
   }) async {
     final normalizedUserId = userId.trim();
     if (normalizedUserId.isEmpty ||
-        !const {'identityEvidence', 'vehicleEvidence'}.contains(documentType)) {
+        !const {
+          'identityFront',
+          'identityBack',
+          'driverLicenseFront',
+          'driverLicenseBack',
+          'vehicleFront',
+          'vehicleBack',
+        }.contains(documentType)) {
       return;
     }
     for (final extension in const ['png', 'jpg']) {

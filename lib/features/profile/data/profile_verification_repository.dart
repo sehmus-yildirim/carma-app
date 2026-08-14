@@ -141,6 +141,7 @@ class ProfileVerificationRepository {
       final paths = _stringMap(data['documentStoragePaths']);
       final statuses = _stringMap(data['documentStatuses']);
       final rejectionReasons = _stringMap(data['documentRejectionReasons']);
+      final documentExpiresAt = _timestampMap(data['documentExpiresAt']);
       paths[documentKey] = normalizedPath;
       statuses[documentKey] = ProfileVerificationDocumentStatus.uploaded.name;
       rejectionReasons.remove(documentKey);
@@ -154,6 +155,7 @@ class ProfileVerificationRepository {
         'documentStoragePaths': paths,
         'documentStatuses': statuses,
         'documentRejectionReasons': rejectionReasons,
+        'documentExpiresAt': documentExpiresAt,
         'vehicleId': data['vehicleId'],
         'vehicleRelationship':
             data['vehicleRelationship'] ??
@@ -219,6 +221,78 @@ class ProfileVerificationRepository {
     });
   }
 
+  Future<void> saveDraftExpiration({
+    required String userId,
+    required String expirationKey,
+    required DateTime expiresAt,
+  }) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty ||
+        !ProfileVerificationDocumentKeys.requiredExpirationKeys.contains(
+          expirationKey,
+        )) {
+      throw const ProfileVerificationException(
+        'Das Ablaufdatum konnte nicht eindeutig zugeordnet werden.',
+      );
+    }
+    final expirationDay = DateTime(
+      expiresAt.year,
+      expiresAt.month,
+      expiresAt.day,
+    );
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (!expirationDay.isAfter(today)) {
+      throw const ProfileVerificationException(
+        'Bitte gib ein gültiges zukünftiges Ablaufdatum ein.',
+      );
+    }
+
+    final reference = _currentRequest(normalizedUserId);
+    await _database.runTransaction((transaction) async {
+      final snapshot = await transaction.get(reference);
+      final data = snapshot.data() ?? const <String, dynamic>{};
+      final status = ProfileVerificationStatus.fromValue(data['status']);
+      if (status == ProfileVerificationStatus.pending ||
+          status == ProfileVerificationStatus.verified) {
+        throw const ProfileVerificationException(
+          'Während der Prüfung kann das Ablaufdatum nicht geändert werden.',
+        );
+      }
+      final expirations = _timestampMap(data['documentExpiresAt']);
+      expirations[expirationKey] = Timestamp.fromDate(expirationDay);
+      transaction.set(reference, {
+        'requestId': normalizedUserId,
+        'userId': normalizedUserId,
+        'profilePath': CaRismaFirestorePaths.userProfile(normalizedUserId),
+        'status': ProfileVerificationStatus.draft.name,
+        'displayName': data['displayName'] ?? '',
+        'documentStoragePaths': _stringMap(data['documentStoragePaths']),
+        'documentStatuses': _stringMap(data['documentStatuses']),
+        'documentRejectionReasons': _stringMap(
+          data['documentRejectionReasons'],
+        ),
+        'documentExpiresAt': expirations,
+        'vehicleId': data['vehicleId'],
+        'vehicleRelationship':
+            data['vehicleRelationship'] ??
+            ProfileVehicleRelationship.owner.name,
+        'authorizationConfirmed': false,
+        'consentVersion': null,
+        'consentAcceptedAt': null,
+        'submittedAt': null,
+        'reviewedAt': null,
+        'reviewedBy': null,
+        'rejectionReason': null,
+        'retentionUntil': null,
+        'createdAt': snapshot.exists
+            ? data['createdAt'] ?? FieldValue.serverTimestamp()
+            : FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: false));
+    });
+  }
+
   Future<void> saveDraftRelationship({
     required String userId,
     required String vehicleId,
@@ -252,6 +326,12 @@ class ProfileVerificationRepository {
           entry.key: entry.value.name,
       },
       'documentRejectionReasons': request?.documentRejectionReasons ?? const {},
+      'documentExpiresAt': {
+        for (final entry
+            in (request?.documentExpiresAt ?? const <String, DateTime?>{})
+                .entries)
+          if (entry.value != null) entry.key: Timestamp.fromDate(entry.value!),
+      },
       'vehicleId': normalizedVehicleId,
       'vehicleRelationship': relationship.name,
       'authorizationConfirmed': false,
@@ -379,6 +459,15 @@ class ProfileVerificationRepository {
     return {
       for (final entry in value.entries)
         if (entry.value is String) entry.key.toString(): entry.value as String,
+    };
+  }
+
+  static Map<String, Timestamp> _timestampMap(Object? value) {
+    if (value is! Map) return <String, Timestamp>{};
+    return {
+      for (final entry in value.entries)
+        if (entry.value is Timestamp)
+          entry.key.toString(): entry.value as Timestamp,
     };
   }
 }

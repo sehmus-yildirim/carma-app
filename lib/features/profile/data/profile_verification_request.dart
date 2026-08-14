@@ -59,15 +59,89 @@ enum ProfileVehicleRelationship {
 }
 
 abstract final class ProfileVerificationDocumentKeys {
-  static const identityEvidence = 'identityEvidence';
-  static const vehicleEvidence = 'vehicleEvidence';
-  static const required = <String>[identityEvidence, vehicleEvidence];
+  static const identityFront = 'identityFront';
+  static const identityBack = 'identityBack';
+  static const driverLicenseFront = 'driverLicenseFront';
+  static const driverLicenseBack = 'driverLicenseBack';
+  static const vehicleFront = 'vehicleFront';
+  static const vehicleBack = 'vehicleBack';
+
+  static const identityExpiration = 'identity';
+  static const driverLicenseExpiration = 'driverLicense';
+
+  static const requiredExpirationKeys = <String>[
+    identityExpiration,
+    driverLicenseExpiration,
+  ];
+
+  static const required = <String>[
+    identityFront,
+    identityBack,
+    driverLicenseFront,
+    driverLicenseBack,
+    vehicleFront,
+    vehicleBack,
+  ];
+
+  static const groups = <ProfileVerificationDocumentGroup>[
+    ProfileVerificationDocumentGroup(
+      title: 'Identität bestätigen',
+      subtitle: 'Amtlicher Lichtbildausweis, vollständig und gut lesbar.',
+      iconName: 'identity',
+      frontKey: identityFront,
+      backKey: identityBack,
+      expirationKey: identityExpiration,
+    ),
+    ProfileVerificationDocumentGroup(
+      title: 'Führerschein',
+      subtitle: 'Gültiger Führerschein als zusätzlicher Identitätsnachweis.',
+      iconName: 'driverLicense',
+      frontKey: driverLicenseFront,
+      backKey: driverLicenseBack,
+      expirationKey: driverLicenseExpiration,
+    ),
+    ProfileVerificationDocumentGroup(
+      title: 'Fahrzeugbezug bestätigen',
+      subtitle: 'Fahrzeugschein oder geeigneter Berechtigungsnachweis.',
+      iconName: 'vehicle',
+      frontKey: vehicleFront,
+      backKey: vehicleBack,
+      includesVehicleAssignment: true,
+    ),
+  ];
 
   static String labelFor(String key) => switch (key) {
-    identityEvidence => 'Identität bestätigen',
-    vehicleEvidence => 'Fahrzeugbezug bestätigen',
+    identityFront || identityBack => 'Identität',
+    driverLicenseFront || driverLicenseBack => 'Führerschein',
+    vehicleFront || vehicleBack => 'Fahrzeugbezug',
     _ => 'Nachweis',
   };
+
+  static String sideLabelFor(String key) => switch (key) {
+    identityFront || driverLicenseFront || vehicleFront => 'Vorderseite',
+    identityBack || driverLicenseBack || vehicleBack => 'Rückseite',
+    _ => 'Dokument',
+  };
+}
+
+class ProfileVerificationDocumentGroup {
+  const ProfileVerificationDocumentGroup({
+    required this.title,
+    required this.subtitle,
+    required this.iconName,
+    required this.frontKey,
+    required this.backKey,
+    this.expirationKey,
+    this.includesVehicleAssignment = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final String iconName;
+  final String frontKey;
+  final String backKey;
+  final String? expirationKey;
+  final bool includesVehicleAssignment;
 }
 
 class ProfileVerificationRequest {
@@ -79,6 +153,7 @@ class ProfileVerificationRequest {
     required this.displayName,
     required this.documentStoragePaths,
     required this.documentStatuses,
+    this.documentExpiresAt = const {},
     this.documentRejectionReasons = const {},
     this.vehicleId,
     this.vehicleRelationship = ProfileVehicleRelationship.owner,
@@ -110,6 +185,7 @@ class ProfileVerificationRequest {
   final String displayName;
   final Map<String, String?> documentStoragePaths;
   final Map<String, ProfileVerificationDocumentStatus> documentStatuses;
+  final Map<String, DateTime?> documentExpiresAt;
   final Map<String, String?> documentRejectionReasons;
   final String? vehicleId;
   final ProfileVehicleRelationship vehicleRelationship;
@@ -151,6 +227,22 @@ class ProfileVerificationRequest {
   bool get hasAllRequiredDocuments =>
       completedDocumentCount == ProfileVerificationDocumentKeys.required.length;
 
+  DateTime? expirationFor(String key) => documentExpiresAt[key];
+
+  bool hasValidRequiredExpirationsAt(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    return ProfileVerificationDocumentKeys.requiredExpirationKeys.every((key) {
+      final expiration = documentExpiresAt[key];
+      if (expiration == null) return false;
+      final expirationDay = DateTime(
+        expiration.year,
+        expiration.month,
+        expiration.day,
+      );
+      return expirationDay.isAfter(today);
+    });
+  }
+
   ProfileVerificationDocumentStatus documentStatusFor(String key) {
     return documentStatuses[key] ??
         (documentStoragePaths[key]?.trim().isNotEmpty == true
@@ -173,6 +265,7 @@ class ProfileVerificationRequest {
       displayName: data['displayName'] as String? ?? '',
       documentStoragePaths: storagePaths,
       documentStatuses: _documentStatusMap(data['documentStatuses']),
+      documentExpiresAt: _dateTimeMap(data['documentExpiresAt']),
       documentRejectionReasons: _nullableStringMap(
         data['documentRejectionReasons'],
       ),
@@ -233,6 +326,13 @@ class ProfileVerificationRequest {
         key.toString(),
         ProfileVerificationDocumentStatus.fromValue(mapValue),
       );
+    });
+  }
+
+  static Map<String, DateTime?> _dateTimeMap(Object? value) {
+    if (value is! Map) return const {};
+    return value.map((key, mapValue) {
+      return MapEntry(key.toString(), _dateTimeFromValue(mapValue));
     });
   }
 }

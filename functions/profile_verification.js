@@ -2,7 +2,15 @@ const {createHash} = require("node:crypto");
 const {Timestamp} = require("firebase-admin/firestore");
 const {HttpsError} = require("firebase-functions/v2/https");
 
-const requiredDocumentKeys = ["identityEvidence", "vehicleEvidence"];
+const requiredDocumentKeys = [
+  "identityFront",
+  "identityBack",
+  "driverLicenseFront",
+  "driverLicenseBack",
+  "vehicleFront",
+  "vehicleBack",
+];
+const requiredExpirationKeys = ["identity", "driverLicense"];
 const allowedRelationships = [
   "owner",
   "leasingCompany",
@@ -14,6 +22,31 @@ const retentionDays = 30;
 
 function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function timestampMillis(value) {
+  if (value != null && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+  if (value instanceof Date) return value.getTime();
+  return Number.NaN;
+}
+
+function validateDocumentExpirations(expirations, now) {
+  const nowMillis = timestampMillis(now);
+  const normalized = {};
+  for (const key of requiredExpirationKeys) {
+    const value = expirations?.[key];
+    const millis = timestampMillis(value);
+    if (!Number.isFinite(millis) || millis <= nowMillis) {
+      throw new HttpsError(
+          "failed-precondition",
+          "Bitte gib für Ausweis und Führerschein ein gültiges Ablaufdatum ein.",
+      );
+    }
+    normalized[key] = value;
+  }
+  return normalized;
 }
 
 function normalizeVehicleRelationship(value) {
@@ -196,7 +229,7 @@ async function validateStoredDocuments({bucket, userId, paths}) {
     if (!allowedDocumentPaths(userId, documentKey).includes(expectedPath)) {
       throw new HttpsError(
         "failed-precondition",
-        "Bitte lade beide erforderlichen Nachweise vollständig hoch.",
+        "Bitte lade für alle Nachweise Vorder- und Rückseite vollständig hoch.",
       );
     }
     const file = bucket.file(expectedPath);
@@ -263,9 +296,27 @@ function plateDocumentId(vehicle) {
   return country.length > 0 && plateKey.length > 0 ? `${country}_${plateKey}` : "";
 }
 
-function submissionFingerprint({userId, vehicleId, relationship, paths}) {
+function submissionFingerprint({
+  userId,
+  vehicleId,
+  relationship,
+  paths,
+  expirations,
+}) {
+  const expirationMillis = Object.fromEntries(
+      requiredExpirationKeys.map((key) => [
+        key,
+        timestampMillis(expirations?.[key]),
+      ]),
+  );
   return createHash("sha256")
-      .update(JSON.stringify({userId, vehicleId, relationship, paths}))
+      .update(JSON.stringify({
+        userId,
+        vehicleId,
+        relationship,
+        paths,
+        expirations: expirationMillis,
+      }))
       .digest("hex");
 }
 
@@ -318,6 +369,10 @@ async function submitProfileVerification({
   }
   const draft = requestSnapshot.data() ?? {};
   const documentStoragePaths = draft.documentStoragePaths ?? {};
+  const documentExpiresAt = validateDocumentExpirations(
+      draft.documentExpiresAt,
+      now,
+  );
   await validateStoredDocuments({
     bucket,
     userId,
@@ -330,6 +385,7 @@ async function submitProfileVerification({
     vehicleId: normalized.vehicleId,
     relationship: normalized.vehicleRelationship,
     paths: documentStoragePaths,
+    expirations: documentExpiresAt,
   });
 
   return firestore.runTransaction(async (transaction) => {
@@ -400,6 +456,22 @@ async function submitProfileVerification({
         );
       }
     }
+    const currentExpirations = validateDocumentExpirations(
+        currentRequest.documentExpiresAt,
+        now,
+    );
+    for (const key of requiredExpirationKeys) {
+      if (timestampMillis(currentExpirations[key]) !==
+          timestampMillis(documentExpiresAt[key])) {
+        throw new HttpsError(
+            "aborted",
+            "Ein Ablaufdatum wurde zwischenzeitlich geändert. Bitte versuche es erneut.",
+        );
+      }
+    }
+    const verificationExpiresAt = requiredExpirationKeys
+        .map((key) => documentExpiresAt[key])
+        .sort((left, right) => timestampMillis(left) - timestampMillis(right))[0];
     const documentStatuses = Object.fromEntries(
         requiredDocumentKeys.map((key) => [key, "inReview"]),
     );
@@ -412,6 +484,8 @@ async function submitProfileVerification({
       documentStoragePaths,
       documentStatuses,
       documentRejectionReasons: {},
+      documentExpiresAt,
+      verificationExpiresAt,
       vehicleId: normalized.vehicleId,
       vehicleRelationship: normalized.vehicleRelationship,
       authorizationConfirmed: true,
@@ -554,6 +628,9 @@ async function reviewProfileVerification({
     }
     const verified = normalized.decision === "verified";
     const reviewedAt = now;
+    if (verified) {
+      validateDocumentExpirations(request.documentExpiresAt, reviewedAt);
+    }
     const firestoreRetentionUntil = Timestamp.fromMillis(
         reviewedAt.toMillis() + retentionDays * 24 * 60 * 60 * 1000,
     );
@@ -573,6 +650,7 @@ async function reviewProfileVerification({
       reviewedAt,
       reviewedBy: safeString(authContext.uid),
       rejectionReason: verified ? null : normalized.reason,
+      verificationExpiresAt: verified ? request.verificationExpiresAt : null,
       retentionUntil: firestoreRetentionUntil,
       updatedAt: reviewedAt,
     });
@@ -632,6 +710,11 @@ async function reviewProfileVerification({
 }
 
 async function cleanupVerificationDocuments({firestore, bucket, now, limit = 100}) {
+  const expirationResult = await expireVerifiedRequests({
+    firestore,
+    now,
+    limit,
+  });
   const snapshot = await firestore.collection("verification_requests")
       .where("retentionUntil", "<=", now)
       .limit(limit)
@@ -639,7 +722,9 @@ async function cleanupVerificationDocuments({firestore, bucket, now, limit = 100
   let cleaned = 0;
   for (const document of snapshot.docs) {
     const data = document.data();
-    if (!["verified", "rejected"].includes(safeString(data.status))) continue;
+    if (!["verified", "rejected", "expired"].includes(
+      safeString(data.status),
+    )) continue;
     if (data.documentsCleanedAt != null) continue;
     const userId = safeString(data.userId);
     if (userId.length === 0) continue;
@@ -660,7 +745,117 @@ async function cleanupVerificationDocuments({firestore, bucket, now, limit = 100
     });
     cleaned += 1;
   }
-  return {cleaned, hasMore: snapshot.size === limit};
+  return {
+    cleaned,
+    expired: expirationResult.expired,
+    hasMore: snapshot.size === limit || expirationResult.hasMore,
+  };
+}
+
+async function expireVerifiedRequests({firestore, now, limit = 100}) {
+  const snapshot = await firestore.collection("verification_requests")
+      .where("verificationExpiresAt", "<=", now)
+      .limit(limit)
+      .get();
+  let expired = 0;
+  for (const document of snapshot.docs) {
+    const requestReference = document.ref;
+    const changed = await firestore.runTransaction(async (transaction) => {
+      const currentSnapshot = await transaction.get(requestReference);
+      if (!currentSnapshot.exists) return false;
+      const request = currentSnapshot.data();
+      if (!["verified", "pending"].includes(safeString(request.status)) ||
+          timestampMillis(request.verificationExpiresAt) > timestampMillis(now)) {
+        return false;
+      }
+      const userId = safeString(request.userId);
+      const vehicleId = safeString(request.vehicleId);
+      if (userId.length === 0 || vehicleId.length === 0) return false;
+      const profileReference = firestore.doc(`users/${userId}/profiles/main`);
+      const publicProfileReference = firestore.doc(`public_profiles/${userId}`);
+      const vehicleReference = firestore.doc(
+          `users/${userId}/vehicles/${vehicleId}`,
+      );
+      const publicVehicleReference = firestore.doc(
+          `public_profiles/${userId}/vehicles/${vehicleId}`,
+      );
+      const plateId = plateDocumentId(request);
+      const plateReference = plateId.length > 0 ?
+        firestore.doc(`plates/${plateId}`) : null;
+      const profile = await transaction.get(profileReference);
+      const publicProfile = await transaction.get(publicProfileReference);
+      const vehicle = await transaction.get(vehicleReference);
+      const publicVehicle = await transaction.get(publicVehicleReference);
+      const plate = plateReference == null ? null :
+        await transaction.get(plateReference);
+      transaction.update(requestReference, {
+        status: "expired",
+        documentExpiresAt: {},
+        verificationExpiresAt: null,
+        rejectionReason:
+          "Ausweis oder Führerschein ist abgelaufen. Bitte reiche aktuelle Nachweise ein.",
+        updatedAt: now,
+      });
+      if (profile.exists) {
+        transaction.update(profileReference, {
+          verificationStatus: "expired",
+          verificationRejectionReason:
+            "Ausweis oder Führerschein ist abgelaufen.",
+          updatedAt: now,
+        });
+      }
+      if (publicProfile.exists) {
+        transaction.update(publicProfileReference, {
+          verificationStatus: "expired",
+          updatedAt: now,
+        });
+      }
+      if (vehicle.exists) {
+        transaction.update(vehicleReference, {
+          verificationStatus: "expired",
+          verificationLocked: false,
+          verificationRejectionReason:
+            "Ausweis oder Führerschein ist abgelaufen.",
+          isVerified: false,
+          updatedAt: now,
+        });
+      }
+      if (publicVehicle.exists) {
+        transaction.update(publicVehicleReference, {
+          verificationStatus: "expired",
+          isVerified: false,
+          updatedAt: now,
+        });
+      }
+      if (plate?.exists && safeString(plate.data()?.ownerUserId) === userId) {
+        transaction.update(plateReference, {
+          verificationStatus: "expired",
+          isVerified: false,
+          updatedAt: now,
+        });
+      }
+      const historyReference = requestReference.collection("history").doc();
+      transaction.set(historyReference, {
+        status: "expired",
+        reason: "Ausweis oder Führerschein ist abgelaufen.",
+        createdAt: now,
+      });
+      transaction.set(firestore.doc(
+          `users/${userId}/verification_notifications/${historyReference.id}`,
+      ), {
+        notificationId: historyReference.id,
+        requestId: requestReference.id,
+        status: "expired",
+        message:
+          "Deine Verifizierung ist abgelaufen. Bitte reiche aktuelle Nachweise ein.",
+        isRead: false,
+        createdAt: now,
+      });
+      return true;
+    });
+    if (changed) expired += 1;
+  }
+  return {expired, hasMore: snapshot.size === limit};
 }
 
 module.exports = {
@@ -669,6 +864,7 @@ module.exports = {
   cleanupVerificationDocuments,
   consentVersion,
   expectedDocumentPath,
+  expireVerifiedRequests,
   inspectJpeg,
   inspectPng,
   isJpegHeader,
@@ -678,7 +874,9 @@ module.exports = {
   normalizeVehicleRelationship,
   plateDocumentId,
   requiredDocumentKeys,
+  requiredExpirationKeys,
   reviewProfileVerification,
   submitProfileVerification,
+  validateDocumentExpirations,
   validateStoredDocuments,
 };

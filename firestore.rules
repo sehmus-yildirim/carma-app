@@ -404,6 +404,7 @@ service cloud.firestore {
           'pending',
           'verified',
           'rejected',
+          'expired',
         ]
         && isNullableStringWithMax(request.resource.data.primaryVehicleId, 160)
         && isNullableStringWithMax(request.resource.data.vehicleBrand, 120)
@@ -556,6 +557,7 @@ service cloud.firestore {
           'inReview',
           'verified',
           'rejected',
+          'expired',
         ]
         && request.resource.data.get('verificationLocked', false) is bool
         && isNullableStringWithMax(
@@ -1684,6 +1686,7 @@ service cloud.firestore {
       let paths = request.resource.data.documentStoragePaths;
       let statuses = request.resource.data.documentStatuses;
       let reasons = request.resource.data.documentRejectionReasons;
+      let expirations = request.resource.data.documentExpiresAt;
       return isSignedIn()
         && request.auth.uid == userId
         && requestId == userId
@@ -1695,45 +1698,92 @@ service cloud.firestore {
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() <= 80
         && paths is map
-        && paths.keys().hasOnly(['identityEvidence', 'vehicleEvidence'])
-        && (
-          !('identityEvidence' in paths)
-          || paths.identityEvidence in [
-            'profile_documents/' + userId
-              + '/identityEvidence/identityEvidence.png',
-            'profile_documents/' + userId
-              + '/identityEvidence/identityEvidence.jpg'
-          ]
-        )
-        && (
-          !('vehicleEvidence' in paths)
-          || paths.vehicleEvidence in [
-            'profile_documents/' + userId
-              + '/vehicleEvidence/vehicleEvidence.png',
-            'profile_documents/' + userId
-              + '/vehicleEvidence/vehicleEvidence.jpg'
-          ]
-        )
+        && paths.keys().hasOnly([
+          'identityFront',
+          'identityBack',
+          'driverLicenseFront',
+          'driverLicenseBack',
+          'vehicleFront',
+          'vehicleBack'
+        ])
+        && (!('identityFront' in paths) || paths.identityFront in [
+          'profile_documents/' + userId + '/identityFront/identityFront.png',
+          'profile_documents/' + userId + '/identityFront/identityFront.jpg'
+        ])
+        && (!('identityBack' in paths) || paths.identityBack in [
+          'profile_documents/' + userId + '/identityBack/identityBack.png',
+          'profile_documents/' + userId + '/identityBack/identityBack.jpg'
+        ])
+        && (!('driverLicenseFront' in paths) || paths.driverLicenseFront in [
+          'profile_documents/' + userId
+            + '/driverLicenseFront/driverLicenseFront.png',
+          'profile_documents/' + userId
+            + '/driverLicenseFront/driverLicenseFront.jpg'
+        ])
+        && (!('driverLicenseBack' in paths) || paths.driverLicenseBack in [
+          'profile_documents/' + userId
+            + '/driverLicenseBack/driverLicenseBack.png',
+          'profile_documents/' + userId
+            + '/driverLicenseBack/driverLicenseBack.jpg'
+        ])
+        && (!('vehicleFront' in paths) || paths.vehicleFront in [
+          'profile_documents/' + userId + '/vehicleFront/vehicleFront.png',
+          'profile_documents/' + userId + '/vehicleFront/vehicleFront.jpg'
+        ])
+        && (!('vehicleBack' in paths) || paths.vehicleBack in [
+          'profile_documents/' + userId + '/vehicleBack/vehicleBack.png',
+          'profile_documents/' + userId + '/vehicleBack/vehicleBack.jpg'
+        ])
         && statuses is map
-        && statuses.keys().hasOnly(['identityEvidence', 'vehicleEvidence'])
-        && (
-          !('identityEvidence' in statuses)
-          || statuses.identityEvidence in ['missing', 'uploaded']
-        )
-        && (
-          !('vehicleEvidence' in statuses)
-          || statuses.vehicleEvidence in ['missing', 'uploaded']
-        )
+        && statuses.keys().hasOnly([
+          'identityFront',
+          'identityBack',
+          'driverLicenseFront',
+          'driverLicenseBack',
+          'vehicleFront',
+          'vehicleBack'
+        ])
+        && (!('identityFront' in statuses)
+          || statuses.identityFront in ['missing', 'uploaded'])
+        && (!('identityBack' in statuses)
+          || statuses.identityBack in ['missing', 'uploaded'])
+        && (!('driverLicenseFront' in statuses)
+          || statuses.driverLicenseFront in ['missing', 'uploaded'])
+        && (!('driverLicenseBack' in statuses)
+          || statuses.driverLicenseBack in ['missing', 'uploaded'])
+        && (!('vehicleFront' in statuses)
+          || statuses.vehicleFront in ['missing', 'uploaded'])
+        && (!('vehicleBack' in statuses)
+          || statuses.vehicleBack in ['missing', 'uploaded'])
         && reasons is map
-        && reasons.keys().hasOnly(['identityEvidence', 'vehicleEvidence'])
-        && (
-          !('identityEvidence' in reasons)
-          || isNullableStringWithMax(reasons.identityEvidence, 600)
-        )
-        && (
-          !('vehicleEvidence' in reasons)
-          || isNullableStringWithMax(reasons.vehicleEvidence, 600)
-        )
+        && reasons.keys().hasOnly([
+          'identityFront',
+          'identityBack',
+          'driverLicenseFront',
+          'driverLicenseBack',
+          'vehicleFront',
+          'vehicleBack'
+        ])
+        && (!('identityFront' in reasons)
+          || isNullableStringWithMax(reasons.identityFront, 600))
+        && (!('identityBack' in reasons)
+          || isNullableStringWithMax(reasons.identityBack, 600))
+        && (!('driverLicenseFront' in reasons)
+          || isNullableStringWithMax(reasons.driverLicenseFront, 600))
+        && (!('driverLicenseBack' in reasons)
+          || isNullableStringWithMax(reasons.driverLicenseBack, 600))
+        && (!('vehicleFront' in reasons)
+          || isNullableStringWithMax(reasons.vehicleFront, 600))
+        && (!('vehicleBack' in reasons)
+          || isNullableStringWithMax(reasons.vehicleBack, 600))
+        && expirations is map
+        && expirations.keys().hasOnly(['identity', 'driverLicense'])
+        && (!('identity' in expirations)
+          || (expirations.identity is timestamp
+            && expirations.identity > request.time))
+        && (!('driverLicense' in expirations)
+          || (expirations.driverLicense is timestamp
+            && expirations.driverLicense > request.time))
         && isNullableStringWithMax(request.resource.data.vehicleId, 160)
         && request.resource.data.vehicleRelationship in [
           'owner',
@@ -1760,6 +1810,7 @@ service cloud.firestore {
           'documentStoragePaths',
           'documentStatuses',
           'documentRejectionReasons',
+          'documentExpiresAt',
           'vehicleId',
           'vehicleRelationship',
           'authorizationConfirmed',

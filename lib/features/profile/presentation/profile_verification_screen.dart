@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/theme/carisma_design_tokens.dart';
@@ -71,6 +72,11 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   String? _successMessage;
   final Map<String, double> _uploadProgress = {};
   final Set<String> _busyDocuments = {};
+  final Set<String> _dirtyExpirationKeys = {};
+  final Map<String, TextEditingController> _expirationControllers = {
+    for (final key in ProfileVerificationDocumentKeys.requiredExpirationKeys)
+      key: TextEditingController(),
+  };
   bool _profileLoaded = false;
   bool _vehiclesLoaded = false;
   bool _requestLoaded = false;
@@ -145,6 +151,14 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                   _selectedVehicleId = request.vehicleId;
                 }
                 _consentAccepted = request.authorizationConfirmed;
+                for (final key
+                    in ProfileVerificationDocumentKeys.requiredExpirationKeys) {
+                  if (_dirtyExpirationKeys.contains(key)) continue;
+                  final expiration = request.expirationFor(key);
+                  _expirationControllers[key]?.text = expiration == null
+                      ? ''
+                      : _formatDate(expiration);
+                }
               }
             });
           },
@@ -188,6 +202,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     _requestSubscription?.cancel();
     _historySubscription?.cancel();
     _notificationSubscription?.cancel();
+    for (final controller in _expirationControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -215,6 +232,10 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _selectedVehicle?.displayPlate.trim().isNotEmpty == true;
   bool get _isLocked => _request?.isLocked == true;
   bool get _allDocumentsReady => _request?.hasAllRequiredDocuments == true;
+  bool get _allExpirationsReady =>
+      ProfileVerificationDocumentKeys.requiredExpirationKeys.every(
+        (key) => _parseExpiration(_expirationControllers[key]?.text) != null,
+      );
   bool get _canSubmit =>
       !_isLocked &&
       !_isSubmitting &&
@@ -223,7 +244,58 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _hasVehicle &&
       _hasPlate &&
       _allDocumentsReady &&
+      _allExpirationsReady &&
       _consentAccepted;
+
+  static String _formatDate(DateTime date) {
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return '${twoDigits(date.day)}.${twoDigits(date.month)}.${date.year}';
+  }
+
+  DateTime? _parseExpiration(String? value) {
+    final parts = value?.trim().split('.') ?? const <String>[];
+    if (parts.length != 3) return null;
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null || year < 2000) {
+      return null;
+    }
+    final parsed = DateTime(year, month, day);
+    if (parsed.day != day || parsed.month != month || parsed.year != year) {
+      return null;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return parsed.isAfter(today) ? parsed : null;
+  }
+
+  Future<bool> _persistExpiration(String key) async {
+    final expiration = _parseExpiration(_expirationControllers[key]?.text);
+    if (expiration == null) {
+      _showError('Bitte gib ein gültiges zukünftiges Ablaufdatum ein.');
+      return false;
+    }
+    try {
+      await _verificationRepository.saveDraftExpiration(
+        userId: widget.userId,
+        expirationKey: key,
+        expiresAt: expiration,
+      );
+      _dirtyExpirationKeys.remove(key);
+      return true;
+    } catch (error) {
+      _showError(_errorText(error));
+      return false;
+    }
+  }
+
+  Future<bool> _persistAllExpirations() async {
+    for (final key in ProfileVerificationDocumentKeys.requiredExpirationKeys) {
+      if (!await _persistExpiration(key)) return false;
+    }
+    return true;
+  }
 
   Future<void> _selectVehicle(String? vehicleId) async {
     if (vehicleId == null || vehicleId == _selectedVehicleId || _isLocked) {
@@ -352,7 +424,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       if (!mounted) return;
       setState(() {
         _successMessage =
-            '${ProfileVerificationDocumentKeys.labelFor(documentKey)} wurde sicher hochgeladen.';
+            '${ProfileVerificationDocumentKeys.labelFor(documentKey)} '
+            '(${ProfileVerificationDocumentKeys.sideLabelFor(documentKey)}) '
+            'wurde sicher hochgeladen.';
       });
     } catch (error) {
       if (upload != null) {
@@ -431,6 +505,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     }
     final vehicleId = _selectedVehicleId;
     if (vehicleId == null) return;
+    if (!await _persistAllExpirations()) return;
     setState(() {
       _isSubmitting = true;
       _clearMessages();
@@ -461,7 +536,10 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       return 'Bitte hinterlege zuerst ein vollständiges Fahrzeug mit Kennzeichen.';
     }
     if (!_allDocumentsReady) {
-      return 'Bitte lade beide Pflichtnachweise vollständig hoch.';
+      return 'Bitte lade für alle Nachweise Vorder- und Rückseite vollständig hoch.';
+    }
+    if (!_allExpirationsReady) {
+      return 'Bitte gib für Ausweis und Führerschein ein gültiges Ablaufdatum ein.';
     }
     if (!_consentAccepted) {
       return 'Bitte bestätige deine Berechtigung und die Datenschutzhinweise.';
@@ -558,6 +636,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                     CaRismaSubPageHeader(
                       icon: Icons.verified_user_outlined,
                       title: 'Dokumente hochladen',
+                      titleFontSize: 19,
                       onBack: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(height: 14),
@@ -575,20 +654,33 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                     const SizedBox(height: 12),
                     _buildPrerequisites(),
                     const SizedBox(height: 12),
-                    _buildVehicleAssignment(),
-                    const SizedBox(height: 12),
-                    for (final key
-                        in ProfileVerificationDocumentKeys.required) ...[
+                    for (final group
+                        in ProfileVerificationDocumentKeys.groups) ...[
                       _VerificationDocumentCard(
-                        documentKey: key,
-                        status: _effectiveDocumentStatus(key),
-                        rejectionReason:
-                            _request?.documentRejectionReasons[key],
-                        progress: _uploadProgress[key],
-                        isBusy: _busyDocuments.contains(key),
+                        group: group,
+                        frontStatus: _effectiveDocumentStatus(group.frontKey),
+                        backStatus: _effectiveDocumentStatus(group.backKey),
+                        frontRejectionReason:
+                            _request?.documentRejectionReasons[group.frontKey],
+                        backRejectionReason:
+                            _request?.documentRejectionReasons[group.backKey],
+                        frontProgress: _uploadProgress[group.frontKey],
+                        backProgress: _uploadProgress[group.backKey],
+                        frontBusy: _busyDocuments.contains(group.frontKey),
+                        backBusy: _busyDocuments.contains(group.backKey),
                         isLocked: _isLocked,
-                        onSelect: () => _chooseDocumentSource(key),
-                        onRemove: () => _removeDocument(key),
+                        onSelectFront: () =>
+                            _chooseDocumentSource(group.frontKey),
+                        onSelectBack: () =>
+                            _chooseDocumentSource(group.backKey),
+                        onRemoveFront: () => _removeDocument(group.frontKey),
+                        onRemoveBack: () => _removeDocument(group.backKey),
+                        vehicleAssignment: group.includesVehicleAssignment
+                            ? _buildVehicleAssignmentFields()
+                            : null,
+                        expirationField: group.expirationKey == null
+                            ? null
+                            : _buildExpirationField(group.expirationKey!),
                       ),
                       const SizedBox(height: 10),
                     ],
@@ -635,6 +727,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
           CaRismaSubPageHeader(
             icon: Icons.verified_user_outlined,
             title: 'Dokumente hochladen',
+            titleFontSize: 19,
             onBack: () => Navigator.of(context).pop(),
           ),
           const Expanded(
@@ -677,6 +770,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               const Expanded(
                 child: Text(
                   'Verifizierungsübersicht',
+                  maxLines: 1,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
@@ -684,16 +778,28 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                   ),
                 ),
               ),
-              _StatusPill(label: statusLabel, status: status),
             ],
           ),
-          const SizedBox(height: 13),
-          Text(
-            '$completed von $total Nachweisen vollständig',
-            style: const TextStyle(
-              color: CaRismaDesignTokens.textSecondary,
-              fontWeight: FontWeight.w800,
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '$completed von $total Nachweisen vollständig',
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: CaRismaDesignTokens.textSecondary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _StatusPill(label: statusLabel, status: status),
+            ],
           ),
           const SizedBox(height: 9),
           ClipRRect(
@@ -705,15 +811,6 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               valueColor: const AlwaysStoppedAnimation(
                 CaRismaDesignTokens.bluePrimary,
               ),
-            ),
-          ),
-          const SizedBox(height: 11),
-          const Text(
-            'Die Prüfung schützt Profile, Kennzeichensuche und Kontaktanfragen vor Missbrauch.',
-            style: TextStyle(
-              color: CaRismaDesignTokens.textMuted,
-              height: 1.35,
-              fontWeight: FontWeight.w700,
             ),
           ),
           if (request?.rejectionReason?.trim().isNotEmpty == true) ...[
@@ -752,12 +849,12 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                 child: Text(
                   _profile?.displayName.trim().isNotEmpty == true
                       ? _profile!.displayName.trim()
-                      : 'Persönliche Daten fehlen',
+                      : 'Persönliche Daten',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 17,
+                    fontSize: 19,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -778,12 +875,12 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
           ),
           _PrerequisiteRow(
             icon: Icons.directions_car_outlined,
-            label: vehicle?.displayName ?? 'Fahrzeug fehlt',
+            label: vehicle?.displayName ?? 'Fahrzeug',
             complete: _hasVehicle,
           ),
           _PrerequisiteRow(
             icon: Icons.pin_outlined,
-            label: vehicle?.displayPlate ?? 'Kennzeichen fehlt',
+            label: vehicle?.displayPlate ?? 'Kennzeichen',
             complete: _hasPlate,
             isLast: true,
           ),
@@ -792,61 +889,95 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
             icon: Icons.rule_folder_outlined,
             text:
                 'Name, Kennzeichen und Fahrzeug müssen für eine erfolgreiche Verifizierung exakt zu den Nachweisen passen.',
+            centerIcon: true,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVehicleAssignment() {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Fahrzeugzuordnung',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _DarkDropdown<String>(
-            value: _selectedVehicleId,
-            hint: 'Fahrzeug auswählen',
-            enabled: !_isLocked && _vehicles.isNotEmpty,
-            items: _vehicles
-                .map(
-                  (vehicle) => DropdownMenuItem(
-                    value: vehicle.id,
-                    child: Text(
-                      '${vehicle.displayName} · ${vehicle.displayPlate}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+  Widget _buildVehicleAssignmentFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(color: Color(0x1FFFFFFF), height: 26),
+        const Text(
+          'Fahrzeugzuordnung',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        _DarkDropdown<String>(
+          value: _selectedVehicleId,
+          hint: 'Fahrzeug auswählen',
+          enabled: !_isLocked && _vehicles.isNotEmpty,
+          items: _vehicles
+              .map(
+                (vehicle) => DropdownMenuItem(
+                  value: vehicle.id,
+                  child: Text(
+                    '${vehicle.displayName} · ${vehicle.displayPlate}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                )
-                .toList(growable: false),
-            onChanged: _selectVehicle,
-          ),
-          const SizedBox(height: 10),
-          _DarkDropdown<ProfileVehicleRelationship>(
-            value: _relationship,
-            hint: 'Berechtigung auswählen',
-            enabled: !_isLocked,
-            items: ProfileVehicleRelationship.values
-                .map(
-                  (relationship) => DropdownMenuItem(
-                    value: relationship,
-                    child: Text(_relationshipLabel(relationship)),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: _selectRelationship,
-          ),
-        ],
+                ),
+              )
+              .toList(growable: false),
+          onChanged: _selectVehicle,
+        ),
+        const SizedBox(height: 10),
+        _DarkDropdown<ProfileVehicleRelationship>(
+          value: _relationship,
+          hint: 'Berechtigung auswählen',
+          enabled: !_isLocked,
+          items: ProfileVehicleRelationship.values
+              .map(
+                (relationship) => DropdownMenuItem(
+                  value: relationship,
+                  child: Text(_relationshipLabel(relationship)),
+                ),
+              )
+              .toList(growable: false),
+          onChanged: _selectRelationship,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpirationField(String expirationKey) {
+    final label =
+        expirationKey == ProfileVerificationDocumentKeys.identityExpiration
+        ? 'Ablaufdatum des Ausweises'
+        : 'Ablaufdatum des Führerscheins';
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: TextField(
+        controller: _expirationControllers[expirationKey],
+        enabled: !_isLocked,
+        keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.done,
+        maxLength: 10,
+        inputFormatters: const [_GermanDateInputFormatter()],
+        onChanged: (_) {
+          _dirtyExpirationKeys.add(expirationKey);
+          setState(_clearMessages);
+        },
+        onSubmitted: (_) {
+          _persistExpiration(expirationKey);
+        },
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+        decoration: InputDecoration(
+          counterText: '',
+          labelText: label,
+          hintText: 'TT.MM.JJJJ',
+          prefixIcon: const Icon(Icons.event_outlined),
+          helperText: 'Manuell eintragen · muss aktuell gültig sein',
+          filled: true,
+          fillColor: CaRismaDesignTokens.controlSurface,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        ),
       ),
     );
   }
@@ -857,6 +988,24 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: CaRismaDesignTokens.danger,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'UNBEDINGT LESEN!',
+                style: TextStyle(
+                  color: CaRismaDesignTokens.danger,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: _isLocked
@@ -978,38 +1127,48 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
 
 class _VerificationDocumentCard extends StatelessWidget {
   const _VerificationDocumentCard({
-    required this.documentKey,
-    required this.status,
-    required this.rejectionReason,
-    required this.progress,
-    required this.isBusy,
+    required this.group,
+    required this.frontStatus,
+    required this.backStatus,
+    required this.frontRejectionReason,
+    required this.backRejectionReason,
+    required this.frontProgress,
+    required this.backProgress,
+    required this.frontBusy,
+    required this.backBusy,
     required this.isLocked,
-    required this.onSelect,
-    required this.onRemove,
+    required this.onSelectFront,
+    required this.onSelectBack,
+    required this.onRemoveFront,
+    required this.onRemoveBack,
+    this.vehicleAssignment,
+    this.expirationField,
   });
 
-  final String documentKey;
-  final ProfileVerificationDocumentStatus status;
-  final String? rejectionReason;
-  final double? progress;
-  final bool isBusy;
+  final ProfileVerificationDocumentGroup group;
+  final ProfileVerificationDocumentStatus frontStatus;
+  final ProfileVerificationDocumentStatus backStatus;
+  final String? frontRejectionReason;
+  final String? backRejectionReason;
+  final double? frontProgress;
+  final double? backProgress;
+  final bool frontBusy;
+  final bool backBusy;
   final bool isLocked;
-  final VoidCallback onSelect;
-  final VoidCallback onRemove;
-
-  bool get _hasDocument => !const {
-    ProfileVerificationDocumentStatus.missing,
-    ProfileVerificationDocumentStatus.uploading,
-    ProfileVerificationDocumentStatus.expired,
-  }.contains(status);
+  final VoidCallback onSelectFront;
+  final VoidCallback onSelectBack;
+  final VoidCallback onRemoveFront;
+  final VoidCallback onRemoveBack;
+  final Widget? vehicleAssignment;
+  final Widget? expirationField;
 
   @override
   Widget build(BuildContext context) {
-    final title = ProfileVerificationDocumentKeys.labelFor(documentKey);
-    final subtitle =
-        documentKey == ProfileVerificationDocumentKeys.identityEvidence
-        ? 'Amtlicher Lichtbildausweis, vollständig und gut lesbar.'
-        : 'Fahrzeugschein oder geeigneter Berechtigungsnachweis.';
+    final icon = switch (group.iconName) {
+      'identity' => Icons.badge_outlined,
+      'driverLicense' => Icons.credit_card_rounded,
+      _ => Icons.description_outlined,
+    };
     return GlassCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1027,13 +1186,7 @@ class _VerificationDocumentCard extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.12),
                   ),
                 ),
-                child: Icon(
-                  documentKey ==
-                          ProfileVerificationDocumentKeys.identityEvidence
-                      ? Icons.badge_outlined
-                      : Icons.description_outlined,
-                  color: Colors.white,
-                ),
+                child: Icon(icon, color: Colors.white),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1041,7 +1194,7 @@ class _VerificationDocumentCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      group.title,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16.5,
@@ -1050,7 +1203,7 @@ class _VerificationDocumentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      subtitle,
+                      group.subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1064,67 +1217,140 @@ class _VerificationDocumentCard extends StatelessWidget {
               ),
             ],
           ),
+          ?vehicleAssignment,
+          ?expirationField,
           const SizedBox(height: 12),
-          _DocumentStatusLine(status: status),
-          if (isBusy) ...[
-            const SizedBox(height: 10),
-            LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: CaRismaDesignTokens.controlSurface,
-              color: CaRismaDesignTokens.bluePrimary,
-            ),
-          ],
-          if (rejectionReason?.trim().isNotEmpty == true) ...[
-            const SizedBox(height: 10),
-            Text(
-              rejectionReason!.trim(),
-              style: const TextStyle(
-                color: CaRismaDesignTokens.danger,
-                fontWeight: FontWeight.w800,
-                height: 1.35,
-              ),
-            ),
-          ],
-          if (!isLocked) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _OutlineAction(
-                    label: _hasDocument ? 'Ersetzen' : 'Auswählen',
-                    icon: _hasDocument
-                        ? Icons.sync_rounded
-                        : Icons.add_photo_alternate_outlined,
-                    onTap: isBusy ? null : onSelect,
-                  ),
-                ),
-                if (_hasDocument) ...[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _OutlineAction(
-                      label:
-                          status == ProfileVerificationDocumentStatus.rejected
-                          ? 'Erneut einreichen'
-                          : 'Entfernen',
-                      icon: status == ProfileVerificationDocumentStatus.rejected
-                          ? Icons.refresh_rounded
-                          : Icons.delete_outline_rounded,
-                      isDanger:
-                          status != ProfileVerificationDocumentStatus.rejected,
-                      onTap: isBusy
-                          ? null
-                          : status == ProfileVerificationDocumentStatus.rejected
-                          ? onSelect
-                          : onRemove,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
+          _DocumentSideSection(
+            label: 'Vorderseite',
+            status: frontStatus,
+            rejectionReason: frontRejectionReason,
+            progress: frontProgress,
+            isBusy: frontBusy,
+            isLocked: isLocked,
+            onSelect: onSelectFront,
+            onRemove: onRemoveFront,
+          ),
+          const Divider(color: Color(0x1FFFFFFF), height: 24),
+          _DocumentSideSection(
+            label: 'Rückseite',
+            status: backStatus,
+            rejectionReason: backRejectionReason,
+            progress: backProgress,
+            isBusy: backBusy,
+            isLocked: isLocked,
+            onSelect: onSelectBack,
+            onRemove: onRemoveBack,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _DocumentSideSection extends StatelessWidget {
+  const _DocumentSideSection({
+    required this.label,
+    required this.status,
+    required this.rejectionReason,
+    required this.progress,
+    required this.isBusy,
+    required this.isLocked,
+    required this.onSelect,
+    required this.onRemove,
+  });
+
+  final String label;
+  final ProfileVerificationDocumentStatus status;
+  final String? rejectionReason;
+  final double? progress;
+  final bool isBusy;
+  final bool isLocked;
+  final VoidCallback onSelect;
+  final VoidCallback onRemove;
+
+  bool get _hasDocument => !const {
+    ProfileVerificationDocumentStatus.missing,
+    ProfileVerificationDocumentStatus.uploading,
+    ProfileVerificationDocumentStatus.expired,
+  }.contains(status);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            if (status != ProfileVerificationDocumentStatus.missing)
+              _DocumentStatusLine(status: status),
+          ],
+        ),
+        if (isBusy) ...[
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: CaRismaDesignTokens.controlSurface,
+            color: CaRismaDesignTokens.bluePrimary,
+          ),
+        ],
+        if (rejectionReason?.trim().isNotEmpty == true) ...[
+          const SizedBox(height: 9),
+          Text(
+            rejectionReason!.trim(),
+            style: const TextStyle(
+              color: CaRismaDesignTokens.danger,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
+            ),
+          ),
+        ],
+        if (!isLocked) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _OutlineAction(
+                  label: _hasDocument ? 'Ersetzen' : 'Auswählen',
+                  icon: _hasDocument
+                      ? Icons.sync_rounded
+                      : Icons.add_photo_alternate_outlined,
+                  onTap: isBusy ? null : onSelect,
+                ),
+              ),
+              if (_hasDocument) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _OutlineAction(
+                    label: status == ProfileVerificationDocumentStatus.rejected
+                        ? 'Neu einreichen'
+                        : 'Entfernen',
+                    icon: status == ProfileVerificationDocumentStatus.rejected
+                        ? Icons.refresh_rounded
+                        : Icons.delete_outline_rounded,
+                    isDanger:
+                        status != ProfileVerificationDocumentStatus.rejected,
+                    onTap: isBusy
+                        ? null
+                        : status == ProfileVerificationDocumentStatus.rejected
+                        ? onSelect
+                        : onRemove,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -1187,10 +1413,15 @@ class _DocumentStatusLine extends StatelessWidget {
 }
 
 class _VerificationInfoBox extends StatelessWidget {
-  const _VerificationInfoBox({required this.icon, required this.text});
+  const _VerificationInfoBox({
+    required this.icon,
+    required this.text,
+    this.centerIcon = false,
+  });
 
   final IconData icon;
   final String text;
+  final bool centerIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -1203,7 +1434,9 @@ class _VerificationInfoBox extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: centerIcon
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
           Icon(icon, color: Colors.white, size: 21),
           const SizedBox(width: 10),
@@ -1296,21 +1529,16 @@ class _PrerequisiteRow extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            complete
-                ? 'Vorhanden'
-                : optional
-                ? 'Optional'
-                : 'Fehlt',
-            style: TextStyle(
-              color: complete
-                  ? CaRismaDesignTokens.success
-                  : optional
-                  ? CaRismaDesignTokens.textMuted
-                  : CaRismaDesignTokens.danger,
-              fontWeight: FontWeight.w900,
+          if (complete || optional)
+            Text(
+              complete ? 'Vorhanden' : 'Optional',
+              style: TextStyle(
+                color: complete
+                    ? CaRismaDesignTokens.success
+                    : CaRismaDesignTokens.textMuted,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -1332,7 +1560,7 @@ class _StatusPill extends StatelessWidget {
       _ => CaRismaDesignTokens.bluePrimary,
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(16),
@@ -1340,8 +1568,35 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color, fontWeight: FontWeight.w900),
+        style: TextStyle(
+          color: color,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w900,
+        ),
       ),
+    );
+  }
+}
+
+class _GermanDateInputFormatter extends TextInputFormatter {
+  const _GermanDateInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final limited = digits.substring(0, digits.length > 8 ? 8 : digits.length);
+    final buffer = StringBuffer();
+    for (var index = 0; index < limited.length; index++) {
+      if (index == 2 || index == 4) buffer.write('.');
+      buffer.write(limited[index]);
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }

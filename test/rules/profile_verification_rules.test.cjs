@@ -31,11 +31,15 @@ function draftData(overrides = {}) {
     status: 'draft',
     displayName: '',
     documentStoragePaths: {
-      identityEvidence:
-        `profile_documents/${ownerUserId}/identityEvidence/identityEvidence.png`,
+      identityFront:
+        `profile_documents/${ownerUserId}/identityFront/identityFront.png`,
     },
-    documentStatuses: {identityEvidence: 'uploaded'},
+    documentStatuses: {identityFront: 'uploaded'},
     documentRejectionReasons: {},
+    documentExpiresAt: {
+      identity: Timestamp.fromDate(new Date('2030-08-14T00:00:00Z')),
+      driverLicense: Timestamp.fromDate(new Date('2031-08-14T00:00:00Z')),
+    },
     vehicleId: 'vehicle-1',
     vehicleRelationship: 'owner',
     authorizationConfirmed: false,
@@ -93,13 +97,19 @@ describe('profile verification Firestore rules', () => {
     await assertFails(setDoc(request, draftData({status: 'pending'})));
     await assertFails(setDoc(request, draftData({
       documentStoragePaths: {
-        identityEvidence: 'profile_documents/other/private.jpg',
+        identityFront: 'profile_documents/other/private.jpg',
       },
     })));
     await assertFails(setDoc(request, {
       ...draftData(),
-      documentRemoteUrls: {identityEvidence: 'https://example.test/private'},
+      documentRemoteUrls: {identityFront: 'https://example.test/private'},
     }));
+    await assertFails(setDoc(request, draftData({
+      documentExpiresAt: {
+        identity: Timestamp.fromDate(new Date('2020-01-01T00:00:00Z')),
+        driverLicense: Timestamp.fromDate(new Date('2031-08-14T00:00:00Z')),
+      },
+    })));
   });
 
   test('outsiders cannot create or read another verification request', async () => {
@@ -124,7 +134,7 @@ describe('profile verification Firestore rules', () => {
     await assertSucceeds(setDoc(request, draftData({
       createdAt: rejected.createdAt,
       documentStoragePaths: {},
-      documentStatuses: {identityEvidence: 'missing'},
+      documentStatuses: {identityFront: 'missing'},
     })));
 
     await seedRequest(draftData({status: 'pending'}));
@@ -256,20 +266,20 @@ describe('profile verification Firestore rules', () => {
 
 describe('profile verification Storage rules', () => {
   const validPath =
-    `profile_documents/${ownerUserId}/identityEvidence/identityEvidence.png`;
+    `profile_documents/${ownerUserId}/identityFront/identityFront.png`;
   const pngBytes = Uint8Array.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
   ]);
   const jpegBytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
 
-  test('owner can upload canonical PNG evidence and legacy JPEG evidence', async () => {
+  test('owner can upload canonical PNG and JPEG evidence pages', async () => {
     const storage = testEnv.authenticatedContext(ownerUserId).storage();
     await assertSucceeds(uploadBytes(ref(storage, validPath), pngBytes, {
       contentType: 'image/png',
     }));
-    const legacyPath =
-      `profile_documents/${ownerUserId}/vehicleEvidence/vehicleEvidence.jpg`;
-    await assertSucceeds(uploadBytes(ref(storage, legacyPath), jpegBytes, {
+    const jpegPath =
+      `profile_documents/${ownerUserId}/vehicleBack/vehicleBack.jpg`;
+    await assertSucceeds(uploadBytes(ref(storage, jpegPath), jpegBytes, {
       contentType: 'image/jpeg',
     }));
   });
@@ -279,12 +289,12 @@ describe('profile verification Storage rules', () => {
     const outsider = testEnv.authenticatedContext(outsiderUserId).storage();
 
     await assertFails(uploadBytes(
-      ref(owner, `profile_documents/${ownerUserId}/idFront/idFront.jpg`),
+      ref(owner, `profile_documents/${ownerUserId}/identityEvidence/identityEvidence.jpg`),
       jpegBytes,
       {contentType: 'image/jpeg'},
     ));
     await assertFails(uploadBytes(
-      ref(owner, `profile_documents/${ownerUserId}/identityEvidence/other.jpg`),
+      ref(owner, `profile_documents/${ownerUserId}/identityFront/other.jpg`),
       jpegBytes,
       {contentType: 'image/jpeg'},
     ));
@@ -293,7 +303,7 @@ describe('profile verification Storage rules', () => {
     }));
     await assertFails(uploadBytes(ref(
       outsider,
-      `profile_documents/${ownerUserId}/identityEvidence/identityEvidence.png`,
+      `profile_documents/${ownerUserId}/identityFront/identityFront.png`,
     ), pngBytes, {contentType: 'image/png'}));
   });
 

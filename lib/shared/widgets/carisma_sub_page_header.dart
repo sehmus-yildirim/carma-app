@@ -10,11 +10,13 @@ class CaRismaSubPageHeader extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onBack,
+    this.titleFontSize,
   });
 
   final IconData icon;
   final String title;
   final VoidCallback onBack;
+  final double? titleFontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,7 @@ class CaRismaSubPageHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: CaRismaDesignTokens.textPrimary,
+                fontSize: titleFontSize,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0,
               ),

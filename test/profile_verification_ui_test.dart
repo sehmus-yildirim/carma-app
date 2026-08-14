@@ -11,7 +11,7 @@ import 'package:plaqa/features/profile/presentation/profile_verification_screen.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('shows incomplete prerequisites and exactly two evidence cards', (
+  testWidgets('shows three evidence cards with front and back sides', (
     tester,
   ) async {
     await _pumpScreen(
@@ -22,12 +22,18 @@ void main() {
     );
 
     expect(find.text('Nicht begonnen'), findsOneWidget);
-    expect(find.text('0 von 2 Nachweisen vollständig'), findsOneWidget);
-    expect(find.text('Persönliche Daten fehlen'), findsOneWidget);
+    expect(find.text('0 von 6 Nachweisen vollständig'), findsOneWidget);
+    expect(find.text('Persönliche Daten'), findsOneWidget);
     expect(find.text('Identität bestätigen'), findsOneWidget);
+    expect(find.text('Führerschein'), findsOneWidget);
     expect(find.text('Fahrzeugbezug bestätigen'), findsOneWidget);
-    expect(find.text('Ausweis Vorderseite'), findsNothing);
-    expect(find.text('Führerschein Vorderseite'), findsNothing);
+    expect(find.text('Vorderseite'), findsNWidgets(3));
+    expect(find.text('Rückseite'), findsNWidgets(3));
+    expect(find.text('Fahrzeugzuordnung'), findsOneWidget);
+    expect(find.text('Ablaufdatum des Ausweises'), findsOneWidget);
+    expect(find.text('Ablaufdatum des Führerscheins'), findsOneWidget);
+    expect(find.text('UNBEDINGT LESEN!'), findsOneWidget);
+    expect(find.text('Fehlt'), findsNothing);
     expect(find.byType(Image), findsNothing);
   });
 
@@ -45,7 +51,7 @@ void main() {
     );
 
     expect(find.text('In Prüfung'), findsWidgets);
-    expect(find.text('2 von 2 Nachweisen vollständig'), findsOneWidget);
+    expect(find.text('6 von 6 Nachweisen vollständig'), findsOneWidget);
     expect(find.text('Prüfung läuft'), findsOneWidget);
     expect(find.text('Ersetzen'), findsNothing);
     expect(find.text('Entfernen'), findsNothing);
@@ -70,7 +76,7 @@ void main() {
       find.text('Das Dokument ist nicht vollständig lesbar.'),
       findsWidgets,
     );
-    expect(find.text('Erneut einreichen'), findsNWidgets(2));
+    expect(find.text('Neu einreichen'), findsNWidgets(6));
     expect(find.text('Verifizierungsproblem melden'), findsOneWidget);
   });
 }
@@ -132,19 +138,20 @@ ProfileVerificationRequest _request({
     profilePath: 'users/user-1/profiles/main',
     status: status,
     displayName: 'Sehmus Y.',
-    documentStoragePaths: const {
-      'identityEvidence':
-          'profile_documents/user-1/identityEvidence/identityEvidence.png',
-      'vehicleEvidence':
-          'profile_documents/user-1/vehicleEvidence/vehicleEvidence.png',
+    documentStoragePaths: {
+      for (final key in ProfileVerificationDocumentKeys.required)
+        key: 'profile_documents/user-1/$key/$key.png',
     },
     documentStatuses: {
-      'identityEvidence': documentStatus,
-      'vehicleEvidence': documentStatus,
+      for (final key in ProfileVerificationDocumentKeys.required)
+        key: documentStatus,
     },
     documentRejectionReasons: reason == null
         ? const {}
-        : {'identityEvidence': reason, 'vehicleEvidence': reason},
+        : {
+            for (final key in ProfileVerificationDocumentKeys.required)
+              key: reason,
+          },
     vehicleId: 'vehicle-1',
     vehicleRelationship: ProfileVehicleRelationship.owner,
     authorizationConfirmed: true,
