@@ -11,6 +11,12 @@ const requiredDocumentKeys = [
   "vehicleBack",
 ];
 const requiredExpirationKeys = ["identity", "driverLicense"];
+const allowedIdentityDocumentTypes = [
+  "identityCard",
+  "passport",
+  "residencePermit",
+];
+const expirationReminderLeadDays = [30, 14, 3];
 const allowedRelationships = [
   "owner",
   "leasingCompany",
@@ -19,6 +25,57 @@ const allowedRelationships = [
 const consentVersion = "verification-consent-1.0";
 const maxDocumentBytes = 12 * 1024 * 1024;
 const retentionDays = 30;
+
+function normalizeIdentityDocumentType(value) {
+  const normalized = safeString(value);
+  return allowedIdentityDocumentTypes.includes(normalized) ?
+    normalized : "identityCard";
+}
+
+function requiredDocumentKeysFor(identityDocumentType) {
+  const type = normalizeIdentityDocumentType(identityDocumentType);
+  return [
+    "identityFront",
+    ...(type === "passport" ? [] : ["identityBack"]),
+    "driverLicenseFront",
+    "driverLicenseBack",
+    "vehicleFront",
+    "vehicleBack",
+  ];
+}
+
+function documentGroupKeys(documentKey, identityDocumentType) {
+  if (["identityFront", "identityBack"].includes(documentKey)) {
+    return requiredDocumentKeysFor(identityDocumentType)
+        .filter((key) => key.startsWith("identity"));
+  }
+  if (["driverLicenseFront", "driverLicenseBack"].includes(documentKey)) {
+    return ["driverLicenseFront", "driverLicenseBack"];
+  }
+  if (["vehicleFront", "vehicleBack"].includes(documentKey)) {
+    return ["vehicleFront", "vehicleBack"];
+  }
+  return [];
+}
+
+function verificationLevels(statuses, identityDocumentType) {
+  const allVerified = (keys) => keys.every((key) => statuses?.[key] === "verified");
+  const identity = allVerified(documentGroupKeys(
+      "identityFront",
+      identityDocumentType,
+  ));
+  const driverLicense = allVerified([
+    "driverLicenseFront",
+    "driverLicenseBack",
+  ]);
+  const vehicle = allVerified(["vehicleFront", "vehicleBack"]);
+  return {
+    identity,
+    driverLicense,
+    vehicle,
+    complete: identity && driverLicense && vehicle,
+  };
+}
 
 function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -223,8 +280,13 @@ function inspectPng(buffer) {
   };
 }
 
-async function validateStoredDocuments({bucket, userId, paths}) {
-  for (const documentKey of requiredDocumentKeys) {
+async function validateStoredDocuments({
+  bucket,
+  userId,
+  paths,
+  documentKeys = requiredDocumentKeys,
+}) {
+  for (const documentKey of documentKeys) {
     const expectedPath = safeString(paths?.[documentKey]);
     if (!allowedDocumentPaths(userId, documentKey).includes(expectedPath)) {
       throw new HttpsError(
@@ -302,6 +364,7 @@ function submissionFingerprint({
   relationship,
   paths,
   expirations,
+  identityDocumentType,
 }) {
   const expirationMillis = Object.fromEntries(
       requiredExpirationKeys.map((key) => [
@@ -316,6 +379,7 @@ function submissionFingerprint({
         relationship,
         paths,
         expirations: expirationMillis,
+        identityDocumentType,
       }))
       .digest("hex");
 }
@@ -368,7 +432,23 @@ async function submitProfileVerification({
     );
   }
   const draft = requestSnapshot.data() ?? {};
+  const identityDocumentType = normalizeIdentityDocumentType(
+      draft.identityDocumentType,
+  );
+  const submissionDocumentKeys = requiredDocumentKeysFor(
+      identityDocumentType,
+  );
   const documentStoragePaths = draft.documentStoragePaths ?? {};
+  const draftDocumentStatuses = draft.documentStatuses ?? {};
+  const documentsNeedingReview = submissionDocumentKeys.filter(
+      (key) => safeString(draftDocumentStatuses[key]) !== "verified",
+  );
+  if (documentsNeedingReview.length === 0) {
+    throw new HttpsError(
+        "failed-precondition",
+        "Es gibt keine Nachweise, die erneut geprüft werden müssen.",
+    );
+  }
   const documentExpiresAt = validateDocumentExpirations(
       draft.documentExpiresAt,
       now,
@@ -377,6 +457,7 @@ async function submitProfileVerification({
     bucket,
     userId,
     paths: documentStoragePaths,
+    documentKeys: documentsNeedingReview,
   });
 
   const submittedAt = now;
@@ -386,6 +467,7 @@ async function submitProfileVerification({
     relationship: normalized.vehicleRelationship,
     paths: documentStoragePaths,
     expirations: documentExpiresAt,
+    identityDocumentType,
   });
 
   return firestore.runTransaction(async (transaction) => {
@@ -447,8 +529,17 @@ async function submitProfileVerification({
         "Dieses Profil ist bereits verifiziert.",
       );
     }
+    const currentIdentityDocumentType = normalizeIdentityDocumentType(
+        currentRequest.identityDocumentType,
+    );
+    if (currentIdentityDocumentType !== identityDocumentType) {
+      throw new HttpsError(
+          "aborted",
+          "Der Dokumenttyp wurde zwischenzeitlich geändert. Bitte versuche es erneut.",
+      );
+    }
     const currentPaths = currentRequest.documentStoragePaths ?? {};
-    for (const key of requiredDocumentKeys) {
+    for (const key of documentsNeedingReview) {
       if (safeString(currentPaths[key]) !== safeString(documentStoragePaths[key])) {
         throw new HttpsError(
           "aborted",
@@ -472,15 +563,23 @@ async function submitProfileVerification({
     const verificationExpiresAt = requiredExpirationKeys
         .map((key) => documentExpiresAt[key])
         .sort((left, right) => timestampMillis(left) - timestampMillis(right))[0];
+    const currentStatuses = currentRequest.documentStatuses ?? {};
     const documentStatuses = Object.fromEntries(
-        requiredDocumentKeys.map((key) => [key, "inReview"]),
+        requiredDocumentKeys.map((key) => [
+          key,
+          submissionDocumentKeys.includes(key) ?
+            (safeString(currentStatuses[key]) === "verified" ?
+              "verified" : "inReview") : "missing",
+        ]),
     );
+    const levels = verificationLevels(documentStatuses, identityDocumentType);
     const requestData = {
       requestId: userId,
       userId,
       profilePath: `users/${userId}/profiles/main`,
       status: "pending",
       displayName: safeString(currentProfile.displayName),
+      identityDocumentType,
       documentStoragePaths,
       documentStatuses,
       documentRejectionReasons: {},
@@ -505,6 +604,9 @@ async function submitProfileVerification({
       rejectionReason: null,
       retentionUntil: null,
       submissionFingerprint: fingerprint,
+      verificationLevels: levels,
+      lastEditedDocumentKey: currentRequest.lastEditedDocumentKey ?? null,
+      documentsCleanedAt: currentRequest.documentsCleanedAt ?? null,
       createdAt: currentRequestSnapshot.exists ?
         currentRequest.createdAt ?? submittedAt : submittedAt,
       updatedAt: submittedAt,
@@ -516,6 +618,11 @@ async function submitProfileVerification({
     transaction.set(submissionHistoryReference, {
       status: "pending",
       reason: null,
+      eventType: currentRequest.reviewedAt != null ||
+          ["rejected", "expired"].includes(safeString(currentRequest.status)) ?
+        "review_requested" : "submitted",
+      documentKeys: documentsNeedingReview,
+      validUntil: verificationExpiresAt,
       createdAt: submittedAt,
     });
     transaction.update(profileReference, {
@@ -523,6 +630,7 @@ async function submitProfileVerification({
       verificationSubmittedAt: submittedAt,
       verificationReviewedAt: null,
       verificationRejectionReason: null,
+      verificationLevels: levels,
       updatedAt: submittedAt,
     });
     transaction.update(vehicleReference, {
@@ -564,6 +672,118 @@ function normalizeReviewInput(input) {
     );
   }
   return {requestId, decision, reason};
+}
+
+function identityDocumentLabel(identityDocumentType) {
+  return normalizeIdentityDocumentType(identityDocumentType) === "passport" ?
+    "Reisepass" :
+    normalizeIdentityDocumentType(identityDocumentType) === "residencePermit" ?
+      "Aufenthaltstitel" : "Personalausweis";
+}
+
+function expirationDocumentLabel(expirationKey, identityDocumentType) {
+  return expirationKey === "identity" ?
+    identityDocumentLabel(identityDocumentType) : "Führerschein";
+}
+
+function daysUntilExpiration(expiration, now) {
+  const remaining = timestampMillis(expiration) - timestampMillis(now);
+  return Number.isFinite(remaining) ?
+    Math.ceil(remaining / (24 * 60 * 60 * 1000)) : Number.NaN;
+}
+
+function expirationReminderCandidates(request, now) {
+  if (safeString(request?.status) !== "verified") return [];
+  const identityDocumentType = normalizeIdentityDocumentType(
+      request.identityDocumentType,
+  );
+  const candidates = [];
+  for (const expirationKey of requiredExpirationKeys) {
+    const expiresAt = request.documentExpiresAt?.[expirationKey];
+    const leadDays = daysUntilExpiration(expiresAt, now);
+    if (!expirationReminderLeadDays.includes(leadDays)) continue;
+    candidates.push({
+      expirationKey,
+      leadDays,
+      expiresAt,
+      documentLabel: expirationDocumentLabel(
+          expirationKey,
+          identityDocumentType,
+      ),
+    });
+  }
+  return candidates;
+}
+
+function buildDocumentReviewOutcome({request, input, fallbackDecision, fallbackReason}) {
+  const identityDocumentType = normalizeIdentityDocumentType(
+      request.identityDocumentType,
+  );
+  const requiredKeys = requiredDocumentKeysFor(identityDocumentType);
+  const currentStatuses = request.documentStatuses ?? {};
+  const reviewKeys = requiredKeys.filter(
+      (key) => safeString(currentStatuses[key]) === "inReview",
+  );
+  if (reviewKeys.length === 0) {
+    throw new HttpsError(
+        "failed-precondition",
+        "Dieser Prüfauftrag enthält keine offenen Nachweise.",
+    );
+  }
+  const suppliedDecisions = input?.documentDecisions;
+  const suppliedReasons = input?.documentReasons;
+  const decisions = {};
+  const reasons = {...(request.documentRejectionReasons ?? {})};
+  for (const key of reviewKeys) {
+    const decision = suppliedDecisions != null &&
+        typeof suppliedDecisions === "object" ?
+      safeString(suppliedDecisions[key]) : fallbackDecision;
+    if (!["verified", "rejected"].includes(decision)) {
+      throw new HttpsError(
+          "invalid-argument",
+          "Für jeden offenen Nachweis ist eine Prüfentscheidung erforderlich.",
+      );
+    }
+    const reason = suppliedReasons != null &&
+        typeof suppliedReasons === "object" ?
+      safeString(suppliedReasons[key]) : fallbackReason;
+    if (decision === "rejected" && reason.length < 5) {
+      throw new HttpsError(
+          "invalid-argument",
+          "Bitte gib für jeden abgelehnten Nachweis einen konkreten Grund an.",
+      );
+    }
+    decisions[key] = decision;
+    if (decision === "rejected") reasons[key] = reason;
+    else delete reasons[key];
+  }
+  if (suppliedDecisions != null && typeof suppliedDecisions === "object") {
+    for (const key of Object.keys(suppliedDecisions)) {
+      if (!reviewKeys.includes(key)) {
+        throw new HttpsError(
+            "invalid-argument",
+            "Es dürfen nur offene Nachweise bewertet werden.",
+        );
+      }
+    }
+  }
+  const statuses = {...currentStatuses, ...decisions};
+  for (const key of requiredDocumentKeys) {
+    if (!requiredKeys.includes(key)) statuses[key] = "missing";
+  }
+  const levels = verificationLevels(statuses, identityDocumentType);
+  const rejectedKeys = requiredKeys.filter(
+      (key) => statuses[key] === "rejected",
+  );
+  return {
+    identityDocumentType,
+    statuses,
+    reasons,
+    levels,
+    reviewedDocumentKeys: reviewKeys,
+    rejectedKeys,
+    overallDecision: levels.complete ? "verified" : "rejected",
+  };
 }
 
 async function reviewProfileVerification({
@@ -626,70 +846,84 @@ async function reviewProfileVerification({
         "Profil oder Fahrzeug ist nicht mehr verfügbar.",
       );
     }
-    const verified = normalized.decision === "verified";
     const reviewedAt = now;
+    const outcome = buildDocumentReviewOutcome({
+      request,
+      input,
+      fallbackDecision: normalized.decision,
+      fallbackReason: normalized.reason,
+    });
+    const verified = outcome.overallDecision === "verified";
     if (verified) {
       validateDocumentExpirations(request.documentExpiresAt, reviewedAt);
     }
     const firestoreRetentionUntil = Timestamp.fromMillis(
         reviewedAt.toMillis() + retentionDays * 24 * 60 * 60 * 1000,
     );
-    const documentStatuses = Object.fromEntries(
-        requiredDocumentKeys.map((key) => [
-          key,
-          verified ? "verified" : "rejected",
-        ]),
-    );
-    const rejectionReasons = verified ? {} : Object.fromEntries(
-        requiredDocumentKeys.map((key) => [key, normalized.reason]),
-    );
+    const rejectionReason = verified ? null :
+      "Mindestens ein Nachweis muss erneut eingereicht werden.";
     transaction.update(requestReference, {
-      status: normalized.decision,
-      documentStatuses,
-      documentRejectionReasons: rejectionReasons,
+      status: outcome.overallDecision,
+      documentStatuses: outcome.statuses,
+      documentRejectionReasons: outcome.reasons,
+      verificationLevels: outcome.levels,
       reviewedAt,
-      reviewedBy: safeString(authContext.uid),
-      rejectionReason: verified ? null : normalized.reason,
+      reviewedBy: null,
+      rejectionReason,
       verificationExpiresAt: verified ? request.verificationExpiresAt : null,
       retentionUntil: firestoreRetentionUntil,
       updatedAt: reviewedAt,
     });
     transaction.update(profileReference, {
-      verificationStatus: normalized.decision,
+      verificationStatus: outcome.overallDecision,
       verificationReviewedAt: reviewedAt,
-      verificationRejectionReason: verified ? null : normalized.reason,
+      verificationRejectionReason: rejectionReason,
+      verificationLevels: outcome.levels,
       updatedAt: reviewedAt,
     });
     transaction.update(vehicleReference, {
-      verificationStatus: normalized.decision,
+      verificationStatus: outcome.overallDecision,
       verificationLocked: false,
-      verificationRejectionReason: verified ? null : normalized.reason,
+      verificationRejectionReason: rejectionReason,
       isVerified: verified,
       updatedAt: reviewedAt,
     });
     if (publicProfileSnapshot.exists) {
       transaction.update(publicProfileReference, {
-        verificationStatus: normalized.decision,
+        verificationStatus: verified ? "verified" : "unverified",
         updatedAt: reviewedAt,
       });
     }
     if (publicVehicleSnapshot.exists) {
       transaction.update(publicVehicleReference, {
-        verificationStatus: normalized.decision,
+        verificationStatus: verified ? "verified" : "unverified",
         isVerified: verified,
         updatedAt: reviewedAt,
       });
     }
     if (plateSnapshot?.exists && safeString(plateSnapshot.data()?.ownerUserId) === userId) {
       transaction.update(plateReference, {
-        verificationStatus: normalized.decision,
+        verificationStatus: verified ? "verified" : "unverified",
         updatedAt: reviewedAt,
       });
     }
     const historyReference = requestReference.collection("history").doc();
     transaction.set(historyReference, {
-      status: normalized.decision,
-      reason: verified ? null : normalized.reason,
+      status: outcome.overallDecision,
+      reason: rejectionReason,
+      eventType: "reviewed",
+      documentKeys: outcome.reviewedDocumentKeys,
+      validUntil: verified ? request.verificationExpiresAt : null,
+      createdAt: reviewedAt,
+    });
+    const auditReference = firestore.doc(
+        `verification_review_audit/${normalized.requestId}_${historyReference.id}`,
+    );
+    transaction.set(auditReference, {
+      requestId: normalized.requestId,
+      reviewerUserId: safeString(authContext.uid),
+      decision: outcome.overallDecision,
+      reviewedDocumentKeys: outcome.reviewedDocumentKeys,
       createdAt: reviewedAt,
     });
     const notificationReference = firestore.doc(
@@ -698,15 +932,117 @@ async function reviewProfileVerification({
     transaction.set(notificationReference, {
       notificationId: historyReference.id,
       requestId: normalized.requestId,
-      status: normalized.decision,
+      status: outcome.overallDecision,
       message: verified ?
         "Deine Verifizierung wurde bestätigt." :
-        "Für deine Verifizierung ist eine Nachreichung erforderlich.",
+        `Für ${outcome.rejectedKeys.length} Nachweis${outcome.rejectedKeys.length === 1 ? "" : "e"} ist eine Nachreichung erforderlich.`,
       isRead: false,
       createdAt: reviewedAt,
     });
-    return {requestId: normalized.requestId, status: normalized.decision, idempotent: false};
+    return {
+      requestId: normalized.requestId,
+      status: outcome.overallDecision,
+      idempotent: false,
+    };
   });
+}
+
+async function sendExpirationReminders({
+  firestore,
+  messaging,
+  now,
+  limit = 100,
+}) {
+  const horizon = Timestamp.fromMillis(
+      timestampMillis(now) + 31 * 24 * 60 * 60 * 1000,
+  );
+  const snapshot = await firestore.collection("verification_requests")
+      .where("verificationExpiresAt", "<=", horizon)
+      .limit(limit)
+      .get();
+  let created = 0;
+  let pushSent = 0;
+  for (const requestDocument of snapshot.docs) {
+    const request = requestDocument.data();
+    const userId = safeString(request.userId);
+    if (userId.length === 0) continue;
+    for (const candidate of expirationReminderCandidates(request, now)) {
+      const expirationMillis = timestampMillis(candidate.expiresAt);
+      const notificationId = [
+        "expiry",
+        candidate.expirationKey,
+        candidate.leadDays,
+        expirationMillis,
+      ].join("_");
+      const notificationReference = firestore.doc(
+          `users/${userId}/verification_notifications/${notificationId}`,
+      );
+      const expirationLabel = new Date(expirationMillis).toLocaleDateString(
+          "de-DE",
+          {timeZone: "Europe/Berlin"},
+      );
+      const message = `${candidate.documentLabel} läuft am ${expirationLabel} ab. Bitte erneuere den Nachweis rechtzeitig.`;
+      const wasCreated = await firestore.runTransaction(async (transaction) => {
+        const existing = await transaction.get(notificationReference);
+        if (existing.exists) return false;
+        transaction.set(notificationReference, {
+          notificationId,
+          requestId: requestDocument.id,
+          status: "verified",
+          kind: "expirationReminder",
+          documentKey: candidate.expirationKey,
+          expiresAt: candidate.expiresAt,
+          leadDays: candidate.leadDays,
+          message,
+          isRead: false,
+          pushSentAt: null,
+          createdAt: now,
+        });
+        return true;
+      });
+      if (!wasCreated) continue;
+      created += 1;
+      if (messaging == null) continue;
+      const [settingsSnapshot, devicesSnapshot] = await Promise.all([
+        firestore.doc(`users/${userId}/settings/notifications`).get(),
+        firestore.collection(`users/${userId}/notification_devices`).get(),
+      ]);
+      if (settingsSnapshot.exists &&
+          settingsSnapshot.data()?.verification === false) {
+        continue;
+      }
+      const tokens = [...new Set(devicesSnapshot.docs
+          .map((document) => safeString(document.data()?.token))
+          .filter((token) => token.length > 0))]
+          .slice(0, 500);
+      if (tokens.length === 0) continue;
+      const response = await messaging.sendEachForMulticast({
+        tokens,
+        notification: {
+          title: "Dokument läuft bald ab",
+          body: message,
+        },
+        data: {
+          type: "verification_expiration_reminder",
+          requestId: requestDocument.id,
+          documentKey: candidate.expirationKey,
+          leadDays: String(candidate.leadDays),
+        },
+        android: {priority: "high"},
+      });
+      pushSent += response.successCount;
+      await notificationReference.update({
+        pushSentAt: response.successCount > 0 ? now : null,
+        pushSuccessCount: response.successCount,
+        pushFailureCount: response.failureCount,
+      });
+    }
+  }
+  return {
+    created,
+    pushSent,
+    hasMore: snapshot.size === limit,
+  };
 }
 
 async function cleanupVerificationDocuments({firestore, bucket, now, limit = 100}) {
@@ -736,12 +1072,18 @@ async function cleanupVerificationDocuments({firestore, bucket, now, limit = 100
     }
     await document.ref.update({
       documentStoragePaths: {},
-      documentStatuses: Object.fromEntries(
-          requiredDocumentKeys.map((key) => [key, "expired"]),
-      ),
+      documentStatuses: data.documentStatuses ?? {},
       documentsCleanedAt: now,
       retentionUntil: null,
       updatedAt: now,
+    });
+    await document.ref.collection("history").doc(
+        `documents_deleted_${timestampMillis(now)}`,
+    ).set({
+      status: safeString(data.status) || "draft",
+      reason: "Die privaten Dokumentdateien wurden fristgerecht gelöscht.",
+      eventType: "documents_deleted",
+      createdAt: now,
     });
     cleaned += 1;
   }
@@ -771,6 +1113,39 @@ async function expireVerifiedRequests({firestore, now, limit = 100}) {
       const userId = safeString(request.userId);
       const vehicleId = safeString(request.vehicleId);
       if (userId.length === 0 || vehicleId.length === 0) return false;
+      const identityDocumentType = normalizeIdentityDocumentType(
+          request.identityDocumentType,
+      );
+      const expiredExpirationKeys = requiredExpirationKeys.filter(
+          (key) => timestampMillis(request.documentExpiresAt?.[key]) <=
+            timestampMillis(now),
+      );
+      const expiredDocumentKeys = [...new Set(expiredExpirationKeys.flatMap(
+          (key) => key === "identity" ?
+            documentGroupKeys("identityFront", identityDocumentType) :
+            documentGroupKeys("driverLicenseFront", identityDocumentType),
+      ))];
+      const documentStatuses = {...(request.documentStatuses ?? {})};
+      const documentRejectionReasons = {
+        ...(request.documentRejectionReasons ?? {}),
+      };
+      for (const key of expiredDocumentKeys) {
+        documentStatuses[key] = "expired";
+        documentRejectionReasons[key] =
+          "Dieser Nachweis ist abgelaufen. Bitte reiche eine aktuelle Version ein.";
+      }
+      const levels = verificationLevels(
+          documentStatuses,
+          identityDocumentType,
+      );
+      const expiredLabels = expiredExpirationKeys.map(
+          (key) => key === "identity" ?
+            (identityDocumentType === "passport" ? "Reisepass" :
+              identityDocumentType === "residencePermit" ?
+                "Aufenthaltstitel" : "Personalausweis") : "Führerschein",
+      );
+      const expirationReason =
+        `${expiredLabels.join(" und ")} ${expiredLabels.length === 1 ? "ist" : "sind"} abgelaufen.`;
       const profileReference = firestore.doc(`users/${userId}/profiles/main`);
       const publicProfileReference = firestore.doc(`public_profiles/${userId}`);
       const vehicleReference = firestore.doc(
@@ -790,17 +1165,18 @@ async function expireVerifiedRequests({firestore, now, limit = 100}) {
         await transaction.get(plateReference);
       transaction.update(requestReference, {
         status: "expired",
-        documentExpiresAt: {},
+        documentStatuses,
+        documentRejectionReasons,
+        verificationLevels: levels,
         verificationExpiresAt: null,
-        rejectionReason:
-          "Ausweis oder Führerschein ist abgelaufen. Bitte reiche aktuelle Nachweise ein.",
+        rejectionReason: `${expirationReason} Bitte reiche aktuelle Nachweise ein.`,
         updatedAt: now,
       });
       if (profile.exists) {
         transaction.update(profileReference, {
           verificationStatus: "expired",
-          verificationRejectionReason:
-            "Ausweis oder Führerschein ist abgelaufen.",
+          verificationRejectionReason: expirationReason,
+          verificationLevels: levels,
           updatedAt: now,
         });
       }
@@ -815,7 +1191,7 @@ async function expireVerifiedRequests({firestore, now, limit = 100}) {
           verificationStatus: "expired",
           verificationLocked: false,
           verificationRejectionReason:
-            "Ausweis oder Führerschein ist abgelaufen.",
+            expirationReason,
           isVerified: false,
           updatedAt: now,
         });
@@ -837,7 +1213,10 @@ async function expireVerifiedRequests({firestore, now, limit = 100}) {
       const historyReference = requestReference.collection("history").doc();
       transaction.set(historyReference, {
         status: "expired",
-        reason: "Ausweis oder Führerschein ist abgelaufen.",
+        reason: expirationReason,
+        eventType: "expired",
+        documentKeys: expiredDocumentKeys,
+        validUntil: request.verificationExpiresAt ?? null,
         createdAt: now,
       });
       transaction.set(firestore.doc(
@@ -846,8 +1225,11 @@ async function expireVerifiedRequests({firestore, now, limit = 100}) {
         notificationId: historyReference.id,
         requestId: requestReference.id,
         status: "expired",
-        message:
-          "Deine Verifizierung ist abgelaufen. Bitte reiche aktuelle Nachweise ein.",
+        kind: "expiration",
+        documentKey: expiredExpirationKeys.length === 1 ?
+          expiredExpirationKeys[0] : null,
+        expiresAt: request.verificationExpiresAt ?? null,
+        message: `${expirationReason} Bitte reiche aktuelle Nachweise ein.`,
         isRead: false,
         createdAt: now,
       });
@@ -859,24 +1241,32 @@ async function expireVerifiedRequests({firestore, now, limit = 100}) {
 }
 
 module.exports = {
+  allowedIdentityDocumentTypes,
   allowedDocumentPaths,
   allowedRelationships,
+  buildDocumentReviewOutcome,
   cleanupVerificationDocuments,
   consentVersion,
+  daysUntilExpiration,
   expectedDocumentPath,
+  expirationReminderCandidates,
   expireVerifiedRequests,
   inspectJpeg,
   inspectPng,
   isJpegHeader,
   isPngHeader,
+  normalizeIdentityDocumentType,
   normalizeReviewInput,
   normalizeSubmissionInput,
   normalizeVehicleRelationship,
   plateDocumentId,
   requiredDocumentKeys,
+  requiredDocumentKeysFor,
   requiredExpirationKeys,
   reviewProfileVerification,
+  sendExpirationReminders,
   submitProfileVerification,
   validateDocumentExpirations,
   validateStoredDocuments,
+  verificationLevels,
 };

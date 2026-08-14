@@ -176,10 +176,22 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
 }
 
 class SupportRequestScreen extends StatefulWidget {
-  const SupportRequestScreen({super.key, required this.type, this.repository});
+  const SupportRequestScreen({
+    super.key,
+    required this.type,
+    this.repository,
+    this.initialCategory,
+    this.initialAffectedArea,
+    this.verificationRequestId,
+    this.verificationDocumentKey,
+  });
 
   final SupportRequestType type;
   final SupportRequestRepository? repository;
+  final String? initialCategory;
+  final String? initialAffectedArea;
+  final String? verificationRequestId;
+  final String? verificationDocumentKey;
 
   @override
   State<SupportRequestScreen> createState() => _SupportRequestScreenState();
@@ -238,7 +250,10 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? SupportRequestRepository();
-    _category = _categories.first;
+    _category = _categories.contains(widget.initialCategory)
+        ? widget.initialCategory!
+        : _categories.first;
+    _areaController.text = widget.initialAffectedArea?.trim() ?? '';
   }
 
   @override
@@ -265,6 +280,8 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
       affectedArea: _areaController.text,
       description: _descriptionController.text,
       reproductionSteps: _stepsController.text,
+      verificationRequestId: widget.verificationRequestId,
+      verificationDocumentKey: widget.verificationDocumentKey,
       allowContact: _allowContact,
     );
     if (!draft.isValid) {

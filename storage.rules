@@ -362,11 +362,15 @@ service firebase.storage {
         && request.resource.size < 12 * 1024 * 1024;
     }
 
-    function canMutateProfileVerificationDocument(userId) {
+    function canMutateProfileVerificationDocument(userId, documentType) {
       let requestPath =
         /databases/(default)/documents/verification_requests/$(userId);
       return !firestore.exists(requestPath)
-        || !(firestore.get(requestPath).data.status in ['pending', 'verified']);
+        || (
+          !(firestore.get(requestPath).data.status in ['pending', 'verified'])
+          && firestore.get(requestPath).data.documentStatuses
+            .get(documentType, 'missing') != 'verified'
+        );
     }
 
     function reportImagePath(reportId, userId, fileName) {
@@ -536,11 +540,11 @@ service firebase.storage {
         );
       allow create, update: if isSignedIn()
         && request.auth.uid == userId
-        && canMutateProfileVerificationDocument(userId)
+        && canMutateProfileVerificationDocument(userId, documentType)
         && isValidProfileDocumentUpload(documentType, fileName);
       allow delete: if isSignedIn()
         && request.auth.uid == userId
-        && canMutateProfileVerificationDocument(userId);
+        && canMutateProfileVerificationDocument(userId, documentType);
     }
 
     match /{allPaths=**} {

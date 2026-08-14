@@ -17,6 +17,7 @@ import '../data/profile_repository.dart';
 import '../data/profile_vehicle.dart';
 import '../data/profile_vehicle_repository.dart';
 import '../data/profile_verification_repository.dart';
+import '../data/profile_verification_reminder_registration.dart';
 import '../data/profile_verification_request.dart';
 import '../data/user_profile.dart';
 import 'widgets/profile_verification_document_editor_screen.dart';
@@ -50,6 +51,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   late final ProfileVerificationRepository _verificationRepository;
   late final ProfileMediaStorage _mediaStorage;
   late final ImagePicker _imagePicker;
+  late final ProfileVerificationReminderRegistration _reminderRegistration;
 
   StreamSubscription<UserProfile?>? _profileSubscription;
   StreamSubscription<List<ProfileVehicle>>? _vehicleSubscription;
@@ -66,6 +68,8 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   List<ProfileVerificationNotification> _notifications = const [];
   String? _selectedVehicleId;
   ProfileVehicleRelationship _relationship = ProfileVehicleRelationship.owner;
+  ProfileIdentityDocumentType _identityDocumentType =
+      ProfileIdentityDocumentType.identityCard;
   bool _consentAccepted = false;
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -80,6 +84,17 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   bool _profileLoaded = false;
   bool _vehiclesLoaded = false;
   bool _requestLoaded = false;
+  bool _draftPositionRestored = false;
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _documentSectionKeys = {
+    ProfileVerificationDocumentKeys.identityFront: GlobalKey(),
+    ProfileVerificationDocumentKeys.driverLicenseFront: GlobalKey(),
+    ProfileVerificationDocumentKeys.vehicleFront: GlobalKey(),
+  };
+  final Map<String, FocusNode> _expirationFocusNodes = {
+    for (final key in ProfileVerificationDocumentKeys.requiredExpirationKeys)
+      key: FocusNode(),
+  };
 
   bool get _isLoading =>
       (!_profileLoaded || !_vehiclesLoaded || !_requestLoaded) &&
@@ -94,7 +109,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         widget.verificationRepository ?? ProfileVerificationRepository();
     _mediaStorage = widget.mediaStorage ?? ProfileMediaStorage();
     _imagePicker = widget.imagePicker ?? ImagePicker();
+    _reminderRegistration = ProfileVerificationReminderRegistration();
     _bindStreams();
+    unawaited(_reminderRegistration.register(widget.userId));
   }
 
   void _bindStreams() {
@@ -146,6 +163,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               _request = request;
               _requestLoaded = true;
               if (request != null) {
+                _identityDocumentType = request.identityDocumentType;
                 _relationship = request.vehicleRelationship;
                 if (request.vehicleId?.trim().isNotEmpty == true) {
                   _selectedVehicleId = request.vehicleId;
@@ -161,6 +179,12 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                 }
               }
             });
+            if (request != null && !_draftPositionRestored) {
+              _draftPositionRestored = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _restoreDraftPosition(request.lastEditedDocumentKey);
+              });
+            }
           },
           onError: (_) => _setLoadError(
             'Der Verifizierungsstatus konnte nicht geladen werden.',
@@ -202,11 +226,22 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     _requestSubscription?.cancel();
     _historySubscription?.cancel();
     _notificationSubscription?.cancel();
+    unawaited(_reminderRegistration.dispose());
     for (final controller in _expirationControllers.values) {
       controller.dispose();
     }
+    for (final focusNode in _expirationFocusNodes.values) {
+      focusNode.dispose();
+    }
+    _scrollController.dispose();
     super.dispose();
   }
+
+  List<String> get _requiredDocumentKeys =>
+      ProfileVerificationDocumentKeys.requiredFor(_identityDocumentType);
+
+  List<ProfileVerificationDocumentGroup> get _documentGroups =>
+      ProfileVerificationDocumentKeys.groupsFor(_identityDocumentType);
 
   ProfileVehicle? get _selectedVehicle {
     final selectedId = _selectedVehicleId;
@@ -246,6 +281,120 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _allDocumentsReady &&
       _allExpirationsReady &&
       _consentAccepted;
+
+  void _restoreDraftPosition(String? documentKey) {
+    if (!mounted || documentKey == null) return;
+    final groupKey = switch (documentKey) {
+      ProfileVerificationDocumentKeys.identityFront ||
+      ProfileVerificationDocumentKeys.identityBack ||
+      ProfileVerificationDocumentKeys.identityExpiration =>
+        ProfileVerificationDocumentKeys.identityFront,
+      ProfileVerificationDocumentKeys.driverLicenseFront ||
+      ProfileVerificationDocumentKeys.driverLicenseBack ||
+      ProfileVerificationDocumentKeys.driverLicenseExpiration =>
+        ProfileVerificationDocumentKeys.driverLicenseFront,
+      ProfileVerificationDocumentKeys.vehicleFront ||
+      ProfileVerificationDocumentKeys.vehicleBack =>
+        ProfileVerificationDocumentKeys.vehicleFront,
+      _ => null,
+    };
+    final context = groupKey == null
+        ? null
+        : _documentSectionKeys[groupKey]?.currentContext;
+    if (context == null) return;
+    Scrollable.ensureVisible(
+      context,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      alignment: 0.08,
+    );
+  }
+
+  Future<void> _selectIdentityDocumentType(
+    ProfileIdentityDocumentType? value,
+  ) async {
+    if (value == null || value == _identityDocumentType || _isLocked) return;
+    try {
+      await _verificationRepository.saveDraftIdentityDocumentType(
+        userId: widget.userId,
+        identityDocumentType: value,
+      );
+      if (mounted) {
+        setState(() {
+          _identityDocumentType = value;
+          _consentAccepted = false;
+          _clearMessages();
+        });
+      }
+    } catch (error) {
+      _showError(_errorText(error));
+    }
+  }
+
+  Future<void> _showDocumentPreview(String documentKey) async {
+    final storagePath = _request?.documentStoragePaths[documentKey]?.trim();
+    if (storagePath == null || storagePath.isEmpty) {
+      _showError('Die Dokumentvorschau ist nicht mehr verfügbar.');
+      return;
+    }
+    setState(() => _busyDocuments.add(documentKey));
+    try {
+      final bytes = await _mediaStorage.loadVerificationDocumentPreview(
+        userId: widget.userId,
+        documentType: documentKey,
+        storagePath: storagePath,
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => Dialog(
+          backgroundColor: CaRismaDesignTokens.card,
+          insetPadding: const EdgeInsets.all(18),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${ProfileVerificationDocumentKeys.labelFor(documentKey)} · '
+                          '${ProfileVerificationDocumentKeys.sideLabelFor(documentKey)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: MediaQuery.sizeOf(dialogContext).height * 0.62,
+                    child: InteractiveViewer(
+                      minScale: 0.8,
+                      maxScale: 5,
+                      child: Image.memory(bytes, fit: BoxFit.contain),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      _showError(_errorText(error));
+    } finally {
+      if (mounted) setState(() => _busyDocuments.remove(documentKey));
+    }
+  }
 
   static String _formatDate(DateTime date) {
     String twoDigits(int value) => value.toString().padLeft(2, '0');
@@ -376,8 +525,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     );
     if (source == null || !mounted) return;
 
+    XFile? picked;
     try {
-      final picked = await _imagePicker.pickImage(
+      picked = await _imagePicker.pickImage(
         source: source,
         imageQuality: 100,
         maxWidth: 3200,
@@ -386,7 +536,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       final prepared = await Navigator.of(context).push<XFile>(
         MaterialPageRoute(
           builder: (_) =>
-              ProfileVerificationDocumentEditorScreen(sourceFile: picked),
+              ProfileVerificationDocumentEditorScreen(sourceFile: picked!),
         ),
       );
       if (prepared == null || !mounted) return;
@@ -395,6 +545,12 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _showError(
         'Der Nachweis konnte nicht geöffnet werden. Bitte prüfe die Kamera- oder Fotoberechtigung.',
       );
+    } finally {
+      if (source == ImageSource.camera && picked != null) {
+        try {
+          await File(picked.path).delete();
+        } catch (_) {}
+      }
     }
   }
 
@@ -596,11 +752,28 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     );
   }
 
-  void _openSupport() {
+  void _openSupport([String? documentKey]) {
+    final supportCategory = switch (documentKey) {
+      ProfileVerificationDocumentKeys.driverLicenseFront ||
+      ProfileVerificationDocumentKeys.driverLicenseBack => 'Führerschein',
+      ProfileVerificationDocumentKeys.vehicleFront ||
+      ProfileVerificationDocumentKeys.vehicleBack => 'Fahrzeugschein',
+      _ => 'Ausweis',
+    };
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) =>
-            const SupportRequestScreen(type: SupportRequestType.verification),
+        builder: (_) => SupportRequestScreen(
+          type: SupportRequestType.verification,
+          initialCategory: documentKey == null
+              ? 'Abgelehnte Verifizierung'
+              : supportCategory,
+          initialAffectedArea: documentKey == null
+              ? 'Dokumente & Verifizierung'
+              : '${ProfileVerificationDocumentKeys.labelFor(documentKey)} · '
+                    '${ProfileVerificationDocumentKeys.sideLabelFor(documentKey)}',
+          verificationRequestId: _request?.requestId,
+          verificationDocumentKey: documentKey,
+        ),
       ),
     );
   }
@@ -626,10 +799,17 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: _isLoading
               ? _buildLoading()
               : ListView(
+                  key: const PageStorageKey<String>(
+                    'profile-verification-list',
+                  ),
+                  controller: _scrollController,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   physics: const ClampingScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
                   children: [
@@ -647,6 +827,8 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildOverview(),
+                    const SizedBox(height: 12),
+                    _buildVerificationLevels(),
                     if (_notifications.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       _buildNotifications(),
@@ -654,33 +836,63 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                     const SizedBox(height: 12),
                     _buildPrerequisites(),
                     const SizedBox(height: 12),
-                    for (final group
-                        in ProfileVerificationDocumentKeys.groups) ...[
-                      _VerificationDocumentCard(
-                        group: group,
-                        frontStatus: _effectiveDocumentStatus(group.frontKey),
-                        backStatus: _effectiveDocumentStatus(group.backKey),
-                        frontRejectionReason:
-                            _request?.documentRejectionReasons[group.frontKey],
-                        backRejectionReason:
-                            _request?.documentRejectionReasons[group.backKey],
-                        frontProgress: _uploadProgress[group.frontKey],
-                        backProgress: _uploadProgress[group.backKey],
-                        frontBusy: _busyDocuments.contains(group.frontKey),
-                        backBusy: _busyDocuments.contains(group.backKey),
-                        isLocked: _isLocked,
-                        onSelectFront: () =>
-                            _chooseDocumentSource(group.frontKey),
-                        onSelectBack: () =>
-                            _chooseDocumentSource(group.backKey),
-                        onRemoveFront: () => _removeDocument(group.frontKey),
-                        onRemoveBack: () => _removeDocument(group.backKey),
-                        vehicleAssignment: group.includesVehicleAssignment
-                            ? _buildVehicleAssignmentFields()
-                            : null,
-                        expirationField: group.expirationKey == null
-                            ? null
-                            : _buildExpirationField(group.expirationKey!),
+                    for (final group in _documentGroups) ...[
+                      KeyedSubtree(
+                        key: _documentSectionKeys[group.frontKey],
+                        child: _VerificationDocumentCard(
+                          group: group,
+                          frontStatus: _effectiveDocumentStatus(group.frontKey),
+                          backStatus: _effectiveDocumentStatus(group.backKey),
+                          frontRejectionReason: _request
+                              ?.documentRejectionReasons[group.frontKey],
+                          backRejectionReason:
+                              _request?.documentRejectionReasons[group.backKey],
+                          frontProgress: _uploadProgress[group.frontKey],
+                          backProgress: _uploadProgress[group.backKey],
+                          frontBusy: _busyDocuments.contains(group.frontKey),
+                          backBusy: _busyDocuments.contains(group.backKey),
+                          isLocked: _isLocked,
+                          frontEditable: _isDocumentEditable(group.frontKey),
+                          backEditable:
+                              group.backRequired &&
+                              _isDocumentEditable(group.backKey),
+                          onSelectFront: () =>
+                              _chooseDocumentSource(group.frontKey),
+                          onSelectBack: group.backRequired
+                              ? () => _chooseDocumentSource(group.backKey)
+                              : null,
+                          onRemoveFront: () => _removeDocument(group.frontKey),
+                          onRemoveBack: group.backRequired
+                              ? () => _removeDocument(group.backKey)
+                              : null,
+                          onPreviewFront:
+                              _request?.documentStoragePaths[group.frontKey]
+                                      ?.trim()
+                                      .isNotEmpty ==
+                                  true
+                              ? () => _showDocumentPreview(group.frontKey)
+                              : null,
+                          onPreviewBack:
+                              group.backRequired &&
+                                  _request?.documentStoragePaths[group.backKey]
+                                          ?.trim()
+                                          .isNotEmpty ==
+                                      true
+                              ? () => _showDocumentPreview(group.backKey)
+                              : null,
+                          onReportFront: () => _openSupport(group.frontKey),
+                          onReportBack: () => _openSupport(group.backKey),
+                          vehicleAssignment:
+                              group.frontKey ==
+                                  ProfileVerificationDocumentKeys.identityFront
+                              ? _buildIdentityDocumentTypeField()
+                              : group.includesVehicleAssignment
+                              ? _buildVehicleAssignmentFields()
+                              : null,
+                          expirationField: group.expirationKey == null
+                              ? null
+                              : _buildExpirationField(group.expirationKey!),
+                        ),
                       ),
                       const SizedBox(height: 10),
                     ],
@@ -708,6 +920,8 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildRetentionAndRecheck(),
+                    const SizedBox(height: 12),
+                    _buildPrivacyOverview(),
                     if (_history.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       _buildHistory(),
@@ -745,7 +959,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   Widget _buildOverview() {
     final request = _request;
     final completed = request?.completedDocumentCount ?? 0;
-    final total = ProfileVerificationDocumentKeys.required.length;
+    final total = _requiredDocumentKeys.length;
     final status = request?.status ?? ProfileVerificationStatus.draft;
     final statusLabel = switch (status) {
       ProfileVerificationStatus.pending => 'In Prüfung',
@@ -824,11 +1038,58 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               ),
             ),
             TextButton.icon(
-              onPressed: _openSupport,
+              onPressed: () => _openSupport(),
               icon: const Icon(Icons.support_agent_outlined),
               label: const Text('Verifizierungsproblem melden'),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerificationLevels() {
+    final request = _request;
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Deine Verifizierungsstufen',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _VerificationLevelRow(
+            label: 'Identität bestätigt',
+            complete: request?.identityVerified == true,
+          ),
+          _VerificationLevelRow(
+            label: 'Führerschein bestätigt',
+            complete: request?.driverLicenseVerified == true,
+          ),
+          _VerificationLevelRow(
+            label: 'Fahrzeug bestätigt',
+            complete: request?.vehicleVerified == true,
+          ),
+          _VerificationLevelRow(
+            label: 'Vollständig verifiziert',
+            complete: request?.fullyVerified == true,
+            isLast: true,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Öffentlich wird unabhängig von diesen internen Stufen nur ein einfaches Verifiziert-Badge angezeigt.',
+            style: TextStyle(
+              color: CaRismaDesignTokens.textMuted,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
+          ),
         ],
       ),
     );
@@ -943,20 +1204,74 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     );
   }
 
+  Widget _buildIdentityDocumentTypeField() {
+    final hasIdentityDocument =
+        const <String>[
+          ProfileVerificationDocumentKeys.identityFront,
+          ProfileVerificationDocumentKeys.identityBack,
+        ].any(
+          (key) =>
+              _request?.documentStoragePaths[key]?.trim().isNotEmpty == true,
+        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(color: Color(0x1FFFFFFF), height: 26),
+        const Text(
+          'Dokumenttyp',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        _DarkDropdown<ProfileIdentityDocumentType>(
+          value: _identityDocumentType,
+          hint: 'Identitätsnachweis auswählen',
+          enabled: !_isLocked && !hasIdentityDocument,
+          items: ProfileIdentityDocumentType.values
+              .map(
+                (type) =>
+                    DropdownMenuItem(value: type, child: Text(type.label)),
+              )
+              .toList(growable: false),
+          onChanged: _selectIdentityDocumentType,
+        ),
+        if (hasIdentityDocument) ...[
+          const SizedBox(height: 7),
+          const Text(
+            'Zum Wechseln des Dokumenttyps zuerst den vorhandenen Identitätsnachweis entfernen.',
+            style: TextStyle(
+              color: CaRismaDesignTokens.textMuted,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildExpirationField(String expirationKey) {
     final label =
         expirationKey == ProfileVerificationDocumentKeys.identityExpiration
-        ? 'Ablaufdatum des Ausweises'
+        ? 'Ablaufdatum ${_identityDocumentType.label}'
         : 'Ablaufdatum des Führerscheins';
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: TextField(
+        key: ValueKey<String>('expiration-$expirationKey'),
         controller: _expirationControllers[expirationKey],
+        focusNode: _expirationFocusNodes[expirationKey],
         enabled: !_isLocked,
         keyboardType: TextInputType.number,
         textInputAction: TextInputAction.done,
         maxLength: 10,
         inputFormatters: const [_GermanDateInputFormatter()],
+        onTap: () => unawaited(
+          _verificationRepository.saveDraftProgress(
+            userId: widget.userId,
+            documentKey: expirationKey,
+          ),
+        ),
         onChanged: (_) {
           _dirtyExpirationKeys.add(expirationKey);
           setState(_clearMessages);
@@ -1007,6 +1322,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
           ),
           const SizedBox(height: 10),
           GestureDetector(
+            key: const ValueKey<String>('verification-consent-toggle'),
             behavior: HitTestBehavior.opaque,
             onTap: _isLocked
                 ? null
@@ -1057,10 +1373,56 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   }
 
   Widget _buildRetentionAndRecheck() {
-    return const _VerificationInfoBox(
-      icon: Icons.schedule_outlined,
-      text:
-          'Nach Abschluss werden Nachweise spätestens nach 30 Tagen gelöscht. Eine erneute Prüfung ist bei geändertem Kennzeichen, neuem Hauptfahrzeug oder abgelaufenen Nachweisen erforderlich.',
+    final request = _request;
+    final validUntil = request?.verificationExpiresAt;
+    final cleanedAt = request?.documentsCleanedAt;
+    final details = <String>[
+      'Nach Abschluss werden Nachweise spätestens nach 30 Tagen gelöscht.',
+      if (validUntil != null) 'Gültig bis: ${_formatDate(validUntil)}.',
+      if (cleanedAt != null)
+        'Dokumentdateien gelöscht am ${_formatDate(cleanedAt)}.',
+      'Eine erneute Prüfung ist bei geändertem Kennzeichen, neuem Hauptfahrzeug oder abgelaufenen Nachweisen erforderlich.',
+    ].join(' ');
+    return _VerificationInfoBox(icon: Icons.schedule_outlined, text: details);
+  }
+
+  Widget _buildPrivacyOverview() {
+    return const GlassCard(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Datenschutzübersicht',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(height: 10),
+          _PrivacyRow(
+            icon: Icons.admin_panel_settings_outlined,
+            text: 'Zugriff haben nur du und ausdrücklich autorisierte Prüfer.',
+          ),
+          _PrivacyRow(
+            icon: Icons.delete_sweep_outlined,
+            text:
+                'Dokumentdateien werden spätestens 30 Tage nach der Prüfung gelöscht.',
+          ),
+          _PrivacyRow(
+            icon: Icons.visibility_off_outlined,
+            text:
+                'Dokumentbilder, Ablaufdaten und Ablehnungsdetails werden niemals öffentlich angezeigt.',
+          ),
+          _PrivacyRow(
+            icon: Icons.verified_outlined,
+            text:
+                'Öffentlich übernommen wird ausschließlich ein einfaches Verifiziert-Badge.',
+            isLast: true,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1123,6 +1485,12 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     return _request?.documentStatusFor(key) ??
         ProfileVerificationDocumentStatus.missing;
   }
+
+  bool _isDocumentEditable(String key) {
+    if (_isLocked) return false;
+    return _effectiveDocumentStatus(key) !=
+        ProfileVerificationDocumentStatus.verified;
+  }
 }
 
 class _VerificationDocumentCard extends StatelessWidget {
@@ -1137,10 +1505,16 @@ class _VerificationDocumentCard extends StatelessWidget {
     required this.frontBusy,
     required this.backBusy,
     required this.isLocked,
+    required this.frontEditable,
+    required this.backEditable,
     required this.onSelectFront,
     required this.onSelectBack,
     required this.onRemoveFront,
     required this.onRemoveBack,
+    required this.onPreviewFront,
+    required this.onPreviewBack,
+    required this.onReportFront,
+    required this.onReportBack,
     this.vehicleAssignment,
     this.expirationField,
   });
@@ -1155,10 +1529,16 @@ class _VerificationDocumentCard extends StatelessWidget {
   final bool frontBusy;
   final bool backBusy;
   final bool isLocked;
+  final bool frontEditable;
+  final bool backEditable;
   final VoidCallback onSelectFront;
-  final VoidCallback onSelectBack;
+  final VoidCallback? onSelectBack;
   final VoidCallback onRemoveFront;
-  final VoidCallback onRemoveBack;
+  final VoidCallback? onRemoveBack;
+  final VoidCallback? onPreviewFront;
+  final VoidCallback? onPreviewBack;
+  final VoidCallback onReportFront;
+  final VoidCallback onReportBack;
   final Widget? vehicleAssignment;
   final Widget? expirationField;
 
@@ -1226,21 +1606,27 @@ class _VerificationDocumentCard extends StatelessWidget {
             rejectionReason: frontRejectionReason,
             progress: frontProgress,
             isBusy: frontBusy,
-            isLocked: isLocked,
+            isLocked: isLocked || !frontEditable,
             onSelect: onSelectFront,
             onRemove: onRemoveFront,
+            onPreview: onPreviewFront,
+            onReportProblem: onReportFront,
           ),
-          const Divider(color: Color(0x1FFFFFFF), height: 24),
-          _DocumentSideSection(
-            label: 'Rückseite',
-            status: backStatus,
-            rejectionReason: backRejectionReason,
-            progress: backProgress,
-            isBusy: backBusy,
-            isLocked: isLocked,
-            onSelect: onSelectBack,
-            onRemove: onRemoveBack,
-          ),
+          if (group.backRequired) ...[
+            const Divider(color: Color(0x1FFFFFFF), height: 24),
+            _DocumentSideSection(
+              label: 'Rückseite',
+              status: backStatus,
+              rejectionReason: backRejectionReason,
+              progress: backProgress,
+              isBusy: backBusy,
+              isLocked: isLocked || !backEditable,
+              onSelect: onSelectBack!,
+              onRemove: onRemoveBack!,
+              onPreview: onPreviewBack,
+              onReportProblem: onReportBack,
+            ),
+          ],
         ],
       ),
     );
@@ -1257,6 +1643,8 @@ class _DocumentSideSection extends StatelessWidget {
     required this.isLocked,
     required this.onSelect,
     required this.onRemove,
+    required this.onPreview,
+    required this.onReportProblem,
   });
 
   final String label;
@@ -1267,6 +1655,8 @@ class _DocumentSideSection extends StatelessWidget {
   final bool isLocked;
   final VoidCallback onSelect;
   final VoidCallback onRemove;
+  final VoidCallback? onPreview;
+  final VoidCallback onReportProblem;
 
   bool get _hasDocument => !const {
     ProfileVerificationDocumentStatus.missing,
@@ -1318,6 +1708,16 @@ class _DocumentSideSection extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
+              if (onPreview != null) ...[
+                Expanded(
+                  child: _OutlineAction(
+                    label: 'Vorschau',
+                    icon: Icons.visibility_outlined,
+                    onTap: isBusy ? null : onPreview,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: _OutlineAction(
                   label: _hasDocument ? 'Ersetzen' : 'Auswählen',
@@ -1348,6 +1748,22 @@ class _DocumentSideSection extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ],
+        if (isLocked && onPreview != null) ...[
+          const SizedBox(height: 10),
+          _OutlineAction(
+            label: 'Sichere Vorschau',
+            icon: Icons.visibility_outlined,
+            onTap: isBusy ? null : onPreview,
+          ),
+        ],
+        if (status == ProfileVerificationDocumentStatus.rejected) ...[
+          const SizedBox(height: 6),
+          TextButton.icon(
+            onPressed: onReportProblem,
+            icon: const Icon(Icons.support_agent_outlined, size: 18),
+            label: const Text('Problem mit diesem Nachweis melden'),
           ),
         ],
       ],
@@ -1539,6 +1955,98 @@ class _PrerequisiteRow extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerificationLevelRow extends StatelessWidget {
+  const _VerificationLevelRow({
+    required this.label,
+    required this.complete,
+    this.isLast = false,
+  });
+
+  final String label;
+  final bool complete;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            complete ? Icons.verified_rounded : Icons.radio_button_unchecked,
+            color: complete
+                ? CaRismaDesignTokens.success
+                : CaRismaDesignTokens.textMuted,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: complete
+                    ? Colors.white
+                    : CaRismaDesignTokens.textSecondary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyRow extends StatelessWidget {
+  const _PrivacyRow({
+    required this.icon,
+    required this.text,
+    this.isLast = false,
+  });
+
+  final IconData icon;
+  final String text;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: CaRismaDesignTokens.textSecondary,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1840,7 +2348,8 @@ class _VerificationNotificationRow extends StatelessWidget {
         notification.status == ProfileVerificationStatus.verified;
     final color = isPositive
         ? CaRismaDesignTokens.success
-        : notification.status == ProfileVerificationStatus.rejected
+        : notification.status == ProfileVerificationStatus.rejected ||
+              notification.status == ProfileVerificationStatus.expired
         ? CaRismaDesignTokens.danger
         : CaRismaDesignTokens.bluePrimary;
     return Container(
@@ -1924,12 +2433,17 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (entry.status) {
-      ProfileVerificationStatus.pending => 'Zur Prüfung eingereicht',
-      ProfileVerificationStatus.verified => 'Verifiziert',
-      ProfileVerificationStatus.rejected => 'Nachreichung erforderlich',
-      ProfileVerificationStatus.expired => 'Nachweise gelöscht',
-      ProfileVerificationStatus.draft => 'Entwurf aktualisiert',
+    final label = switch (entry.eventType) {
+      'review_requested' => 'Erneute Prüfung angefordert',
+      'documents_deleted' => 'Dokumentdateien gelöscht',
+      'expiration_reminder' => 'Ablauf-Erinnerung',
+      _ => switch (entry.status) {
+        ProfileVerificationStatus.pending => 'Zur Prüfung eingereicht',
+        ProfileVerificationStatus.verified => 'Geprüft und bestätigt',
+        ProfileVerificationStatus.rejected => 'Nachreichung erforderlich',
+        ProfileVerificationStatus.expired => 'Gültigkeit abgelaufen',
+        ProfileVerificationStatus.draft => 'Entwurf aktualisiert',
+      },
     };
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1963,6 +2477,16 @@ class _HistoryRow extends StatelessWidget {
                     style: const TextStyle(
                       color: CaRismaDesignTokens.textSecondary,
                       height: 1.3,
+                    ),
+                  ),
+                ],
+                if (entry.validUntil != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Gültig bis ${_formatDate(entry.validUntil!)}',
+                    style: const TextStyle(
+                      color: CaRismaDesignTokens.textMuted,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],

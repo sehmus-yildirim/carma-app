@@ -1697,6 +1697,11 @@ service cloud.firestore {
         && request.resource.data.status == 'draft'
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() <= 80
+        && request.resource.data.identityDocumentType in [
+          'identityCard',
+          'passport',
+          'residencePermit'
+        ]
         && paths is map
         && paths.keys().hasOnly([
           'identityFront',
@@ -1744,17 +1749,29 @@ service cloud.firestore {
           'vehicleBack'
         ])
         && (!('identityFront' in statuses)
-          || statuses.identityFront in ['missing', 'uploaded'])
+          || statuses.identityFront in [
+            'missing', 'uploaded', 'verified', 'rejected', 'expired'
+          ])
         && (!('identityBack' in statuses)
-          || statuses.identityBack in ['missing', 'uploaded'])
+          || statuses.identityBack in [
+            'missing', 'uploaded', 'verified', 'rejected', 'expired'
+          ])
         && (!('driverLicenseFront' in statuses)
-          || statuses.driverLicenseFront in ['missing', 'uploaded'])
+          || statuses.driverLicenseFront in [
+            'missing', 'uploaded', 'verified', 'rejected', 'expired'
+          ])
         && (!('driverLicenseBack' in statuses)
-          || statuses.driverLicenseBack in ['missing', 'uploaded'])
+          || statuses.driverLicenseBack in [
+            'missing', 'uploaded', 'verified', 'rejected', 'expired'
+          ])
         && (!('vehicleFront' in statuses)
-          || statuses.vehicleFront in ['missing', 'uploaded'])
+          || statuses.vehicleFront in [
+            'missing', 'uploaded', 'verified', 'rejected', 'expired'
+          ])
         && (!('vehicleBack' in statuses)
-          || statuses.vehicleBack in ['missing', 'uploaded'])
+          || statuses.vehicleBack in [
+            'missing', 'uploaded', 'verified', 'rejected', 'expired'
+          ])
         && reasons is map
         && reasons.keys().hasOnly([
           'identityFront',
@@ -1799,6 +1816,24 @@ service cloud.firestore {
         && request.resource.data.reviewedBy == null
         && request.resource.data.rejectionReason == null
         && request.resource.data.retentionUntil == null
+        && request.resource.data.verificationExpiresAt == null
+        && (
+          request.resource.data.documentsCleanedAt == null
+          || request.resource.data.documentsCleanedAt is timestamp
+        )
+        && (
+          request.resource.data.lastEditedDocumentKey == null
+          || request.resource.data.lastEditedDocumentKey in [
+            'identityFront',
+            'identityBack',
+            'driverLicenseFront',
+            'driverLicenseBack',
+            'vehicleFront',
+            'vehicleBack',
+            'identity',
+            'driverLicense'
+          ]
+        )
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.keys().hasOnly([
@@ -1807,6 +1842,7 @@ service cloud.firestore {
           'profilePath',
           'status',
           'displayName',
+          'identityDocumentType',
           'documentStoragePaths',
           'documentStatuses',
           'documentRejectionReasons',
@@ -1821,6 +1857,9 @@ service cloud.firestore {
           'reviewedBy',
           'rejectionReason',
           'retentionUntil',
+          'verificationExpiresAt',
+          'documentsCleanedAt',
+          'lastEditedDocumentKey',
           'createdAt',
           'updatedAt',
         ]);
@@ -1836,7 +1875,25 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && resource.data.status in ['draft', 'rejected', 'expired']
         && isValidVerificationDraftMap(request.auth.uid, requestId)
+        && keepsVerifiedVerificationDocuments()
         && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function keepsVerifiedVerificationDocuments() {
+      let before = resource.data.documentStatuses;
+      let after = request.resource.data.documentStatuses;
+      return (before.get('identityFront', 'missing') != 'verified'
+          || after.get('identityFront', 'missing') == 'verified')
+        && (before.get('identityBack', 'missing') != 'verified'
+          || after.get('identityBack', 'missing') == 'verified')
+        && (before.get('driverLicenseFront', 'missing') != 'verified'
+          || after.get('driverLicenseFront', 'missing') == 'verified')
+        && (before.get('driverLicenseBack', 'missing') != 'verified'
+          || after.get('driverLicenseBack', 'missing') == 'verified')
+        && (before.get('vehicleFront', 'missing') != 'verified'
+          || after.get('vehicleFront', 'missing') == 'verified')
+        && (before.get('vehicleBack', 'missing') != 'verified'
+          || after.get('vehicleBack', 'missing') == 'verified');
     }
 
     function hasValidOwnerProfileCreateVerificationFields() {
@@ -1854,17 +1911,21 @@ service cloud.firestore {
         resource.data.get('verificationReviewedAt', null);
       let currentRejectionReason =
         resource.data.get('verificationRejectionReason', null);
+      let currentLevels = resource.data.get('verificationLevels', null);
       let keepsExistingValues =
         request.resource.data.verificationStatus == currentStatus
         && request.resource.data.verificationSubmittedAt
           == currentSubmittedAt
         && request.resource.data.verificationReviewedAt == currentReviewedAt
         && request.resource.data.verificationRejectionReason
-          == currentRejectionReason;
+          == currentRejectionReason
+        && request.resource.data.get('verificationLevels', null)
+          == currentLevels;
       let initializesLegacyProfile = currentStatus == null
         && currentSubmittedAt == null
         && currentReviewedAt == null
         && currentRejectionReason == null
+        && currentLevels == null
         && request.resource.data.verificationStatus == 'unverified'
         && request.resource.data.verificationSubmittedAt == null
         && request.resource.data.verificationReviewedAt == null
@@ -3528,6 +3589,30 @@ service cloud.firestore {
           && request.resource.data.isRead is bool;
       }
 
+      match /notification_devices/{deviceId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.deviceId == deviceId
+          && request.resource.data.userId == userId
+          && request.resource.data.token is string
+          && request.resource.data.token.size() >= 20
+          && request.resource.data.token.size() <= 4096
+          && request.resource.data.platform in [
+            'android', 'iOS', 'macOS', 'windows', 'linux'
+          ]
+          && request.resource.data.purpose == 'verification-reminders'
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.keys().hasOnly([
+            'deviceId',
+            'userId',
+            'token',
+            'platform',
+            'purpose',
+            'updatedAt'
+          ]);
+        allow delete: if isOwner(userId);
+      }
+
       match /settings/{settingsId} {
         allow read: if isOwner(userId);
         allow create, update: if isValidUserSettingsWrite(
@@ -3577,6 +3662,25 @@ service cloud.firestore {
           )
           && request.resource.data.appVersion is string
           && request.resource.data.appVersion.size() <= 40
+          && (
+            request.resource.data.get('verificationRequestId', null) == null
+            || (
+              request.resource.data.get('verificationRequestId', null) is string
+              && request.resource.data.get('verificationRequestId', '') == userId
+              && request.resource.data.get('verificationRequestId', '').size() <= 128
+            )
+          )
+          && (
+            request.resource.data.get('verificationDocumentKey', null) == null
+            || request.resource.data.get('verificationDocumentKey', '') in [
+              'identityFront',
+              'identityBack',
+              'driverLicenseFront',
+              'driverLicenseBack',
+              'vehicleFront',
+              'vehicleBack'
+            ]
+          )
           && request.resource.data.status == 'received'
           && request.resource.data.createdAt is timestamp
           && request.resource.data.updatedAt is timestamp
@@ -3591,6 +3695,8 @@ service cloud.firestore {
             'allowContact',
             'accountEmail',
             'appVersion',
+            'verificationRequestId',
+            'verificationDocumentKey',
             'status',
             'createdAt',
             'updatedAt'

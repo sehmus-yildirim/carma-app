@@ -64,6 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final PlateRepository _plateRepository = PlateRepository();
   final AuthService _authService = AuthService();
   final FirebaseMfaService _mfaService = FirebaseMfaService();
+  late final Widget _documentsEntryChild;
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -292,6 +293,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+
+    _documentsEntryChild = ProfileVerificationScreen(
+      key: const PageStorageKey<String>('direct-profile-verification'),
+      userId: widget.userState.userId,
+    );
 
     _firstNameController.addListener(_markUnsaved);
     _lastNameController.addListener(_markUnsaved);
@@ -1584,7 +1590,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildDirectDocumentsEntry() {
-    return ProfileVerificationScreen(userId: widget.userState.userId);
+    return _documentsEntryChild;
   }
 
   Future<void> _confirmNewProfile() async {

@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  buildDocumentReviewOutcome,
+  expirationReminderCandidates,
   expectedDocumentPath,
   inspectJpeg,
   inspectPng,
@@ -12,11 +14,25 @@ const {
   normalizeVehicleRelationship,
   plateDocumentId,
   requiredDocumentKeys,
+  requiredDocumentKeysFor,
   requiredExpirationKeys,
+  sendExpirationReminders,
   submitProfileVerification,
   validateDocumentExpirations,
   validateStoredDocuments,
 } = require('./profile_verification');
+
+test('uses document-type-specific identity page requirements', () => {
+  assert.deepEqual(requiredDocumentKeysFor('passport'), [
+    'identityFront',
+    'driverLicenseFront',
+    'driverLicenseBack',
+    'vehicleFront',
+    'vehicleBack',
+  ]);
+  assert.equal(requiredDocumentKeysFor('identityCard').length, 6);
+  assert.equal(requiredDocumentKeysFor('residencePermit').length, 6);
+});
 
 test('accepts only the fixed six-page submission contract', () => {
   assert.deepEqual(normalizeSubmissionInput('user-1', {
@@ -72,6 +88,112 @@ test('validates review decisions and meaningful rejection reasons', () => {
     decision: 'rejected',
     reason: 'nein',
   }), /Ablehnungsgrund/);
+});
+
+test('review outcome preserves confirmed pages and rejects only selected evidence', () => {
+  const outcome = buildDocumentReviewOutcome({
+    request: {
+      identityDocumentType: 'identityCard',
+      documentStatuses: {
+        identityFront: 'verified',
+        identityBack: 'verified',
+        driverLicenseFront: 'inReview',
+        driverLicenseBack: 'inReview',
+        vehicleFront: 'verified',
+        vehicleBack: 'verified',
+      },
+      documentRejectionReasons: {},
+    },
+    input: {
+      documentDecisions: {
+        driverLicenseFront: 'rejected',
+        driverLicenseBack: 'verified',
+      },
+      documentReasons: {
+        driverLicenseFront: 'Vorderseite ist nicht vollständig lesbar.',
+      },
+    },
+    fallbackDecision: 'rejected',
+    fallbackReason: 'Bitte erneut hochladen.',
+  });
+
+  assert.equal(outcome.statuses.identityFront, 'verified');
+  assert.equal(outcome.statuses.driverLicenseFront, 'rejected');
+  assert.equal(outcome.statuses.driverLicenseBack, 'verified');
+  assert.equal(outcome.levels.identity, true);
+  assert.equal(outcome.levels.driverLicense, false);
+  assert.equal(outcome.levels.vehicle, true);
+  assert.deepEqual(outcome.rejectedKeys, ['driverLicenseFront']);
+});
+
+test('creates exact 30, 14 and 3 day expiration reminder candidates', () => {
+  const now = new Date('2026-08-14T07:00:00Z');
+  const request = {
+    status: 'verified',
+    identityDocumentType: 'passport',
+    documentExpiresAt: {
+      identity: new Date('2026-09-13T00:00:00Z'),
+      driverLicense: new Date('2026-08-28T00:00:00Z'),
+    },
+  };
+  const candidates = expirationReminderCandidates(request, now);
+  assert.deepEqual(candidates.map((candidate) => [
+    candidate.expirationKey,
+    candidate.leadDays,
+    candidate.documentLabel,
+  ]), [
+    ['identity', 30, 'Reisepass'],
+    ['driverLicense', 14, 'Führerschein'],
+  ]);
+  assert.equal(expirationReminderCandidates({
+    ...request,
+    documentExpiresAt: {
+      identity: new Date('2026-08-17T00:00:00Z'),
+      driverLicense: new Date('2026-10-01T00:00:00Z'),
+    },
+  }, now)[0].leadDays, 3);
+  assert.deepEqual(expirationReminderCandidates({
+    ...request,
+    status: 'rejected',
+  }, now), []);
+});
+
+test('scheduled expiration reminders are idempotent and push once', async () => {
+  const now = new Date('2026-08-14T07:00:00Z');
+  const firestore = fakeFirestore({
+    'verification_requests/user-reminder': {
+      requestId: 'user-reminder',
+      userId: 'user-reminder',
+      status: 'verified',
+      identityDocumentType: 'identityCard',
+      verificationExpiresAt: new Date('2026-09-13T00:00:00Z'),
+      documentExpiresAt: {
+        identity: new Date('2026-09-13T00:00:00Z'),
+        driverLicense: new Date('2027-08-14T00:00:00Z'),
+      },
+    },
+    'users/user-reminder/settings/notifications': {verification: true},
+    'users/user-reminder/notification_devices/device-1': {
+      token: 'private-registration-token',
+    },
+  });
+  const pushes = [];
+  const messaging = {
+    async sendEachForMulticast(message) {
+      pushes.push(message);
+      return {successCount: message.tokens.length, failureCount: 0};
+    },
+  };
+
+  const first = await sendExpirationReminders({firestore, messaging, now});
+  const repeated = await sendExpirationReminders({firestore, messaging, now});
+
+  assert.equal(first.created, 1);
+  assert.equal(first.pushSent, 1);
+  assert.equal(repeated.created, 0);
+  assert.equal(pushes.length, 1);
+  assert.equal([...firestore.documents.keys()].filter((path) =>
+    path.includes('/verification_notifications/expiry_identity_30_')).length, 1);
 });
 
 test('builds canonical private paths and canonical plate IDs', () => {
@@ -193,16 +315,65 @@ function fakeFirestore(initialDocuments) {
   function reference(documentPath) {
     return {
       path: documentPath,
+      id: documentPath.split('/').at(-1),
       async get() {
         const value = documents.get(documentPath);
         return {exists: value != null, data: () => value};
       },
       collection(collectionName) {
-        return {
-          doc(documentId) {
-            return reference(`${documentPath}/${collectionName}/${documentId}`);
-          },
-        };
+        return collectionReference(`${documentPath}/${collectionName}`);
+      },
+      async set(data, options) {
+        write(this, data, options?.merge === true);
+      },
+      async update(data) {
+        write(this, data, true);
+      },
+    };
+  }
+
+  function collectionReference(collectionPath, filters = [], maximum = Infinity) {
+    return {
+      path: collectionPath,
+      doc(documentId = `auto-${writes.length + 1}`) {
+        return reference(`${collectionPath}/${documentId}`);
+      },
+      where(field, operator, value) {
+        return collectionReference(
+          collectionPath,
+          [...filters, {field, operator, value}],
+          maximum,
+        );
+      },
+      limit(value) {
+        return collectionReference(collectionPath, filters, value);
+      },
+      async get() {
+        const prefix = `${collectionPath}/`;
+        const docs = [...documents.entries()]
+          .filter(([documentPath]) => {
+            if (!documentPath.startsWith(prefix)) return false;
+            return !documentPath.slice(prefix.length).includes('/');
+          })
+          .filter(([, data]) => filters.every((filter) => {
+            const actual = data?.[filter.field];
+            const actualMillis = typeof actual?.toMillis === 'function' ?
+              actual.toMillis() : actual instanceof Date ? actual.getTime() : actual;
+            const expectedMillis = typeof filter.value?.toMillis === 'function' ?
+              filter.value.toMillis() : filter.value instanceof Date ?
+                filter.value.getTime() : filter.value;
+            if (filter.operator === '<=') return actualMillis <= expectedMillis;
+            if (filter.operator === '==') return actualMillis === expectedMillis;
+            return false;
+          }))
+          .slice(0, maximum)
+          .map(([documentPath, data]) => ({
+            id: documentPath.split('/').at(-1),
+            ref: reference(documentPath),
+            exists: true,
+            data: () => data,
+          }));
+        return {docs, size: docs.length};
       },
     };
   }
@@ -217,6 +388,7 @@ function fakeFirestore(initialDocuments) {
     documents,
     writes,
     doc: reference,
+    collection: collectionReference,
     async runTransaction(callback) {
       return callback({
         get: (document) => document.get(),
@@ -385,6 +557,45 @@ test('submits profile and vehicle verification atomically', async () => {
   ).verificationLocked, true);
   assert.equal([...firestore.documents.keys()].filter((path) =>
     path.startsWith(`verification_requests/${userId}/history/`)).length, 1);
+});
+
+test('targeted resubmission keeps previously confirmed pages', async () => {
+  const userId = 'user-targeted';
+  const documents = verificationDocuments(userId);
+  documents[`verification_requests/${userId}`].status = 'rejected';
+  documents[`verification_requests/${userId}`].reviewedAt =
+    new Date('2026-08-10T08:00:00Z');
+  documents[`verification_requests/${userId}`].documentStatuses = {
+    identityFront: 'verified',
+    identityBack: 'verified',
+    driverLicenseFront: 'uploaded',
+    driverLicenseBack: 'uploaded',
+    vehicleFront: 'verified',
+    vehicleBack: 'verified',
+  };
+  const firestore = fakeFirestore(documents);
+
+  await submitProfileVerification({
+    firestore,
+    bucket: fakeBucket(validVerificationFiles(userId)),
+    authContext: {uid: userId},
+    input: {
+      requestId: userId,
+      vehicleId: 'vehicle-1',
+      vehicleRelationship: 'authorizedUser',
+      authorizationConfirmed: true,
+      consentVersion: 'verification-consent-1.0',
+    },
+    now: new Date('2026-08-14T08:00:00Z'),
+  });
+
+  const request = firestore.documents.get(`verification_requests/${userId}`);
+  assert.equal(request.documentStatuses.identityFront, 'verified');
+  assert.equal(request.documentStatuses.identityBack, 'verified');
+  assert.equal(request.documentStatuses.driverLicenseFront, 'inReview');
+  assert.equal(request.documentStatuses.driverLicenseBack, 'inReview');
+  assert.equal(request.documentStatuses.vehicleFront, 'verified');
+  assert.equal(request.documentStatuses.vehicleBack, 'verified');
 });
 
 test('rejects a relationship that differs from the selected vehicle', async () => {

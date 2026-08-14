@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
@@ -24,6 +25,14 @@ class ProfileMediaStorage {
 
   static const int _maxProfilePhotoBytes = 8 * 1024 * 1024;
   static const int _maxVerificationDocumentBytes = 12 * 1024 * 1024;
+  static const Set<String> _verificationDocumentTypes = {
+    'identityFront',
+    'identityBack',
+    'driverLicenseFront',
+    'driverLicenseBack',
+    'vehicleFront',
+    'vehicleBack',
+  };
 
   final FirebaseStorage? _storage;
 
@@ -103,14 +112,7 @@ class ProfileMediaStorage {
       throw ArgumentError('Nutzer-ID und Dokumenttyp dürfen nicht leer sein.');
     }
 
-    if (!const {
-      'identityFront',
-      'identityBack',
-      'driverLicenseFront',
-      'driverLicenseBack',
-      'vehicleFront',
-      'vehicleBack',
-    }.contains(trimmedDocumentType)) {
+    if (!_verificationDocumentTypes.contains(trimmedDocumentType)) {
       throw ArgumentError('Dokumenttyp ist nicht zulässig.');
     }
 
@@ -169,14 +171,7 @@ class ProfileMediaStorage {
   }) async {
     final normalizedUserId = userId.trim();
     if (normalizedUserId.isEmpty ||
-        !const {
-          'identityFront',
-          'identityBack',
-          'driverLicenseFront',
-          'driverLicenseBack',
-          'vehicleFront',
-          'vehicleBack',
-        }.contains(documentType)) {
+        !_verificationDocumentTypes.contains(documentType)) {
       return;
     }
     for (final extension in const ['png', 'jpg']) {
@@ -188,6 +183,37 @@ class ProfileMediaStorage {
         if (error.code != 'object-not-found') rethrow;
       }
     }
+  }
+
+  Future<Uint8List> loadVerificationDocumentPreview({
+    required String userId,
+    required String documentType,
+    required String storagePath,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedType = documentType.trim();
+    final normalizedPath = storagePath.trim();
+    final prefix =
+        'profile_documents/$normalizedUserId/$normalizedType/$normalizedType.';
+    if (normalizedUserId.isEmpty ||
+        !_verificationDocumentTypes.contains(normalizedType) ||
+        !const <String>[
+          'png',
+          'jpg',
+        ].any((extension) => normalizedPath == '$prefix$extension')) {
+      throw const ProfileMediaStorageException(
+        'Die Dokumentvorschau konnte nicht eindeutig zugeordnet werden.',
+      );
+    }
+    final data = await _bucket
+        .ref(normalizedPath)
+        .getData(_maxVerificationDocumentBytes);
+    if (data == null || data.isEmpty) {
+      throw const ProfileMediaStorageException(
+        'Die Dokumentvorschau ist nicht mehr verfügbar.',
+      );
+    }
+    return data;
   }
 
   Future<bool> _isPng(File file) async {

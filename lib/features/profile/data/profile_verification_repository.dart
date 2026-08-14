@@ -140,39 +140,31 @@ class ProfileVerificationRepository {
       }
       final paths = _stringMap(data['documentStoragePaths']);
       final statuses = _stringMap(data['documentStatuses']);
+      if (statuses[documentKey] ==
+          ProfileVerificationDocumentStatus.verified.name) {
+        throw const ProfileVerificationException(
+          'Ein bereits bestätigter Nachweis kann nicht ersetzt werden.',
+        );
+      }
       final rejectionReasons = _stringMap(data['documentRejectionReasons']);
       final documentExpiresAt = _timestampMap(data['documentExpiresAt']);
       paths[documentKey] = normalizedPath;
       statuses[documentKey] = ProfileVerificationDocumentStatus.uploaded.name;
       rejectionReasons.remove(documentKey);
 
-      transaction.set(reference, {
-        'requestId': normalizedUserId,
-        'userId': normalizedUserId,
-        'profilePath': CaRismaFirestorePaths.userProfile(normalizedUserId),
-        'status': ProfileVerificationStatus.draft.name,
-        'displayName': '',
-        'documentStoragePaths': paths,
-        'documentStatuses': statuses,
-        'documentRejectionReasons': rejectionReasons,
-        'documentExpiresAt': documentExpiresAt,
-        'vehicleId': data['vehicleId'],
-        'vehicleRelationship':
-            data['vehicleRelationship'] ??
-            ProfileVehicleRelationship.owner.name,
-        'authorizationConfirmed': false,
-        'consentVersion': null,
-        'consentAcceptedAt': null,
-        'submittedAt': null,
-        'reviewedAt': null,
-        'reviewedBy': null,
-        'rejectionReason': null,
-        'retentionUntil': null,
-        'createdAt': snapshot.exists
-            ? data['createdAt'] ?? FieldValue.serverTimestamp()
-            : FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: false));
+      transaction.set(
+        reference,
+        _draftData(
+          userId: normalizedUserId,
+          data: data,
+          paths: paths,
+          statuses: statuses,
+          rejectionReasons: rejectionReasons,
+          expirations: documentExpiresAt,
+          lastEditedDocumentKey: documentKey,
+        ),
+        SetOptions(merge: false),
+      );
     });
   }
 
@@ -197,27 +189,32 @@ class ProfileVerificationRepository {
           'Während der Prüfung können Nachweise nicht entfernt werden.',
         );
       }
+      final existingStatuses = _stringMap(data['documentStatuses']);
+      if (existingStatuses[documentKey] ==
+          ProfileVerificationDocumentStatus.verified.name) {
+        throw const ProfileVerificationException(
+          'Ein bereits bestätigter Nachweis kann nicht entfernt werden.',
+        );
+      }
       final paths = _stringMap(data['documentStoragePaths'])
         ..remove(documentKey);
-      final statuses = _stringMap(data['documentStatuses']);
+      final statuses = existingStatuses;
       statuses[documentKey] = ProfileVerificationDocumentStatus.missing.name;
       final rejectionReasons = _stringMap(data['documentRejectionReasons'])
         ..remove(documentKey);
-      transaction.update(reference, {
-        'status': ProfileVerificationStatus.draft.name,
-        'documentStoragePaths': paths,
-        'documentStatuses': statuses,
-        'documentRejectionReasons': rejectionReasons,
-        'authorizationConfirmed': false,
-        'consentVersion': null,
-        'consentAcceptedAt': null,
-        'submittedAt': null,
-        'reviewedAt': null,
-        'reviewedBy': null,
-        'rejectionReason': null,
-        'retentionUntil': null,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      transaction.set(
+        reference,
+        _draftData(
+          userId: normalizedUserId,
+          data: data,
+          paths: paths,
+          statuses: statuses,
+          rejectionReasons: rejectionReasons,
+          expirations: _timestampMap(data['documentExpiresAt']),
+          lastEditedDocumentKey: documentKey,
+        ),
+        SetOptions(merge: false),
+      );
     });
   }
 
@@ -259,37 +256,47 @@ class ProfileVerificationRepository {
           'Während der Prüfung kann das Ablaufdatum nicht geändert werden.',
         );
       }
+      final statuses = _stringMap(data['documentStatuses']);
+      final identityType = ProfileIdentityDocumentType.fromValue(
+        data['identityDocumentType'],
+      );
+      final protectedDocumentKeys = switch (expirationKey) {
+        ProfileVerificationDocumentKeys.identityExpiration => <String>[
+          ProfileVerificationDocumentKeys.identityFront,
+          if (identityType.requiresBack)
+            ProfileVerificationDocumentKeys.identityBack,
+        ],
+        ProfileVerificationDocumentKeys.driverLicenseExpiration => <String>[
+          ProfileVerificationDocumentKeys.driverLicenseFront,
+          ProfileVerificationDocumentKeys.driverLicenseBack,
+        ],
+        _ => const <String>[],
+      };
+      if (protectedDocumentKeys.isNotEmpty &&
+          protectedDocumentKeys.every(
+            (key) =>
+                ProfileVerificationDocumentStatus.fromValue(statuses[key]) ==
+                ProfileVerificationDocumentStatus.verified,
+          )) {
+        throw const ProfileVerificationException(
+          'Das Ablaufdatum eines bestätigten Nachweises kann nicht geändert werden.',
+        );
+      }
       final expirations = _timestampMap(data['documentExpiresAt']);
       expirations[expirationKey] = Timestamp.fromDate(expirationDay);
-      transaction.set(reference, {
-        'requestId': normalizedUserId,
-        'userId': normalizedUserId,
-        'profilePath': CaRismaFirestorePaths.userProfile(normalizedUserId),
-        'status': ProfileVerificationStatus.draft.name,
-        'displayName': data['displayName'] ?? '',
-        'documentStoragePaths': _stringMap(data['documentStoragePaths']),
-        'documentStatuses': _stringMap(data['documentStatuses']),
-        'documentRejectionReasons': _stringMap(
-          data['documentRejectionReasons'],
+      transaction.set(
+        reference,
+        _draftData(
+          userId: normalizedUserId,
+          data: data,
+          paths: _stringMap(data['documentStoragePaths']),
+          statuses: statuses,
+          rejectionReasons: _stringMap(data['documentRejectionReasons']),
+          expirations: expirations,
+          lastEditedDocumentKey: expirationKey,
         ),
-        'documentExpiresAt': expirations,
-        'vehicleId': data['vehicleId'],
-        'vehicleRelationship':
-            data['vehicleRelationship'] ??
-            ProfileVehicleRelationship.owner.name,
-        'authorizationConfirmed': false,
-        'consentVersion': null,
-        'consentAcceptedAt': null,
-        'submittedAt': null,
-        'reviewedAt': null,
-        'reviewedBy': null,
-        'rejectionReason': null,
-        'retentionUntil': null,
-        'createdAt': snapshot.exists
-            ? data['createdAt'] ?? FieldValue.serverTimestamp()
-            : FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: false));
+        SetOptions(merge: false),
+      );
     });
   }
 
@@ -311,42 +318,134 @@ class ProfileVerificationRepository {
         'Während der Prüfung kann die Fahrzeugzuordnung nicht geändert werden.',
       );
     }
-    await _currentRequest(normalizedUserId).set({
-      'requestId': normalizedUserId,
-      'userId': normalizedUserId,
-      'profilePath': CaRismaFirestorePaths.userProfile(normalizedUserId),
-      'status': ProfileVerificationStatus.draft.name,
-      'displayName': request?.displayName ?? '',
-      'documentStoragePaths': request?.documentStoragePaths ?? const {},
-      'documentStatuses': {
-        for (final entry
-            in (request?.documentStatuses ??
-                    const <String, ProfileVerificationDocumentStatus>{})
-                .entries)
-          entry.key: entry.value.name,
-      },
-      'documentRejectionReasons': request?.documentRejectionReasons ?? const {},
-      'documentExpiresAt': {
-        for (final entry
-            in (request?.documentExpiresAt ?? const <String, DateTime?>{})
-                .entries)
-          if (entry.value != null) entry.key: Timestamp.fromDate(entry.value!),
-      },
-      'vehicleId': normalizedVehicleId,
-      'vehicleRelationship': relationship.name,
-      'authorizationConfirmed': false,
-      'consentVersion': null,
-      'consentAcceptedAt': null,
-      'submittedAt': null,
-      'reviewedAt': null,
-      'reviewedBy': null,
-      'rejectionReason': null,
-      'retentionUntil': null,
-      'createdAt': request?.createdAt == null
-          ? FieldValue.serverTimestamp()
-          : Timestamp.fromDate(request!.createdAt!),
+    if (request != null &&
+        request.vehicleId != null &&
+        request.vehicleId != normalizedVehicleId &&
+        const [
+          ProfileVerificationDocumentKeys.vehicleFront,
+          ProfileVerificationDocumentKeys.vehicleBack,
+        ].any((key) => request.documentStoragePaths[key]?.isNotEmpty == true)) {
+      throw const ProfileVerificationException(
+        'Entferne zuerst die Fahrzeugnachweise, bevor du das Fahrzeug wechselst.',
+      );
+    }
+    final data = request == null
+        ? const <String, dynamic>{}
+        : <String, dynamic>{
+            'displayName': request.displayName,
+            'identityDocumentType': request.identityDocumentType.name,
+            'createdAt': request.createdAt == null
+                ? FieldValue.serverTimestamp()
+                : Timestamp.fromDate(request.createdAt!),
+          };
+    await _currentRequest(normalizedUserId).set(
+      _draftData(
+        userId: normalizedUserId,
+        data: data,
+        paths: {
+          for (final entry
+              in (request?.documentStoragePaths ?? const <String, String?>{})
+                  .entries)
+            if (entry.value?.trim().isNotEmpty == true)
+              entry.key: entry.value!.trim(),
+        },
+        statuses: {
+          for (final entry
+              in (request?.documentStatuses ??
+                      const <String, ProfileVerificationDocumentStatus>{})
+                  .entries)
+            entry.key: entry.value.name,
+        },
+        rejectionReasons: {
+          for (final entry
+              in (request?.documentRejectionReasons ??
+                      const <String, String?>{})
+                  .entries)
+            if (entry.value != null) entry.key: entry.value!,
+        },
+        expirations: {
+          for (final entry
+              in (request?.documentExpiresAt ?? const <String, DateTime?>{})
+                  .entries)
+            if (entry.value != null)
+              entry.key: Timestamp.fromDate(entry.value!),
+        },
+        vehicleId: normalizedVehicleId,
+        vehicleRelationship: relationship.name,
+        lastEditedDocumentKey: request?.lastEditedDocumentKey,
+      ),
+      SetOptions(merge: false),
+    );
+  }
+
+  Future<void> saveDraftIdentityDocumentType({
+    required String userId,
+    required ProfileIdentityDocumentType identityDocumentType,
+  }) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return;
+    final reference = _currentRequest(normalizedUserId);
+    await _database.runTransaction((transaction) async {
+      final snapshot = await transaction.get(reference);
+      final data = snapshot.data() ?? const <String, dynamic>{};
+      final status = ProfileVerificationStatus.fromValue(data['status']);
+      if (status == ProfileVerificationStatus.pending ||
+          status == ProfileVerificationStatus.verified) {
+        throw const ProfileVerificationException(
+          'Während der Prüfung kann der Dokumenttyp nicht geändert werden.',
+        );
+      }
+      final paths = _stringMap(data['documentStoragePaths']);
+      if (const [
+        ProfileVerificationDocumentKeys.identityFront,
+        ProfileVerificationDocumentKeys.identityBack,
+      ].any((key) => paths[key]?.isNotEmpty == true)) {
+        throw const ProfileVerificationException(
+          'Entferne zuerst den vorhandenen Identitätsnachweis.',
+        );
+      }
+      transaction.set(
+        reference,
+        _draftData(
+          userId: normalizedUserId,
+          data: data,
+          paths: paths,
+          statuses: _stringMap(data['documentStatuses']),
+          rejectionReasons: _stringMap(data['documentRejectionReasons']),
+          expirations: _timestampMap(data['documentExpiresAt']),
+          identityDocumentType: identityDocumentType.name,
+          lastEditedDocumentKey: ProfileVerificationDocumentKeys.identityFront,
+        ),
+        SetOptions(merge: false),
+      );
+    });
+  }
+
+  Future<void> saveDraftProgress({
+    required String userId,
+    required String documentKey,
+  }) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty ||
+        !<String>{
+          ...ProfileVerificationDocumentKeys.required,
+          ...ProfileVerificationDocumentKeys.requiredExpirationKeys,
+        }.contains(documentKey)) {
+      return;
+    }
+    final reference = _currentRequest(normalizedUserId);
+    final snapshot = await reference.get();
+    if (!snapshot.exists) return;
+    final status = ProfileVerificationStatus.fromValue(
+      snapshot.data()?['status'],
+    );
+    if (status != ProfileVerificationStatus.draft) {
+      return;
+    }
+    await reference.update({
+      'lastEditedDocumentKey': documentKey,
       'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: false));
+    });
   }
 
   Future<void> submitVerification({
@@ -424,6 +523,58 @@ class ProfileVerificationRepository {
     );
   }
 
+  Future<void> reviewDocuments({
+    required ProfileVerificationRequest request,
+    required Map<String, ProfileVerificationDocumentStatus> decisions,
+    Map<String, String> rejectionReasons = const {},
+  }) async {
+    final openKeys = request.requiredDocumentKeys.where(
+      (key) =>
+          request.documentStatusFor(key) ==
+          ProfileVerificationDocumentStatus.inReview,
+    );
+    if (openKeys.isEmpty ||
+        openKeys.any(
+          (key) =>
+              decisions[key] != ProfileVerificationDocumentStatus.verified &&
+              decisions[key] != ProfileVerificationDocumentStatus.rejected,
+        )) {
+      throw const ProfileVerificationException(
+        'Bitte entscheide über jeden offenen Nachweis.',
+      );
+    }
+    for (final key in openKeys) {
+      if (decisions[key] == ProfileVerificationDocumentStatus.rejected &&
+          (rejectionReasons[key]?.trim().length ?? 0) < 5) {
+        throw const ProfileVerificationException(
+          'Bitte gib für jeden abgelehnten Nachweis einen konkreten Grund an.',
+        );
+      }
+    }
+    final hasRejection = openKeys.any(
+      (key) => decisions[key] == ProfileVerificationDocumentStatus.rejected,
+    );
+    try {
+      await _cloudFunctions.httpsCallable('reviewProfileVerification').call({
+        'requestId': request.requestId,
+        'decision': hasRejection ? 'rejected' : 'verified',
+        'reason': hasRejection
+            ? 'Mindestens ein Nachweis muss erneut eingereicht werden.'
+            : null,
+        'documentDecisions': {
+          for (final key in openKeys) key: decisions[key]!.name,
+        },
+        'documentReasons': {
+          for (final key in openKeys)
+            if (rejectionReasons[key]?.trim().isNotEmpty == true)
+              key: rejectionReasons[key]!.trim(),
+        },
+      });
+    } on FirebaseFunctionsException catch (error) {
+      throw ProfileVerificationException(_functionsErrorMessage(error));
+    }
+  }
+
   Future<void> _reviewRequest({
     required ProfileVerificationRequest request,
     required String decision,
@@ -468,6 +619,54 @@ class ProfileVerificationRepository {
       for (final entry in value.entries)
         if (entry.value is Timestamp)
           entry.key.toString(): entry.value as Timestamp,
+    };
+  }
+
+  static Map<String, dynamic> _draftData({
+    required String userId,
+    required Map<String, dynamic> data,
+    required Map<String, String> paths,
+    required Map<String, String> statuses,
+    required Map<String, String> rejectionReasons,
+    required Map<String, Timestamp> expirations,
+    String? identityDocumentType,
+    String? vehicleId,
+    String? vehicleRelationship,
+    String? lastEditedDocumentKey,
+  }) {
+    return <String, dynamic>{
+      'requestId': userId,
+      'userId': userId,
+      'profilePath': CaRismaFirestorePaths.userProfile(userId),
+      'status': ProfileVerificationStatus.draft.name,
+      'displayName': data['displayName'] is String ? data['displayName'] : '',
+      'identityDocumentType':
+          identityDocumentType ??
+          data['identityDocumentType'] ??
+          ProfileIdentityDocumentType.identityCard.name,
+      'documentStoragePaths': paths,
+      'documentStatuses': statuses,
+      'documentRejectionReasons': rejectionReasons,
+      'documentExpiresAt': expirations,
+      'vehicleId': vehicleId ?? data['vehicleId'],
+      'vehicleRelationship':
+          vehicleRelationship ??
+          data['vehicleRelationship'] ??
+          ProfileVehicleRelationship.owner.name,
+      'lastEditedDocumentKey':
+          lastEditedDocumentKey ?? data['lastEditedDocumentKey'],
+      'authorizationConfirmed': false,
+      'consentVersion': null,
+      'consentAcceptedAt': null,
+      'submittedAt': null,
+      'reviewedAt': null,
+      'reviewedBy': null,
+      'rejectionReason': null,
+      'retentionUntil': null,
+      'verificationExpiresAt': null,
+      'documentsCleanedAt': data['documentsCleanedAt'],
+      'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 }

@@ -91,6 +91,58 @@ describe('settings service request rules', () => {
     await assertFails(setDoc(reference, {...base, status: 'closed'}));
   });
 
+  test('verification support links only to the owner request without images', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const reference = doc(
+      owner,
+      'users',
+      userId,
+      'support_requests',
+      'support-verification',
+    );
+    const payload = {
+      requestId: 'support-verification',
+      userId,
+      type: 'verification',
+      category: 'Fahrzeugschein',
+      affectedArea: 'Fahrzeugbezug · Vorderseite',
+      description: 'Der Fahrzeugschein wurde abgelehnt und soll geprüft werden.',
+      reproductionSteps: null,
+      allowContact: true,
+      accountEmail: 'user@example.com',
+      appVersion: 'plaqa 1.0.0',
+      verificationRequestId: userId,
+      verificationDocumentKey: 'vehicleFront',
+      status: 'received',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await assertSucceeds(setDoc(reference, payload));
+    await assertFails(setDoc(doc(
+      owner,
+      'users',
+      userId,
+      'support_requests',
+      'foreign-verification',
+    ), {
+      ...payload,
+      requestId: 'foreign-verification',
+      verificationRequestId: outsiderId,
+    }));
+    await assertFails(setDoc(doc(
+      owner,
+      'users',
+      userId,
+      'support_requests',
+      'image-verification',
+    ), {
+      ...payload,
+      requestId: 'image-verification',
+      documentImageUrl: 'https://example.invalid/private-document.png',
+    }));
+  });
+
   test('export request is private, valid and idempotent by immutable document', async () => {
     const owner = testEnv.authenticatedContext(userId).firestore();
     const outsider = testEnv.authenticatedContext(outsiderId).firestore();

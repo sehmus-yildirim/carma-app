@@ -13,6 +13,8 @@ class SupportRequestDraft {
     required this.allowContact,
     this.affectedArea,
     this.reproductionSteps,
+    this.verificationRequestId,
+    this.verificationDocumentKey,
   });
 
   final SupportRequestType type;
@@ -21,6 +23,8 @@ class SupportRequestDraft {
   final bool allowContact;
   final String? affectedArea;
   final String? reproductionSteps;
+  final String? verificationRequestId;
+  final String? verificationDocumentKey;
 
   bool get isValid {
     return category.trim().isNotEmpty && description.trim().length >= 20;
@@ -61,6 +65,8 @@ class SupportRequestRepository {
       'affectedArea': _trimmedOrNull(draft.affectedArea),
       'description': draft.description.trim(),
       'reproductionSteps': _trimmedOrNull(draft.reproductionSteps),
+      'verificationRequestId': _trimmedOrNull(draft.verificationRequestId),
+      'verificationDocumentKey': _trimmedOrNull(draft.verificationDocumentKey),
       'allowContact': draft.allowContact,
       'accountEmail': draft.allowContact ? _trimmedOrNull(accountEmail) : null,
       'appVersion': CaRismaAppConfig.appVersionLabel,

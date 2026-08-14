@@ -30,6 +30,7 @@ function draftData(overrides = {}) {
     profilePath: `users/${ownerUserId}/profiles/main`,
     status: 'draft',
     displayName: '',
+    identityDocumentType: 'identityCard',
     documentStoragePaths: {
       identityFront:
         `profile_documents/${ownerUserId}/identityFront/identityFront.png`,
@@ -50,6 +51,9 @@ function draftData(overrides = {}) {
     reviewedBy: null,
     rejectionReason: null,
     retentionUntil: null,
+    verificationExpiresAt: null,
+    documentsCleanedAt: null,
+    lastEditedDocumentKey: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -142,6 +146,34 @@ describe('profile verification Firestore rules', () => {
       status: 'draft',
       updatedAt: Timestamp.now(),
     }));
+  });
+
+  test('owner cannot reset a confirmed document during targeted resubmission', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const request = doc(owner, 'verification_requests', ownerUserId);
+    const rejected = draftData({
+      status: 'rejected',
+      documentStatuses: {
+        identityFront: 'verified',
+        driverLicenseFront: 'rejected',
+      },
+    });
+    await seedRequest(rejected);
+
+    await assertFails(setDoc(request, draftData({
+      createdAt: rejected.createdAt,
+      documentStatuses: {
+        identityFront: 'uploaded',
+        driverLicenseFront: 'uploaded',
+      },
+    })));
+    await assertSucceeds(setDoc(request, draftData({
+      createdAt: rejected.createdAt,
+      documentStatuses: {
+        identityFront: 'verified',
+        driverLicenseFront: 'uploaded',
+      },
+    })));
   });
 
   test('owner cannot grant a verification badge to the private profile', async () => {
@@ -262,6 +294,33 @@ describe('profile verification Firestore rules', () => {
       'notice-1',
     )));
   });
+
+  test('notification device tokens stay private to their owner', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderUserId).firestore();
+    const device = doc(
+      owner,
+      'users',
+      ownerUserId,
+      'notification_devices',
+      'device-hash',
+    );
+    await assertSucceeds(setDoc(device, {
+      deviceId: 'device-hash',
+      userId: ownerUserId,
+      token: 'private-fcm-registration-token-value',
+      platform: 'android',
+      purpose: 'verification-reminders',
+      updatedAt: Timestamp.now(),
+    }));
+    await assertFails(getDoc(doc(
+      outsider,
+      'users',
+      ownerUserId,
+      'notification_devices',
+      'device-hash',
+    )));
+  });
 });
 
 describe('profile verification Storage rules', () => {
@@ -334,5 +393,28 @@ describe('profile verification Storage rules', () => {
     }));
     const {deleteObject} = require('firebase/storage');
     await assertFails(deleteObject(ref(ownerStorage, validPath)));
+  });
+
+  test('owner cannot replace a confirmed page during targeted resubmission', async () => {
+    const ownerStorage = testEnv.authenticatedContext(ownerUserId).storage();
+    await uploadBytes(ref(ownerStorage, validPath), pngBytes, {
+      contentType: 'image/png',
+    });
+    await seedRequest(draftData({
+      status: 'rejected',
+      documentStatuses: {
+        identityFront: 'verified',
+        driverLicenseFront: 'rejected',
+      },
+    }));
+
+    await assertFails(uploadBytes(ref(ownerStorage, validPath), pngBytes, {
+      contentType: 'image/png',
+    }));
+    const driverPath =
+      `profile_documents/${ownerUserId}/driverLicenseFront/driverLicenseFront.png`;
+    await assertSucceeds(uploadBytes(ref(ownerStorage, driverPath), pngBytes, {
+      contentType: 'image/png',
+    }));
   });
 });

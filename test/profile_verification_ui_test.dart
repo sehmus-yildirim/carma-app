@@ -24,17 +24,71 @@ void main() {
     expect(find.text('Nicht begonnen'), findsOneWidget);
     expect(find.text('0 von 6 Nachweisen vollständig'), findsOneWidget);
     expect(find.text('Persönliche Daten'), findsOneWidget);
-    expect(find.text('Identität bestätigen'), findsOneWidget);
+    expect(find.text('Personalausweis'), findsWidgets);
     expect(find.text('Führerschein'), findsOneWidget);
     expect(find.text('Fahrzeugbezug bestätigen'), findsOneWidget);
     expect(find.text('Vorderseite'), findsNWidgets(3));
     expect(find.text('Rückseite'), findsNWidgets(3));
     expect(find.text('Fahrzeugzuordnung'), findsOneWidget);
-    expect(find.text('Ablaufdatum des Ausweises'), findsOneWidget);
+    expect(find.text('Ablaufdatum Personalausweis'), findsOneWidget);
     expect(find.text('Ablaufdatum des Führerscheins'), findsOneWidget);
     expect(find.text('UNBEDINGT LESEN!'), findsOneWidget);
     expect(find.text('Fehlt'), findsNothing);
     expect(find.byType(Image), findsNothing);
+  });
+
+  testWidgets('expiration input and consent stay on the loaded screen', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      profile: UserProfile.empty(uid: 'user-1', email: 'test@plaqa.de'),
+      vehicles: const [],
+      request: null,
+    );
+
+    final screenStateBefore = tester.state(
+      find.byType(ProfileVerificationScreen),
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('expiration-identity')));
+    await tester.pump();
+
+    expect(find.byType(ProfileVerificationScreen), findsOneWidget);
+    expect(
+      tester.state(find.byType(ProfileVerificationScreen)),
+      same(screenStateBefore),
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('verification-consent-toggle')),
+    );
+    await tester.pump();
+
+    expect(find.byType(ProfileVerificationScreen), findsOneWidget);
+    expect(
+      tester.state(find.byType(ProfileVerificationScreen)),
+      same(screenStateBefore),
+    );
+    expect(find.byIcon(Icons.check_box_rounded), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('passport requires only its data page', (tester) async {
+    await _pumpScreen(
+      tester,
+      profile: _completeProfile,
+      vehicles: const [_vehicle],
+      request: _request(
+        status: ProfileVerificationStatus.draft,
+        documentStatus: ProfileVerificationDocumentStatus.uploaded,
+        identityDocumentType: ProfileIdentityDocumentType.passport,
+      ),
+    );
+
+    expect(find.text('Reisepass'), findsWidgets);
+    expect(find.text('5 von 5 Nachweisen vollständig'), findsOneWidget);
+    expect(find.text('Rückseite'), findsNWidgets(2));
   });
 
   testWidgets('shows a locked in-review state without mutable upload actions', (
@@ -130,6 +184,8 @@ const _vehicle = ProfileVehicle(
 ProfileVerificationRequest _request({
   required ProfileVerificationStatus status,
   required ProfileVerificationDocumentStatus documentStatus,
+  ProfileIdentityDocumentType identityDocumentType =
+      ProfileIdentityDocumentType.identityCard,
   String? reason,
 }) {
   return ProfileVerificationRequest(
@@ -146,6 +202,7 @@ ProfileVerificationRequest _request({
       for (final key in ProfileVerificationDocumentKeys.required)
         key: documentStatus,
     },
+    identityDocumentType: identityDocumentType,
     documentRejectionReasons: reason == null
         ? const {}
         : {
@@ -200,4 +257,10 @@ class _FakeVerificationRepository extends ProfileVerificationRepository {
   ) {
     return Stream.value(const []);
   }
+
+  @override
+  Future<void> saveDraftProgress({
+    required String userId,
+    required String documentKey,
+  }) async {}
 }

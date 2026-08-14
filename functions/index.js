@@ -8,6 +8,7 @@ const {
   getFirestore,
 } = require("firebase-admin/firestore");
 const {getStorage} = require("firebase-admin/storage");
+const {getMessaging} = require("firebase-admin/messaging");
 const {logger} = require("firebase-functions");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {HttpsError, onCall} = require("firebase-functions/v2/https");
@@ -25,6 +26,7 @@ const {
 const {
   cleanupVerificationDocuments,
   reviewProfileVerification,
+  sendExpirationReminders,
   submitProfileVerification,
 } = require("./profile_verification");
 const {
@@ -759,6 +761,25 @@ exports.cleanupProfileVerificationDocuments = onSchedule(
       now: Timestamp.now(),
     });
     logger.info("Verification document cleanup completed", result);
+  },
+);
+
+exports.sendProfileVerificationExpirationReminders = onSchedule(
+  {
+    schedule: "every day 09:00",
+    timeZone: "Europe/Berlin",
+    retryCount: 3,
+    maxRetrySeconds: 300,
+    timeoutSeconds: 300,
+    memory: "256MiB",
+  },
+  async () => {
+    const result = await sendExpirationReminders({
+      firestore: db,
+      messaging: getMessaging(),
+      now: Timestamp.now(),
+    });
+    logger.info("Verification expiration reminders completed", result);
   },
 );
 

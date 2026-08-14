@@ -1,11 +1,11 @@
 # plaqa Codex handoff
 
-Stand: 14. August 2026
+Stand: 15. August 2026
 
 ## Projekt
 
-- Lokaler Projektpfad auf diesem Laptop: `C:\Projects\plaqa`
-- Git-Branch: `main`
+- Lokaler Projektpfad auf diesem Rechner: `C:\Users\Postkiosk am ZOB\Documents\ChatGPT\plaqa`
+- Veröffentlichter Arbeitsbranch: `codex/document-verification`
 - GitHub-Remote: `https://github.com/sehmus-yildirim/carma-app.git`
 - Firebase-Projekt: `carma-a84e4`
 - Produktname: `plaqa`
@@ -18,62 +18,79 @@ Die alten technischen GitHub- und Firebase-IDs wurden noch nicht migriert. Nicht
 
 Einstellungen -> Profil & Verifizierung -> Dokumente hochladen.
 
-Fertig umgesetzt:
+## Umgesetzter Stand
 
-- Drei Dokumentgruppen mit insgesamt sechs Seiten:
-  - Ausweis Vorder- und Rückseite
-  - Führerschein Vorder- und Rückseite
-  - Fahrzeugnachweis Vorder- und Rückseite
-- Fahrzeugzuordnung ist direkt in der Fahrzeugkarte integriert.
-- `0 von 6 Nachweisen vollständig` bleibt einzeilig; Status-Badge ist kompakter.
-- Sichtbare `Fehlt`-Hinweise wurden entfernt.
-- Datenschutzblock enthält `UNBEDINGT LESEN!`.
-- Ausweis und Führerschein benötigen ein manuelles Ablaufdatum im Format `TT.MM.JJJJ`.
-- Der Fahrzeugschein benötigt bewusst kein Ablaufdatum.
-- Ablaufdaten werden privat als Firestore-Timestamps gespeichert und serverseitig erneut geprüft.
-- Der frühere Termin aus Ausweis und Führerschein bestimmt das Verifizierungsende.
-- Die tägliche Wartung setzt abgelaufene oder zu lange offene Prüfungen auf `expired`, entzieht den Verifiziert-Status und fordert aktuelle Nachweise an.
-- Das Nutzerkonto wird bei Ablauf nicht gelöscht oder deaktiviert.
+- Der Ladefehler beim Tippen auf Ablaufdatum oder `UNBEDINGT LESEN!` wurde behoben. Der eingebettete Verifizierungsbildschirm behält jetzt seinen State.
+- Ablauf-Erinnerungen sind für 30, 14 und 3 Tage vor Ablauf vorbereitet:
+  - private In-App-Benachrichtigungen
+  - private FCM-Geräteregistrierung
+  - tägliche Serverfunktion mit idempotenter Zustellung
+- Status pro Dokumentseite: hochgeladen, in Prüfung, bestätigt, abgelehnt und abgelaufen.
+- Ablehnungsgründe werden pro Dokumentseite angezeigt.
+- Gezielte Nachreichung ist möglich; bereits bestätigte Nachweise bleiben gesperrt und erhalten.
+- Sichere private Dokumentvorschau aus Firebase Storage, ohne öffentliche Download-URL und ohne dauerhafte Galerieablage.
+- Verifizierungsverlauf zeigt Einreichung, Prüfung, Gültigkeit, erneute Prüfung und Dokumentlöschung, aber keine internen Prüferdaten.
+- Ausweistypen:
+  - Personalausweis: Vorder- und Rückseite
+  - Reisepass: nur Datenseite
+  - Aufenthaltstitel: Vorder- und Rückseite
+- Fahrzeugnachweise sind eindeutig dem ausgewählten Fahrzeug zugeordnet.
+- Entwürfe und zuletzt bearbeiteter Abschnitt werden gespeichert und nach einem App-Neustart fortgesetzt.
+- Datenschutzübersicht erklärt Prüfzugriff, Speicherung, Löschung und öffentlich übernommene Daten.
+- Bei abgelehnten Nachweisen kann ein technisch zugeordneter Supportfall ohne Dokumentbild angelegt werden.
+- Interne Verifizierungsstufen: Identität, Führerschein, Fahrzeug und vollständig verifiziert. Öffentlich bleibt nur das einfache Verifiziert-Badge.
+- Private Dokumentdateien werden nach der Aufbewahrungsfrist gelöscht; Prüfstatus und Verlauf bleiben erhalten.
+- Firestore- und Storage-Regeln schützen bestätigte Dokumentseiten, Gerätetokens, private Stufen und Support-Verknüpfungen.
 
 ## Letzte Prüfungen
 
-- `flutter test test\profile_verification_ui_test.dart`: 3/3 bestanden
-- `node --test functions\profile_verification.test.js`: 12/12 bestanden
-- Firestore-/Storage-Emulatortests: 10/10 bestanden
 - `flutter analyze --no-pub`: keine Probleme
+- Gesamte Flutter-Testsuite: 145/145 bestanden
+- Gesamte Cloud-Functions-Testsuite: 59/59 bestanden
+- Gezielte Firestore-/Storage-Verifizierungstests: 13/13 bestanden
+- Der danach gestartete gemeinsame Lauf aller zehn Regeltestdateien blieb beim Emulator-Aufräumen hängen und wurde beendet. Der neu ergänzte einzelne Support-Verknüpfungstest sollte beim nächsten Arbeitsschritt noch separat ausgeführt werden.
 - `git diff --check`: bestanden
+- Es wurde kein Firebase-Deploy durchgeführt.
 
-## Noch nicht veröffentlicht
+## Vor Produktivbetrieb erforderlich
 
-Vor einem Deploy zuerst den aktuellen Firebase-Stand prüfen. Für die neuen Verifizierungsänderungen sind voraussichtlich gezielt erforderlich:
+Nach ausdrücklicher Freigabe gezielt prüfen und deployen:
 
 - Firestore Rules
-- Storage Rules aus dem sechsseitigen Dokumenten-Upload
+- Storage Rules
 - `submitProfileVerification`
 - `reviewProfileVerification`
 - `cleanupProfileVerificationDocuments`
+- `expireProfileVerifications`
+- `sendProfileVerificationExpirationReminders`
 
-Keine weiteren Functions oder Dienste ungeprüft mitdeployen. Es wurde in diesem Arbeitsschritt kein Firebase-Deploy durchgeführt.
+Zusätzlich Firebase Cloud Messaging für Android/iOS im Projekt prüfen. Keine weiteren Functions oder Dienste ungeprüft mitdeployen.
 
 ## Sinnvolle nächste Schritte
 
-1. Den Dokumentenbereich auf dem Redmi visuell testen: kleine Anzeige, Tastatur, Datumsformat und Einzeiligkeit.
-2. Gezielt Rules und die drei Verifizierungs-Functions deployen, erst nach ausdrücklicher Freigabe.
-3. Mit einem freigegebenen Testkonto Upload, Einreichung, Prüfung und Ablauf simulieren.
-4. Danach mögliche Erweiterungen entscheiden:
-   - Erinnerungen 30/14/3 Tage vor Ablauf
-   - gezielte Nachreichung nur betroffener Dokumente
-   - Gültig-bis-Anzeige
-   - Aufnahmequalitätsprüfung
+1. Den neuen Support-Regeltest separat im Firebase-Emulator ausführen.
+2. Die App auf dem Redmi komplett neu starten und den Dokumentenbereich visuell prüfen.
+3. Upload, Vorschau, Entwurf-Fortsetzung, gezielte Nachreichung und Supportfall mit einem Testkonto testen.
+4. Danach Rules und Verifizierungs-Functions erst nach ausdrücklicher Freigabe deployen.
 
-## Start am anderen Rechner
+## Stand auf einem anderen Rechner übernehmen
+
+Wenn das Repository dort bereits vorhanden ist:
 
 ```powershell
-git clone https://github.com/sehmus-yildirim/carma-app.git C:\Projects\plaqa
-cd C:\Projects\plaqa
-git switch main
-git pull --ff-only origin main
+Set-Location "C:\Pfad\zum\plaqa-Projekt"
+git fetch origin
+git switch codex/document-verification
+git pull --ff-only origin codex/document-verification
 flutter pub get
 ```
 
-Falls das Repository dort bereits vorhanden ist, nur `git pull --ff-only origin main` ausführen. Anschließend Codex bitten, zuerst `CODEX_HANDOFF.md` zu lesen und an diesem Stand weiterzumachen.
+Beim ersten Herunterladen:
+
+```powershell
+git clone --branch codex/document-verification https://github.com/sehmus-yildirim/carma-app.git C:\Projects\plaqa
+Set-Location "C:\Projects\plaqa"
+flutter pub get
+```
+
+Anschließend Codex bitten, zuerst `CODEX_HANDOFF.md` zu lesen und an diesem Stand weiterzumachen.
