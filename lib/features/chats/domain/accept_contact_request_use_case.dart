@@ -194,6 +194,8 @@ class AcceptContactRequestUseCase {
         receiverDisplayName: request.receiverDisplayName,
         senderPhotoUrl: request.senderPhotoUrl,
         receiverPhotoUrl: request.receiverPhotoUrl,
+        countryCode: request.countryCode,
+        vehicleId: request.vehicleId,
         displayPlate: request.displayPlate,
         vehicleBrand: request.vehicleBrand,
         vehicleModel: request.vehicleModel,

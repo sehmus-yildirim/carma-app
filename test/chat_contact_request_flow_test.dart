@@ -12,6 +12,7 @@ void main() {
         senderUserId: 'sender',
         receiverUserId: 'receiver',
         countryCode: 'DE',
+        vehicleId: 'vehicle-1',
         plateKey: 'HHSY4700',
         message: 'Hallo',
       );
@@ -109,6 +110,7 @@ void main() {
         senderUserId: 'sender',
         receiverUserId: 'receiver',
         countryCode: 'DE',
+        vehicleId: 'vehicle-1',
         plateKey: 'HHSY4700',
         message: 'Hallo',
         status: ContactRequestStatus.pending,

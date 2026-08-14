@@ -31,7 +31,7 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
     _FaqEntry(
       question: 'Wie funktioniert die Verifizierung?',
       answer:
-          'Unter Profil & Verifizierung lädst du Ausweis, Führerschein und Fahrzeugschein vollständig hoch. Name, Fahrzeug und Kennzeichen müssen zu den Dokumenten passen. Während der Prüfung sind diese Angaben geschützt gesperrt.',
+          'Unter Profil & Verifizierung lädst du genau einen Identitätsnachweis und einen Nachweis zum Fahrzeugbezug hoch. Name, Fahrzeug und Kennzeichen müssen zu den Nachweisen passen. Während der Prüfung sind diese Angaben geschützt gesperrt.',
       keywords: 'profil dokument ausweis führerschein fahrzeugschein',
     ),
     _FaqEntry(

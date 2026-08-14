@@ -19,6 +19,7 @@ class UserProfile {
     this.allowAnonymousReports = true,
     this.phoneNumber,
     this.birthDate,
+    this.personalDataLocked = false,
     this.photoUrl,
     this.profilePhotoLocalPath,
     this.publicBio,
@@ -57,6 +58,7 @@ class UserProfile {
   final bool allowAnonymousReports;
   final String? phoneNumber;
   final DateTime? birthDate;
+  final bool personalDataLocked;
   final String? photoUrl;
   final String? profilePhotoLocalPath;
   final String? publicBio;
@@ -112,6 +114,8 @@ class UserProfile {
       allowAnonymousReports: data['allowAnonymousReports'] as bool? ?? true,
       phoneNumber: data['phoneNumber'] as String?,
       birthDate: _dateTimeFromTimestamp(data['birthDate']),
+      personalDataLocked:
+          data['personalDataLocked'] as bool? ?? _hasCompletePersonalData(data),
       photoUrl: data['photoUrl'] as String?,
       profilePhotoLocalPath: data['profilePhotoLocalPath'] as String?,
       publicBio: data['publicBio'] as String?,
@@ -160,6 +164,7 @@ class UserProfile {
       'allowAnonymousReports': allowAnonymousReports,
       'phoneNumber': _trimmedOrNull(phoneNumber),
       'birthDate': birthDate == null ? null : Timestamp.fromDate(birthDate!),
+      'personalDataLocked': personalDataLocked,
       'photoUrl': photoUrl,
       'profilePhotoLocalPath': profilePhotoLocalPath,
       'publicBio': _trimmedOrNull(publicBio),
@@ -203,6 +208,7 @@ class UserProfile {
     bool? allowAnonymousReports,
     String? phoneNumber,
     DateTime? birthDate,
+    bool? personalDataLocked,
     String? photoUrl,
     String? profilePhotoLocalPath,
     String? publicBio,
@@ -242,6 +248,7 @@ class UserProfile {
           allowAnonymousReports ?? this.allowAnonymousReports,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       birthDate: birthDate ?? this.birthDate,
+      personalDataLocked: personalDataLocked ?? this.personalDataLocked,
       photoUrl: photoUrl ?? this.photoUrl,
       profilePhotoLocalPath:
           profilePhotoLocalPath ?? this.profilePhotoLocalPath,
@@ -276,6 +283,14 @@ class UserProfile {
     }
 
     return null;
+  }
+
+  static bool _hasCompletePersonalData(Map<String, dynamic> data) {
+    final firstName = (data['firstName'] as String?)?.trim() ?? '';
+    final lastName = (data['lastName'] as String?)?.trim() ?? '';
+    return firstName.isNotEmpty &&
+        lastName.isNotEmpty &&
+        _dateTimeFromTimestamp(data['birthDate']) != null;
   }
 
   static String? _trimmedOrNull(String? value) {

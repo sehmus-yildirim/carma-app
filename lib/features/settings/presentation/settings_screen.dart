@@ -1660,7 +1660,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.upload_file_rounded,
                         title: 'Dokumente hochladen',
                         description:
-                            'Ausweis, Führerschein und Fahrzeugschein einreichen.',
+                            'Identität und Fahrzeugbezug sicher nachweisen.',
                         onTap: () => _openProfileManagement(
                           ProfileSettingsArea.documents,
                         ),

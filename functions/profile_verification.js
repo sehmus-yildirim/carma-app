@@ -1,0 +1,684 @@
+const {createHash} = require("node:crypto");
+const {Timestamp} = require("firebase-admin/firestore");
+const {HttpsError} = require("firebase-functions/v2/https");
+
+const requiredDocumentKeys = ["identityEvidence", "vehicleEvidence"];
+const allowedRelationships = [
+  "owner",
+  "leasingCompany",
+  "authorizedUser",
+];
+const consentVersion = "verification-consent-1.0";
+const maxDocumentBytes = 12 * 1024 * 1024;
+const retentionDays = 30;
+
+function safeString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeVehicleRelationship(value) {
+  const normalized = safeString(value);
+  return normalized === "leasingCompanyFamily" ?
+    "leasingCompany" : normalized;
+}
+
+function expectedDocumentPath(userId, documentKey) {
+  return `profile_documents/${userId}/${documentKey}/${documentKey}.png`;
+}
+
+function allowedDocumentPaths(userId, documentKey) {
+  const prefix = `profile_documents/${userId}/${documentKey}/${documentKey}`;
+  return [`${prefix}.png`, `${prefix}.jpg`];
+}
+
+function normalizeSubmissionInput(userId, input) {
+  const requestId = safeString(input?.requestId);
+  const vehicleId = safeString(input?.vehicleId);
+  const vehicleRelationship = normalizeVehicleRelationship(
+      input?.vehicleRelationship,
+  );
+  const acceptedConsentVersion = safeString(input?.consentVersion);
+  if (requestId !== userId || vehicleId.length === 0 || vehicleId.length > 160) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Die Verifizierung konnte nicht eindeutig zugeordnet werden.",
+    );
+  }
+  if (!allowedRelationships.includes(vehicleRelationship)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Bitte wähle aus, in welcher Beziehung du zum Fahrzeug stehst.",
+    );
+  }
+  if (input?.authorizationConfirmed !== true ||
+      acceptedConsentVersion !== consentVersion) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Bitte bestätige deine Berechtigung und die Datenschutzhinweise.",
+    );
+  }
+  return {requestId, vehicleId, vehicleRelationship};
+}
+
+function isJpegHeader(buffer) {
+  return Buffer.isBuffer(buffer) && buffer.length >= 3 &&
+    buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+}
+
+function inspectJpeg(buffer) {
+  if (!isJpegHeader(buffer) || buffer.length < 16 ||
+      buffer[buffer.length - 2] !== 0xff ||
+      buffer[buffer.length - 1] !== 0xd9) {
+    return {valid: false, hasExif: false, width: 0, height: 0};
+  }
+  const startOfFrameMarkers = new Set([
+    0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
+    0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
+  ]);
+  let offset = 2;
+  let width = 0;
+  let height = 0;
+  let hasExif = false;
+  let hasScan = false;
+
+  while (offset < buffer.length - 1) {
+    if (buffer[offset] !== 0xff) {
+      if (hasScan) break;
+      return {valid: false, hasExif, width, height};
+    }
+    while (offset < buffer.length && buffer[offset] === 0xff) offset += 1;
+    if (offset >= buffer.length) break;
+    const marker = buffer[offset];
+    offset += 1;
+    if (marker === 0xd9) break;
+    if (marker === 0xd8 || marker === 0x01 ||
+        (marker >= 0xd0 && marker <= 0xd7)) {
+      continue;
+    }
+    if (offset + 2 > buffer.length) {
+      return {valid: false, hasExif, width, height};
+    }
+    const segmentLength = buffer.readUInt16BE(offset);
+    if (segmentLength < 2 || offset + segmentLength > buffer.length) {
+      return {valid: false, hasExif, width, height};
+    }
+    const payloadStart = offset + 2;
+    const payloadLength = segmentLength - 2;
+    if (marker === 0xe1 && payloadLength >= 6 &&
+        buffer.subarray(payloadStart, payloadStart + 6)
+            .equals(Buffer.from("Exif\0\0", "binary"))) {
+      hasExif = true;
+    }
+    if (startOfFrameMarkers.has(marker)) {
+      if (payloadLength < 5) {
+        return {valid: false, hasExif, width, height};
+      }
+      height = buffer.readUInt16BE(payloadStart + 1);
+      width = buffer.readUInt16BE(payloadStart + 3);
+    }
+    offset += segmentLength;
+    if (marker === 0xda) {
+      hasScan = true;
+      break;
+    }
+  }
+
+  const pixelCount = width * height;
+  return {
+    valid: hasScan && width > 0 && height > 0 &&
+      width <= 12000 && height <= 12000 && pixelCount <= 80000000,
+    hasExif,
+    width,
+    height,
+  };
+}
+
+function isPngHeader(buffer) {
+  const signature = Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
+  return Buffer.isBuffer(buffer) && buffer.length >= signature.length &&
+    buffer.subarray(0, signature.length).equals(signature);
+}
+
+function inspectPng(buffer) {
+  if (!isPngHeader(buffer) || buffer.length < 33) {
+    return {valid: false, hasExif: false, width: 0, height: 0};
+  }
+  let offset = 8;
+  let width = 0;
+  let height = 0;
+  let hasExif = false;
+  let hasHeader = false;
+  let hasEnd = false;
+  while (offset + 12 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const typeStart = offset + 4;
+    const dataStart = offset + 8;
+    const chunkEnd = dataStart + length + 4;
+    if (chunkEnd > buffer.length) {
+      return {valid: false, hasExif, width, height};
+    }
+    const type = buffer.toString("ascii", typeStart, typeStart + 4);
+    if (!hasHeader) {
+      if (type !== "IHDR" || length !== 13) {
+        return {valid: false, hasExif, width, height};
+      }
+      width = buffer.readUInt32BE(dataStart);
+      height = buffer.readUInt32BE(dataStart + 4);
+      hasHeader = true;
+    }
+    if (type === "eXIf") hasExif = true;
+    if (type === "IEND") {
+      if (length !== 0) {
+        return {valid: false, hasExif, width, height};
+      }
+      hasEnd = true;
+      offset = chunkEnd;
+      break;
+    }
+    offset = chunkEnd;
+  }
+  const pixelCount = width * height;
+  return {
+    valid: hasHeader && hasEnd && offset === buffer.length &&
+      width > 0 && height > 0 && width <= 12000 && height <= 12000 &&
+      pixelCount <= 80000000,
+    hasExif,
+    width,
+    height,
+  };
+}
+
+async function validateStoredDocuments({bucket, userId, paths}) {
+  for (const documentKey of requiredDocumentKeys) {
+    const expectedPath = safeString(paths?.[documentKey]);
+    if (!allowedDocumentPaths(userId, documentKey).includes(expectedPath)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Bitte lade beide erforderlichen Nachweise vollständig hoch.",
+      );
+    }
+    const file = bucket.file(expectedPath);
+    const [exists] = await file.exists();
+    if (!exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Ein ausgewählter Nachweis ist nicht mehr verfügbar. Bitte lade ihn erneut hoch.",
+      );
+    }
+    const [metadata] = await file.getMetadata();
+    const size = Number(metadata.size ?? 0);
+    const isPng = expectedPath.endsWith(".png") &&
+      metadata.contentType === "image/png";
+    const isJpeg = expectedPath.endsWith(".jpg") &&
+      metadata.contentType === "image/jpeg";
+    if ((!isPng && !isJpeg) || size <= 0 || size >= maxDocumentBytes) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ein Nachweis hat ein ungültiges Dateiformat oder ist zu groß.",
+      );
+    }
+    const [content] = await file.download();
+    const inspection = isPng ? inspectPng(content) : inspectJpeg(content);
+    if (!inspection.valid) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ein Nachweis ist keine gültige Bilddatei.",
+      );
+    }
+    if (inspection.hasExif) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Ein Nachweis enthält noch Metadaten. Bitte bereite das Bild erneut vor.",
+      );
+    }
+  }
+}
+
+function hasRequiredProfileData(profile) {
+  return safeString(profile?.firstName).length > 0 &&
+    safeString(profile?.lastName).length > 0 &&
+    profile?.birthDate != null &&
+    profile?.personalDataLocked === true;
+}
+
+function hasRequiredVehicleData(vehicle) {
+  return safeString(vehicle?.brand).length > 0 &&
+    safeString(vehicle?.model).length > 0 &&
+    ["DE", "AT", "CH"].includes(safeString(vehicle?.countryCode)) &&
+    safeString(vehicle?.plateRegion).length > 0 &&
+    safeString(vehicle?.plateNumbers).length > 0;
+}
+
+function plateDocumentId(vehicle) {
+  const country = safeString(vehicle?.countryCode).toUpperCase();
+  const plateKey = [
+    vehicle?.plateRegion,
+    vehicle?.plateLetters,
+    vehicle?.plateNumbers,
+  ].map((part) => safeString(part).toUpperCase())
+      .join("")
+      .replace(/[^A-ZÄÖÜ0-9]/g, "");
+  return country.length > 0 && plateKey.length > 0 ? `${country}_${plateKey}` : "";
+}
+
+function submissionFingerprint({userId, vehicleId, relationship, paths}) {
+  return createHash("sha256")
+      .update(JSON.stringify({userId, vehicleId, relationship, paths}))
+      .digest("hex");
+}
+
+async function submitProfileVerification({
+  firestore,
+  bucket,
+  authContext,
+  input,
+  now,
+}) {
+  const userId = safeString(authContext?.uid);
+  if (userId.length === 0) {
+    throw new HttpsError("unauthenticated", "Bitte melde dich erneut an.");
+  }
+  const normalized = normalizeSubmissionInput(userId, input);
+  const requestReference = firestore.doc(`verification_requests/${userId}`);
+  const profileReference = firestore.doc(`users/${userId}/profiles/main`);
+  const vehicleReference = firestore.doc(
+      `users/${userId}/vehicles/${normalized.vehicleId}`,
+  );
+  const publicVehicleReference = firestore.doc(
+      `public_profiles/${userId}/vehicles/${normalized.vehicleId}`,
+  );
+  const publicProfileReference = firestore.doc(`public_profiles/${userId}`);
+
+  const [requestSnapshot, profileSnapshot, vehicleSnapshot] = await Promise.all([
+    requestReference.get(),
+    profileReference.get(),
+    vehicleReference.get(),
+  ]);
+  if (!profileSnapshot.exists || !hasRequiredProfileData(profileSnapshot.data())) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Bitte vervollständige und speichere zuerst deine persönlichen Daten.",
+    );
+  }
+  if (!vehicleSnapshot.exists || !hasRequiredVehicleData(vehicleSnapshot.data())) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Bitte hinterlege zuerst ein vollständiges Fahrzeug mit Kennzeichen.",
+    );
+  }
+  const initialVehicle = vehicleSnapshot.data();
+  if (safeString(initialVehicle.ownerUserId) !== userId ||
+      safeString(initialVehicle.status) === "archived") {
+    throw new HttpsError(
+      "failed-precondition",
+      "Das ausgewählte Fahrzeug ist nicht für die Verifizierung verfügbar.",
+    );
+  }
+  const draft = requestSnapshot.data() ?? {};
+  const documentStoragePaths = draft.documentStoragePaths ?? {};
+  await validateStoredDocuments({
+    bucket,
+    userId,
+    paths: documentStoragePaths,
+  });
+
+  const submittedAt = now;
+  const fingerprint = submissionFingerprint({
+    userId,
+    vehicleId: normalized.vehicleId,
+    relationship: normalized.vehicleRelationship,
+    paths: documentStoragePaths,
+  });
+
+  return firestore.runTransaction(async (transaction) => {
+    const currentRequestSnapshot = await transaction.get(requestReference);
+    const currentProfileSnapshot = await transaction.get(profileReference);
+    const currentVehicleSnapshot = await transaction.get(vehicleReference);
+    const currentPublicVehicleSnapshot = await transaction.get(
+        publicVehicleReference,
+    );
+    const currentPublicProfileSnapshot = await transaction.get(
+        publicProfileReference,
+    );
+    if (!currentProfileSnapshot.exists || !currentVehicleSnapshot.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Profil oder Fahrzeug ist nicht mehr verfügbar.",
+      );
+    }
+    const currentRequest = currentRequestSnapshot.data() ?? {};
+    const currentProfile = currentProfileSnapshot.data() ?? {};
+    const currentVehicle = currentVehicleSnapshot.data() ?? {};
+    if (!hasRequiredProfileData(currentProfile) ||
+        !hasRequiredVehicleData(currentVehicle)) {
+      throw new HttpsError(
+          "failed-precondition",
+          "Profil oder Fahrzeug ist nicht mehr vollständig.",
+      );
+    }
+    if (safeString(currentVehicle.ownerUserId) !== userId ||
+        safeString(currentVehicle.status) === "archived" ||
+        currentVehicle.deactivatedAt != null) {
+      throw new HttpsError(
+          "failed-precondition",
+          "Das ausgewählte Fahrzeug ist nicht für die Verifizierung verfügbar.",
+      );
+    }
+    const storedRelationship = normalizeVehicleRelationship(
+        currentVehicle.useRelationship || "owner",
+    );
+    if (storedRelationship !== normalized.vehicleRelationship) {
+      throw new HttpsError(
+          "failed-precondition",
+          "Die gewählte Fahrzeugzuordnung stimmt nicht mit dem Fahrzeug überein.",
+      );
+    }
+    if (safeString(currentRequest.status) === "pending" &&
+        safeString(currentRequest.submissionFingerprint) === fingerprint) {
+      return {requestId: userId, status: "pending", idempotent: true};
+    }
+    if (safeString(currentRequest.status) === "pending") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Deine Verifizierung wird bereits geprüft.",
+      );
+    }
+    if (safeString(currentRequest.status) === "verified") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Dieses Profil ist bereits verifiziert.",
+      );
+    }
+    const currentPaths = currentRequest.documentStoragePaths ?? {};
+    for (const key of requiredDocumentKeys) {
+      if (safeString(currentPaths[key]) !== safeString(documentStoragePaths[key])) {
+        throw new HttpsError(
+          "aborted",
+          "Die Nachweise wurden zwischenzeitlich geändert. Bitte versuche es erneut.",
+        );
+      }
+    }
+    const documentStatuses = Object.fromEntries(
+        requiredDocumentKeys.map((key) => [key, "inReview"]),
+    );
+    const requestData = {
+      requestId: userId,
+      userId,
+      profilePath: `users/${userId}/profiles/main`,
+      status: "pending",
+      displayName: safeString(currentProfile.displayName),
+      documentStoragePaths,
+      documentStatuses,
+      documentRejectionReasons: {},
+      vehicleId: normalized.vehicleId,
+      vehicleRelationship: normalized.vehicleRelationship,
+      authorizationConfirmed: true,
+      consentVersion,
+      consentAcceptedAt: submittedAt,
+      countryCode: safeString(currentVehicle.countryCode).toUpperCase(),
+      plateRegion: safeString(currentVehicle.plateRegion).toUpperCase(),
+      plateLetters: safeString(currentVehicle.plateLetters).toUpperCase(),
+      plateNumbers: safeString(currentVehicle.plateNumbers).toUpperCase(),
+      vehicleBrand: safeString(currentVehicle.brand),
+      vehicleModel: safeString(currentVehicle.model),
+      vehicleColor: safeString(currentVehicle.color),
+      photoUrl: safeString(currentProfile.photoUrl) || null,
+      submittedAt,
+      reviewedAt: null,
+      reviewedBy: null,
+      rejectionReason: null,
+      retentionUntil: null,
+      submissionFingerprint: fingerprint,
+      createdAt: currentRequestSnapshot.exists ?
+        currentRequest.createdAt ?? submittedAt : submittedAt,
+      updatedAt: submittedAt,
+    };
+    transaction.set(requestReference, requestData, {merge: false});
+    const submissionHistoryReference = requestReference
+        .collection("history")
+        .doc(`submitted_${fingerprint.slice(0, 24)}`);
+    transaction.set(submissionHistoryReference, {
+      status: "pending",
+      reason: null,
+      createdAt: submittedAt,
+    });
+    transaction.update(profileReference, {
+      verificationStatus: "pending",
+      verificationSubmittedAt: submittedAt,
+      verificationReviewedAt: null,
+      verificationRejectionReason: null,
+      updatedAt: submittedAt,
+    });
+    transaction.update(vehicleReference, {
+      verificationStatus: "inReview",
+      verificationLocked: true,
+      verificationRejectionReason: null,
+      isVerified: false,
+      updatedAt: submittedAt,
+    });
+    if (currentPublicVehicleSnapshot.exists) {
+      transaction.update(publicVehicleReference, {
+        verificationStatus: "inReview",
+        isVerified: false,
+        updatedAt: submittedAt,
+      });
+    }
+    if (currentPublicProfileSnapshot.exists) {
+      transaction.update(publicProfileReference, {
+        verificationStatus: "unverified",
+        updatedAt: submittedAt,
+      });
+    }
+    return {requestId: userId, status: "pending", idempotent: false};
+  });
+}
+
+function normalizeReviewInput(input) {
+  const requestId = safeString(input?.requestId);
+  const decision = safeString(input?.decision);
+  const reason = safeString(input?.reason);
+  if (requestId.length === 0 || requestId.length > 128 ||
+      !["verified", "rejected"].includes(decision)) {
+    throw new HttpsError("invalid-argument", "Die Prüfentscheidung ist ungültig.");
+  }
+  if (decision === "rejected" && reason.length < 5) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Bitte gib einen verständlichen Ablehnungsgrund an.",
+    );
+  }
+  return {requestId, decision, reason};
+}
+
+async function reviewProfileVerification({
+  firestore,
+  authContext,
+  input,
+  now,
+}) {
+  if (safeString(authContext?.uid).length === 0) {
+    throw new HttpsError("unauthenticated", "Bitte melde dich erneut an.");
+  }
+  if (authContext?.token?.admin !== true) {
+    throw new HttpsError(
+      "permission-denied",
+      "Du hast keine Berechtigung für diese Prüfung.",
+    );
+  }
+  const normalized = normalizeReviewInput(input);
+  const requestReference = firestore.doc(
+      `verification_requests/${normalized.requestId}`,
+  );
+  return firestore.runTransaction(async (transaction) => {
+    const requestSnapshot = await transaction.get(requestReference);
+    if (!requestSnapshot.exists) {
+      throw new HttpsError("not-found", "Der Prüfauftrag wurde nicht gefunden.");
+    }
+    const request = requestSnapshot.data();
+    const userId = safeString(request.userId);
+    const vehicleId = safeString(request.vehicleId);
+    if (userId.length === 0 || vehicleId.length === 0) {
+      throw new HttpsError("failed-precondition", "Der Prüfauftrag ist unvollständig.");
+    }
+    if (safeString(request.status) !== "pending") {
+      if (safeString(request.status) === normalized.decision) {
+        return {requestId: normalized.requestId, status: normalized.decision, idempotent: true};
+      }
+      throw new HttpsError(
+        "failed-precondition",
+        "Dieser Prüfauftrag ist nicht mehr offen.",
+      );
+    }
+    const profileReference = firestore.doc(`users/${userId}/profiles/main`);
+    const publicProfileReference = firestore.doc(`public_profiles/${userId}`);
+    const vehicleReference = firestore.doc(`users/${userId}/vehicles/${vehicleId}`);
+    const publicVehicleReference = firestore.doc(
+        `public_profiles/${userId}/vehicles/${vehicleId}`,
+    );
+    const plateId = plateDocumentId(request);
+    const plateReference = plateId.length > 0 ?
+      firestore.doc(`plates/${plateId}`) : null;
+    const profileSnapshot = await transaction.get(profileReference);
+    const vehicleSnapshot = await transaction.get(vehicleReference);
+    const publicProfileSnapshot = await transaction.get(publicProfileReference);
+    const publicVehicleSnapshot = await transaction.get(publicVehicleReference);
+    const plateSnapshot = plateReference == null ? null :
+      await transaction.get(plateReference);
+    if (!profileSnapshot.exists || !vehicleSnapshot.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Profil oder Fahrzeug ist nicht mehr verfügbar.",
+      );
+    }
+    const verified = normalized.decision === "verified";
+    const reviewedAt = now;
+    const firestoreRetentionUntil = Timestamp.fromMillis(
+        reviewedAt.toMillis() + retentionDays * 24 * 60 * 60 * 1000,
+    );
+    const documentStatuses = Object.fromEntries(
+        requiredDocumentKeys.map((key) => [
+          key,
+          verified ? "verified" : "rejected",
+        ]),
+    );
+    const rejectionReasons = verified ? {} : Object.fromEntries(
+        requiredDocumentKeys.map((key) => [key, normalized.reason]),
+    );
+    transaction.update(requestReference, {
+      status: normalized.decision,
+      documentStatuses,
+      documentRejectionReasons: rejectionReasons,
+      reviewedAt,
+      reviewedBy: safeString(authContext.uid),
+      rejectionReason: verified ? null : normalized.reason,
+      retentionUntil: firestoreRetentionUntil,
+      updatedAt: reviewedAt,
+    });
+    transaction.update(profileReference, {
+      verificationStatus: normalized.decision,
+      verificationReviewedAt: reviewedAt,
+      verificationRejectionReason: verified ? null : normalized.reason,
+      updatedAt: reviewedAt,
+    });
+    transaction.update(vehicleReference, {
+      verificationStatus: normalized.decision,
+      verificationLocked: false,
+      verificationRejectionReason: verified ? null : normalized.reason,
+      isVerified: verified,
+      updatedAt: reviewedAt,
+    });
+    if (publicProfileSnapshot.exists) {
+      transaction.update(publicProfileReference, {
+        verificationStatus: normalized.decision,
+        updatedAt: reviewedAt,
+      });
+    }
+    if (publicVehicleSnapshot.exists) {
+      transaction.update(publicVehicleReference, {
+        verificationStatus: normalized.decision,
+        isVerified: verified,
+        updatedAt: reviewedAt,
+      });
+    }
+    if (plateSnapshot?.exists && safeString(plateSnapshot.data()?.ownerUserId) === userId) {
+      transaction.update(plateReference, {
+        verificationStatus: normalized.decision,
+        updatedAt: reviewedAt,
+      });
+    }
+    const historyReference = requestReference.collection("history").doc();
+    transaction.set(historyReference, {
+      status: normalized.decision,
+      reason: verified ? null : normalized.reason,
+      createdAt: reviewedAt,
+    });
+    const notificationReference = firestore.doc(
+        `users/${userId}/verification_notifications/${historyReference.id}`,
+    );
+    transaction.set(notificationReference, {
+      notificationId: historyReference.id,
+      requestId: normalized.requestId,
+      status: normalized.decision,
+      message: verified ?
+        "Deine Verifizierung wurde bestätigt." :
+        "Für deine Verifizierung ist eine Nachreichung erforderlich.",
+      isRead: false,
+      createdAt: reviewedAt,
+    });
+    return {requestId: normalized.requestId, status: normalized.decision, idempotent: false};
+  });
+}
+
+async function cleanupVerificationDocuments({firestore, bucket, now, limit = 100}) {
+  const snapshot = await firestore.collection("verification_requests")
+      .where("retentionUntil", "<=", now)
+      .limit(limit)
+      .get();
+  let cleaned = 0;
+  for (const document of snapshot.docs) {
+    const data = document.data();
+    if (!["verified", "rejected"].includes(safeString(data.status))) continue;
+    if (data.documentsCleanedAt != null) continue;
+    const userId = safeString(data.userId);
+    if (userId.length === 0) continue;
+    for (const key of requiredDocumentKeys) {
+      const path = safeString(data.documentStoragePaths?.[key]);
+      if (allowedDocumentPaths(userId, key).includes(path)) {
+        await bucket.file(path).delete({ignoreNotFound: true});
+      }
+    }
+    await document.ref.update({
+      documentStoragePaths: {},
+      documentStatuses: Object.fromEntries(
+          requiredDocumentKeys.map((key) => [key, "expired"]),
+      ),
+      documentsCleanedAt: now,
+      retentionUntil: null,
+      updatedAt: now,
+    });
+    cleaned += 1;
+  }
+  return {cleaned, hasMore: snapshot.size === limit};
+}
+
+module.exports = {
+  allowedDocumentPaths,
+  allowedRelationships,
+  cleanupVerificationDocuments,
+  consentVersion,
+  expectedDocumentPath,
+  inspectJpeg,
+  inspectPng,
+  isJpegHeader,
+  isPngHeader,
+  normalizeReviewInput,
+  normalizeSubmissionInput,
+  normalizeVehicleRelationship,
+  plateDocumentId,
+  requiredDocumentKeys,
+  reviewProfileVerification,
+  submitProfileVerification,
+  validateStoredDocuments,
+};

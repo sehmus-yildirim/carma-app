@@ -6,6 +6,7 @@ class PlateSearchResult {
     this.profilePhotoUrl,
     this.isVerified = false,
     this.distanceKm,
+    this.vehicleId,
     this.plateKey,
     this.displayPlate,
     this.countryCode,
@@ -24,6 +25,7 @@ class PlateSearchResult {
   final String? profilePhotoUrl;
   final bool isVerified;
   final double? distanceKm;
+  final String? vehicleId;
   final String? plateKey;
   final String? displayPlate;
   final String? countryCode;
@@ -81,6 +83,7 @@ class PlateSearchResult {
       profilePhotoUrl: map['profilePhotoUrl'] as String?,
       isVerified: map['isVerified'] == true,
       distanceKm: distanceValue is num ? distanceValue.toDouble() : null,
+      vehicleId: map['vehicleId'] as String?,
       plateKey: map['plateKey'] as String?,
       displayPlate: map['displayPlate'] as String?,
       countryCode: map['countryCode'] as String?,

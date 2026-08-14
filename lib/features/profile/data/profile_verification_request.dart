@@ -1,5 +1,75 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum ProfileVerificationStatus {
+  draft,
+  pending,
+  verified,
+  rejected,
+  expired;
+
+  static ProfileVerificationStatus fromValue(Object? value) {
+    final normalized = value?.toString().trim();
+    if (normalized == 'approved') return ProfileVerificationStatus.verified;
+    return values.firstWhere(
+      (status) => status.name == normalized,
+      orElse: () => ProfileVerificationStatus.draft,
+    );
+  }
+}
+
+enum ProfileVerificationDocumentStatus {
+  missing,
+  uploading,
+  uploaded,
+  inReview,
+  verified,
+  rejected,
+  expired;
+
+  static ProfileVerificationDocumentStatus fromValue(Object? value) {
+    final normalized = value?.toString().trim();
+    if (normalized == 'pendingReview') {
+      return ProfileVerificationDocumentStatus.inReview;
+    }
+    if (normalized == 'approved') {
+      return ProfileVerificationDocumentStatus.verified;
+    }
+    return values.firstWhere(
+      (status) => status.name == normalized,
+      orElse: () => ProfileVerificationDocumentStatus.missing,
+    );
+  }
+}
+
+enum ProfileVehicleRelationship {
+  owner,
+  leasingCompany,
+  authorizedUser;
+
+  static ProfileVehicleRelationship fromValue(Object? value) {
+    final raw = value?.toString().trim();
+    final normalized = raw == 'leasingCompanyFamily'
+        ? ProfileVehicleRelationship.leasingCompany.name
+        : raw;
+    return values.firstWhere(
+      (relationship) => relationship.name == normalized,
+      orElse: () => ProfileVehicleRelationship.owner,
+    );
+  }
+}
+
+abstract final class ProfileVerificationDocumentKeys {
+  static const identityEvidence = 'identityEvidence';
+  static const vehicleEvidence = 'vehicleEvidence';
+  static const required = <String>[identityEvidence, vehicleEvidence];
+
+  static String labelFor(String key) => switch (key) {
+    identityEvidence => 'Identität bestätigen',
+    vehicleEvidence => 'Fahrzeugbezug bestätigen',
+    _ => 'Nachweis',
+  };
+}
+
 class ProfileVerificationRequest {
   const ProfileVerificationRequest({
     required this.requestId,
@@ -7,8 +77,14 @@ class ProfileVerificationRequest {
     required this.profilePath,
     required this.status,
     required this.displayName,
-    required this.email,
-    required this.documentRemoteUrls,
+    required this.documentStoragePaths,
+    required this.documentStatuses,
+    this.documentRejectionReasons = const {},
+    this.vehicleId,
+    this.vehicleRelationship = ProfileVehicleRelationship.owner,
+    this.authorizationConfirmed = false,
+    this.consentVersion,
+    this.consentAcceptedAt,
     this.countryCode,
     this.plateRegion,
     this.plateLetters,
@@ -23,15 +99,23 @@ class ProfileVerificationRequest {
     this.reviewedAt,
     this.reviewedBy,
     this.rejectionReason,
+    this.retentionUntil,
+    this.legacyDocumentRemoteUrls = const {},
   });
 
   final String requestId;
   final String userId;
   final String profilePath;
-  final String status;
+  final ProfileVerificationStatus status;
   final String displayName;
-  final String email;
-  final Map<String, String?> documentRemoteUrls;
+  final Map<String, String?> documentStoragePaths;
+  final Map<String, ProfileVerificationDocumentStatus> documentStatuses;
+  final Map<String, String?> documentRejectionReasons;
+  final String? vehicleId;
+  final ProfileVehicleRelationship vehicleRelationship;
+  final bool authorizationConfirmed;
+  final String? consentVersion;
+  final DateTime? consentAcceptedAt;
   final String? countryCode;
   final String? plateRegion;
   final String? plateLetters;
@@ -46,20 +130,59 @@ class ProfileVerificationRequest {
   final DateTime? reviewedAt;
   final String? reviewedBy;
   final String? rejectionReason;
+  final DateTime? retentionUntil;
+
+  // Read-only migration support. New requests never write download URLs.
+  final Map<String, String?> legacyDocumentRemoteUrls;
+
+  bool get isLocked =>
+      status == ProfileVerificationStatus.pending ||
+      status == ProfileVerificationStatus.verified;
+
+  int get completedDocumentCount =>
+      ProfileVerificationDocumentKeys.required.where((key) {
+        final status = documentStatusFor(key);
+        return status != ProfileVerificationDocumentStatus.missing &&
+            status != ProfileVerificationDocumentStatus.uploading &&
+            status != ProfileVerificationDocumentStatus.rejected &&
+            status != ProfileVerificationDocumentStatus.expired;
+      }).length;
+
+  bool get hasAllRequiredDocuments =>
+      completedDocumentCount == ProfileVerificationDocumentKeys.required.length;
+
+  ProfileVerificationDocumentStatus documentStatusFor(String key) {
+    return documentStatuses[key] ??
+        (documentStoragePaths[key]?.trim().isNotEmpty == true
+            ? ProfileVerificationDocumentStatus.uploaded
+            : ProfileVerificationDocumentStatus.missing);
+  }
 
   factory ProfileVerificationRequest.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data() ?? {};
+    final storagePaths = _nullableStringMap(data['documentStoragePaths']);
+    final legacyUrls = _nullableStringMap(data['documentRemoteUrls']);
 
     return ProfileVerificationRequest(
       requestId: data['requestId'] as String? ?? document.id,
       userId: data['userId'] as String? ?? '',
       profilePath: data['profilePath'] as String? ?? '',
-      status: data['status'] as String? ?? 'pending',
+      status: ProfileVerificationStatus.fromValue(data['status']),
       displayName: data['displayName'] as String? ?? '',
-      email: data['email'] as String? ?? '',
-      documentRemoteUrls: _stringMapFromValue(data['documentRemoteUrls']),
+      documentStoragePaths: storagePaths,
+      documentStatuses: _documentStatusMap(data['documentStatuses']),
+      documentRejectionReasons: _nullableStringMap(
+        data['documentRejectionReasons'],
+      ),
+      vehicleId: data['vehicleId'] as String?,
+      vehicleRelationship: ProfileVehicleRelationship.fromValue(
+        data['vehicleRelationship'],
+      ),
+      authorizationConfirmed: data['authorizationConfirmed'] as bool? ?? false,
+      consentVersion: data['consentVersion'] as String?,
+      consentAcceptedAt: _dateTimeFromValue(data['consentAcceptedAt']),
       countryCode: data['countryCode'] as String?,
       plateRegion: data['plateRegion'] as String?,
       plateLetters: data['plateLetters'] as String?,
@@ -68,12 +191,14 @@ class ProfileVerificationRequest {
       vehicleModel: data['vehicleModel'] as String?,
       vehicleColor: data['vehicleColor'] as String?,
       photoUrl: data['photoUrl'] as String?,
-      submittedAt: _dateTimeFromTimestamp(data['submittedAt']),
-      createdAt: _dateTimeFromTimestamp(data['createdAt']),
-      updatedAt: _dateTimeFromTimestamp(data['updatedAt']),
-      reviewedAt: _dateTimeFromTimestamp(data['reviewedAt']),
+      submittedAt: _dateTimeFromValue(data['submittedAt']),
+      createdAt: _dateTimeFromValue(data['createdAt']),
+      updatedAt: _dateTimeFromValue(data['updatedAt']),
+      reviewedAt: _dateTimeFromValue(data['reviewedAt']),
       reviewedBy: data['reviewedBy'] as String?,
       rejectionReason: data['rejectionReason'] as String?,
+      retentionUntil: _dateTimeFromValue(data['retentionUntil']),
+      legacyDocumentRemoteUrls: legacyUrls,
     );
   }
 
@@ -81,30 +206,97 @@ class ProfileVerificationRequest {
     final region = plateRegion?.trim().toUpperCase() ?? '';
     final letters = plateLetters?.trim().toUpperCase() ?? '';
     final numbers = plateNumbers?.trim().toUpperCase() ?? '';
-
-    if (region.isEmpty && letters.isEmpty && numbers.isEmpty) {
-      return '';
-    }
-
+    if (region.isEmpty && letters.isEmpty && numbers.isEmpty) return '';
     final cityPart = letters.isEmpty ? region : '$region-$letters';
     return numbers.isEmpty ? cityPart : '$cityPart $numbers';
   }
 
-  static DateTime? _dateTimeFromTimestamp(dynamic value) {
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
+  static DateTime? _dateTimeFromValue(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
     return null;
   }
 
-  static Map<String, String?> _stringMapFromValue(dynamic value) {
-    if (value is! Map) {
-      return const {};
-    }
-
+  static Map<String, String?> _nullableStringMap(Object? value) {
+    if (value is! Map) return const {};
     return value.map((key, mapValue) {
-      return MapEntry(key.toString(), mapValue as String?);
+      return MapEntry(key.toString(), mapValue is String ? mapValue : null);
     });
+  }
+
+  static Map<String, ProfileVerificationDocumentStatus> _documentStatusMap(
+    Object? value,
+  ) {
+    if (value is! Map) return const {};
+    return value.map((key, mapValue) {
+      return MapEntry(
+        key.toString(),
+        ProfileVerificationDocumentStatus.fromValue(mapValue),
+      );
+    });
+  }
+}
+
+class ProfileVerificationHistoryEntry {
+  const ProfileVerificationHistoryEntry({
+    required this.id,
+    required this.status,
+    this.reason,
+    this.createdAt,
+  });
+
+  final String id;
+  final ProfileVerificationStatus status;
+  final String? reason;
+  final DateTime? createdAt;
+
+  factory ProfileVerificationHistoryEntry.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data();
+    return ProfileVerificationHistoryEntry(
+      id: document.id,
+      status: ProfileVerificationStatus.fromValue(data['status']),
+      reason: data['reason'] as String?,
+      createdAt: ProfileVerificationRequest._dateTimeFromValue(
+        data['createdAt'],
+      ),
+    );
+  }
+}
+
+class ProfileVerificationNotification {
+  const ProfileVerificationNotification({
+    required this.id,
+    required this.requestId,
+    required this.status,
+    required this.message,
+    required this.isRead,
+    this.createdAt,
+  });
+
+  final String id;
+  final String requestId;
+  final ProfileVerificationStatus status;
+  final String message;
+  final bool isRead;
+  final DateTime? createdAt;
+
+  factory ProfileVerificationNotification.fromFirestore(
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data();
+    return ProfileVerificationNotification(
+      id: document.id,
+      requestId: data['requestId'] as String? ?? '',
+      status: ProfileVerificationStatus.fromValue(data['status']),
+      message:
+          data['message'] as String? ??
+          'Der Status deiner Verifizierung wurde aktualisiert.',
+      isRead: data['isRead'] as bool? ?? false,
+      createdAt: ProfileVerificationRequest._dateTimeFromValue(
+        data['createdAt'],
+      ),
+    );
   }
 }

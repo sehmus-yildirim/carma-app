@@ -62,6 +62,7 @@ class PlateSearchService {
     displayName: 'plaqa Testnutzer',
     isVerified: true,
     distanceKm: 0.1,
+    vehicleId: 'plaqa-demo-vehicle-bmw-x6',
     plateKey: demoPlateKey,
     displayPlate: 'HH-CR 2026',
     countryCode: 'DE',
@@ -116,11 +117,23 @@ class PlateSearchService {
     return normalizePlate(plate);
   }
 
-  String _contactRequestDocumentId({
+  String _legacyContactRequestDocumentId({
     required String senderUserId,
     required String plateKey,
   }) {
     return '${senderUserId.trim()}_${plateKey.trim().toUpperCase()}';
+  }
+
+  String _contactRequestDocumentId({
+    required String senderUserId,
+    required String countryCode,
+    required String vehicleId,
+  }) {
+    return <String>[
+      senderUserId.trim(),
+      countryCode.trim().toUpperCase(),
+      vehicleId.trim(),
+    ].join('_');
   }
 
   bool _isRequestStillActive(Map<String, dynamic> data) {
@@ -146,6 +159,8 @@ class PlateSearchService {
 
   Future<PlateContactRequestState?> loadExistingRequestState({
     required String targetUid,
+    required String countryCode,
+    required String vehicleId,
     required String plateKey,
   }) async {
     final currentUser = _auth.currentUser;
@@ -155,21 +170,42 @@ class PlateSearchService {
     }
 
     final normalizedTargetUid = targetUid.trim();
+    final normalizedCountryCode = countryCode.trim().toUpperCase();
+    final normalizedVehicleId = vehicleId.trim();
     final normalizedPlateKey = plateKey.trim().toUpperCase();
 
-    if (normalizedTargetUid.isEmpty || normalizedPlateKey.isEmpty) {
+    if (normalizedTargetUid.isEmpty ||
+        normalizedCountryCode.isEmpty ||
+        normalizedVehicleId.isEmpty ||
+        normalizedPlateKey.isEmpty) {
       return null;
     }
 
-    final snapshot = await _firestore
-        .collection(CaRismaFirestoreCollections.contactRequests)
+    final collection = _firestore.collection(
+      CaRismaFirestoreCollections.contactRequests,
+    );
+    var snapshot = await collection
         .doc(
           _contactRequestDocumentId(
             senderUserId: currentUser.uid,
-            plateKey: normalizedPlateKey,
+            countryCode: normalizedCountryCode,
+            vehicleId: normalizedVehicleId,
           ),
         )
         .get();
+
+    // Pending requests created before stable vehicle IDs were introduced
+    // remain discoverable until their normal 48-hour expiry.
+    if (!snapshot.exists) {
+      snapshot = await collection
+          .doc(
+            _legacyContactRequestDocumentId(
+              senderUserId: currentUser.uid,
+              plateKey: normalizedPlateKey,
+            ),
+          )
+          .get();
+    }
 
     if (!snapshot.exists) {
       return null;
@@ -182,8 +218,13 @@ class PlateSearchService {
     }
 
     final receiverUserId = (data['receiverUserId'] as String? ?? '').trim();
+    final storedVehicleId = (data['vehicleId'] as String? ?? '').trim();
 
     if (receiverUserId.isNotEmpty && receiverUserId != normalizedTargetUid) {
+      return null;
+    }
+
+    if (storedVehicleId.isNotEmpty && storedVehicleId != normalizedVehicleId) {
       return null;
     }
 
@@ -290,6 +331,8 @@ class PlateSearchService {
 
   Future<PlateContactRequestResult> requestPlateContact({
     required String targetUid,
+    required String countryCode,
+    required String vehicleId,
     required String plateKey,
     String? receiverDisplayName,
     String? receiverPhotoUrl,
@@ -316,6 +359,8 @@ class PlateSearchService {
 
     return _createContactRequestInFirestore(
       targetUid: targetUid,
+      countryCode: countryCode,
+      vehicleId: vehicleId,
       plateKey: plateKey,
       receiverDisplayName: receiverDisplayName,
       receiverPhotoUrl: receiverPhotoUrl,
@@ -388,13 +433,16 @@ class PlateSearchService {
     }
 
     final ownerUserId = data['ownerUserId'] as String?;
+    final vehicleId = (data['vehicleId'] as String? ?? '').trim();
     final displayName = data['displayName'] as String?;
     final storedPlateKey = data['plateKey'] as String? ?? plateKey;
     final storedLatitude = (data['latitude'] as num?)?.toDouble();
     final storedLongitude = (data['longitude'] as num?)?.toDouble();
     final locationUpdatedAt = _dateTimeFromValue(data['locationUpdatedAt']);
 
-    if (ownerUserId == null || ownerUserId.trim().isEmpty) {
+    if (ownerUserId == null ||
+        ownerUserId.trim().isEmpty ||
+        vehicleId.isEmpty) {
       return const PlateSearchResult(found: false);
     }
 
@@ -465,6 +513,7 @@ class PlateSearchService {
           data['verificationStatus'] == 'verified' ||
           data['isVerified'] == true,
       distanceKm: distanceKm,
+      vehicleId: vehicleId,
       plateKey: storedPlateKey,
       displayPlate: settingsShowPlate ? data['displayPlate'] as String? : null,
       countryCode: normalizedCountryCode,
@@ -513,6 +562,8 @@ class PlateSearchService {
 
   Future<PlateContactRequestResult> _createContactRequestInFirestore({
     required String targetUid,
+    required String countryCode,
+    required String vehicleId,
     required String plateKey,
     String? receiverDisplayName,
     String? receiverPhotoUrl,
@@ -536,9 +587,14 @@ class PlateSearchService {
 
     final senderUserId = sender.uid;
     final receiverUserId = targetUid.trim();
+    final normalizedCountryCode = countryCode.trim().toUpperCase();
+    final normalizedVehicleId = vehicleId.trim();
     final normalizedPlateKey = plateKey.trim().toUpperCase();
 
-    if (receiverUserId.isEmpty || normalizedPlateKey.isEmpty) {
+    if (receiverUserId.isEmpty ||
+        !const <String>{'DE', 'AT', 'CH'}.contains(normalizedCountryCode) ||
+        normalizedVehicleId.isEmpty ||
+        normalizedPlateKey.isEmpty) {
       throw FirebaseException(
         plugin: 'plaqa',
         code: 'invalid-argument',
@@ -644,7 +700,8 @@ class PlateSearchService {
         .doc(
           _contactRequestDocumentId(
             senderUserId: senderUserId,
-            plateKey: normalizedPlateKey,
+            countryCode: normalizedCountryCode,
+            vehicleId: normalizedVehicleId,
           ),
         );
     final chatId = 'request_${document.id}';
@@ -672,6 +729,12 @@ class PlateSearchService {
             _chatDataForRequest(
               senderUserId: senderUserId,
               receiverUserId: receiverUserId,
+              countryCode:
+                  existingRequestData['countryCode'] as String? ??
+                  normalizedCountryCode,
+              vehicleId:
+                  existingRequestData['vehicleId'] as String? ??
+                  normalizedVehicleId,
               requestId: document.id,
               createdAt: now,
               senderDisplayName:
@@ -742,6 +805,8 @@ class PlateSearchService {
         'senderUserId': senderUserId,
         'receiverUserId': receiverUserId,
         'targetUserId': receiverUserId,
+        'countryCode': normalizedCountryCode,
+        'vehicleId': normalizedVehicleId,
         'plateKey': normalizedPlateKey,
         'senderDisplayName': senderSummary.displayName,
         'senderPhotoUrl': senderSummary.photoUrl,
@@ -772,6 +837,8 @@ class PlateSearchService {
           _chatDataForRequest(
             senderUserId: senderUserId,
             receiverUserId: receiverUserId,
+            countryCode: normalizedCountryCode,
+            vehicleId: normalizedVehicleId,
             requestId: document.id,
             createdAt: now,
             senderDisplayName: senderSummary.displayName,
@@ -901,6 +968,8 @@ class PlateSearchService {
   Map<String, Object?> _chatDataForRequest({
     required String senderUserId,
     required String receiverUserId,
+    required String countryCode,
+    required String vehicleId,
     required String requestId,
     required DateTime createdAt,
     required String? senderDisplayName,
@@ -925,6 +994,8 @@ class PlateSearchService {
       'isDeleted': false,
       'senderUserId': senderUserId,
       'receiverUserId': receiverUserId,
+      'countryCode': countryCode,
+      'vehicleId': vehicleId,
       'senderDisplayName': senderDisplayName,
       'senderPhotoUrl': senderPhotoUrl,
       'receiverDisplayName': receiverDisplayName,

@@ -493,7 +493,11 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
   Future<void> _requestContact() async {
     final result = _result;
 
-    if (result == null || result.targetUid == null || result.plateKey == null) {
+    if (result == null ||
+        result.targetUid == null ||
+        result.countryCode == null ||
+        result.vehicleId == null ||
+        result.plateKey == null) {
       return;
     }
 
@@ -516,6 +520,8 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
     try {
       final request = await _service.requestPlateContact(
         targetUid: result.targetUid!,
+        countryCode: result.countryCode!,
+        vehicleId: result.vehicleId!,
         plateKey: result.plateKey!,
         receiverDisplayName: result.displayName,
         receiverPhotoUrl: result.profilePhotoUrl,

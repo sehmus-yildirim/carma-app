@@ -11,6 +11,7 @@ void main() {
     final result = PlateSearchResult.fromMap(const {
       'found': true,
       'targetUid': 'target-user',
+      'vehicleId': 'vehicle-mercedes-gls',
       'displayName': 'Mara Beispiel',
       'profilePhotoUrl': 'https://example.test/profile.jpg',
       'isVerified': true,
@@ -25,6 +26,7 @@ void main() {
     });
 
     expect(result.targetUid, 'target-user');
+    expect(result.vehicleId, 'vehicle-mercedes-gls');
     expect(result.profilePhotoUrl, isNotEmpty);
     expect(result.isVerified, isTrue);
     expect(result.vehicleBrand, 'Mercedes-Benz');

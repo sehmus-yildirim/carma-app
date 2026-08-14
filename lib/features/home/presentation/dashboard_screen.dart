@@ -565,9 +565,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           !isDemoSearch &&
               result.found &&
               result.targetUid != null &&
+              result.countryCode != null &&
+              result.vehicleId != null &&
               result.plateKey != null
           ? await _plateSearchService.loadExistingRequestState(
               targetUid: result.targetUid!,
+              countryCode: result.countryCode!,
+              vehicleId: result.vehicleId!,
               plateKey: result.plateKey!,
             )
           : null;
@@ -609,7 +613,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (result == null || result.targetUid == null || result.plateKey == null) {
+    if (result == null ||
+        result.targetUid == null ||
+        result.countryCode == null ||
+        result.vehicleId == null ||
+        result.plateKey == null) {
       return;
     }
 
@@ -656,6 +664,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       final request = await _plateSearchService.requestPlateContact(
         targetUid: result.targetUid!,
+        countryCode: result.countryCode!,
+        vehicleId: result.vehicleId!,
         plateKey: result.plateKey!,
         receiverDisplayName: result.displayName,
         receiverPhotoUrl: result.profilePhotoUrl,
@@ -704,6 +714,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final requestState = error.toString().contains('already-exists')
           ? await _plateSearchService.loadExistingRequestState(
               targetUid: result.targetUid!,
+              countryCode: result.countryCode!,
+              vehicleId: result.vehicleId!,
               plateKey: result.plateKey!,
             )
           : _requestState;

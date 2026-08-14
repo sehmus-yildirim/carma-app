@@ -1,29 +1,68 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../shared/firebase/carisma_firestore_paths.dart';
-import 'plate_repository.dart';
 import 'profile_vehicle.dart';
-import 'profile_vehicle_timeline_entry.dart';
 import 'user_profile.dart';
+
+class ProfileVehicleException implements Exception {
+  const ProfileVehicleException(this.message, {this.code});
+
+  final String message;
+  final String? code;
+
+  @override
+  String toString() => message;
+}
+
+abstract interface class ProfileVehicleCommandGateway {
+  Future<Map<String, dynamic>> call(
+    String command,
+    Map<String, Object?> payload,
+  );
+}
+
+class FirebaseProfileVehicleCommandGateway
+    implements ProfileVehicleCommandGateway {
+  FirebaseProfileVehicleCommandGateway({FirebaseFunctions? functions})
+    : _functions =
+          functions ?? FirebaseFunctions.instanceFor(region: 'europe-west3');
+
+  final FirebaseFunctions _functions;
+
+  @override
+  Future<Map<String, dynamic>> call(
+    String command,
+    Map<String, Object?> payload,
+  ) async {
+    final result = await _functions.httpsCallable(command).call(payload);
+    final data = result.data;
+    return data is Map
+        ? Map<String, dynamic>.from(data)
+        : const <String, dynamic>{};
+  }
+}
 
 class ProfileVehicleRepository {
   ProfileVehicleRepository({
     FirebaseFirestore? firestore,
-    PlateRepository? plateRepository,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _plateRepository =
-           plateRepository ??
-           PlateRepository(firestore: firestore ?? FirebaseFirestore.instance);
+    ProfileVehicleCommandGateway? commandGateway,
+  }) : _firestore = firestore,
+       _commandGateway = commandGateway;
 
-  final FirebaseFirestore _firestore;
-  final PlateRepository _plateRepository;
+  final FirebaseFirestore? _firestore;
+  final ProfileVehicleCommandGateway? _commandGateway;
+
+  FirebaseFirestore get _database => _firestore ?? FirebaseFirestore.instance;
+  ProfileVehicleCommandGateway get _commands =>
+      _commandGateway ?? FirebaseProfileVehicleCommandGateway();
 
   CollectionReference<Map<String, dynamic>> _privateVehicles(String userId) {
-    return _firestore.collection(CaRismaFirestorePaths.userVehicles(userId));
+    return _database.collection(CaRismaFirestorePaths.userVehicles(userId));
   }
 
   CollectionReference<Map<String, dynamic>> _publicVehicles(String userId) {
-    return _firestore.collection(
+    return _database.collection(
       CaRismaFirestorePaths.publicProfileVehicles(userId),
     );
   }
@@ -32,16 +71,7 @@ class ProfileVehicleRepository {
     String userId,
     String vehicleId,
   ) {
-    return _firestore.doc(CaRismaFirestorePaths.userVehicle(userId, vehicleId));
-  }
-
-  DocumentReference<Map<String, dynamic>> _publicVehicle(
-    String userId,
-    String vehicleId,
-  ) {
-    return _firestore.doc(
-      CaRismaFirestorePaths.publicProfileVehicle(userId, vehicleId),
-    );
+    return _database.doc(CaRismaFirestorePaths.userVehicle(userId, vehicleId));
   }
 
   String createVehicleId(String userId) {
@@ -80,223 +110,58 @@ class ProfileVehicleRepository {
     final userId = vehicle.ownerUserId.trim();
     final vehicleId = vehicle.id.trim();
     if (userId.isEmpty || vehicleId.isEmpty || !vehicle.hasRequiredData) {
-      throw ArgumentError('Die Fahrzeugdaten sind nicht vollständig.');
+      throw const ProfileVehicleException(
+        'Die Fahrzeugdaten sind nicht vollständig.',
+        code: 'invalid-argument',
+      );
     }
     if (vehicle.mileage != null && vehicle.mileage! < 0) {
-      throw ArgumentError('Der Kilometerstand darf nicht negativ sein.');
+      throw const ProfileVehicleException(
+        'Der Kilometerstand darf nicht negativ sein.',
+        code: 'invalid-argument',
+      );
     }
 
-    final profileReference = _firestore.doc(
-      CaRismaFirestorePaths.userProfile(userId),
-    );
-    final publicProfileReference = _firestore.doc(
-      CaRismaFirestorePaths.publicProfile(userId),
-    );
-    final vehicleReference = _privateVehicle(userId, vehicleId);
-    final publicVehicleReference = _publicVehicle(userId, vehicleId);
-    final createdTimelineReference = _firestore.doc(
-      CaRismaFirestorePaths.userVehicleTimelineEntry(
-        userId,
-        vehicleId,
-        'vehicle_created',
-      ),
-    );
-    final publicCreatedTimelineReference = _firestore.doc(
-      CaRismaFirestorePaths.publicVehicleTimelineEntry(
-        userId,
-        vehicleId,
-        'vehicle_created',
-      ),
-    );
-
-    late ProfileVehicle savedVehicle;
-    UserProfile? previousProfile;
-
-    await _firestore.runTransaction((transaction) async {
-      final profileSnapshot = await transaction.get(profileReference);
-      if (!profileSnapshot.exists) {
-        throw StateError('Das Profil muss vor dem Fahrzeug angelegt werden.');
-      }
-
-      previousProfile = UserProfile.fromFirestore(profileSnapshot);
-      final profileData = profileSnapshot.data() ?? <String, dynamic>{};
-      final currentPrimaryId =
-          (profileData['primaryVehicleId'] as String?)?.trim() ?? '';
-      final shouldBePrimary =
-          vehicle.isPrimary ||
-          currentPrimaryId.isEmpty ||
-          currentPrimaryId == vehicleId;
-      savedVehicle = vehicle.copyWith(isPrimary: shouldBePrimary);
-
-      final currentVehicleSnapshot = await transaction.get(vehicleReference);
-      final isNewVehicle = !currentVehicleSnapshot.exists;
-      DocumentSnapshot<Map<String, dynamic>>? oldPrimarySnapshot;
-      DocumentSnapshot<Map<String, dynamic>>? oldPublicPrimarySnapshot;
-      if (shouldBePrimary &&
-          currentPrimaryId.isNotEmpty &&
-          currentPrimaryId != vehicleId) {
-        oldPrimarySnapshot = await transaction.get(
-          _privateVehicle(userId, currentPrimaryId),
-        );
-        oldPublicPrimarySnapshot = await transaction.get(
-          _publicVehicle(userId, currentPrimaryId),
-        );
-      }
-
-      final createdAtValue = currentVehicleSnapshot.exists
-          ? (currentVehicleSnapshot.data()?['createdAt'] ??
-                FieldValue.serverTimestamp())
-          : FieldValue.serverTimestamp();
-      final privateData = <String, Object?>{
-        ...savedVehicle.toPrivateFirestore(),
-        'createdAt': createdAtValue,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      transaction.set(vehicleReference, privateData, SetOptions(merge: true));
-
-      if (savedVehicle.isPubliclyVisible) {
-        transaction.set(publicVehicleReference, {
-          ...savedVehicle.toPublicFirestore(),
-          'createdAt': createdAtValue,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      } else {
-        transaction.delete(publicVehicleReference);
-      }
-
-      if (isNewVehicle) {
-        final timelineEntry = ProfileVehicleTimelineEntry(
-          id: 'vehicle_created',
-          ownerUserId: userId,
-          vehicleId: vehicleId,
-          type: ProfileVehicleTimelineType.vehicleCreated,
-          title: 'Fahrzeug hinzugefügt',
-          description: savedVehicle.displayName,
-          eventDate: DateTime.now(),
-          isAutomaticallyCreated: true,
-          visibility: savedVehicle.visibility,
-        );
-        transaction.set(createdTimelineReference, {
-          ...timelineEntry.toPrivateFirestore(),
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-        if (timelineEntry.isPubliclyVisible) {
-          transaction.set(publicCreatedTimelineReference, {
-            ...timelineEntry.toPublicFirestore(),
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        }
-      }
-
-      if (oldPrimarySnapshot?.exists == true) {
-        transaction.update(oldPrimarySnapshot!.reference, {
-          'isPrimary': false,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-      if (oldPublicPrimarySnapshot?.exists == true) {
-        transaction.update(oldPublicPrimarySnapshot!.reference, {
-          'isPrimary': false,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-
-      if (shouldBePrimary) {
-        final showVehicle =
-            profileData['showVehicleOnPublicProfile'] as bool? ?? false;
-        final showPlate =
-            profileData['showPlateOnPublicProfile'] as bool? ?? false;
-        transaction.set(profileReference, {
-          'primaryVehicleId': vehicleId,
-          'vehicleBrand': savedVehicle.brand.trim(),
-          'vehicleModel': savedVehicle.model.trim(),
-          'vehicleColor': savedVehicle.color.trim(),
-          'countryCode': savedVehicle.countryCode.trim().toUpperCase(),
-          'plateRegion': savedVehicle.plateRegion.trim().toUpperCase(),
-          'plateLetters': savedVehicle.plateLetters.trim().toUpperCase(),
-          'plateNumbers': savedVehicle.plateNumbers.trim().toUpperCase(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        transaction.set(publicProfileReference, {
-          'primaryVehicleId': vehicleId,
-          'vehicleBrand': showVehicle ? savedVehicle.brand.trim() : null,
-          'vehicleModel': showVehicle ? savedVehicle.model.trim() : null,
-          'countryCode': showPlate
-              ? savedVehicle.countryCode.trim().toUpperCase()
-              : null,
-          'plateRegion': showPlate
-              ? savedVehicle.plateRegion.trim().toUpperCase()
-              : null,
-          'plateLetters': showPlate
-              ? savedVehicle.plateLetters.trim().toUpperCase()
-              : null,
-          'plateNumbers': showPlate
-              ? savedVehicle.plateNumbers.trim().toUpperCase()
-              : null,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-    });
-
-    if (!savedVehicle.isPrimary || previousProfile == null) return;
-
-    final updatedProfile = previousProfile!.copyWith(
-      primaryVehicleId: savedVehicle.id,
-      countryCode: savedVehicle.countryCode,
-      plateRegion: savedVehicle.plateRegion,
-      plateLetters: savedVehicle.plateLetters,
-      plateNumbers: savedVehicle.plateNumbers,
-      vehicleBrand: savedVehicle.brand,
-      vehicleModel: savedVehicle.model,
-      vehicleColor: savedVehicle.color,
-    );
-    final previous = previousProfile!;
-    final plateKeyChanged =
-        _plateKeyFor(previous) != _plateKeyFor(updatedProfile);
-    final searchableVehicleChanged =
-        previous.primaryVehicleId?.trim() !=
-            updatedProfile.primaryVehicleId?.trim() ||
-        previous.vehicleBrand?.trim() != updatedProfile.vehicleBrand?.trim() ||
-        previous.vehicleModel?.trim() != updatedProfile.vehicleModel?.trim() ||
-        previous.vehicleColor?.trim() != updatedProfile.vehicleColor?.trim();
-    if (!plateKeyChanged && !searchableVehicleChanged) return;
-
-    if (plateKeyChanged) {
-      await _plateRepository.deactivatePlateForProfile(previous);
-    }
-    await _plateRepository.registerPlateForProfile(updatedProfile);
+    await _runCommand('saveProfileVehicle', vehicleCommandPayload(vehicle));
   }
 
   Future<void> setPrimaryVehicle({
     required String userId,
     required String vehicleId,
   }) async {
-    final vehicle = await getOwnerVehicle(userId: userId, vehicleId: vehicleId);
-    if (vehicle == null || vehicle.isArchived) {
-      throw StateError('Das Fahrzeug ist nicht verfügbar.');
-    }
-    await saveVehicle(vehicle.copyWith(isPrimary: true));
+    await _runCommand('setPrimaryProfileVehicle', {
+      'vehicleId': vehicleId.trim(),
+    });
   }
 
   Future<void> archiveVehicle({
     required String userId,
     required String vehicleId,
   }) async {
-    final vehicle = await getOwnerVehicle(userId: userId, vehicleId: vehicleId);
-    if (vehicle == null) return;
-    if (vehicle.isPrimary) {
-      throw StateError(
-        'Wähle zuerst ein anderes Fahrzeug als Hauptfahrzeug aus.',
+    await _runCommand('deactivateProfileVehicle', {
+      'vehicleId': vehicleId.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>> _runCommand(
+    String command,
+    Map<String, Object?> payload,
+  ) async {
+    try {
+      return await _commands.call(command, payload);
+    } on FirebaseFunctionsException catch (error) {
+      throw ProfileVehicleException(
+        _messageForFunctionsError(error),
+        code: error.code,
+      );
+    } on ProfileVehicleException {
+      rethrow;
+    } catch (_) {
+      throw const ProfileVehicleException(
+        'Die Fahrzeugdaten konnten gerade nicht gespeichert werden. Bitte versuche es erneut.',
+        code: 'unavailable',
       );
     }
-    await saveVehicle(
-      vehicle.copyWith(
-        status: ProfileVehicleStatus.archived,
-        visibility: ProfileVehicleVisibility.onlyMe,
-      ),
-    );
   }
 
   List<ProfileVehicle> _vehiclesFromSnapshot(
@@ -319,12 +184,58 @@ class ProfileVehicleRepository {
     return vehicles;
   }
 
-  String _plateKeyFor(UserProfile profile) {
-    return [
-      profile.countryCode ?? profile.country,
-      profile.plateRegion,
-      profile.plateLetters,
-      profile.plateNumbers,
-    ].whereType<String>().map((part) => part.trim().toUpperCase()).join();
+  static Map<String, Object?> vehicleCommandPayload(ProfileVehicle vehicle) {
+    return <String, Object?>{
+      'vehicleId': vehicle.id.trim(),
+      'brand': vehicle.brand.trim(),
+      'model': vehicle.model.trim(),
+      'series': _trimmedOrNull(vehicle.series),
+      'color': vehicle.color.trim(),
+      'countryCode': vehicle.countryCode.trim().toUpperCase(),
+      'plateRegion': vehicle.plateRegion.trim().toUpperCase(),
+      'plateLetters': vehicle.plateLetters.trim().toUpperCase(),
+      'plateNumbers': vehicle.plateNumbers.trim().toUpperCase(),
+      'isPrimary': vehicle.isPrimary,
+      'status': vehicle.status.name,
+      'useRelationship': vehicle.useRelationship.name,
+      'vehicleType': vehicle.vehicleType.name,
+      'plateType': vehicle.plateType.name,
+      'seasonStartMonth': vehicle.seasonStartMonth,
+      'seasonEndMonth': vehicle.seasonEndMonth,
+      'showOnPublicProfile': vehicle.showOnPublicProfile,
+      'discoverableByPlate': vehicle.discoverableByPlate,
+      'selectableInStories': vehicle.selectableInStories,
+      'allowContactRequests': vehicle.allowContactRequests,
+      'plateDisplayMode': vehicle.plateDisplayMode.name,
+      'year': vehicle.year,
+      'bodyStyle': _trimmedOrNull(vehicle.bodyStyle),
+      'mileage': vehicle.mileage,
+    };
+  }
+
+  static String _messageForFunctionsError(FirebaseFunctionsException error) {
+    final serverMessage = error.message?.trim();
+    if (serverMessage != null &&
+        serverMessage.isNotEmpty &&
+        !serverMessage.toLowerCase().contains('firebase')) {
+      return serverMessage;
+    }
+    return switch (error.code) {
+      'already-exists' =>
+        'Dieses Kennzeichen ist bereits einem aktiven Fahrzeug zugeordnet.',
+      'failed-precondition' =>
+        'Das Fahrzeug kann in seinem aktuellen Zustand nicht geändert werden.',
+      'permission-denied' => 'Du darfst dieses Fahrzeug nicht ändern.',
+      'unauthenticated' => 'Bitte melde dich neu an.',
+      'not-found' => 'Das Fahrzeug wurde nicht gefunden.',
+      'invalid-argument' => 'Bitte prüfe die Fahrzeug- und Kennzeichendaten.',
+      _ =>
+        'Die Fahrzeugdaten konnten gerade nicht gespeichert werden. Bitte versuche es erneut.',
+    };
+  }
+
+  static String? _trimmedOrNull(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
   }
 }

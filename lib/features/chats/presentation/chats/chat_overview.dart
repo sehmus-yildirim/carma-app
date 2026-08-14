@@ -192,6 +192,7 @@ class _ChatsOverview extends StatelessWidget {
     required this.archivedChats,
     required this.stories,
     required this.currentUserPhotoUrl,
+    required this.currentUserDisplayName,
     required this.isAddingOwnStory,
     required this.isLoading,
     required this.hasLocalActiveChat,
@@ -215,6 +216,7 @@ class _ChatsOverview extends StatelessWidget {
   final List<ChatRecord> archivedChats;
   final List<ChatStoryRecord> stories;
   final String currentUserPhotoUrl;
+  final String currentUserDisplayName;
   final bool isAddingOwnStory;
   final bool isLoading;
   final bool hasLocalActiveChat;
@@ -322,6 +324,7 @@ class _ChatsOverview extends StatelessWidget {
             chats: [...visibleChats, ...visibleArchivedChats],
             stories: stories,
             currentUserPhotoUrl: currentUserPhotoUrl,
+            currentUserDisplayName: currentUserDisplayName,
             isAddingOwnStory: isAddingOwnStory,
             onAddOwnStory: () => onAddOwnStory([...chats, ...archivedChats]),
             onOpenStory: onOpenStory,
@@ -1094,6 +1097,7 @@ class _ChatStoriesStrip extends StatelessWidget {
     required this.chats,
     required this.stories,
     required this.currentUserPhotoUrl,
+    required this.currentUserDisplayName,
     required this.isAddingOwnStory,
     required this.onAddOwnStory,
     required this.onOpenStory,
@@ -1102,6 +1106,7 @@ class _ChatStoriesStrip extends StatelessWidget {
   final List<ChatRecord> chats;
   final List<ChatStoryRecord> stories;
   final String currentUserPhotoUrl;
+  final String currentUserDisplayName;
   final bool isAddingOwnStory;
   final VoidCallback onAddOwnStory;
   final void Function(ChatStoryRecord story, List<ChatStoryRecord> stories)
@@ -1207,7 +1212,7 @@ class _ChatStoriesStrip extends StatelessWidget {
                 final currentOwnStory = ownStory;
                 final ownBubbleImageUrl = ownProfilePhotoUrl?.isNotEmpty == true
                     ? ownProfilePhotoUrl
-                    : currentOwnStory?.imageUrl;
+                    : null;
                 final ownStoryViewCount = ownStories
                     .expand((story) => story.viewedAtBy.keys)
                     .where(
@@ -1220,7 +1225,9 @@ class _ChatStoriesStrip extends StatelessWidget {
                   alignment: Alignment.center,
                   child: _StoryBubble(
                     label: 'Deine Story',
+                    fallbackLabel: currentUserDisplayName,
                     imageUrl: ownBubbleImageUrl,
+                    preferAvatarFallback: true,
                     isVideo: currentOwnStory?.isVideo ?? false,
                     isOwnStory: true,
                     hasStory: currentOwnStory != null,
@@ -1279,7 +1286,9 @@ class _ChatStoriesStrip extends StatelessWidget {
 class _StoryBubble extends StatelessWidget {
   const _StoryBubble({
     required this.label,
+    this.fallbackLabel,
     this.imageUrl,
+    this.preferAvatarFallback = false,
     this.isVideo = false,
     this.isOwnStory = false,
     this.hasStory = false,
@@ -1292,7 +1301,9 @@ class _StoryBubble extends StatelessWidget {
   });
 
   final String label;
+  final String? fallbackLabel;
   final String? imageUrl;
+  final bool preferAvatarFallback;
   final bool isVideo;
   final bool isOwnStory;
   final bool hasStory;
@@ -1383,22 +1394,23 @@ class _StoryBubble extends StatelessWidget {
                             width: 72,
                             height: 72,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => isVideo
+                            errorBuilder: (_, _, _) =>
+                                isVideo && !preferAvatarFallback
                                 ? const _StoryVideoBubblePlaceholder()
                                 : _AvatarCircle(
                                     size: 72,
                                     imageUrl: null,
                                     iconSize: 38,
-                                    fallbackLabel: label,
+                                    fallbackLabel: fallbackLabel ?? label,
                                   ),
                           )
-                        : hasStory && isVideo
+                        : hasStory && isVideo && !preferAvatarFallback
                         ? const _StoryVideoBubblePlaceholder()
                         : _AvatarCircle(
                             size: 72,
                             imageUrl: imageUrl,
                             iconSize: 38,
-                            fallbackLabel: label,
+                            fallbackLabel: fallbackLabel ?? label,
                           ),
                   ),
                 ),

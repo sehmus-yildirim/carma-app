@@ -11,6 +11,7 @@ const {getStorage} = require("firebase-admin/storage");
 const {logger} = require("firebase-functions");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {HttpsError, onCall} = require("firebase-functions/v2/https");
+const {onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {
   isOwnedReportImagePath,
@@ -18,6 +19,20 @@ const {
 } = require("./report_submission");
 const {runReportCleanup} = require("./report_cleanup");
 const {searchPlateDocument} = require("./plate_search");
+const {
+  syncProfilePhotoReferences,
+} = require("./profile_photo_sync");
+const {
+  cleanupVerificationDocuments,
+  reviewProfileVerification,
+  submitProfileVerification,
+} = require("./profile_verification");
+const {
+  deactivateProfileVehicle,
+  saveProfileVehicle,
+  setPrimaryProfileVehicle,
+  updatePrimaryVehicleLocation,
+} = require("./profile_vehicle_management");
 const {
   requestAccountDeletion,
   revokeAccountSessions,
@@ -57,6 +72,28 @@ const mfaRecoveryAppCheckOptions = {
   enforceAppCheck: false,
   consumeAppCheckToken: false,
 };
+
+exports.syncProfilePhotoReferences = onDocumentUpdated(
+  "public_profiles/{userId}",
+  async (event) => {
+    const beforePhotoUrl = safeString(event.data?.before.data()?.photoUrl);
+    const afterPhotoUrl = safeString(event.data?.after.data()?.photoUrl);
+    if (beforePhotoUrl === afterPhotoUrl) return;
+
+    try {
+      await syncProfilePhotoReferences({
+        firestore: db,
+        userId: event.params.userId,
+        photoUrl: afterPhotoUrl,
+      });
+    } catch (error) {
+      logger.error("Profile photo reference sync failed", {
+        errorType: errorType(error),
+      });
+      throw error;
+    }
+  },
+);
 
 exports.searchPlate = onCall(
   {
@@ -151,6 +188,85 @@ exports.revokeAccountSessions = onCall(
     authAdmin: getAuth(),
     authContext: request.auth,
     input: request.data,
+  }),
+);
+
+exports.submitProfileVerification = onCall(
+  {
+    timeoutSeconds: 60,
+    memory: "256MiB",
+  },
+  async (request) => submitProfileVerification({
+    firestore: db,
+    bucket: getStorage().bucket(),
+    authContext: request.auth,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.reviewProfileVerification = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => reviewProfileVerification({
+    firestore: db,
+    authContext: request.auth,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.saveProfileVehicle = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => saveProfileVehicle({
+    firestore: db,
+    authContext: request.auth,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.setPrimaryProfileVehicle = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => setPrimaryProfileVehicle({
+    firestore: db,
+    authContext: request.auth,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.deactivateProfileVehicle = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => deactivateProfileVehicle({
+    firestore: db,
+    authContext: request.auth,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.updatePrimaryVehicleLocation = onCall(
+  {
+    timeoutSeconds: 15,
+    memory: "256MiB",
+  },
+  async (request) => updatePrimaryVehicleLocation({
+    firestore: db,
+    authContext: request.auth,
+    input: request.data,
+    now: Timestamp.now(),
   }),
 );
 
@@ -624,6 +740,25 @@ exports.maintainPlateHints = onSchedule(
       now: Timestamp.now(),
     });
     logger.info("Report maintenance completed", result);
+  },
+);
+
+exports.cleanupProfileVerificationDocuments = onSchedule(
+  {
+    schedule: "every day 04:30",
+    timeZone: "Europe/Berlin",
+    retryCount: 3,
+    maxRetrySeconds: 300,
+    timeoutSeconds: 300,
+    memory: "256MiB",
+  },
+  async () => {
+    const result = await cleanupVerificationDocuments({
+      firestore: db,
+      bucket: getStorage().bucket(),
+      now: Timestamp.now(),
+    });
+    logger.info("Verification document cleanup completed", result);
   },
 );
 

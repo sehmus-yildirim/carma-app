@@ -3,21 +3,26 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../shared/domain/app_feature_gate.dart';
 import '../../../shared/models/carisma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
+import '../../auth/data/auth_service.dart';
+import '../../auth/data/mfa_service.dart';
+import '../../auth/presentation/mfa_screens.dart';
 import '../domain/profile_document_mapper.dart';
 import '../domain/profile_draft.dart';
 import '../data/profile_media_storage.dart';
 import '../data/profile_repository.dart';
 import '../data/profile_vehicle_repository.dart';
-import '../data/profile_verification_repository.dart';
 import '../data/plate_repository.dart';
 import '../data/user_profile.dart' as firestore_profile;
 import '../data/vehicle_catalog.dart';
+import 'profile_verification_screen.dart';
+import 'widgets/profile_photo_crop_screen.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_country_selector_card.dart';
@@ -38,7 +43,7 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
     required this.userState,
-    this.initialEntry = ProfileEditorEntry.overview,
+    this.initialEntry = ProfileEditorEntry.personalData,
   });
 
   final AppUserState userState;
@@ -56,13 +61,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileRepository _profileRepository = ProfileRepository();
   final ProfileVehicleRepository _profileVehicleRepository =
       ProfileVehicleRepository();
-  final ProfileVerificationRepository _profileVerificationRepository =
-      ProfileVerificationRepository();
   final PlateRepository _plateRepository = PlateRepository();
+  final AuthService _authService = AuthService();
+  final FirebaseMfaService _mfaService = FirebaseMfaService();
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _phoneNumberController = TextEditingController();
+  final TextEditingController _birthDateController = TextEditingController();
   final TextEditingController _publicBioController = TextEditingController();
   final TextEditingController _publicRegionController = TextEditingController();
 
@@ -91,6 +97,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isApplyingSavedProfile = false;
   bool _initialEntryHandled = false;
   String? _profileLoadError;
+  MfaStatusSnapshot? _mfaStatus;
+  bool _isLoadingMfaStatus = true;
+  String? _mfaStatusError;
+  String? _birthDateError;
 
   bool _isSubmittedForVerification = false;
   bool _isVerified = false;
@@ -136,10 +146,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _isSubmittedForVerification || _isVerified;
   }
 
+  bool get _isPersonalDataLocked {
+    return _loadedProfile?.personalDataLocked ?? false;
+  }
+
   String get _entryTitle => switch (widget.initialEntry) {
     ProfileEditorEntry.personalData => 'Persönliche Daten',
     ProfileEditorEntry.documents => 'Dokumente hochladen',
-    ProfileEditorEntry.overview => 'Profil',
+    ProfileEditorEntry.overview => 'Persönliche Daten',
   };
 
   PlateCountryConfig get _plateConfig {
@@ -263,18 +277,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return displayPlate.isEmpty ? 'Noch kein Kennzeichen' : displayPlate;
   }
 
-  String get _birthDateLabel {
-    final birthDate = _birthDate;
+  String get _mfaPhoneLabel {
+    if (_isLoadingMfaStatus) return 'Zwei-Faktor-Status wird geladen ...';
+    if (_mfaStatusError != null) return 'Status derzeit nicht verfügbar';
+    final factors = _mfaStatus?.factors ?? const <MfaFactorSnapshot>[];
+    if (factors.isEmpty) return 'Telefonnummer hinterlegen';
+    return factors.first.maskedPhoneNumber;
+  }
 
-    if (birthDate == null) {
-      return 'Geburtsdatum';
-    }
-
-    final day = birthDate.day.toString().padLeft(2, '0');
-    final month = birthDate.month.toString().padLeft(2, '0');
-    final year = birthDate.year.toString();
-
-    return '$day.$month.$year';
+  bool get _hasMfaPhone {
+    return (_mfaStatus?.factors.isNotEmpty ?? false) && _mfaStatusError == null;
   }
 
   @override
@@ -284,6 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _firstNameController.addListener(_markUnsaved);
     _lastNameController.addListener(_markUnsaved);
     _phoneNumberController.addListener(_markUnsaved);
+    _birthDateController.addListener(_markUnsaved);
     _publicBioController.addListener(_markPublicProfileUnsaved);
     _publicRegionController.addListener(_markPublicProfileUnsaved);
     _regionController.addListener(_markUnsaved);
@@ -291,6 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _numbersController.addListener(_markUnsaved);
 
     _loadSavedProfile();
+    _loadMfaStatus();
   }
 
   Future<void> _loadSavedProfile() async {
@@ -384,6 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _firstNameController.text = loadedProfile.firstName;
         _lastNameController.text = loadedProfile.lastName;
         _phoneNumberController.text = loadedProfile.phoneNumber ?? '';
+        _birthDateController.text = _formatBirthDate(loadedProfile.birthDate);
         _publicBioController.text = loadedProfile.publicBio ?? '';
         _publicRegionController.text = loadedProfile.publicRegion ?? '';
         _birthDate = loadedProfile.birthDate;
@@ -449,18 +464,138 @@ class _ProfileScreenState extends State<ProfileScreen> {
         case ProfileEditorEntry.documents:
           break;
         case ProfileEditorEntry.personalData:
-          final sectionContext = _personalDataSectionKey.currentContext;
-          if (sectionContext != null) {
-            Scrollable.ensureVisible(
-              sectionContext,
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              alignment: 0.08,
-            );
-          }
+          break;
         case ProfileEditorEntry.overview:
           break;
       }
+    });
+  }
+
+  Future<void> _loadMfaStatus() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMfaStatus = false;
+          _mfaStatusError = 'Nicht angemeldet';
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingMfaStatus = true;
+        _mfaStatusError = null;
+      });
+    }
+
+    try {
+      final status = await _mfaService.loadStatus();
+      if (!mounted) return;
+      setState(() {
+        _mfaStatus = status;
+        _isLoadingMfaStatus = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mfaStatus = null;
+        _isLoadingMfaStatus = false;
+        _mfaStatusError = 'Status konnte nicht geladen werden';
+      });
+    }
+  }
+
+  Future<void> _openMfaManagement() async {
+    try {
+      final account = await _authService.loadCurrentAccount();
+      if (!mounted) return;
+      if (account == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Deine Kontodaten konnten nicht geladen werden.'),
+          ),
+        );
+        return;
+      }
+
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => MfaManagementScreen(
+            initialAccount: account,
+            accountGateway: _authService,
+          ),
+        ),
+      );
+      if (mounted) await _loadMfaStatus();
+    } on FirebaseAuthException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Deine Kontodaten konnten gerade nicht geladen werden.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Der Zwei-Faktor-Schutz konnte nicht geöffnet werden.'),
+        ),
+      );
+    }
+  }
+
+  String _formatBirthDate(DateTime? value) {
+    if (value == null) return '';
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return '$day.$month.${value.year}';
+  }
+
+  DateTime? _parseBirthDate(String value) {
+    final match = RegExp(
+      r'^(\d{2})\.(\d{2})\.(\d{4})$',
+    ).firstMatch(value.trim());
+    if (match == null) return null;
+
+    final day = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final year = int.parse(match.group(3)!);
+    if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) {
+      return null;
+    }
+
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
+  }
+
+  String? _validateBirthDate(String value) {
+    if (value.trim().isEmpty) return 'Bitte gib dein Geburtsdatum ein.';
+    final birthDate = _parseBirthDate(value);
+    if (birthDate == null) return 'Bitte verwende das Format TT.MM.JJJJ.';
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (birthDate.isAfter(today)) {
+      return 'Das Geburtsdatum darf nicht in der Zukunft liegen.';
+    }
+    final latestAllowed = DateTime(now.year - 16, now.month, now.day);
+    if (birthDate.isAfter(latestAllowed)) {
+      return 'Du musst mindestens 16 Jahre alt sein.';
+    }
+    return null;
+  }
+
+  void _handleBirthDateChanged(String value) {
+    final validation = value.length == 10 ? _validateBirthDate(value) : null;
+    setState(() {
+      _birthDate = _parseBirthDate(value);
+      _birthDateError = validation;
     });
   }
 
@@ -496,6 +631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _firstNameController.removeListener(_markUnsaved);
     _lastNameController.removeListener(_markUnsaved);
     _phoneNumberController.removeListener(_markUnsaved);
+    _birthDateController.removeListener(_markUnsaved);
     _publicBioController.removeListener(_markPublicProfileUnsaved);
     _publicRegionController.removeListener(_markPublicProfileUnsaved);
     _regionController.removeListener(_markUnsaved);
@@ -505,6 +641,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _phoneNumberController.dispose();
+    _birthDateController.dispose();
     _publicBioController.dispose();
     _publicRegionController.dispose();
     _regionController.dispose();
@@ -586,32 +723,171 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _documentRemoteUrlsByTitle['Fahrzeugschein Rückseite'] = null;
   }
 
-  Future<void> _pickBirthDate() async {
-    if (_isProfileLocked) {
-      return;
+  Future<bool> _savePersonalData() async {
+    final lockedProfile = _isPersonalDataLocked ? _loadedProfile : null;
+    final firstName = lockedProfile?.firstName.trim().isNotEmpty == true
+        ? lockedProfile!.firstName.trim()
+        : _firstNameController.text.trim();
+    final lastName = lockedProfile?.lastName.trim().isNotEmpty == true
+        ? lockedProfile!.lastName.trim()
+        : _lastNameController.text.trim();
+    final birthDate =
+        lockedProfile?.birthDate ?? _parseBirthDate(_birthDateController.text);
+    final birthDateError = lockedProfile != null
+        ? null
+        : _validateBirthDate(_birthDateController.text);
+
+    if (firstName.isEmpty || lastName.isEmpty || birthDateError != null) {
+      setState(() => _birthDateError = birthDateError);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            firstName.isEmpty || lastName.isEmpty
+                ? 'Bitte gib Vorname und Nachname vollständig ein.'
+                : birthDateError!,
+          ),
+        ),
+      );
+      return false;
     }
 
-    final now = DateTime.now();
-    final initialDate =
-        _birthDate ?? DateTime(now.year - 18, now.month, now.day);
-    final pickedDate = await showDatePicker(
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null || birthDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Bitte melde dich erneut an, um deine Daten zu speichern.',
+          ),
+        ),
+      );
+      return false;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _isSaving = true);
+
+    try {
+      var profilePhotoUrl = _profilePhotoRemoved
+          ? null
+          : (_profilePhotoUrl ?? firebaseUser.photoURL);
+
+      if (_profilePhotoRemoved) {
+        await _profileMediaStorage.deleteProfilePhoto(userId: firebaseUser.uid);
+      }
+      if (_profilePhoto != null) {
+        final upload = await _profileMediaStorage.uploadProfilePhoto(
+          userId: firebaseUser.uid,
+          file: File(_profilePhoto!.path),
+        );
+        profilePhotoUrl = upload.url;
+      }
+
+      final updatedProfile = await _profileRepository.updatePersonalData(
+        uid: firebaseUser.uid,
+        firstName: firstName,
+        lastName: lastName,
+        displayName: _displayName,
+        birthDate: birthDate,
+        photoUrl: profilePhotoUrl,
+      );
+      await _syncFirebaseUserProfile(
+        firebaseUser,
+        displayName: _displayName,
+        photoUrl: profilePhotoUrl,
+      );
+
+      if (!mounted) return false;
+      setState(() {
+        _loadedProfile = updatedProfile ?? _loadedProfile;
+        _birthDate = birthDate;
+        _birthDateError = null;
+        _profilePhoto = null;
+        _profilePhotoUrl = profilePhotoUrl;
+        _profilePhotoRemoved = false;
+        _hasUnsavedChanges = false;
+        _isSaving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lockedProfile == null
+                ? 'Persönliche Daten wurden verbindlich gespeichert.'
+                : 'Profilbild wurde gespeichert.',
+          ),
+        ),
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_profileSaveErrorMessage(error))));
+      return false;
+    }
+  }
+
+  Future<bool> _confirmPersonalDataLock() async {
+    if (_isPersonalDataLocked) return true;
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    final confirmed = await showDialog<bool>(
       context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(1900),
-      lastDate: now,
-      helpText: 'Geburtsdatum wählen',
-      cancelText: 'Abbrechen',
-      confirmText: 'Übernehmen',
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: CaRismaDesignTokens.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: CaRismaDesignTokens.danger.withValues(alpha: 0.90),
+            width: 1.4,
+          ),
+        ),
+        title: const Text(
+          'WICHTIGER HINWEIS !',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'Vorname, Nachname und Geburtsdatum können danach nicht mehr geändert werden, da sie mit deinen Fahrzeug- und Verifizierungsdaten übereinstimmen müssen. Profilbild, E-Mail Adresse und Telefonnummer bleiben weiterhin änderbar. In der App wird nur die Initiale deines Nachnamens angezeigt.',
+          style: TextStyle(
+            color: CaRismaDesignTokens.textSecondary,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(
+              'Nochmal bearbeiten',
+              style: TextStyle(
+                color: CaRismaDesignTokens.bluePrimary,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Verbindlich speichern',
+              style: TextStyle(
+                color: CaRismaDesignTokens.danger,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+    return confirmed == true && mounted;
+  }
 
-    if (pickedDate == null || pickedDate == _birthDate) {
-      return;
-    }
-
-    setState(() {
-      _birthDate = DateTime(pickedDate.year, pickedDate.month, pickedDate.day);
-      _hasUnsavedChanges = true;
-    });
+  Future<void> _handlePersonalDataSave() async {
+    if (!await _confirmPersonalDataLock()) return;
+    await _savePersonalData();
   }
 
   Future<void> _showProfilePhotoSourceSheet() async {
@@ -689,15 +965,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
+      final croppedImage = await Navigator.of(context).push<XFile>(
+        MaterialPageRoute<XFile>(
+          builder: (_) => ProfilePhotoCropScreen(sourceFile: image),
+        ),
+      );
+      if (croppedImage == null || !mounted) {
+        return;
+      }
+
       setState(() {
-        _profilePhoto = image;
+        _profilePhoto = croppedImage;
         _profilePhotoUrl = null;
         _profilePhotoRemoved = false;
         _hasUnsavedChanges = true;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profilbild wurde ausgewählt.')),
+        const SnackBar(content: Text('Profilbild wurde zugeschnitten.')),
       );
     } catch (error) {
       if (!mounted) {
@@ -851,6 +1136,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return _saveLockedProfilePreferences();
     }
 
+    if (!await _confirmPersonalDataLock()) {
+      return false;
+    }
+    if (!mounted) {
+      return false;
+    }
+
     final gateDecision = _verificationGateDecision;
 
     if (!gateDecision.isAllowed) {
@@ -882,8 +1174,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final platePosition = await _loadPlatePositionForSave();
     final draft = _profileDraft;
-    final canSubmit = _canSubmitProfileForVerification;
-
     setState(() {
       _isSaving = true;
     });
@@ -904,32 +1194,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
         profilePhotoUrl = upload.url;
       }
-
-      final documentRemoteUrls = Map<String, String?>.from(
-        _documentRemoteUrlsByTitle,
-      );
-
-      for (final entry in draft.documentLocalPaths.entries) {
-        final localPath = entry.value?.trim();
-
-        if (localPath == null || localPath.isEmpty) {
-          continue;
-        }
-
-        final upload = await _profileMediaStorage.uploadVerificationDocument(
-          userId: firebaseUser.uid,
-          documentType: entry.key.name,
-          file: File(localPath),
-        );
-        final title = ProfileDocumentMapper.titleForType(entry.key);
-        documentRemoteUrls[title] = upload.url;
-      }
-
-      final verificationSubmittedAt = canSubmit
-          ? _isVerificationRejected
-                ? DateTime.now()
-                : _verificationSubmittedAt ?? DateTime.now()
-          : null;
 
       final profile = firestore_profile.UserProfile(
         uid: firebaseUser.uid,
@@ -953,6 +1217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         profilePhotoLocalPath: null,
         publicBio: _publicBioController.text.trim(),
         publicRegion: _publicRegionController.text.trim(),
+        personalDataLocked: true,
         showVehicleOnPublicProfile:
             _loadedProfile?.showVehicleOnPublicProfile ?? false,
         showPlateOnPublicProfile:
@@ -962,23 +1227,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         followersVisibility: _loadedProfile?.followersVisibility ?? 'contacts',
         followingVisibility: _loadedProfile?.followingVisibility ?? 'contacts',
         primaryVehicleId: _loadedProfile?.primaryVehicleId,
-        documentLocalPaths: {
-          for (final type in VerificationDocumentType.values) type.name: null,
-        },
-        documentRemoteUrls: documentRemoteUrls.map((title, url) {
-          final type = ProfileDocumentMapper.typeForTitle(title);
-          return MapEntry(type?.name ?? title, url);
-        }),
-        verificationStatus: canSubmit ? 'pending' : 'draft',
-        verificationSubmittedAt: verificationSubmittedAt,
-        verificationReviewedAt: null,
-        verificationRejectionReason: null,
+        documentLocalPaths:
+            _loadedProfile?.documentLocalPaths ?? const <String, String?>{},
+        documentRemoteUrls:
+            _loadedProfile?.documentRemoteUrls ?? const <String, String?>{},
+        verificationStatus: _loadedProfile?.verificationStatus ?? 'draft',
+        verificationSubmittedAt: _loadedProfile?.verificationSubmittedAt,
+        verificationReviewedAt: _loadedProfile?.verificationReviewedAt,
+        verificationRejectionReason:
+            _loadedProfile?.verificationRejectionReason,
       );
 
       await _profileRepository.saveProfile(profile);
-      if (canSubmit) {
-        await _profileVerificationRepository.createVerificationRequest(profile);
-      }
       await _plateRepository.registerPlateForProfile(
         profile,
         latitude: platePosition?.latitude,
@@ -1002,35 +1262,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profilePhoto = null;
         _profilePhotoUrl = profilePhotoUrl;
         _profilePhotoRemoved = false;
-
-        for (final key in _documentFiles.keys.toList()) {
-          _documentFiles[key] = null;
-          _documentRemoteUrlsByTitle[key] = documentRemoteUrls[key];
-        }
-
-        if (canSubmit) {
-          _isSubmittedForVerification = true;
-          _isVerified = false;
-          _isVerificationRejected = false;
-          _verificationSubmittedAt = verificationSubmittedAt;
-          _verificationReviewedAt = null;
-          _verificationRejectionReason = null;
-        } else {
-          _isVerificationRejected = false;
-          _verificationSubmittedAt = null;
-          _verificationReviewedAt = null;
-          _verificationRejectionReason = null;
-        }
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            canSubmit
-                ? 'Profil wurde gespeichert. Deine Verifizierung ist jetzt ausstehend.'
-                : 'Profil wurde gespeichert. Für die Freigabe müssen Name, Fahrzeug und alle Dokumente vollständig sein.',
-          ),
-        ),
+        const SnackBar(content: Text('Persönliche Daten wurden gespeichert.')),
       );
       return true;
     } catch (error) {
@@ -1191,6 +1426,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final currentDisplayName = firebaseUser.displayName?.trim();
     final currentPhotoUrl = firebaseUser.photoURL?.trim();
 
+    if (currentPhotoUrl != null && currentPhotoUrl.isNotEmpty) {
+      await NetworkImage(currentPhotoUrl).evict();
+    }
+
     if (nextDisplayName != null &&
         nextDisplayName.isNotEmpty &&
         nextDisplayName != currentDisplayName) {
@@ -1202,8 +1441,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         nextPhotoUrl == null || nextPhotoUrl.isEmpty ? null : nextPhotoUrl,
       );
     }
+
+    if (nextPhotoUrl != null && nextPhotoUrl.isNotEmpty) {
+      await NetworkImage(nextPhotoUrl).evict();
+    }
   }
 
+  // Legacy widget kept temporarily for migration-only state rendering.
+  // ignore: unused_element
   Widget _buildVerificationEditor() {
     return _VerificationScreen(
       imagePicker: _imagePicker,
@@ -1237,105 +1482,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openVerificationScreen() async {
-    final gateDecision = _verificationGateDecision;
-
-    if (!gateDecision.isAllowed && !_isProfileLocked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            gateDecision.reason ??
-                'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (!_isProfileLocked) {
-      final missingMessage = !_hasNameInput
-          ? 'Bitte trage zuerst Vorname und Nachname ein.'
-          : !_hasPlateInput
-          ? 'Bitte gib zuerst dein vollständiges Kennzeichen ein.'
-          : null;
-
-      if (missingMessage != null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(missingMessage)));
-        return;
-      }
-    }
-
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => _buildVerificationEditor()));
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ProfileVerificationScreen(userId: widget.userState.userId),
+      ),
+    );
   }
 
-  Widget _buildDirectDocumentsEntry() {
-    if (_isLoadingProfile) {
-      return CaRismaBackground(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-              children: [
-                CaRismaSubPageHeader(
-                  icon: Icons.upload_file_rounded,
-                  title: 'Dokumente hochladen',
-                  onBack: _handleBack,
-                ),
-                const SizedBox(height: 18),
-                const GlassCard(
-                  padding: EdgeInsets.all(28),
-                  child: Center(
-                    child: SizedBox.square(
-                      dimension: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
+  Widget _buildDirectPersonalDataEntry() {
     final loadError = _profileLoadError;
-    if (loadError != null) {
-      return CaRismaBackground(
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-              children: [
-                CaRismaSubPageHeader(
-                  icon: Icons.upload_file_rounded,
-                  title: 'Dokumente hochladen',
-                  onBack: _handleBack,
-                ),
-                const SizedBox(height: 18),
-                CaRismaMessageCard(
-                  icon: Icons.error_outline_rounded,
-                  message: loadError,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     return PopScope(
       canPop: !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         await _handleBack();
       },
-      child: _buildVerificationEditor(),
+      child: CaRismaBackground(
+        child: Material(
+          color: Colors.transparent,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+                return SingleChildScrollView(
+                  controller: _scrollController,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + keyboardInset),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 28,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CaRismaSubPageHeader(
+                          icon: Icons.badge_outlined,
+                          title: 'Persönliche Daten',
+                          onBack: _handleBack,
+                        ),
+                        const SizedBox(height: 10),
+                        if (_isLoadingProfile)
+                          const GlassCard(
+                            padding: EdgeInsets.all(28),
+                            child: Center(
+                              child: SizedBox.square(
+                                dimension: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (loadError != null)
+                          CaRismaMessageCard(
+                            icon: Icons.error_outline_rounded,
+                            message: loadError,
+                          )
+                        else ...[
+                          _PersonalProfilePhotoCard(
+                            displayName: _displayName,
+                            profilePhoto: _profilePhoto,
+                            profilePhotoUrl: _profilePhotoUrl,
+                            onTap: _showProfilePhotoSourceSheet,
+                          ),
+                          const SizedBox(height: 10),
+                          _NameCard(
+                            firstNameController: _firstNameController,
+                            lastNameController: _lastNameController,
+                            birthDateController: _birthDateController,
+                            birthDateError: _birthDateError,
+                            accountEmail:
+                                FirebaseAuth.instance.currentUser?.email ??
+                                'Keine E-Mail hinterlegt',
+                            mfaPhoneLabel: _mfaPhoneLabel,
+                            isMfaLoading: _isLoadingMfaStatus,
+                            isLocked: _isPersonalDataLocked || _isProfileLocked,
+                            hasMfaPhone: _hasMfaPhone,
+                            onBirthDateChanged: _handleBirthDateChanged,
+                            onManageMfa: _openMfaManagement,
+                          ),
+                          const SizedBox(height: 12),
+                          _SaveProfileButton(
+                            isEnabled: _hasUnsavedChanges && !_isSaving,
+                            isLoading: _isSaving,
+                            canSubmitProfileForVerification: false,
+                            onPressed: _handlePersonalDataSave,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
     );
+  }
+
+  Widget _buildDirectDocumentsEntry() {
+    return ProfileVerificationScreen(userId: widget.userState.userId);
   }
 
   Future<void> _confirmNewProfile() async {
@@ -1435,6 +1684,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.initialEntry == ProfileEditorEntry.personalData ||
+        widget.initialEntry == ProfileEditorEntry.overview) {
+      return _buildDirectPersonalDataEntry();
+    }
     if (widget.initialEntry == ProfileEditorEntry.documents) {
       return _buildDirectDocumentsEntry();
     }
@@ -1563,15 +1816,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _NameCard(
                           firstNameController: _firstNameController,
                           lastNameController: _lastNameController,
-                          phoneNumberController: _phoneNumberController,
-                          publicBioController: _publicBioController,
-                          publicRegionController: _publicRegionController,
+                          birthDateController: _birthDateController,
+                          birthDateError: _birthDateError,
                           accountEmail:
                               FirebaseAuth.instance.currentUser?.email ??
                               'Keine E-Mail hinterlegt',
-                          birthDateLabel: _birthDateLabel,
-                          isLocked: _isProfileLocked,
-                          onBirthDateTap: _pickBirthDate,
+                          mfaPhoneLabel: _mfaPhoneLabel,
+                          isMfaLoading: _isLoadingMfaStatus,
+                          isLocked: _isPersonalDataLocked || _isProfileLocked,
+                          hasMfaPhone: _hasMfaPhone,
+                          onBirthDateChanged: _handleBirthDateChanged,
+                          onManageMfa: _openMfaManagement,
                         ),
                         const SizedBox(height: 18),
                         const CaRismaSectionTitle(
@@ -2589,112 +2844,98 @@ class _ProfilePhotoButton extends StatelessWidget {
   final String? profilePhotoUrl;
   final VoidCallback onTap;
 
+  Widget _placeholder() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Center(
+          child: Icon(
+            Icons.person_rounded,
+            color: CaRismaDesignTokens.bluePrimary,
+            size: size * 0.50,
+          ),
+        ),
+        Positioned(
+          right: size * 0.08,
+          bottom: size * 0.08,
+          child: Container(
+            width: size * 0.27,
+            height: size * 0.27,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: CaRismaDesignTokens.bluePrimary,
+              border: Border.all(
+                color: CaRismaDesignTokens.surface2,
+                width: 1.5,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.add_rounded,
+              color: Colors.white,
+              size: size * 0.19,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final image = profilePhoto;
     final imageUrl = profilePhotoUrl?.trim();
     final radius = size * 0.30;
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(radius),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(radius),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(radius),
-                color: CaRismaDesignTokens.surface2,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  width: 1.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.60),
-                    blurRadius: 12,
-                    offset: const Offset(4, 4),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.015),
-                    blurRadius: 8,
-                    offset: const Offset(-4, -4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(radius - 1),
-                child: image != null
-                    ? Image.file(
-                        File(image.path),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.person_rounded,
-                            color: CaRismaDesignTokens.bluePrimary,
-                            size: size * 0.56,
-                          );
-                        },
-                      )
-                    : imageUrl != null && imageUrl.isNotEmpty
-                    ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.person_rounded,
-                            color: CaRismaDesignTokens.bluePrimary,
-                            size: size * 0.56,
-                          );
-                        },
-                      )
-                    : Icon(
-                        Icons.person_rounded,
-                        color: CaRismaDesignTokens.bluePrimary,
-                        size: size * 0.56,
-                      ),
-              ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Semantics(
+        button: true,
+        label: 'Profilbild hinzufügen oder ändern',
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            color: CaRismaDesignTokens.surface2,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.05),
+              width: 1.0,
             ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(9),
-                  gradient: CaRismaDesignTokens.blueGradient,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.30),
-                      blurRadius: 6,
-                      offset: const Offset(2, 2),
-                    ),
-                    BoxShadow(
-                      color: CaRismaDesignTokens.bluePrimary.withValues(
-                        alpha: 0.25,
-                      ),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.photo_camera_rounded,
-                  color: Colors.white,
-                  size: 15,
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.60),
+                blurRadius: 12,
+                offset: const Offset(4, 4),
               ),
-            ),
-          ],
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.015),
+                blurRadius: 8,
+                offset: const Offset(-4, -4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(radius - 1),
+            child: image != null
+                ? Image.file(
+                    File(image.path),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _placeholder();
+                    },
+                  )
+                : imageUrl != null && imageUrl.isNotEmpty
+                ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _placeholder();
+                    },
+                  )
+                : _placeholder(),
+          ),
         ),
       ),
     );
@@ -2734,33 +2975,81 @@ class _LockedProfileCard extends StatelessWidget {
   }
 }
 
-class _NameCard extends StatelessWidget {
-  const _NameCard({
-    required this.firstNameController,
-    required this.lastNameController,
-    required this.phoneNumberController,
-    required this.publicBioController,
-    required this.publicRegionController,
-    required this.accountEmail,
-    required this.birthDateLabel,
-    required this.isLocked,
-    required this.onBirthDateTap,
+class _PersonalProfilePhotoCard extends StatelessWidget {
+  const _PersonalProfilePhotoCard({
+    required this.displayName,
+    required this.profilePhoto,
+    required this.profilePhotoUrl,
+    required this.onTap,
   });
 
-  final TextEditingController firstNameController;
-  final TextEditingController lastNameController;
-  final TextEditingController phoneNumberController;
-  final TextEditingController publicBioController;
-  final TextEditingController publicRegionController;
-  final String accountEmail;
-  final String birthDateLabel;
-  final bool isLocked;
-  final VoidCallback onBirthDateTap;
+  final String displayName;
+  final XFile? profilePhoto;
+  final String? profilePhotoUrl;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          _ProfilePhotoButton(
+            size: 52,
+            profilePhoto: profilePhoto,
+            profilePhotoUrl: profilePhotoUrl,
+            onTap: onTap,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: CaRismaDesignTokens.textPrimary,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NameCard extends StatelessWidget {
+  const _NameCard({
+    required this.firstNameController,
+    required this.lastNameController,
+    required this.birthDateController,
+    required this.birthDateError,
+    required this.accountEmail,
+    required this.mfaPhoneLabel,
+    required this.isMfaLoading,
+    required this.isLocked,
+    required this.hasMfaPhone,
+    required this.onBirthDateChanged,
+    required this.onManageMfa,
+  });
+
+  final TextEditingController firstNameController;
+  final TextEditingController lastNameController;
+  final TextEditingController birthDateController;
+  final String? birthDateError;
+  final String accountEmail;
+  final String mfaPhoneLabel;
+  final bool isMfaLoading;
+  final bool isLocked;
+  final bool hasMfaPhone;
+  final ValueChanged<String> onBirthDateChanged;
+  final VoidCallback onManageMfa;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(12),
       child: Column(
         children: [
           _ProfileTextField(
@@ -2769,60 +3058,145 @@ class _NameCard extends StatelessWidget {
             icon: Icons.badge_outlined,
             textCapitalization: TextCapitalization.words,
             enabled: !isLocked,
+            showLockIcon: isLocked,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 9),
           _ProfileTextField(
             controller: lastNameController,
             hintText: 'Nachname',
             icon: Icons.badge_outlined,
             textCapitalization: TextCapitalization.words,
             enabled: !isLocked,
+            showLockIcon: isLocked,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 9),
           _ProfileTextField(
-            controller: phoneNumberController,
-            hintText: 'Telefonnummer',
-            icon: Icons.phone_rounded,
+            controller: birthDateController,
+            hintText: 'TT.MM.JJJJ',
+            icon: Icons.cake_outlined,
             textCapitalization: TextCapitalization.none,
-            keyboardType: TextInputType.phone,
+            keyboardType: TextInputType.number,
             enabled: !isLocked,
+            showLockIcon: isLocked,
+            inputFormatters: const [_BirthDateInputFormatter()],
+            onChanged: onBirthDateChanged,
+            errorText: birthDateError,
+            helperText: 'Mindestalter: 16 Jahre',
           ),
-          const SizedBox(height: 12),
-          _ProfileDateField(
-            label: birthDateLabel,
-            enabled: !isLocked,
-            onTap: onBirthDateTap,
+          const SizedBox(height: 9),
+          _MfaPhoneField(
+            value: mfaPhoneLabel,
+            isLoading: isMfaLoading,
+            isRegistered: hasMfaPhone,
+            onTap: onManageMfa,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 9),
           _ReadOnlyProfileField(
             icon: Icons.alternate_email_rounded,
-            label: 'Konto-E-Mail-Adresse',
+            label: 'E-Mail Adresse',
             value: accountEmail,
           ),
-          const SizedBox(height: 12),
-          _ProfileTextField(
-            controller: publicBioController,
-            hintText: 'Kurze öffentliche Profilbeschreibung',
-            icon: Icons.notes_rounded,
-            textCapitalization: TextCapitalization.sentences,
-            enabled: true,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 12),
-          _ProfileTextField(
-            controller: publicRegionController,
-            hintText: 'Öffentliche Region, z. B. Hamburg',
-            icon: Icons.location_city_outlined,
-            textCapitalization: TextCapitalization.words,
-            enabled: true,
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 9),
           const _InlineStatusBox(
             icon: Icons.info_outline_rounded,
             text:
-                'Telefonnummer und Geburtsdatum bleiben privat. Profilbeschreibung und Region werden nur im öffentlichen Profil angezeigt.',
+                'Geburtsdatum, Telefonnummer und\nE-Mail Adresse bleiben privat.',
+            fixedLines: [
+              'Geburtsdatum, Telefonnummer und',
+              'E-Mail Adresse bleiben privat.',
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MfaPhoneField extends StatelessWidget {
+  const _MfaPhoneField({
+    required this.value,
+    required this.isLoading,
+    required this.isRegistered,
+    required this.onTap,
+  });
+
+  final String value;
+  final bool isLoading;
+  final bool isRegistered;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: isLoading ? null : onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: CaRismaDesignTokens.controlSurface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 24,
+              child: Center(
+                child: isLoading
+                    ? const SizedBox.square(
+                        dimension: 17,
+                        child: CircularProgressIndicator(strokeWidth: 1.8),
+                      )
+                    : Icon(
+                        Icons.phone_iphone_rounded,
+                        color: Colors.white.withValues(alpha: 0.66),
+                        size: 23,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Telefonnummer',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: CaRismaDesignTokens.textMuted,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: CaRismaDesignTokens.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Im Zwei-Faktor-Schutz verwalten',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: CaRismaDesignTokens.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isRegistered
+                  ? Icons.lock_outline_rounded
+                  : Icons.chevron_right_rounded,
+              color: CaRismaDesignTokens.textMuted,
+              size: isRegistered ? 19 : 21,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3776,14 +4150,16 @@ class _ReadOnlyProfileField extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              icon,
-              color: Colors.white.withValues(alpha: 0.66),
-              size: 23,
+          SizedBox.square(
+            dimension: 24,
+            child: Center(
+              child: Icon(
+                icon,
+                color: Colors.white.withValues(alpha: 0.66),
+                size: 23,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -3819,13 +4195,10 @@ class _ReadOnlyProfileField extends StatelessWidget {
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Icon(
-              Icons.lock_outline_rounded,
-              color: CaRismaDesignTokens.textMuted,
-              size: 19,
-            ),
+          const Icon(
+            Icons.lock_outline_rounded,
+            color: CaRismaDesignTokens.textMuted,
+            size: 19,
           ),
         ],
       ),
@@ -3841,7 +4214,11 @@ class _ProfileTextField extends StatelessWidget {
     required this.textCapitalization,
     required this.enabled,
     this.keyboardType = TextInputType.text,
-    this.maxLines = 1,
+    this.inputFormatters,
+    this.onChanged,
+    this.errorText,
+    this.helperText,
+    this.showLockIcon = false,
   });
 
   final TextEditingController controller;
@@ -3850,7 +4227,11 @@ class _ProfileTextField extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final bool enabled;
   final TextInputType keyboardType;
-  final int maxLines;
+  final List<TextInputFormatter>? inputFormatters;
+  final ValueChanged<String>? onChanged;
+  final String? errorText;
+  final String? helperText;
+  final bool showLockIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -3859,14 +4240,12 @@ class _ProfileTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         enabled: enabled,
-        keyboardType: maxLines > 1 && keyboardType == TextInputType.text
-            ? TextInputType.multiline
-            : keyboardType,
-        maxLines: maxLines,
+        keyboardType: keyboardType,
+        maxLines: 1,
+        inputFormatters: inputFormatters,
+        onChanged: onChanged,
         textCapitalization: textCapitalization,
-        textInputAction: maxLines > 1
-            ? TextInputAction.newline
-            : TextInputAction.next,
+        textInputAction: TextInputAction.next,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           color: Colors.white,
           fontWeight: FontWeight.w800,
@@ -3878,6 +4257,19 @@ class _ProfileTextField extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
           prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
+          suffixIcon: showLockIcon
+              ? const Icon(
+                  Icons.lock_outline_rounded,
+                  color: CaRismaDesignTokens.textMuted,
+                  size: 19,
+                )
+              : null,
+          errorText: errorText,
+          helperText: helperText,
+          helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: CaRismaDesignTokens.textMuted,
+            fontWeight: FontWeight.w700,
+          ),
           filled: true,
           fillColor: CaRismaDesignTokens.controlSurface,
           contentPadding: const EdgeInsets.symmetric(
@@ -3905,64 +4297,26 @@ class _ProfileTextField extends StatelessWidget {
   }
 }
 
-class _ProfileDateField extends StatelessWidget {
-  const _ProfileDateField({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
+class _BirthDateInputFormatter extends TextInputFormatter {
+  const _BirthDateInputFormatter();
 
   @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.56,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(20),
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 17),
-            decoration: BoxDecoration(
-              color: CaRismaDesignTokens.controlSurface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.cake_rounded,
-                  color: Colors.white.withValues(alpha: 0.78),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: label == 'Geburtsdatum'
-                          ? Colors.white.withValues(alpha: 0.50)
-                          : Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.calendar_month_rounded,
-                  color: Colors.white.withValues(alpha: 0.58),
-                  size: 21,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 8) digits = digits.substring(0, 8);
+
+    final buffer = StringBuffer();
+    for (var index = 0; index < digits.length; index++) {
+      if (index == 2 || index == 4) buffer.write('.');
+      buffer.write(digits[index]);
+    }
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
@@ -4091,10 +4445,15 @@ class _UserAvatarPlaceholder extends StatelessWidget {
 }
 
 class _InlineStatusBox extends StatelessWidget {
-  const _InlineStatusBox({required this.icon, required this.text});
+  const _InlineStatusBox({
+    required this.icon,
+    required this.text,
+    this.fixedLines,
+  });
 
   final IconData icon;
   final String text;
+  final List<String>? fixedLines;
 
   @override
   Widget build(BuildContext context) {
@@ -4111,17 +4470,37 @@ class _InlineStatusBox extends StatelessWidget {
           Icon(icon, color: Colors.white, size: 22),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
-                fontWeight: FontWeight.w700,
-                height: 1.3,
-              ),
-            ),
+            child: fixedLines == null
+                ? Text(text, style: _textStyle(context))
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: fixedLines!
+                        .map(
+                          (line) => FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              line,
+                              maxLines: 1,
+                              softWrap: false,
+                              style: _textStyle(context),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
           ),
         ],
       ),
+    );
+  }
+
+  TextStyle? _textStyle(BuildContext context) {
+    return Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: Colors.white.withValues(alpha: 0.78),
+      fontWeight: FontWeight.w700,
+      height: 1.3,
     );
   }
 }

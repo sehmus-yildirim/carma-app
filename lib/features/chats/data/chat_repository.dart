@@ -95,6 +95,8 @@ class ChatRecord {
     this.receiverPhotoUrl,
     this.blockedBy,
     this.blockedAt,
+    this.countryCode,
+    this.vehicleId,
     this.displayPlate,
     this.vehicleBrand,
     this.vehicleModel,
@@ -125,6 +127,8 @@ class ChatRecord {
   final String? receiverPhotoUrl;
   final String? blockedBy;
   final DateTime? blockedAt;
+  final String? countryCode;
+  final String? vehicleId;
   final String? displayPlate;
   final String? vehicleBrand;
   final String? vehicleModel;
@@ -332,6 +336,8 @@ class ChatRecord {
     String? receiverPhotoUrl,
     String? blockedBy,
     DateTime? blockedAt,
+    String? countryCode,
+    String? vehicleId,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -362,6 +368,8 @@ class ChatRecord {
       receiverPhotoUrl: receiverPhotoUrl ?? this.receiverPhotoUrl,
       blockedBy: blockedBy ?? this.blockedBy,
       blockedAt: blockedAt ?? this.blockedAt,
+      countryCode: countryCode ?? this.countryCode,
+      vehicleId: vehicleId ?? this.vehicleId,
       displayPlate: displayPlate ?? this.displayPlate,
       vehicleBrand: vehicleBrand ?? this.vehicleBrand,
       vehicleModel: vehicleModel ?? this.vehicleModel,
@@ -543,6 +551,8 @@ abstract class ChatRepository {
     String? receiverDisplayName,
     String? senderPhotoUrl,
     String? receiverPhotoUrl,
+    String? countryCode,
+    String? vehicleId,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -850,6 +860,8 @@ class FirestoreChatRepository implements ChatRepository {
     String? receiverDisplayName,
     String? senderPhotoUrl,
     String? receiverPhotoUrl,
+    String? countryCode,
+    String? vehicleId,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -896,6 +908,8 @@ class FirestoreChatRepository implements ChatRepository {
       'receiverDisplayName': _trimmedOrNull(receiverDisplayName),
       'senderPhotoUrl': _trimmedOrNull(senderPhotoUrl),
       'receiverPhotoUrl': _trimmedOrNull(receiverPhotoUrl),
+      'countryCode': _trimmedOrNull(countryCode)?.toUpperCase(),
+      'vehicleId': _trimmedOrNull(vehicleId),
       'displayPlate': _trimmedOrNull(displayPlate),
       'vehicleBrand': _trimmedOrNull(vehicleBrand),
       'vehicleModel': _trimmedOrNull(vehicleModel),
@@ -2532,6 +2546,8 @@ class FirestoreChatRepository implements ChatRepository {
       receiverPhotoUrl: _stringFromValue(data['receiverPhotoUrl']),
       blockedBy: _stringFromValue(data['blockedBy']),
       blockedAt: _dateTimeFromValue(data['blockedAt']),
+      countryCode: _stringFromValue(data['countryCode']),
+      vehicleId: _stringFromValue(data['vehicleId']),
       displayPlate: _stringFromValue(data['displayPlate']),
       vehicleBrand: _stringFromValue(data['vehicleBrand']),
       vehicleModel: _stringFromValue(data['vehicleModel']),
@@ -2812,6 +2828,8 @@ class LocalChatRepository implements ChatRepository {
     String? receiverDisplayName,
     String? senderPhotoUrl,
     String? receiverPhotoUrl,
+    String? countryCode,
+    String? vehicleId,
     String? displayPlate,
     String? vehicleBrand,
     String? vehicleModel,
@@ -2854,6 +2872,8 @@ class LocalChatRepository implements ChatRepository {
       receiverDisplayName: _trimmedOrNull(receiverDisplayName),
       senderPhotoUrl: _trimmedOrNull(senderPhotoUrl),
       receiverPhotoUrl: _trimmedOrNull(receiverPhotoUrl),
+      countryCode: _trimmedOrNull(countryCode)?.toUpperCase(),
+      vehicleId: _trimmedOrNull(vehicleId),
       displayPlate: _trimmedOrNull(displayPlate),
       vehicleBrand: _trimmedOrNull(vehicleBrand),
       vehicleModel: _trimmedOrNull(vehicleModel),

@@ -14,19 +14,28 @@ enum ContactRequestStatus {
 
 String _contactRequestDocumentId({
   required String senderUserId,
-  required String plateKey,
+  required String countryCode,
+  required String vehicleId,
 }) {
-  return '${senderUserId.trim()}_${plateKey.trim().toUpperCase()}';
+  return <String>[
+    senderUserId.trim(),
+    countryCode.trim().toUpperCase(),
+    vehicleId.trim(),
+  ].join('_');
 }
 
 String _contactRequestDedupeKey({
   required String senderUserId,
   required String receiverUserId,
+  required String countryCode,
+  required String vehicleId,
   required String plateKey,
 }) {
   return [
     senderUserId.trim(),
     receiverUserId.trim(),
+    countryCode.trim().toUpperCase(),
+    vehicleId.trim(),
     plateKey.trim().toUpperCase(),
   ].join('|');
 }
@@ -45,6 +54,7 @@ class ContactRequestRecord {
     required this.senderUserId,
     required this.receiverUserId,
     required this.countryCode,
+    required this.vehicleId,
     required this.plateKey,
     required this.message,
     required this.status,
@@ -68,6 +78,7 @@ class ContactRequestRecord {
   final String senderUserId;
   final String receiverUserId;
   final String countryCode;
+  final String vehicleId;
   final String plateKey;
   final String message;
   final ContactRequestStatus status;
@@ -187,6 +198,7 @@ class ContactRequestRecord {
     String? senderUserId,
     String? receiverUserId,
     String? countryCode,
+    String? vehicleId,
     String? plateKey,
     String? message,
     ContactRequestStatus? status,
@@ -210,6 +222,7 @@ class ContactRequestRecord {
       senderUserId: senderUserId ?? this.senderUserId,
       receiverUserId: receiverUserId ?? this.receiverUserId,
       countryCode: countryCode ?? this.countryCode,
+      vehicleId: vehicleId ?? this.vehicleId,
       plateKey: plateKey ?? this.plateKey,
       message: message ?? this.message,
       status: status ?? this.status,
@@ -240,6 +253,7 @@ class ContactRequestRecord {
       senderUserId: data['senderUserId'] as String? ?? '',
       receiverUserId: data['receiverUserId'] as String? ?? '',
       countryCode: data['countryCode'] as String? ?? '',
+      vehicleId: data['vehicleId'] as String? ?? '',
       plateKey: data['plateKey'] as String? ?? '',
       message: data['message'] as String? ?? '',
       status: _statusFromName(data['status'] as String?),
@@ -297,6 +311,7 @@ abstract class ContactRequestRepository {
     required String senderUserId,
     required String receiverUserId,
     required String countryCode,
+    required String vehicleId,
     required String plateKey,
     required String message,
   });
@@ -438,6 +453,7 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
     required String senderUserId,
     required String receiverUserId,
     required String countryCode,
+    required String vehicleId,
     required String plateKey,
     required String message,
   }) async {
@@ -445,6 +461,7 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
     final trimmedReceiverUserId = receiverUserId.trim();
     final normalizedPlateKey = plateKey.trim().toUpperCase();
     final normalizedCountryCode = countryCode.trim().toUpperCase();
+    final normalizedVehicleId = vehicleId.trim();
 
     final existingRequests = await _collection
         .where('senderUserId', isEqualTo: trimmedSenderUserId)
@@ -455,6 +472,8 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
       final status = data['status'] as String?;
       final expiresAt = _expiryFromValue(data['expiresAt']);
       return data['receiverUserId'] == trimmedReceiverUserId &&
+          data['countryCode'] == normalizedCountryCode &&
+          data['vehicleId'] == normalizedVehicleId &&
           data['plateKey'] == normalizedPlateKey &&
           data['isDeleted'] != true &&
           (expiresAt == null || expiresAt.isAfter(DateTime.now())) &&
@@ -475,7 +494,8 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
     final document = _collection.doc(
       _contactRequestDocumentId(
         senderUserId: trimmedSenderUserId,
-        plateKey: normalizedPlateKey,
+        countryCode: normalizedCountryCode,
+        vehicleId: normalizedVehicleId,
       ),
     );
 
@@ -484,6 +504,7 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
       'receiverUserId': trimmedReceiverUserId,
       'targetUserId': trimmedReceiverUserId,
       'countryCode': normalizedCountryCode,
+      'vehicleId': normalizedVehicleId,
       'plateKey': normalizedPlateKey,
       'message': message.trim(),
       'status': FirestoreContactRequestStatus.pending,
@@ -563,6 +584,8 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
       final key = _contactRequestDedupeKey(
         senderUserId: request.senderUserId,
         receiverUserId: request.receiverUserId,
+        countryCode: request.countryCode,
+        vehicleId: request.vehicleId,
         plateKey: request.plateKey,
       );
       final existing = recordsByTarget[key];
@@ -615,18 +638,23 @@ class LocalContactRequestRepository implements ContactRequestRepository {
     required String senderUserId,
     required String receiverUserId,
     required String countryCode,
+    required String vehicleId,
     required String plateKey,
     required String message,
   }) async {
     final duplicateKey = _contactRequestDedupeKey(
       senderUserId: senderUserId,
       receiverUserId: receiverUserId,
+      countryCode: countryCode,
+      vehicleId: vehicleId,
       plateKey: plateKey,
     );
     final hasExistingRequest = _requests.any((request) {
       return _contactRequestDedupeKey(
                 senderUserId: request.senderUserId,
                 receiverUserId: request.receiverUserId,
+                countryCode: request.countryCode,
+                vehicleId: request.vehicleId,
                 plateKey: request.plateKey,
               ) ==
               duplicateKey &&
@@ -644,6 +672,7 @@ class LocalContactRequestRepository implements ContactRequestRepository {
       senderUserId: senderUserId,
       receiverUserId: receiverUserId,
       countryCode: countryCode.toUpperCase(),
+      vehicleId: vehicleId,
       plateKey: plateKey,
       message: message,
       status: ContactRequestStatus.pending,

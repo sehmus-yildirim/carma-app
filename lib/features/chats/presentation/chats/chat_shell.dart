@@ -59,6 +59,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   final Set<String> _hiddenLocalRequestIds = <String>{};
   List<ChatStoryRecord> _cachedStories = const <ChatStoryRecord>[];
   String _currentUserProfilePhotoUrl = '';
+  String _currentUserProfileDisplayName = '';
   Timer? _storyRefreshTimer;
 
   late Stream<List<ChatRecord>> _chatStream;
@@ -117,6 +118,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   @override
   void didUpdateWidget(covariant ChatsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    unawaited(_loadCurrentUserProfilePhotoUrl());
 
     final nextUserId = _effectiveUserId.trim();
 
@@ -126,7 +128,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
     _streamUserId = nextUserId;
     _assignStreamsForCurrentUser(clearStories: true);
-    unawaited(_loadCurrentUserProfilePhotoUrl());
     unawaited(_loadStoryPrivacySettings());
   }
 
@@ -297,6 +298,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         senderUserId: 'local-test-sender',
         receiverUserId: currentUserId,
         countryCode: 'DE',
+        vehicleId: 'local-test-vehicle-incoming',
         plateKey: 'HH-TA-2040',
         displayPlate: 'HH-TA 2040',
         vehicleBrand: 'BMW',
@@ -318,6 +320,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         senderUserId: currentUserId,
         receiverUserId: 'local-test-receiver',
         countryCode: 'DE',
+        vehicleId: 'local-test-vehicle-outgoing',
         plateKey: 'B-CR-2026',
         displayPlate: 'B-CR 2026',
         vehicleBrand: 'Mercedes',
@@ -637,9 +640,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   Future<void> _loadCurrentUserProfilePhotoUrl() async {
     final userId = _effectiveUserId.trim();
-    final authPhotoUrl =
-        FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '';
+    final authUser = FirebaseAuth.instance.currentUser;
+    final authPhotoUrl = authUser?.photoURL?.trim() ?? '';
     var nextPhotoUrl = authPhotoUrl;
+    var nextDisplayName = authUser?.displayName?.trim() ?? '';
 
     if (userId.isNotEmpty) {
       try {
@@ -649,17 +653,30 @@ class _ChatsScreenState extends State<ChatsScreen> {
         if (profilePhotoUrl.isNotEmpty) {
           nextPhotoUrl = profilePhotoUrl;
         }
+        if (profile != null) {
+          final firstName = profile.firstName.trim();
+          final lastName = profile.lastName.trim();
+          if (firstName.isNotEmpty && lastName.isNotEmpty) {
+            nextDisplayName =
+                '$firstName ${lastName.substring(0, 1).toUpperCase()}.';
+          } else if (profile.displayName.trim().isNotEmpty) {
+            nextDisplayName = profile.displayName.trim();
+          }
+        }
       } catch (_) {
-        // The auth photo remains a safe fallback if the profile cannot be read.
+        // Auth data remains a safe fallback if the profile cannot be read.
       }
     }
 
-    if (!mounted || _currentUserProfilePhotoUrl == nextPhotoUrl) {
+    if (!mounted ||
+        (_currentUserProfilePhotoUrl == nextPhotoUrl &&
+            _currentUserProfileDisplayName == nextDisplayName)) {
       return;
     }
 
     setState(() {
       _currentUserProfilePhotoUrl = nextPhotoUrl;
+      _currentUserProfileDisplayName = nextDisplayName;
     });
   }
 
@@ -2471,6 +2488,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
               archivedChats: archivedChats,
               stories: stories,
               currentUserPhotoUrl: _currentUserProfilePhotoUrl,
+              currentUserDisplayName: _currentUserProfileDisplayName,
               isAddingOwnStory: _isAddingOwnStory,
               isLoading: isArchivedLoading,
               hasLocalActiveChat: _hasActiveChat,

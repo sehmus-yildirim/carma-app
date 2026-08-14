@@ -16,6 +16,22 @@ enum ProfileVehicleStatus {
 
 enum ProfileVehicleVisibility { contacts, onlyMe }
 
+enum ProfileVehicleVerificationStatus {
+  unverified,
+  evidenceMissing,
+  inReview,
+  verified,
+  rejected,
+}
+
+enum ProfileVehicleUseRelationship { owner, leasingCompany, authorizedUser }
+
+enum ProfileVehicleType { passengerCar, motorcycle, transporter }
+
+enum ProfilePlateType { standard, electric, historic, seasonal }
+
+enum ProfilePlateDisplayMode { full, shortened, hidden }
+
 enum VehicleHeroImageStatus {
   notGenerated,
   queued,
@@ -39,9 +55,23 @@ class ProfileVehicle {
     this.series,
     this.isPrimary = false,
     this.isVerified = false,
+    this.verificationStatus = ProfileVehicleVerificationStatus.unverified,
+    this.verificationLocked = false,
+    this.verificationRejectionReason,
     this.status = ProfileVehicleStatus.active,
     this.visibility = ProfileVehicleVisibility.contacts,
     this.showPlate = false,
+    this.useRelationship = ProfileVehicleUseRelationship.owner,
+    this.vehicleType = ProfileVehicleType.passengerCar,
+    this.plateType = ProfilePlateType.standard,
+    this.seasonStartMonth,
+    this.seasonEndMonth,
+    this.showOnPublicProfile = true,
+    this.discoverableByPlate = true,
+    this.selectableInStories = true,
+    this.allowContactRequests = true,
+    this.plateDisplayMode = ProfilePlateDisplayMode.hidden,
+    this.publicPlateLabel,
     this.year,
     this.firstRegistration,
     this.bodyStyle,
@@ -67,6 +97,7 @@ class ProfileVehicle {
     this.heroError,
     this.createdAt,
     this.updatedAt,
+    this.deactivatedAt,
   });
 
   final String id;
@@ -81,9 +112,23 @@ class ProfileVehicle {
   final String plateNumbers;
   final bool isPrimary;
   final bool isVerified;
+  final ProfileVehicleVerificationStatus verificationStatus;
+  final bool verificationLocked;
+  final String? verificationRejectionReason;
   final ProfileVehicleStatus status;
   final ProfileVehicleVisibility visibility;
   final bool showPlate;
+  final ProfileVehicleUseRelationship useRelationship;
+  final ProfileVehicleType vehicleType;
+  final ProfilePlateType plateType;
+  final int? seasonStartMonth;
+  final int? seasonEndMonth;
+  final bool showOnPublicProfile;
+  final bool discoverableByPlate;
+  final bool selectableInStories;
+  final bool allowContactRequests;
+  final ProfilePlateDisplayMode plateDisplayMode;
+  final String? publicPlateLabel;
   final int? year;
   final DateTime? firstRegistration;
   final String? bodyStyle;
@@ -109,11 +154,14 @@ class ProfileVehicle {
   final String? heroError;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final DateTime? deactivatedAt;
 
   bool get isArchived => status == ProfileVehicleStatus.archived;
 
   bool get isPubliclyVisible =>
-      visibility == ProfileVehicleVisibility.contacts && !isArchived;
+      showOnPublicProfile &&
+      visibility == ProfileVehicleVisibility.contacts &&
+      !isArchived;
 
   bool get hasRequiredData =>
       ownerUserId.trim().isNotEmpty &&
@@ -131,12 +179,24 @@ class ProfileVehicle {
     series?.trim() ?? '',
   ].where((part) => part.isNotEmpty).join(' ');
 
-  String get displayPlate => formatDisplayPlate(
-    countryCode: countryCode,
-    region: plateRegion,
-    letters: plateLetters,
-    numbers: plateNumbers,
-  );
+  String get displayPlate {
+    final formatted = formatDisplayPlate(
+      countryCode: countryCode,
+      region: plateRegion,
+      letters: plateLetters,
+      numbers: plateNumbers,
+    );
+    if (formatted.isNotEmpty) return formatted;
+    return publicPlateLabel?.trim() ?? '';
+  }
+
+  String get publicDisplayPlate {
+    return switch (plateDisplayMode) {
+      ProfilePlateDisplayMode.full => displayPlate,
+      ProfilePlateDisplayMode.shortened => _shortenedPlateLabel(),
+      ProfilePlateDisplayMode.hidden => 'Kennzeichen verborgen',
+    };
+  }
 
   factory ProfileVehicle.fromMap({
     required String id,
@@ -155,6 +215,10 @@ class ProfileVehicle {
       plateNumbers: data['plateNumbers'] as String? ?? '',
       isPrimary: data['isPrimary'] as bool? ?? false,
       isVerified: data['isVerified'] as bool? ?? false,
+      verificationStatus: _verificationStatusFromData(data),
+      verificationLocked: data['verificationLocked'] as bool? ?? false,
+      verificationRejectionReason:
+          data['verificationRejectionReason'] as String?,
       status: _enumFromName(
         ProfileVehicleStatus.values,
         data['status'] as String?,
@@ -166,6 +230,31 @@ class ProfileVehicle {
         ProfileVehicleVisibility.contacts,
       ),
       showPlate: data['showPlate'] as bool? ?? false,
+      useRelationship: _enumFromName(
+        ProfileVehicleUseRelationship.values,
+        data['useRelationship'] as String?,
+        ProfileVehicleUseRelationship.owner,
+      ),
+      vehicleType: _enumFromName(
+        ProfileVehicleType.values,
+        data['vehicleType'] as String?,
+        ProfileVehicleType.passengerCar,
+      ),
+      plateType: _enumFromName(
+        ProfilePlateType.values,
+        data['plateType'] as String?,
+        ProfilePlateType.standard,
+      ),
+      seasonStartMonth: data['seasonStartMonth'] as int?,
+      seasonEndMonth: data['seasonEndMonth'] as int?,
+      showOnPublicProfile:
+          data['showOnPublicProfile'] as bool? ??
+          data['visibility'] == ProfileVehicleVisibility.contacts.name,
+      discoverableByPlate: data['discoverableByPlate'] as bool? ?? true,
+      selectableInStories: data['selectableInStories'] as bool? ?? true,
+      allowContactRequests: data['allowContactRequests'] as bool? ?? true,
+      plateDisplayMode: _plateDisplayModeFromData(data),
+      publicPlateLabel: data['plateDisplayLabel'] as String?,
       year: data['year'] as int?,
       firstRegistration: _dateTimeFromValue(data['firstRegistration']),
       bodyStyle: data['bodyStyle'] as String?,
@@ -195,6 +284,7 @@ class ProfileVehicle {
       heroError: data['heroError'] as String?,
       createdAt: _dateTimeFromValue(data['createdAt']),
       updatedAt: _dateTimeFromValue(data['updatedAt']),
+      deactivatedAt: _dateTimeFromValue(data['deactivatedAt']),
     );
   }
 
@@ -213,10 +303,19 @@ class ProfileVehicle {
       plateNumbers: profile.plateNumbers?.trim().toUpperCase() ?? '',
       isPrimary: true,
       isVerified: profile.verificationStatus == 'verified',
+      verificationStatus: profile.verificationStatus == 'verified'
+          ? ProfileVehicleVerificationStatus.verified
+          : ProfileVehicleVerificationStatus.unverified,
       visibility: profile.showVehicleOnPublicProfile
           ? ProfileVehicleVisibility.contacts
           : ProfileVehicleVisibility.onlyMe,
       showPlate: profile.showPlateOnPublicProfile,
+      showOnPublicProfile: profile.showVehicleOnPublicProfile,
+      discoverableByPlate: profile.allowContactRequests,
+      allowContactRequests: profile.allowContactRequests,
+      plateDisplayMode: profile.showPlateOnPublicProfile
+          ? ProfilePlateDisplayMode.full
+          : ProfilePlateDisplayMode.hidden,
     );
   }
 
@@ -234,9 +333,24 @@ class ProfileVehicle {
       'plateNumbers': plateNumbers.trim().toUpperCase(),
       'isPrimary': isPrimary,
       'isVerified': isVerified,
+      'verificationStatus': verificationStatus.name,
+      'verificationLocked': verificationLocked,
+      'verificationRejectionReason': _trimmedOrNull(
+        verificationRejectionReason,
+      ),
       'status': status.name,
       'visibility': visibility.name,
       'showPlate': showPlate,
+      'useRelationship': useRelationship.name,
+      'vehicleType': vehicleType.name,
+      'plateType': plateType.name,
+      'seasonStartMonth': seasonStartMonth,
+      'seasonEndMonth': seasonEndMonth,
+      'showOnPublicProfile': showOnPublicProfile,
+      'discoverableByPlate': discoverableByPlate,
+      'selectableInStories': selectableInStories,
+      'allowContactRequests': allowContactRequests,
+      'plateDisplayMode': plateDisplayMode.name,
       'year': year,
       'firstRegistration': firstRegistration == null
           ? null
@@ -255,6 +369,9 @@ class ProfileVehicle {
       'vin': _trimmedOrNull(vin)?.toUpperCase(),
       'ownedSince': ownedSince == null ? null : Timestamp.fromDate(ownedSince!),
       'mileage': mileage,
+      'deactivatedAt': deactivatedAt == null
+          ? null
+          : Timestamp.fromDate(deactivatedAt!),
     };
   }
 
@@ -267,14 +384,30 @@ class ProfileVehicle {
       'series': _trimmedOrNull(series),
       'color': _trimmedOrNull(color),
       'countryCode': countryCode.trim().toUpperCase(),
-      'plateRegion': showPlate ? plateRegion.trim().toUpperCase() : null,
-      'plateLetters': showPlate ? plateLetters.trim().toUpperCase() : null,
-      'plateNumbers': showPlate ? plateNumbers.trim().toUpperCase() : null,
+      'plateRegion': plateDisplayMode == ProfilePlateDisplayMode.full
+          ? plateRegion.trim().toUpperCase()
+          : null,
+      'plateLetters': plateDisplayMode == ProfilePlateDisplayMode.full
+          ? plateLetters.trim().toUpperCase()
+          : null,
+      'plateNumbers': plateDisplayMode == ProfilePlateDisplayMode.full
+          ? plateNumbers.trim().toUpperCase()
+          : null,
+      'plateDisplayLabel': publicDisplayPlate,
       'isPrimary': isPrimary,
       'isVerified': isVerified,
+      'verificationStatus': verificationStatus.name,
       'status': status.name,
       'visibility': visibility.name,
       'showPlate': showPlate,
+      'vehicleType': vehicleType.name,
+      'plateType': plateType.name,
+      'seasonStartMonth': seasonStartMonth,
+      'seasonEndMonth': seasonEndMonth,
+      'showOnPublicProfile': showOnPublicProfile,
+      'selectableInStories': selectableInStories,
+      'allowContactRequests': allowContactRequests,
+      'plateDisplayMode': plateDisplayMode.name,
       'year': year,
       'firstRegistration': firstRegistration == null
           ? null
@@ -306,9 +439,23 @@ class ProfileVehicle {
     String? plateNumbers,
     bool? isPrimary,
     bool? isVerified,
+    ProfileVehicleVerificationStatus? verificationStatus,
+    bool? verificationLocked,
+    String? verificationRejectionReason,
     ProfileVehicleStatus? status,
     ProfileVehicleVisibility? visibility,
     bool? showPlate,
+    ProfileVehicleUseRelationship? useRelationship,
+    ProfileVehicleType? vehicleType,
+    ProfilePlateType? plateType,
+    int? seasonStartMonth,
+    int? seasonEndMonth,
+    bool? showOnPublicProfile,
+    bool? discoverableByPlate,
+    bool? selectableInStories,
+    bool? allowContactRequests,
+    ProfilePlateDisplayMode? plateDisplayMode,
+    String? publicPlateLabel,
     int? year,
     DateTime? firstRegistration,
     String? bodyStyle,
@@ -334,6 +481,7 @@ class ProfileVehicle {
     String? heroError,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? deactivatedAt,
   }) {
     return ProfileVehicle(
       id: id ?? this.id,
@@ -348,9 +496,26 @@ class ProfileVehicle {
       plateNumbers: plateNumbers ?? this.plateNumbers,
       isPrimary: isPrimary ?? this.isPrimary,
       isVerified: isVerified ?? this.isVerified,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      verificationLocked: verificationLocked ?? this.verificationLocked,
+      verificationRejectionReason:
+          verificationRejectionReason ?? this.verificationRejectionReason,
       status: status ?? this.status,
       visibility: visibility ?? this.visibility,
       showPlate: showPlate ?? this.showPlate,
+      useRelationship: useRelationship ?? this.useRelationship,
+      vehicleType: vehicleType ?? this.vehicleType,
+      plateType: plateType ?? this.plateType,
+      seasonStartMonth: seasonStartMonth ?? this.seasonStartMonth,
+      seasonEndMonth: seasonEndMonth ?? this.seasonEndMonth,
+      showOnPublicProfile:
+          showOnPublicProfile ?? this.showOnPublicProfile,
+      discoverableByPlate: discoverableByPlate ?? this.discoverableByPlate,
+      selectableInStories: selectableInStories ?? this.selectableInStories,
+      allowContactRequests:
+          allowContactRequests ?? this.allowContactRequests,
+      plateDisplayMode: plateDisplayMode ?? this.plateDisplayMode,
+      publicPlateLabel: publicPlateLabel ?? this.publicPlateLabel,
       year: year ?? this.year,
       firstRegistration: firstRegistration ?? this.firstRegistration,
       bodyStyle: bodyStyle ?? this.bodyStyle,
@@ -376,7 +541,49 @@ class ProfileVehicle {
       heroError: heroError ?? this.heroError,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      deactivatedAt: deactivatedAt ?? this.deactivatedAt,
     );
+  }
+
+  String _shortenedPlateLabel() {
+    final region = plateRegion.trim().toUpperCase();
+    if (region.isEmpty) return 'Kennzeichen verkürzt';
+    final firstLetter = plateLetters.trim().isEmpty
+        ? ''
+        : ' ${plateLetters.trim().substring(0, 1).toUpperCase()}';
+    return '$region$firstLetter •••';
+  }
+
+  static ProfileVehicleVerificationStatus _verificationStatusFromData(
+    Map<String, dynamic> data,
+  ) {
+    final explicit = data['verificationStatus'] as String?;
+    if (explicit != null) {
+      return _enumFromName(
+        ProfileVehicleVerificationStatus.values,
+        explicit,
+        ProfileVehicleVerificationStatus.unverified,
+      );
+    }
+    return data['isVerified'] == true
+        ? ProfileVehicleVerificationStatus.verified
+        : ProfileVehicleVerificationStatus.unverified;
+  }
+
+  static ProfilePlateDisplayMode _plateDisplayModeFromData(
+    Map<String, dynamic> data,
+  ) {
+    final explicit = data['plateDisplayMode'] as String?;
+    if (explicit != null) {
+      return _enumFromName(
+        ProfilePlateDisplayMode.values,
+        explicit,
+        ProfilePlateDisplayMode.hidden,
+      );
+    }
+    return data['showPlate'] == true
+        ? ProfilePlateDisplayMode.full
+        : ProfilePlateDisplayMode.hidden;
   }
 
   static T _enumFromName<T extends Enum>(

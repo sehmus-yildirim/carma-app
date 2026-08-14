@@ -50,6 +50,31 @@ after(async () => {
 });
 
 describe('account security rules', () => {
+  test('only owner uploads the canonical metadata-free PNG profile photo', async () => {
+    const imagePath = `profile_photos/${userId}/profile.png`;
+    const pngBytes = Uint8Array.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    const owner = testEnv.authenticatedContext(userId).storage();
+    const outsider = testEnv.authenticatedContext(outsiderId).storage();
+
+    await assertSucceeds(uploadBytes(ref(owner, imagePath), pngBytes, {
+      contentType: 'image/png',
+    }));
+    await assertFails(uploadBytes(ref(
+      outsider,
+      `profile_photos/${userId}/profile.png`,
+    ), pngBytes, {contentType: 'image/png'}));
+    await assertFails(uploadBytes(
+      ref(owner, `profile_photos/${userId}/wrong.png`),
+      pngBytes,
+      {contentType: 'image/png'},
+    ));
+    await assertFails(uploadBytes(ref(owner, imagePath), pngBytes, {
+      contentType: 'image/jpeg',
+    }));
+  });
+
   test('only owner reads server-written security activities', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(

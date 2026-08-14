@@ -175,9 +175,11 @@ async function searchPlateDocument({
 
   const data = plateSnapshot.data() || {};
   const ownerUserId = safeString(data.ownerUserId);
+  const vehicleId = safeString(data.vehicleId);
   const storedCountryCode = safeString(data.countryCode).toUpperCase();
   const storedPlateKey = normalizePlateKey(data.plateKey || data.normalizedPlate);
-  if (ownerUserId.length === 0 || ownerUserId === userId ||
+  if (ownerUserId.length === 0 || vehicleId.length === 0 ||
+      ownerUserId === userId ||
       data.isActive !== true || data.isDeleted !== false ||
       data.allowContactRequests !== true ||
       storedCountryCode !== countryCode || storedPlateKey !== plateKey) {
@@ -224,6 +226,10 @@ async function searchPlateDocument({
     return notFoundResult();
   }
 
+  const plateDisplayMode = safeString(data.plateDisplayMode) || "full";
+  const vehicleIsPublic = data.showOnPublicProfile !== false;
+  const showFullPlate = settingsShowPlate && plateDisplayMode === "full";
+  const showAnyPlate = settingsShowPlate && plateDisplayMode !== "hidden";
   return {
     found: true,
     targetUid: ownerUserId,
@@ -233,24 +239,26 @@ async function searchPlateDocument({
     isVerified: safeString(data.verificationStatus) === "verified" ||
       data.isVerified === true,
     distanceKm: Math.round(distanceKm * 100) / 100,
+    vehicleId,
     plateKey,
-    displayPlate: settingsShowPlate ?
-      safeString(data.displayPlate) || plateKey :
-      null,
+    displayPlate: showAnyPlate ?
+      (plateDisplayMode === "shortened" ?
+        safeString(data.plateDisplayLabel) || null :
+        safeString(data.displayPlate) || plateKey) : null,
     countryCode,
-    region: settingsShowPlate ? parts.region : null,
-    letters: settingsShowPlate ? parts.letters : null,
-    numbers: settingsShowPlate ? parts.numbers : null,
-    vehicleBrand: settingsShowVehicle ?
+    region: showFullPlate ? parts.region : null,
+    letters: showFullPlate ? parts.letters : null,
+    numbers: showFullPlate ? parts.numbers : null,
+    vehicleBrand: settingsShowVehicle && vehicleIsPublic ?
       safeString(data.vehicleBrand) || null :
       null,
-    vehicleModel: settingsShowVehicle ?
+    vehicleModel: settingsShowVehicle && vehicleIsPublic ?
       safeString(data.vehicleModel) || null :
       null,
-    vehicleColor: settingsShowVehicle ?
+    vehicleColor: settingsShowVehicle && vehicleIsPublic ?
       safeString(data.vehicleColor) || null :
       null,
-    vehicleLabel: settingsShowVehicle ?
+    vehicleLabel: settingsShowVehicle && vehicleIsPublic ?
       safeString(data.vehicleLabel) || null :
       null,
   };

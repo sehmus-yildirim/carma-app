@@ -37,6 +37,7 @@ import 'widgets/profile_vehicle_editor_sheet.dart';
 import 'widgets/profile_vehicle_modification_sheet.dart';
 import 'widgets/profile_vehicle_panel.dart';
 import 'widgets/profile_vehicle_timeline_sheet.dart';
+import 'widgets/profile_photo_crop_screen.dart';
 
 Route<void> buildSocialProfileRoute({
   required String profileUserId,
@@ -1439,9 +1440,17 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       );
       if (image == null) return;
 
+      if (!mounted) return;
+      final croppedImage = await Navigator.of(context).push<XFile>(
+        MaterialPageRoute<XFile>(
+          builder: (_) => ProfilePhotoCropScreen(sourceFile: image),
+        ),
+      );
+      if (croppedImage == null || !mounted) return;
+
       final upload = await _profileMediaStorage.uploadProfilePhoto(
         userId: _userId,
-        file: File(image.path),
+        file: File(croppedImage.path),
       );
       await _profileRepository.updateProfilePreferences(
         uid: _userId,
@@ -1453,16 +1462,25 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         uid: _userId,
         photoUrl: upload.url,
       );
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      final previousPhotoUrl = firebaseUser?.photoURL?.trim();
+      if (previousPhotoUrl != null && previousPhotoUrl.isNotEmpty) {
+        await NetworkImage(previousPhotoUrl).evict();
+      }
+      await firebaseUser?.updatePhotoURL(upload.url);
+      await NetworkImage(upload.url).evict();
 
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Profilbild gespeichert.')));
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Profilbild konnte nicht gespeichert werden: $error'),
+        const SnackBar(
+          content: Text(
+            'Profilbild konnte nicht gespeichert werden. Bitte prüfe deine Verbindung und Berechtigungen.',
+          ),
         ),
       );
     }
@@ -1481,6 +1499,12 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         uid: _userId,
         photoUrl: null,
       );
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      final previousPhotoUrl = firebaseUser?.photoURL?.trim();
+      if (previousPhotoUrl != null && previousPhotoUrl.isNotEmpty) {
+        await NetworkImage(previousPhotoUrl).evict();
+      }
+      await firebaseUser?.updatePhotoURL(null);
 
       if (!mounted) return;
       ScaffoldMessenger.of(

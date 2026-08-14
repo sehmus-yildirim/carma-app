@@ -303,10 +303,18 @@ service firebase.storage {
     }
 
     function isValidProfilePhotoUpload(fileName) {
-      return fileName == 'profile.jpg'
+      return (
+          (
+            fileName == 'profile.png'
+            && request.resource.contentType == 'image/png'
+          )
+          || (
+            fileName == 'profile.jpg'
+            && request.resource.contentType == 'image/jpeg'
+          )
+        )
         && request.resource.size > 0
-        && request.resource.size < 8 * 1024 * 1024
-        && request.resource.contentType == 'image/jpeg';
+        && request.resource.size < 8 * 1024 * 1024;
     }
 
     function isValidProfilePostImageUpload(fileName) {
@@ -333,17 +341,28 @@ service firebase.storage {
 
     function isValidProfileDocumentUpload(documentType, fileName) {
       return documentType in [
-          'idFront',
-          'idBack',
-          'driverLicenseFront',
-          'driverLicenseBack',
-          'vehicleRegistrationFront',
-          'vehicleRegistrationBack'
+          'identityEvidence',
+          'vehicleEvidence'
         ]
-        && fileName == documentType + '.jpg'
+        && (
+          (
+            fileName == documentType + '.png'
+            && request.resource.contentType == 'image/png'
+          )
+          || (
+            fileName == documentType + '.jpg'
+            && request.resource.contentType == 'image/jpeg'
+          )
+        )
         && request.resource.size > 0
-        && request.resource.size < 12 * 1024 * 1024
-        && request.resource.contentType == 'image/jpeg';
+        && request.resource.size < 12 * 1024 * 1024;
+    }
+
+    function canMutateProfileVerificationDocument(userId) {
+      let requestPath =
+        /databases/(default)/documents/verification_requests/$(userId);
+      return !firestore.exists(requestPath)
+        || !(firestore.get(requestPath).data.status in ['pending', 'verified']);
     }
 
     function reportImagePath(reportId, userId, fileName) {
@@ -507,12 +526,17 @@ service firebase.storage {
 
     match /profile_documents/{userId}/{documentType}/{fileName} {
       allow read: if isSignedIn()
-        && (request.auth.uid == userId || request.auth.token.admin == true);
+        && (
+          request.auth.uid == userId
+          || request.auth.token.get('admin', false) == true
+        );
       allow create, update: if isSignedIn()
         && request.auth.uid == userId
+        && canMutateProfileVerificationDocument(userId)
         && isValidProfileDocumentUpload(documentType, fileName);
       allow delete: if isSignedIn()
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && canMutateProfileVerificationDocument(userId);
     }
 
     match /{allPaths=**} {

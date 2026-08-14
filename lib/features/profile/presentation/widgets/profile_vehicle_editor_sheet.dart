@@ -7,6 +7,7 @@ import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../../../../shared/widgets/carisma_license_plate_preview.dart';
 import '../../../../shared/widgets/carisma_primary_button.dart';
 import '../../data/profile_vehicle.dart';
+import '../../data/profile_vehicle_repository.dart';
 import '../../data/vehicle_catalog.dart';
 
 const _vehicleColors = <String>[
@@ -27,6 +28,7 @@ Future<bool> showProfileVehicleEditorSheet(
   required String userId,
   required String vehicleId,
   required Future<void> Function(ProfileVehicle vehicle) onSave,
+  Future<void> Function()? onOpenVerification,
   ProfileVehicle? vehicle,
 }) async {
   var selectedBrand = vehicle?.brand.trim() ?? VehicleCatalog.brands.first;
@@ -35,11 +37,30 @@ Future<bool> showProfileVehicleEditorSheet(
   var selectedColor = vehicle?.color.trim() ?? _vehicleColors.first;
   var countryCode = vehicle?.countryCode.trim().toUpperCase() ?? 'DE';
   var status = vehicle?.status ?? ProfileVehicleStatus.active;
-  var visibility = vehicle?.visibility ?? ProfileVehicleVisibility.contacts;
-  var showPlate = vehicle?.showPlate ?? false;
+  var useRelationship =
+      vehicle?.useRelationship ?? ProfileVehicleUseRelationship.owner;
+  var vehicleType = vehicle?.vehicleType ?? ProfileVehicleType.passengerCar;
+  var plateType = vehicle?.plateType ?? ProfilePlateType.standard;
+  var seasonStartMonth = vehicle?.seasonStartMonth;
+  var seasonEndMonth = vehicle?.seasonEndMonth;
+  var showOnPublicProfile = vehicle?.showOnPublicProfile ?? true;
+  var discoverableByPlate = vehicle?.discoverableByPlate ?? true;
+  var selectableInStories = vehicle?.selectableInStories ?? true;
+  var allowContactRequests = vehicle?.allowContactRequests ?? true;
+  var plateDisplayMode =
+      vehicle?.plateDisplayMode ?? ProfilePlateDisplayMode.hidden;
   var isPrimary = vehicle?.isPrimary ?? false;
   var isSaving = false;
   var isDirty = false;
+  if (countryCode != 'DE' &&
+      (plateType == ProfilePlateType.electric ||
+          plateType == ProfilePlateType.historic)) {
+    plateType = ProfilePlateType.standard;
+  }
+  if (plateType == ProfilePlateType.seasonal) {
+    seasonStartMonth ??= 3;
+    seasonEndMonth ??= 10;
+  }
 
   final seriesController = TextEditingController(text: vehicle?.series ?? '');
   final regionController = TextEditingController(
@@ -57,9 +78,7 @@ Future<bool> showProfileVehicleEditorSheet(
   final yearController = TextEditingController(
     text: vehicle?.year?.toString() ?? '',
   );
-  final bodyStyleController = TextEditingController(
-    text: vehicle?.bodyStyle ?? '',
-  );
+  final verificationLocked = vehicle?.verificationLocked == true;
   void markDirty() => isDirty = true;
   for (final controller in [
     seriesController,
@@ -68,7 +87,6 @@ Future<bool> showProfileVehicleEditorSheet(
     numbersController,
     mileageController,
     yearController,
-    bodyStyleController,
   ]) {
     controller.addListener(markDirty);
   }
@@ -132,9 +150,20 @@ Future<bool> showProfileVehicleEditorSheet(
             }
 
             Future<void> submit() async {
+              if (isSaving) return;
               final region = regionController.text.trim().toUpperCase();
               final letters = lettersController.text.trim().toUpperCase();
-              final numbers = numbersController.text.trim().toUpperCase();
+              var numbers = numbersController.text.trim().toUpperCase();
+              if (countryCode == 'DE' &&
+                  plateType == ProfilePlateType.electric &&
+                  !numbers.endsWith('E')) {
+                numbers = '${numbers.replaceAll(RegExp(r'[EH]$'), '')}E';
+              }
+              if (countryCode == 'DE' &&
+                  plateType == ProfilePlateType.historic &&
+                  !numbers.endsWith('H')) {
+                numbers = '${numbers.replaceAll(RegExp(r'[EH]$'), '')}H';
+              }
               final yearText = yearController.text.trim();
               final year = int.tryParse(yearText);
               if (region.isEmpty ||
@@ -177,12 +206,31 @@ Future<bool> showProfileVehicleEditorSheet(
                     plateNumbers: numbers,
                     isPrimary: isPrimary,
                     isVerified: vehicle?.isVerified ?? false,
+                    verificationStatus:
+                        vehicle?.verificationStatus ??
+                        ProfileVehicleVerificationStatus.unverified,
+                    verificationLocked: vehicle?.verificationLocked ?? false,
+                    verificationRejectionReason:
+                        vehicle?.verificationRejectionReason,
                     status: status,
-                    visibility: visibility,
-                    showPlate: showPlate,
+                    visibility: showOnPublicProfile
+                        ? ProfileVehicleVisibility.contacts
+                        : ProfileVehicleVisibility.onlyMe,
+                    showPlate:
+                        plateDisplayMode != ProfilePlateDisplayMode.hidden,
+                    useRelationship: useRelationship,
+                    vehicleType: vehicleType,
+                    plateType: plateType,
+                    seasonStartMonth: seasonStartMonth,
+                    seasonEndMonth: seasonEndMonth,
+                    showOnPublicProfile: showOnPublicProfile,
+                    discoverableByPlate: discoverableByPlate,
+                    selectableInStories: selectableInStories,
+                    allowContactRequests: allowContactRequests,
+                    plateDisplayMode: plateDisplayMode,
                     year: year,
                     firstRegistration: vehicle?.firstRegistration,
-                    bodyStyle: bodyStyleController.text.trim(),
+                    bodyStyle: vehicle?.bodyStyle,
                     engineDescription: vehicle?.engineDescription,
                     displacementCcm: vehicle?.displacementCcm,
                     horsepower: vehicle?.horsepower,
@@ -207,19 +255,22 @@ Future<bool> showProfileVehicleEditorSheet(
                     heroError: vehicle?.heroError,
                     createdAt: vehicle?.createdAt,
                     updatedAt: vehicle?.updatedAt,
+                    deactivatedAt: vehicle?.deactivatedAt,
                   ),
                 );
                 if (sheetContext.mounted) {
                   isDirty = false;
                   Navigator.of(sheetContext).pop(true);
                 }
-              } catch (_) {
+              } catch (error) {
                 if (!sheetContext.mounted) return;
                 setSheetState(() => isSaving = false);
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(
-                      'Fahrzeug konnte nicht gespeichert werden. Bitte prüfe deine Angaben und versuche es erneut.',
+                      error is ProfileVehicleException
+                          ? error.message
+                          : 'Fahrzeug konnte nicht gespeichert werden. Bitte prüfe deine Angaben und versuche es erneut.',
                     ),
                   ),
                 );
@@ -282,12 +333,21 @@ Future<bool> showProfileVehicleEditorSheet(
                               fontWeight: FontWeight.w900,
                             ),
                       ),
+                      if (verificationLocked) ...[
+                        const SizedBox(height: 12),
+                        const _VehicleInfoBox(
+                          icon: Icons.lock_outline_rounded,
+                          text:
+                              'Die verifizierungsrelevanten Stammdaten sind während der laufenden Prüfung gesperrt.',
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       _VehicleDropdown<String>(
                         label: 'Marke',
                         value: selectedBrand,
                         values: VehicleCatalog.brands,
                         labelFor: (value) => value,
+                        enabled: !verificationLocked,
                         onChanged: (value) {
                           if (value == null) return;
                           updateEditor(() {
@@ -303,6 +363,7 @@ Future<bool> showProfileVehicleEditorSheet(
                         value: selectedModel,
                         values: availableModels,
                         labelFor: (value) => value,
+                        enabled: !verificationLocked,
                         onChanged: (value) {
                           if (value == null) return;
                           updateEditor(() => selectedModel = value);
@@ -313,6 +374,7 @@ Future<bool> showProfileVehicleEditorSheet(
                         controller: seriesController,
                         label: 'Baureihe (optional)',
                         maxLength: 120,
+                        enabled: !verificationLocked,
                       ),
                       const SizedBox(height: 10),
                       _VehicleDropdown<String>(
@@ -320,6 +382,7 @@ Future<bool> showProfileVehicleEditorSheet(
                         value: selectedColor,
                         values: _vehicleColors,
                         labelFor: (value) => value,
+                        enabled: !verificationLocked,
                         onChanged: (value) {
                           if (value == null) return;
                           updateEditor(() => selectedColor = value);
@@ -334,14 +397,21 @@ Future<bool> showProfileVehicleEditorSheet(
                               label: 'Baujahr (optional)',
                               maxLength: 4,
                               numbersOnly: true,
+                              enabled: !verificationLocked,
                             ),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: _VehicleTextField(
-                              controller: bodyStyleController,
-                              label: 'Fahrzeugtyp (optional)',
-                              maxLength: 80,
+                            child: _VehicleDropdown<ProfileVehicleType>(
+                              label: 'Fahrzeugart',
+                              value: vehicleType,
+                              values: ProfileVehicleType.values,
+                              labelFor: _vehicleTypeLabel,
+                              enabled: !verificationLocked,
+                              onChanged: (value) {
+                                if (value == null) return;
+                                updateEditor(() => vehicleType = value);
+                              },
                             ),
                           ),
                         ],
@@ -352,6 +422,7 @@ Future<bool> showProfileVehicleEditorSheet(
                         value: plateConfig,
                         values: plateCountryConfigs,
                         labelFor: (value) => value.countryLabel,
+                        enabled: !verificationLocked,
                         onChanged: (value) {
                           if (value == null) return;
                           updateEditor(() {
@@ -359,9 +430,82 @@ Future<bool> showProfileVehicleEditorSheet(
                             regionController.clear();
                             lettersController.clear();
                             numbersController.clear();
+                            if (value.countryCode != 'DE' &&
+                                (plateType == ProfilePlateType.electric ||
+                                    plateType == ProfilePlateType.historic)) {
+                              plateType = ProfilePlateType.standard;
+                            }
                           });
                         },
                       ),
+                      const SizedBox(height: 10),
+                      _VehicleDropdown<ProfilePlateType>(
+                        label: 'Kennzeichentyp',
+                        value: plateType,
+                        values: ProfilePlateType.values
+                            .where(
+                              (value) =>
+                                  countryCode == 'DE' ||
+                                  (value != ProfilePlateType.electric &&
+                                      value != ProfilePlateType.historic),
+                            )
+                            .toList(growable: false),
+                        labelFor: _plateTypeLabel,
+                        enabled: !verificationLocked,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() {
+                            plateType = value;
+                            if (value != ProfilePlateType.seasonal) {
+                              seasonStartMonth = null;
+                              seasonEndMonth = null;
+                            } else {
+                              seasonStartMonth ??= 3;
+                              seasonEndMonth ??= 10;
+                            }
+                          });
+                        },
+                      ),
+                      if (plateType == ProfilePlateType.seasonal) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _VehicleDropdown<int>(
+                                label: 'Saison von',
+                                value: seasonStartMonth ?? 3,
+                                values: List<int>.generate(
+                                  12,
+                                  (index) => index + 1,
+                                ),
+                                labelFor: _monthLabel,
+                                enabled: !verificationLocked,
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  updateEditor(() => seasonStartMonth = value);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _VehicleDropdown<int>(
+                                label: 'Saison bis',
+                                value: seasonEndMonth ?? 10,
+                                values: List<int>.generate(
+                                  12,
+                                  (index) => index + 1,
+                                ),
+                                labelFor: _monthLabel,
+                                enabled: !verificationLocked,
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  updateEditor(() => seasonEndMonth = value);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       AnimatedBuilder(
                         animation: Listenable.merge([
@@ -394,6 +538,7 @@ Future<bool> showProfileVehicleEditorSheet(
                               label: plateConfig.regionLabel,
                               maxLength: plateConfig.regionMaxLength,
                               upperCase: true,
+                              enabled: !verificationLocked,
                             ),
                           ),
                           if (plateConfig.usesLettersField) ...[
@@ -404,6 +549,7 @@ Future<bool> showProfileVehicleEditorSheet(
                                 label: 'Buchstaben',
                                 maxLength: plateConfig.lettersMaxLength,
                                 upperCase: true,
+                                enabled: !verificationLocked,
                               ),
                             ),
                           ],
@@ -414,6 +560,7 @@ Future<bool> showProfileVehicleEditorSheet(
                               label: 'Zahlen',
                               maxLength: plateConfig.numbersMaxLength,
                               upperCase: true,
+                              enabled: !verificationLocked,
                             ),
                           ),
                         ],
@@ -424,6 +571,18 @@ Future<bool> showProfileVehicleEditorSheet(
                         label: 'Kilometerstand (optional)',
                         maxLength: 8,
                         numbersOnly: true,
+                      ),
+                      const SizedBox(height: 10),
+                      _VehicleDropdown<ProfileVehicleUseRelationship>(
+                        label: 'Fahrzeugzuordnung',
+                        value: useRelationship,
+                        values: ProfileVehicleUseRelationship.values,
+                        labelFor: _relationshipLabel,
+                        enabled: !verificationLocked,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() => useRelationship = value);
+                        },
                       ),
                       const SizedBox(height: 10),
                       _VehicleDropdown<ProfileVehicleStatus>(
@@ -441,20 +600,58 @@ Future<bool> showProfileVehicleEditorSheet(
                         },
                       ),
                       const SizedBox(height: 10),
-                      _VehicleSwitch(
-                        title: 'Für Kontakte sichtbar',
-                        value: visibility == ProfileVehicleVisibility.contacts,
-                        onChanged: (value) => updateEditor(
-                          () => visibility = value
-                              ? ProfileVehicleVisibility.contacts
-                              : ProfileVehicleVisibility.onlyMe,
+                      _VehicleVerificationSummary(vehicle: vehicle),
+                      if (onOpenVerification != null) ...[
+                        const SizedBox(height: 10),
+                        CaRismaPrimaryButton(
+                          label:
+                              vehicle?.verificationStatus ==
+                                  ProfileVehicleVerificationStatus.rejected
+                              ? 'Nachweis erneut einreichen'
+                              : 'Dokumente hochladen',
+                          icon: Icons.upload_file_rounded,
+                          surfaceOutlined: true,
+                          showShadow: false,
+                          onPressed: () async {
+                            await onOpenVerification();
+                          },
                         ),
+                      ],
+                      const SizedBox(height: 10),
+                      _VehicleSwitch(
+                        title: 'Im öffentlichen Profil anzeigen',
+                        value: showOnPublicProfile,
+                        onChanged: (value) =>
+                            updateEditor(() => showOnPublicProfile = value),
                       ),
                       _VehicleSwitch(
-                        title: 'Kennzeichen anzeigen',
-                        value: showPlate,
+                        title: 'Über Kennzeichen auffindbar',
+                        value: discoverableByPlate,
                         onChanged: (value) =>
-                            updateEditor(() => showPlate = value),
+                            updateEditor(() => discoverableByPlate = value),
+                      ),
+                      _VehicleSwitch(
+                        title: 'In Storys auswählbar',
+                        value: selectableInStories,
+                        onChanged: (value) =>
+                            updateEditor(() => selectableInStories = value),
+                      ),
+                      _VehicleSwitch(
+                        title: 'Kontaktanfragen erlauben',
+                        value: allowContactRequests,
+                        onChanged: (value) =>
+                            updateEditor(() => allowContactRequests = value),
+                      ),
+                      const SizedBox(height: 8),
+                      _VehicleDropdown<ProfilePlateDisplayMode>(
+                        label: 'Kennzeichen öffentlich anzeigen',
+                        value: plateDisplayMode,
+                        values: ProfilePlateDisplayMode.values,
+                        labelFor: _plateDisplayModeLabel,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() => plateDisplayMode = value);
+                        },
                       ),
                       _VehicleSwitch(
                         title: 'Als Hauptfahrzeug verwenden',
@@ -462,6 +659,27 @@ Future<bool> showProfileVehicleEditorSheet(
                         onChanged: vehicle?.isPrimary == true
                             ? null
                             : (value) => updateEditor(() => isPrimary = value),
+                      ),
+                      const SizedBox(height: 10),
+                      AnimatedBuilder(
+                        animation: Listenable.merge([
+                          seriesController,
+                          regionController,
+                          lettersController,
+                          numbersController,
+                        ]),
+                        builder: (context, _) => _VehiclePublicPreview(
+                          brand: selectedBrand,
+                          model: selectedModel,
+                          series: seriesController.text,
+                          color: selectedColor,
+                          countryCode: countryCode,
+                          region: regionController.text,
+                          letters: lettersController.text,
+                          numbers: numbersController.text,
+                          plateDisplayMode: plateDisplayMode,
+                          showVehicle: showOnPublicProfile,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       CaRismaPrimaryButton(
@@ -490,7 +708,6 @@ Future<bool> showProfileVehicleEditorSheet(
     numbersController.dispose();
     mileageController.dispose();
     yearController.dispose();
-    bodyStyleController.dispose();
   }
 }
 
@@ -501,13 +718,15 @@ class _VehicleDropdown<T> extends StatelessWidget {
     required this.values,
     required this.labelFor,
     required this.onChanged,
+    this.enabled = true,
   });
 
   final String label;
   final T value;
   final List<T> values;
   final String Function(T value) labelFor;
-  final ValueChanged<T?> onChanged;
+  final ValueChanged<T?>? onChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -525,7 +744,7 @@ class _VehicleDropdown<T> extends StatelessWidget {
             ),
           )
           .toList(),
-      onChanged: onChanged,
+      onChanged: enabled ? onChanged : null,
     );
   }
 }
@@ -537,6 +756,7 @@ class _VehicleTextField extends StatelessWidget {
     required this.maxLength,
     this.upperCase = false,
     this.numbersOnly = false,
+    this.enabled = true,
   });
 
   final TextEditingController controller;
@@ -544,11 +764,13 @@ class _VehicleTextField extends StatelessWidget {
   final int maxLength;
   final bool upperCase;
   final bool numbersOnly;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      enabled: enabled,
       textCapitalization: upperCase
           ? TextCapitalization.characters
           : TextCapitalization.sentences,
@@ -594,6 +816,248 @@ class _VehicleSwitch extends StatelessWidget {
   }
 }
 
+class _VehicleInfoBox extends StatelessWidget {
+  const _VehicleInfoBox({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: CaRismaDesignTokens.textSecondary,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehicleVerificationSummary extends StatelessWidget {
+  const _VehicleVerificationSummary({required this.vehicle});
+
+  final ProfileVehicle? vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final status =
+        vehicle?.verificationStatus ??
+        ProfileVehicleVerificationStatus.evidenceMissing;
+    final (label, icon, color) = switch (status) {
+      ProfileVehicleVerificationStatus.unverified => (
+        'Nicht verifiziert',
+        Icons.shield_outlined,
+        CaRismaDesignTokens.textMuted,
+      ),
+      ProfileVehicleVerificationStatus.evidenceMissing => (
+        'Nachweis fehlt',
+        Icons.upload_file_outlined,
+        CaRismaDesignTokens.textMuted,
+      ),
+      ProfileVehicleVerificationStatus.inReview => (
+        'In Prüfung',
+        Icons.manage_search_rounded,
+        CaRismaDesignTokens.bluePrimary,
+      ),
+      ProfileVehicleVerificationStatus.verified => (
+        'Verifiziert',
+        Icons.verified_outlined,
+        CaRismaDesignTokens.success,
+      ),
+      ProfileVehicleVerificationStatus.rejected => (
+        'Abgelehnt',
+        Icons.cancel_outlined,
+        CaRismaDesignTokens.danger,
+      ),
+    };
+    final reason = vehicle?.verificationRejectionReason?.trim() ?? '';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 21),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  'Verifizierungsstatus',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(color: color, fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+          if (reason.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              reason,
+              style: const TextStyle(
+                color: CaRismaDesignTokens.danger,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _VehiclePublicPreview extends StatelessWidget {
+  const _VehiclePublicPreview({
+    required this.brand,
+    required this.model,
+    required this.series,
+    required this.color,
+    required this.countryCode,
+    required this.region,
+    required this.letters,
+    required this.numbers,
+    required this.plateDisplayMode,
+    required this.showVehicle,
+  });
+
+  final String brand;
+  final String model;
+  final String series;
+  final String color;
+  final String countryCode;
+  final String region;
+  final String letters;
+  final String numbers;
+  final ProfilePlateDisplayMode plateDisplayMode;
+  final bool showVehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final vehicleName = [
+      brand.trim(),
+      model.trim(),
+      series.trim(),
+    ].where((part) => part.isNotEmpty).join(' ');
+    final fullPlate = formatDisplayPlate(
+      countryCode: countryCode,
+      region: region,
+      letters: letters,
+      numbers: numbers,
+    );
+    final plateLabel = switch (plateDisplayMode) {
+      ProfilePlateDisplayMode.full => fullPlate,
+      ProfilePlateDisplayMode.shortened =>
+        '${region.trim().toUpperCase()}'
+            '${letters.trim().isEmpty ? '' : ' ${letters.trim().substring(0, 1).toUpperCase()}'} •••',
+      ProfilePlateDisplayMode.hidden => 'Kennzeichen verborgen',
+    };
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.visibility_outlined, color: Colors.white, size: 21),
+              SizedBox(width: 9),
+              Text(
+                'So sehen andere dein Fahrzeug',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (!showVehicle)
+            const Text(
+              'Dieses Fahrzeug wird nicht im öffentlichen Profil angezeigt.',
+              style: TextStyle(
+                color: CaRismaDesignTokens.textSecondary,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            )
+          else ...[
+            Text(
+              vehicleName.isEmpty ? 'Fahrzeugdaten fehlen' : vehicleName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              color,
+              style: const TextStyle(
+                color: CaRismaDesignTokens.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              plateLabel.isEmpty ? 'Kennzeichen unvollständig' : plateLabel,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Diese Darstellung wird in Profil, Trefferkarte und Kontaktanfrage verwendet.',
+              style: TextStyle(
+                color: CaRismaDesignTokens.textMuted,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 InputDecoration _inputDecoration(String label) {
   return InputDecoration(
     labelText: label,
@@ -631,3 +1095,40 @@ String _statusLabel(ProfileVehicleStatus status) {
     ProfileVehicleStatus.archived => 'Archiviert',
   };
 }
+
+String _relationshipLabel(ProfileVehicleUseRelationship relationship) {
+  return switch (relationship) {
+    ProfileVehicleUseRelationship.owner => 'Ich bin Halter',
+    ProfileVehicleUseRelationship.leasingCompany =>
+      'Leasing- oder Firmenfahrzeug',
+    ProfileVehicleUseRelationship.authorizedUser =>
+      'Ich nutze das Fahrzeug mit Erlaubnis',
+  };
+}
+
+String _vehicleTypeLabel(ProfileVehicleType type) {
+  return switch (type) {
+    ProfileVehicleType.passengerCar => 'Pkw',
+    ProfileVehicleType.motorcycle => 'Motorrad',
+    ProfileVehicleType.transporter => 'Transporter',
+  };
+}
+
+String _plateTypeLabel(ProfilePlateType type) {
+  return switch (type) {
+    ProfilePlateType.standard => 'Standard',
+    ProfilePlateType.electric => 'Elektro',
+    ProfilePlateType.historic => 'Historisch',
+    ProfilePlateType.seasonal => 'Saisonkennzeichen',
+  };
+}
+
+String _plateDisplayModeLabel(ProfilePlateDisplayMode mode) {
+  return switch (mode) {
+    ProfilePlateDisplayMode.full => 'Vollständig',
+    ProfilePlateDisplayMode.shortened => 'Verkürzt',
+    ProfilePlateDisplayMode.hidden => 'Verborgen',
+  };
+}
+
+String _monthLabel(int month) => month.toString().padLeft(2, '0');

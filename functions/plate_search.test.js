@@ -45,6 +45,7 @@ function visibleSettings(overrides = {}) {
 function validData(overrides = {}) {
   return {
     ownerUserId: "target-user",
+    vehicleId: "vehicle-mercedes-gls",
     countryCode: "DE",
     plateKey: "FDRT2918",
     normalizedPlate: "FDRT2918",
@@ -106,6 +107,7 @@ test("returns only the dynamic public hit fields", async () => {
     profilePhotoUrl: "https://example.test/profile.jpg",
     isVerified: true,
     distanceKm: 0,
+    vehicleId: "vehicle-mercedes-gls",
     plateKey: "FDRT2918",
     displayPlate: "FD-RT 2918",
     countryCode: "DE",
@@ -191,6 +193,7 @@ test("does not reveal users who disabled contact requests in settings", async ()
 
 for (const [name, data, requesterUserId] of [
   ["own plate", validData(), "target-user"],
+  ["plate without vehicle identity", validData({vehicleId: null}), "searching-user"],
   ["inactive plate", validData({isActive: false}), "searching-user"],
   ["deleted plate", validData({isDeleted: true}), "searching-user"],
   [

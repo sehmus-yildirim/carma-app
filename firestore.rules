@@ -274,6 +274,84 @@ service cloud.firestore {
       return value == null || (value is string && value.size() <= maxLength);
     }
 
+    function keepsLockedPersonalData() {
+      let wasLocked = resource.data.get('personalDataLocked', false) == true
+        || (
+          resource.data.firstName is string
+          && resource.data.firstName.size() > 0
+          && resource.data.lastName is string
+          && resource.data.lastName.size() > 0
+          && resource.data.birthDate is timestamp
+        );
+      let staysLocked =
+        request.resource.data.get('personalDataLocked', false) == true;
+      return !wasLocked
+        || (
+          staysLocked
+          && request.resource.data.firstName == resource.data.firstName
+          && request.resource.data.lastName == resource.data.lastName
+          && request.resource.data.displayName == resource.data.displayName
+          && request.resource.data.birthDate == resource.data.birthDate
+        );
+    }
+
+    function isAtLeast16YearsOld(birthDate) {
+      let today = request.time.date();
+      return birthDate is timestamp
+        && birthDate >= timestamp.date(1900, 1, 1)
+        && birthDate.date() <= today
+        && (
+          birthDate.year() < today.year() - 16
+          || (
+            birthDate.year() == today.year() - 16
+            && (
+              birthDate.month() < today.month()
+              || (
+                birthDate.month() == today.month()
+                && birthDate.day() <= today.day()
+              )
+            )
+          )
+        );
+    }
+
+    function hasValidPersonalDataState() {
+      let birthDate = request.resource.data.get('birthDate', null);
+      let isLocked =
+        request.resource.data.get('personalDataLocked', false) == true;
+      return birthDate == null
+        ? !isLocked
+        : (
+          request.resource.data.firstName is string
+          && request.resource.data.firstName.size() > 0
+          && request.resource.data.firstName.size() <= 80
+          && request.resource.data.lastName is string
+          && request.resource.data.lastName.size() > 0
+          && request.resource.data.lastName.size() <= 80
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() > 0
+          && request.resource.data.displayName.size() <= 80
+          && isAtLeast16YearsOld(birthDate)
+        );
+    }
+
+    function publicNameMatchesLockedPersonalData(userId) {
+      let privatePath =
+        /databases/$(database)/documents/users/$(userId)/profiles/main;
+      return !existsAfter(privatePath)
+        || getAfter(privatePath).data.get('personalDataLocked', false) != true
+        || request.resource.data.displayName
+          == getAfter(privatePath).data.displayName;
+    }
+
+    function publicVerificationMatchesPrivateProfile(userId) {
+      let privatePath =
+        /databases/$(database)/documents/users/$(userId)/profiles/main;
+      return existsAfter(privatePath)
+        && request.resource.data.verificationStatus
+          == getAfter(privatePath).data.verificationStatus;
+    }
+
     function isValidPublicProfileWrite(userId) {
       return isOwner(userId)
         && request.resource.data.keys().hasOnly([
@@ -288,9 +366,11 @@ service cloud.firestore {
           'profileAccessEnabled',
           'followersVisibility',
           'followingVisibility',
+          'verificationStatus',
           'primaryVehicleId',
           'vehicleBrand',
           'vehicleModel',
+          'vehicleColor',
           'countryCode',
           'plateRegion',
           'plateLetters',
@@ -318,14 +398,24 @@ service cloud.firestore {
           'followers',
           'onlyMe',
         ]
+        && request.resource.data.verificationStatus in [
+          'unverified',
+          'draft',
+          'pending',
+          'verified',
+          'rejected',
+        ]
         && isNullableStringWithMax(request.resource.data.primaryVehicleId, 160)
         && isNullableStringWithMax(request.resource.data.vehicleBrand, 120)
         && isNullableStringWithMax(request.resource.data.vehicleModel, 120)
+        && isNullableStringWithMax(request.resource.data.vehicleColor, 80)
         && isNullableStringWithMax(request.resource.data.countryCode, 10)
         && isNullableStringWithMax(request.resource.data.plateRegion, 10)
         && isNullableStringWithMax(request.resource.data.plateLetters, 10)
         && isNullableStringWithMax(request.resource.data.plateNumbers, 10)
-        && request.resource.data.updatedAt is timestamp;
+        && request.resource.data.updatedAt is timestamp
+        && publicNameMatchesLockedPersonalData(userId)
+        && publicVerificationMatchesPrivateProfile(userId);
     }
 
     function isValidVehicleStatus(status) {
@@ -355,6 +445,9 @@ service cloud.firestore {
           'plateNumbers',
           'isPrimary',
           'isVerified',
+          'verificationStatus',
+          'verificationLocked',
+          'verificationRejectionReason',
           'status',
           'visibility',
           'showPlate',
@@ -457,6 +550,18 @@ service cloud.firestore {
         )
         && request.resource.data.isPrimary is bool
         && request.resource.data.isVerified is bool
+        && request.resource.data.get('verificationStatus', 'unverified') in [
+          'unverified',
+          'draft',
+          'inReview',
+          'verified',
+          'rejected',
+        ]
+        && request.resource.data.get('verificationLocked', false) is bool
+        && isNullableStringWithMax(
+          request.resource.data.get('verificationRejectionReason', null),
+          600
+        )
         && isValidVehicleStatus(request.resource.data.status)
         && request.resource.data.visibility in ['contacts', 'onlyMe']
         && (allowPrivate || request.resource.data.visibility == 'contacts')
@@ -596,7 +701,6 @@ service cloud.firestore {
         'plateLetters',
         'plateNumbers',
         'isPrimary',
-        'isVerified',
         'status',
         'visibility',
         'showPlate',
@@ -618,6 +722,21 @@ service cloud.firestore {
         'mileage',
         'updatedAt',
       ]);
+    }
+
+    function keepsVehicleVerificationState() {
+      return request.resource.data.isVerified == resource.data.isVerified
+        && request.resource.data.get('verificationStatus', 'unverified')
+          == resource.data.get('verificationStatus', 'unverified')
+        && request.resource.data.get('verificationLocked', false)
+          == resource.data.get('verificationLocked', false)
+        && request.resource.data.get('verificationRejectionReason', null)
+          == resource.data.get('verificationRejectionReason', null);
+    }
+
+    function canOwnerEditVehicle() {
+      return resource.data.get('verificationLocked', false) != true
+        && keepsVehicleVerificationState();
     }
 
     function isValidVehicleModification(
@@ -1062,10 +1181,10 @@ service cloud.firestore {
         )
         && get(
           /databases/$(database)/documents/chats/$(connectionData.chatId)
-        ).data.get('deletedBy', {})[request.auth.uid] != true
+        ).data.get('deletedBy', {}).get(request.auth.uid, false) != true
         && get(
           /databases/$(database)/documents/chats/$(connectionData.chatId)
-        ).data.get('deletedBy', {})[targetUserId] != true;
+        ).data.get('deletedBy', {}).get(targetUserId, false) != true;
     }
 
     function hasActiveProfileConnectionById(connectionId, targetUserId) {
@@ -1303,7 +1422,54 @@ service cloud.firestore {
     }
 
     function contactRequestDocumentId() {
-      return request.auth.uid + '_' + request.resource.data.plateKey;
+      return request.auth.uid
+        + '_' + request.resource.data.countryCode
+        + '_' + request.resource.data.vehicleId;
+    }
+
+    function contactRequestOptionalProjectionMatches(value, expected) {
+      return value == null || value == expected;
+    }
+
+    function contactRequestPlateProjectionMatches(value, plate) {
+      return value == null
+        || value == plate.get('displayPlate', null)
+        || value == plate.get('plateDisplayLabel', null);
+    }
+
+    function contactRequestMatchesActivePlate() {
+      let plateId = request.resource.data.countryCode
+        + '_' + request.resource.data.plateKey;
+      let platePath = /databases/$(database)/documents/plates/$(plateId);
+      let plate = get(platePath).data;
+      return exists(platePath)
+        && plate.ownerUserId == request.resource.data.receiverUserId
+        && plate.vehicleId == request.resource.data.vehicleId
+        && plate.countryCode == request.resource.data.countryCode
+        && plate.plateKey == request.resource.data.plateKey
+        && plate.isActive == true
+        && plate.isDeleted == false
+        && plate.allowContactRequests == true
+        && contactRequestPlateProjectionMatches(
+          request.resource.data.get('displayPlate', null),
+          plate
+        )
+        && contactRequestOptionalProjectionMatches(
+          request.resource.data.get('vehicleBrand', null),
+          plate.get('vehicleBrand', null)
+        )
+        && contactRequestOptionalProjectionMatches(
+          request.resource.data.get('vehicleModel', null),
+          plate.get('vehicleModel', null)
+        )
+        && contactRequestOptionalProjectionMatches(
+          request.resource.data.get('vehicleColor', null),
+          plate.get('vehicleColor', null)
+        )
+        && contactRequestOptionalProjectionMatches(
+          request.resource.data.get('vehicleLabel', null),
+          plate.get('vehicleLabel', null)
+        );
     }
 
     function contactRequestVisibilityAllowsCreate() {
@@ -1369,6 +1535,10 @@ service cloud.firestore {
         && request.resource.data.receiverUserId is string
         && request.resource.data.receiverUserId != request.auth.uid
         && request.resource.data.targetUserId == request.resource.data.receiverUserId
+        && request.resource.data.countryCode in ['DE', 'AT', 'CH']
+        && request.resource.data.vehicleId is string
+        && request.resource.data.vehicleId.size() >= 1
+        && request.resource.data.vehicleId.size() <= 160
         && request.resource.data.plateKey is string
         && request.resource.data.plateKey.matches('^[A-ZÄÖÜ0-9]{2,20}$')
         && request.resource.data.status == 'pending'
@@ -1376,6 +1546,7 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.expiresAt is timestamp
         && request.resource.data.isDeleted == false
+        && contactRequestMatchesActivePlate()
         && contactRequestVisibilityAllowsCreate()
         && contactRequestFiltersAllowCreate();
     }
@@ -1432,6 +1603,8 @@ service cloud.firestore {
         && request.resource.data.senderUserId == resource.data.senderUserId
         && request.resource.data.receiverUserId == resource.data.receiverUserId
         && request.resource.data.targetUserId == resource.data.targetUserId
+        && request.resource.data.countryCode == resource.data.countryCode
+        && request.resource.data.vehicleId == resource.data.vehicleId
         && request.resource.data.plateKey == resource.data.plateKey
         && isValidContactRequestCreate(requestId);
     }
@@ -1450,6 +1623,20 @@ service cloud.firestore {
       return isSignedIn()
         && chatId == 'request_' + requestId
         && request.resource.data.requestId == requestId
+        && request.resource.data.get('countryCode', null)
+          == contactRequestData.get('countryCode', null)
+        && request.resource.data.get('vehicleId', null)
+          == contactRequestData.get('vehicleId', null)
+        && request.resource.data.get('displayPlate', null)
+          == contactRequestData.get('displayPlate', null)
+        && request.resource.data.get('vehicleBrand', null)
+          == contactRequestData.get('vehicleBrand', null)
+        && request.resource.data.get('vehicleModel', null)
+          == contactRequestData.get('vehicleModel', null)
+        && request.resource.data.get('vehicleColor', null)
+          == contactRequestData.get('vehicleColor', null)
+        && request.resource.data.get('vehicleLabel', null)
+          == contactRequestData.get('vehicleLabel', null)
         && contactRequestData.status in ['pending', 'accepted']
         && (
           contactRequestData.status == 'accepted' ||
@@ -1493,130 +1680,161 @@ service cloud.firestore {
         || isValidChatCreateForPendingRequestWrite(chatId, requestId);
     }
 
-    function isValidVerificationRequestCreate(requestId) {
+    function isValidVerificationDraftMap(userId, requestId) {
+      let paths = request.resource.data.documentStoragePaths;
+      let statuses = request.resource.data.documentStatuses;
+      let reasons = request.resource.data.documentRejectionReasons;
       return isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.requestId == requestId
-        && request.resource.data.status == 'pending'
-        && request.resource.data.profilePath == 'users/' + request.auth.uid + '/profiles/main'
-        && request.resource.data.submittedAt is timestamp
+        && request.auth.uid == userId
+        && requestId == userId
+        && request.resource.data.requestId == userId
+        && request.resource.data.userId == userId
+        && request.resource.data.profilePath
+          == 'users/' + userId + '/profiles/main'
+        && request.resource.data.status == 'draft'
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() <= 80
+        && paths is map
+        && paths.keys().hasOnly(['identityEvidence', 'vehicleEvidence'])
+        && (
+          !('identityEvidence' in paths)
+          || paths.identityEvidence in [
+            'profile_documents/' + userId
+              + '/identityEvidence/identityEvidence.png',
+            'profile_documents/' + userId
+              + '/identityEvidence/identityEvidence.jpg'
+          ]
+        )
+        && (
+          !('vehicleEvidence' in paths)
+          || paths.vehicleEvidence in [
+            'profile_documents/' + userId
+              + '/vehicleEvidence/vehicleEvidence.png',
+            'profile_documents/' + userId
+              + '/vehicleEvidence/vehicleEvidence.jpg'
+          ]
+        )
+        && statuses is map
+        && statuses.keys().hasOnly(['identityEvidence', 'vehicleEvidence'])
+        && (
+          !('identityEvidence' in statuses)
+          || statuses.identityEvidence in ['missing', 'uploaded']
+        )
+        && (
+          !('vehicleEvidence' in statuses)
+          || statuses.vehicleEvidence in ['missing', 'uploaded']
+        )
+        && reasons is map
+        && reasons.keys().hasOnly(['identityEvidence', 'vehicleEvidence'])
+        && (
+          !('identityEvidence' in reasons)
+          || isNullableStringWithMax(reasons.identityEvidence, 600)
+        )
+        && (
+          !('vehicleEvidence' in reasons)
+          || isNullableStringWithMax(reasons.vehicleEvidence, 600)
+        )
+        && isNullableStringWithMax(request.resource.data.vehicleId, 160)
+        && request.resource.data.vehicleRelationship in [
+          'owner',
+          'leasingCompany',
+          'leasingCompanyFamily',
+          'authorizedUser',
+        ]
+        && request.resource.data.authorizationConfirmed == false
+        && request.resource.data.consentVersion == null
+        && request.resource.data.consentAcceptedAt == null
+        && request.resource.data.submittedAt == null
+        && request.resource.data.reviewedAt == null
+        && request.resource.data.reviewedBy == null
+        && request.resource.data.rejectionReason == null
+        && request.resource.data.retentionUntil == null
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
-        && request.resource.data.documentRemoteUrls is map
         && request.resource.data.keys().hasOnly([
           'requestId',
           'userId',
           'profilePath',
           'status',
           'displayName',
-          'email',
-          'countryCode',
-          'plateRegion',
-          'plateLetters',
-          'plateNumbers',
-          'vehicleBrand',
-          'vehicleModel',
-          'vehicleColor',
-          'photoUrl',
-          'documentRemoteUrls',
+          'documentStoragePaths',
+          'documentStatuses',
+          'documentRejectionReasons',
+          'vehicleId',
+          'vehicleRelationship',
+          'authorizationConfirmed',
+          'consentVersion',
+          'consentAcceptedAt',
           'submittedAt',
+          'reviewedAt',
+          'reviewedBy',
+          'rejectionReason',
+          'retentionUntil',
           'createdAt',
           'updatedAt',
         ]);
     }
 
-    function isOwnerEditableVerificationStatus() {
-      return request.resource.data.verificationStatus in [
-        'unverified',
-        'draft',
-        'pending',
-      ];
+    function isValidVerificationDraftCreate(requestId) {
+      return isSignedIn()
+        && isValidVerificationDraftMap(request.auth.uid, requestId);
     }
 
-    function isUnchangedAdminVerificationStatus() {
-      return resource.data.verificationStatus in ['verified', 'rejected']
-        && request.resource.data.verificationStatus == resource.data.verificationStatus
-        && request.resource.data.verificationSubmittedAt == resource.data.verificationSubmittedAt
-        && request.resource.data.verificationReviewedAt == resource.data.verificationReviewedAt
-        && request.resource.data.verificationRejectionReason == resource.data.verificationRejectionReason;
+    function isValidVerificationDraftUpdate(requestId) {
+      return isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && resource.data.status in ['draft', 'rejected', 'expired']
+        && isValidVerificationDraftMap(request.auth.uid, requestId)
+        && request.resource.data.createdAt == resource.data.createdAt;
     }
 
-    function hasOwnerProfileVerificationFields() {
-      return (
-          request.resource.data.verificationStatus == 'pending'
-          && request.resource.data.verificationSubmittedAt is timestamp
-          && request.resource.data.verificationReviewedAt == null
-          && request.resource.data.verificationRejectionReason == null
-        ) ||
-        (
-          request.resource.data.verificationStatus in ['unverified', 'draft']
-          && request.resource.data.verificationSubmittedAt == null
-          && request.resource.data.verificationReviewedAt == null
-          && request.resource.data.verificationRejectionReason == null
-        ) ||
-        isUnchangedAdminVerificationStatus();
+    function hasValidOwnerProfileCreateVerificationFields() {
+      return request.resource.data.verificationStatus in ['unverified', 'draft']
+        && request.resource.data.verificationSubmittedAt == null
+        && request.resource.data.verificationReviewedAt == null
+        && request.resource.data.verificationRejectionReason == null;
     }
 
-    function isValidOwnerProfileWrite(userId, profileId) {
+    function keepsOwnerProfileVerificationFields() {
+      let currentStatus = resource.data.get('verificationStatus', null);
+      let currentSubmittedAt =
+        resource.data.get('verificationSubmittedAt', null);
+      let currentReviewedAt =
+        resource.data.get('verificationReviewedAt', null);
+      let currentRejectionReason =
+        resource.data.get('verificationRejectionReason', null);
+      let keepsExistingValues =
+        request.resource.data.verificationStatus == currentStatus
+        && request.resource.data.verificationSubmittedAt
+          == currentSubmittedAt
+        && request.resource.data.verificationReviewedAt == currentReviewedAt
+        && request.resource.data.verificationRejectionReason
+          == currentRejectionReason;
+      let initializesLegacyProfile = currentStatus == null
+        && currentSubmittedAt == null
+        && currentReviewedAt == null
+        && currentRejectionReason == null
+        && request.resource.data.verificationStatus == 'unverified'
+        && request.resource.data.verificationSubmittedAt == null
+        && request.resource.data.verificationReviewedAt == null
+        && request.resource.data.verificationRejectionReason == null;
+      return keepsExistingValues || initializesLegacyProfile;
+    }
+
+    function isValidOwnerProfileCreate(userId, profileId) {
       return isOwner(userId)
         && profileId == 'main'
         && request.resource.data.uid == userId
-        && hasOwnerProfileVerificationFields()
-        && (
-          isOwnerEditableVerificationStatus() ||
-          isUnchangedAdminVerificationStatus()
-        );
+        && hasValidPersonalDataState()
+        && hasValidOwnerProfileCreateVerificationFields();
     }
 
-    function isValidAdminProfileReviewUpdate() {
-      return isAdmin()
-        && changedOnly([
-          'verificationStatus',
-          'verificationReviewedAt',
-          'verificationRejectionReason',
-          'updatedAt',
-        ])
-        && request.resource.data.verificationStatus in ['verified', 'rejected']
-        && request.resource.data.verificationReviewedAt is timestamp
-        && request.resource.data.updatedAt is timestamp
-        && (
-          (
-            request.resource.data.verificationStatus == 'verified'
-            && request.resource.data.verificationRejectionReason == null
-          ) ||
-          (
-            request.resource.data.verificationStatus == 'rejected'
-            && request.resource.data.verificationRejectionReason is string
-            && request.resource.data.verificationRejectionReason.size() <= 600
-          )
-        );
-    }
-
-    function isValidAdminVerificationRequestUpdate() {
-      return isAdmin()
-        && changedOnly([
-          'status',
-          'reviewedAt',
-          'reviewedBy',
-          'rejectionReason',
-          'updatedAt',
-        ])
-        && resource.data.status == 'pending'
-        && request.resource.data.status in ['approved', 'rejected']
-        && request.resource.data.reviewedAt is timestamp
-        && request.resource.data.updatedAt is timestamp
-        && request.resource.data.reviewedBy == request.auth.uid
-        && (
-          (
-            request.resource.data.status == 'approved'
-            && request.resource.data.rejectionReason == null
-          ) ||
-          (
-            request.resource.data.status == 'rejected'
-            && request.resource.data.rejectionReason is string
-            && request.resource.data.rejectionReason.size() <= 600
-          )
-        );
+    function isValidOwnerProfileUpdate(userId, profileId) {
+      return isOwner(userId)
+        && profileId == 'main'
+        && request.resource.data.uid == userId
+        && hasValidPersonalDataState()
+        && keepsOwnerProfileVerificationFields();
     }
 
     function isUndeletedChatParticipant(chatData) {
@@ -3071,23 +3289,9 @@ service cloud.firestore {
             hasActiveProfileConnection(userId)
             && profileAllowsAccess(userId)
           );
-        allow create: if isOwner(userId)
-          && isValidVehicleDocument(userId, vehicleId, false)
-          && !('heroImageUrl' in request.resource.data)
-          && !('heroImagePath' in request.resource.data)
-          && !('heroImageStatus' in request.resource.data)
-          && !('heroSourceHash' in request.resource.data)
-          && !('heroPromptVersion' in request.resource.data)
-          && !('heroProvider' in request.resource.data)
-          && !('heroError' in request.resource.data)
-          && !('heroRequestedAt' in request.resource.data)
-          && !('heroGeneratedAt' in request.resource.data)
-          && !('heroRequestWindowStartedAt' in request.resource.data)
-          && !('heroRequestCount' in request.resource.data);
-        allow update: if isOwner(userId)
-          && isValidVehicleDocument(userId, vehicleId, false)
-          && vehicleClientFieldsOnly();
-        allow delete: if isOwner(userId);
+        // Stammdaten, öffentliche Projektion, Hauptfahrzeug und Kennzeichen
+        // werden ausschließlich atomar durch die Fahrzeug-Functions geschrieben.
+        allow create, update, delete: if false;
 
         match /modifications/{modificationId} {
           allow read: if isOwner(userId)
@@ -3211,31 +3415,15 @@ service cloud.firestore {
 
       match /profiles/{profileId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isValidOwnerProfileWrite(userId, profileId);
-        allow update: if isValidOwnerProfileWrite(userId, profileId)
-          || isValidAdminProfileReviewUpdate();
+        allow create: if isValidOwnerProfileCreate(userId, profileId);
+        allow update: if isValidOwnerProfileUpdate(userId, profileId)
+          && keepsLockedPersonalData();
         allow delete: if false;
       }
 
       match /vehicles/{vehicleId} {
         allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId)
-          && isValidVehicleDocument(userId, vehicleId, true)
-          && !('heroImageUrl' in request.resource.data)
-          && !('heroImagePath' in request.resource.data)
-          && !('heroImageStatus' in request.resource.data)
-          && !('heroSourceHash' in request.resource.data)
-          && !('heroPromptVersion' in request.resource.data)
-          && !('heroProvider' in request.resource.data)
-          && !('heroError' in request.resource.data)
-          && !('heroRequestedAt' in request.resource.data)
-          && !('heroGeneratedAt' in request.resource.data)
-          && !('heroRequestWindowStartedAt' in request.resource.data)
-          && !('heroRequestCount' in request.resource.data);
-        allow update: if isOwner(userId)
-          && isValidVehicleDocument(userId, vehicleId, true)
-          && vehicleClientFieldsOnly();
-        allow delete: if false;
+        allow create, update, delete: if false;
 
         match /modifications/{modificationId} {
           allow read: if isOwner(userId) || isAdmin();
@@ -3279,6 +3467,14 @@ service cloud.firestore {
         allow create: if isValidInitialSearchCredit(userId, creditId);
         allow update: if isValidSearchCreditUpdate(userId, creditId);
         allow delete: if false;
+      }
+
+      match /verification_notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create, delete: if false;
+        allow update: if isOwner(userId)
+          && changedOnly(['isRead'])
+          && request.resource.data.isRead is bool;
       }
 
       match /settings/{settingsId} {
@@ -3501,31 +3697,14 @@ service cloud.firestore {
     }
 
     match /plates/{plateId} {
+      // Public lookup goes through the server-side search/report functions so
+      // exact location and internal plate metadata never reach other clients.
       allow get: if isSignedIn()
-        && (
-          resource.data.ownerUserId == request.auth.uid ||
-          (
-            resource.data.isActive == true &&
-            resource.data.isDeleted == false &&
-            (
-              resource.data.allowContactRequests == true ||
-              resource.data.allowAnonymousReports == true
-            )
-          )
-        );
+        && resource.data.ownerUserId == request.auth.uid;
 
       allow list: if false;
 
-      allow create: if isSignedIn()
-        && request.resource.data.ownerUserId == request.auth.uid
-        && request.resource.data.isActive == true
-        && request.resource.data.isDeleted == false;
-
-      allow update: if isSignedIn()
-        && resource.data.ownerUserId == request.auth.uid
-        && request.resource.data.ownerUserId == request.auth.uid;
-
-      allow delete: if false;
+      allow create, update, delete: if false;
     }
 
     match /contact_requests/{requestId} {
@@ -3631,10 +3810,18 @@ service cloud.firestore {
           && resource.data.userId == request.auth.uid
         );
 
-      allow create: if isValidVerificationRequestCreate(requestId);
-
-      allow update: if isValidAdminVerificationRequestUpdate();
+      allow create: if isValidVerificationDraftCreate(requestId);
+      allow update: if isValidVerificationDraftUpdate(requestId);
       allow delete: if false;
+
+      match /history/{historyId} {
+        allow read: if isAdmin()
+          || (
+            isSignedIn()
+            && request.auth.uid == requestId
+          );
+        allow write: if false;
+      }
     }
 
     match /{document=**} {

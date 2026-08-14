@@ -24,6 +24,7 @@ void main() {
       final data = profile.toFirestore();
 
       expect(data['verificationStatus'], 'rejected');
+      expect(data['personalDataLocked'], isFalse);
       expect(data['verificationSubmittedAt'], isA<Timestamp>());
       expect(data['verificationReviewedAt'], isA<Timestamp>());
       expect(
@@ -65,12 +66,33 @@ void main() {
 
       expect(updatedProfile.displayName, 'Max Mustermann');
       expect(updatedProfile.verificationStatus, 'rejected');
+      expect(updatedProfile.personalDataLocked, isFalse);
       expect(updatedProfile.verificationSubmittedAt, submittedAt);
       expect(updatedProfile.verificationReviewedAt, reviewedAt);
       expect(
         updatedProfile.verificationRejectionReason,
         'Fahrzeugschein ist nicht lesbar.',
       );
+    });
+
+    test('persists an enabled personal data lock', () {
+      final profile = UserProfile(
+        uid: 'user-1',
+        email: 'plaqa@example.com',
+        firstName: 'Max',
+        lastName: 'Muster',
+        displayName: 'Max M.',
+        country: 'Deutschland',
+        personalDataLocked: true,
+      );
+
+      final data = profile.toFirestore();
+      final copiedProfile = profile.copyWith(
+        photoUrl: 'https://example.test/p.jpg',
+      );
+
+      expect(data['personalDataLocked'], isTrue);
+      expect(copiedProfile.personalDataLocked, isTrue);
     });
   });
 }

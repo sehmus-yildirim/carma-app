@@ -5,23 +5,24 @@ import '../../../shared/firebase/carisma_firestore_paths.dart';
 import 'user_profile.dart';
 
 class ProfileRepository {
-  ProfileRepository({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  ProfileRepository({FirebaseFirestore? firestore}) : _firestore = firestore;
 
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestore;
+
+  FirebaseFirestore get _database => _firestore ?? FirebaseFirestore.instance;
 
   DocumentReference<Map<String, dynamic>> _profileDocument(String uid) {
-    return _firestore.doc(CaRismaFirestorePaths.userProfile(uid));
+    return _database.doc(CaRismaFirestorePaths.userProfile(uid));
   }
 
   DocumentReference<Map<String, dynamic>> _publicProfileDocument(String uid) {
-    return _firestore.doc(CaRismaFirestorePaths.publicProfile(uid));
+    return _database.doc(CaRismaFirestorePaths.publicProfile(uid));
   }
 
   DocumentReference<Map<String, dynamic>> _visibilitySettingsDocument(
     String uid,
   ) {
-    return _firestore.doc(
+    return _database.doc(
       '${CaRismaFirestorePaths.user(uid)}/'
       '${CaRismaFirestoreCollections.settings}/visibility',
     );
@@ -91,7 +92,7 @@ class ProfileRepository {
         });
       }
 
-      final batch = _firestore.batch();
+      final batch = _database.batch();
       batch.set(document, updateData, SetOptions(merge: true));
       batch.set(
         _publicProfileDocument(user.uid),
@@ -121,7 +122,7 @@ class ProfileRepository {
     }
 
     final profile = UserProfile.empty(uid: user.uid, email: user.email ?? '');
-    final batch = _firestore.batch();
+    final batch = _database.batch();
     batch.set(document, {
       ...profile.toFirestore(),
       'displayName': user.displayName ?? profile.displayName,
@@ -141,7 +142,7 @@ class ProfileRepository {
 
   Future<void> saveProfile(UserProfile profile) async {
     final visibility = await _loadVisibilitySettings(profile.uid);
-    final batch = _firestore.batch();
+    final batch = _database.batch();
     batch.set(_profileDocument(profile.uid), {
       ...profile.toFirestore(),
       'createdAt': profile.createdAt == null
@@ -170,6 +171,47 @@ class ProfileRepository {
       ),
     );
     await batch.commit();
+  }
+
+  Future<UserProfile?> updatePersonalData({
+    required String uid,
+    required String firstName,
+    required String lastName,
+    required String displayName,
+    required DateTime birthDate,
+    required String? photoUrl,
+  }) async {
+    final normalizedUid = uid.trim();
+    if (normalizedUid.isEmpty) {
+      throw ArgumentError('Nutzer-ID darf nicht leer sein.');
+    }
+
+    final normalizedBirthDate = DateTime.utc(
+      birthDate.year,
+      birthDate.month,
+      birthDate.day,
+      12,
+    );
+    final batch = _database.batch();
+    batch.set(_profileDocument(normalizedUid), {
+      'uid': normalizedUid,
+      'firstName': firstName.trim(),
+      'lastName': lastName.trim(),
+      'displayName': displayName.trim(),
+      'birthDate': Timestamp.fromDate(normalizedBirthDate),
+      'personalDataLocked': true,
+      'photoUrl': _trimmedOrNull(photoUrl),
+      'profilePhotoLocalPath': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(_publicProfileDocument(normalizedUid), {
+      'uid': normalizedUid,
+      'displayName': displayName.trim(),
+      'photoUrl': _trimmedOrNull(photoUrl),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await batch.commit();
+    return getProfile(normalizedUid);
   }
 
   Future<void> updateProfilePreferences({
@@ -285,7 +327,7 @@ class ProfileRepository {
       });
     }
 
-    final batch = _firestore.batch();
+    final batch = _database.batch();
     batch.set(document, data, SetOptions(merge: true));
     batch.set(
       _publicProfileDocument(uid),
@@ -348,7 +390,7 @@ class ProfileRepository {
         ? _trimmedOrNull(profile.publicRegion)
         : null;
 
-    final batch = _firestore.batch();
+    final batch = _database.batch();
     batch.set(document, {
       'showVehicleOnPublicProfile': showVehicle,
       'showPlateOnPublicProfile': showPlate,
@@ -433,9 +475,11 @@ class ProfileRepository {
           profileAccessEnabled ?? profile.profileAccessEnabled,
       'followersVisibility': followersVisibility ?? profile.followersVisibility,
       'followingVisibility': followingVisibility ?? profile.followingVisibility,
+      'verificationStatus': profile.verificationStatus,
       'primaryVehicleId': _trimmedOrNull(profile.primaryVehicleId),
       'vehicleBrand': showVehicle ? _trimmedOrNull(profile.vehicleBrand) : null,
       'vehicleModel': showVehicle ? _trimmedOrNull(profile.vehicleModel) : null,
+      'vehicleColor': showVehicle ? _trimmedOrNull(profile.vehicleColor) : null,
       'countryCode': showPlate
           ? _trimmedUpperOrNull(profile.countryCode)
           : null,

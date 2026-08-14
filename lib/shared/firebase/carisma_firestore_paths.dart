@@ -22,6 +22,7 @@ class CaRismaFirestoreCollections {
   static const String moderationActions = 'moderation_actions';
   static const String searchCredits = 'search_credits';
   static const String verificationRequests = 'verification_requests';
+  static const String verificationNotifications = 'verification_notifications';
   static const String settings = 'settings';
 }
 
@@ -242,5 +243,10 @@ class CaRismaFirestorePaths {
 
   static String verificationRequest(String requestId) {
     return '${CaRismaFirestoreCollections.verificationRequests}/$requestId';
+  }
+
+  static String userVerificationNotifications(String userId) {
+    return '${user(userId)}/'
+        '${CaRismaFirestoreCollections.verificationNotifications}';
   }
 }
