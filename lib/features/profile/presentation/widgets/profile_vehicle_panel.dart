@@ -12,6 +12,7 @@ import '../../data/user_profile.dart';
 import 'profile_vehicle_gallery_card.dart';
 import 'profile_vehicle_statistics_card.dart';
 import 'profile_vehicle_timeline_card.dart';
+import 'profile_section_add_button.dart';
 
 enum ProfileVehicleMenuAction { edit, details, setPrimary, archive }
 
@@ -140,7 +141,7 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
     final resolvedVehicles = _resolvedVehicles(widget.vehicles);
     final selectedVehicle = _selectedVehicle(resolvedVehicles);
     final isDebugVehicle = selectedVehicle?.id == debugProfileVehicleId;
-    final canManageSelected = widget.isOwnProfile && !isDebugVehicle;
+    final canManageSelected = widget.isOwnProfile;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -324,55 +325,64 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
     final result = await showModalBottomSheet<List<ProfileVehicleHighlight>>(
       context: context,
       useSafeArea: true,
+      isScrollControlled: true,
       backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Fahrzeuginformationen',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                ),
+        builder: (context, setSheetState) => SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Fahrzeuginformationen',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Wähle bis zu fünf Angaben für deine Fahrzeugkarte.',
+                    style: TextStyle(color: CaRismaDesignTokens.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final highlight in ProfileVehicleHighlight.values)
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: selected.contains(highlight),
+                      title: Text(_highlightLabel(highlight)),
+                      secondary: Icon(_highlightIcon(highlight)),
+                      onChanged: (enabled) {
+                        setSheetState(() {
+                          if (enabled == true && selected.length < 5) {
+                            selected.add(highlight);
+                          } else if (enabled == false && selected.length > 1) {
+                            selected.remove(highlight);
+                          }
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(
+                        sheetContext,
+                      ).pop(selected.toList(growable: false)),
+                      icon: const Icon(Icons.check_rounded),
+                      label: const Text('Auswahl übernehmen'),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 5),
-              const Text(
-                'Wähle bis zu fünf Angaben für deine Fahrzeugkarte.',
-                style: TextStyle(color: CaRismaDesignTokens.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              for (final highlight in ProfileVehicleHighlight.values)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: selected.contains(highlight),
-                  title: Text(_highlightLabel(highlight)),
-                  secondary: Icon(_highlightIcon(highlight)),
-                  onChanged: (enabled) {
-                    setSheetState(() {
-                      if (enabled == true && selected.length < 5) {
-                        selected.add(highlight);
-                      } else if (enabled == false && selected.length > 1) {
-                        selected.remove(highlight);
-                      }
-                    });
-                  },
-                ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(
-                    sheetContext,
-                  ).pop(selected.toList(growable: false)),
-                  icon: const Icon(Icons.check_rounded),
-                  label: const Text('Auswahl übernehmen'),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -487,6 +497,7 @@ class _VehicleHeroCard extends StatelessWidget {
                         _VehicleChip(
                           icon: Icons.circle,
                           label: _statusLabel(vehicle.status),
+                          iconColor: const Color(0xFF22C55E),
                         ),
                       ],
                     ),
@@ -920,11 +931,9 @@ class _VehicleSectionHeader extends StatelessWidget {
           ),
         ),
         if (onEdit != null)
-          IconButton(
+          ProfileSectionAddButton(
             tooltip: '$title hinzufügen oder bearbeiten',
-            onPressed: onEdit,
-            icon: const Icon(Icons.add_rounded),
-            iconSize: 19,
+            onPressed: onEdit!,
           ),
       ],
     );
@@ -1324,10 +1333,15 @@ class _ProfileVehicleCard extends StatelessWidget {
 }
 
 class _VehicleChip extends StatelessWidget {
-  const _VehicleChip({required this.icon, required this.label});
+  const _VehicleChip({
+    required this.icon,
+    required this.label,
+    this.iconColor = CaRismaDesignTokens.blueBright,
+  });
 
   final IconData icon;
   final String label;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -1341,7 +1355,7 @@ class _VehicleChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: CaRismaDesignTokens.blueBright),
+          Icon(icon, size: 15, color: iconColor),
           const SizedBox(width: 6),
           Text(
             label,
@@ -1525,17 +1539,16 @@ String _highlightValue(
   ProfileVehicleHighlight highlight,
 ) {
   return switch (highlight) {
-    ProfileVehicleHighlight.plate => vehicle.displayPlate,
+    ProfileVehicleHighlight.plate =>
+      vehicle.displayPlate.trim().isEmpty ? '-' : vehicle.displayPlate,
     ProfileVehicleHighlight.color =>
-      vehicle.color.trim().isEmpty ? 'Nicht angegeben' : vehicle.color.trim(),
+      vehicle.color.trim().isEmpty ? '-' : vehicle.color.trim(),
     ProfileVehicleHighlight.mileage =>
-      vehicle.mileage == null
-          ? 'Nicht angegeben'
-          : '${_formatNumber(vehicle.mileage!)} km',
+      vehicle.mileage == null ? '-' : '${_formatNumber(vehicle.mileage!)} km',
     ProfileVehicleHighlight.status => _statusLabel(vehicle.status),
     ProfileVehicleHighlight.ownedSince =>
       vehicle.ownedSince == null
-          ? 'Nicht angegeben'
+          ? '-'
           : '${vehicle.ownedSince!.month.toString().padLeft(2, '0')}.${vehicle.ownedSince!.year}',
   };
 }

@@ -4,6 +4,7 @@ import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../data/profile_vehicle.dart';
 import '../../data/profile_vehicle_timeline_entry.dart';
+import 'profile_section_add_button.dart';
 
 class ProfileVehicleTimelineCard extends StatelessWidget {
   const ProfileVehicleTimelineCard({
@@ -53,12 +54,9 @@ class ProfileVehicleTimelineCard extends StatelessWidget {
                     ),
                   ),
                   if (isOwnProfile)
-                    IconButton(
+                    ProfileSectionAddButton(
                       tooltip: 'Ereignis hinzufügen',
                       onPressed: onAdd,
-                      icon: const Icon(Icons.add_rounded),
-                      iconSize: 20,
-                      color: CaRismaDesignTokens.blueBright,
                     ),
                 ],
               ),
@@ -295,8 +293,18 @@ IconData _timelineIcon(ProfileVehicleTimelineType type) {
 
 String _formatDate(DateTime date) {
   const months = <String>[
-    'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
+    'Jan',
+    'Feb',
+    'Mär',
+    'Apr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Dez',
   ];
   return '${months[date.month - 1]} ${date.year}';
 }

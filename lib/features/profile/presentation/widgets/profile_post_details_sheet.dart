@@ -331,6 +331,8 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
                           post: post,
                           userId: widget.viewerUserId,
                           isDemo: widget.isDemo,
+                          likesVisible:
+                              _engagementView == _PostEngagementView.likes,
                           commentsVisible:
                               _engagementView == _PostEngagementView.comments,
                           onLike: _toggleLike,
@@ -358,8 +360,6 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
                             demoComments: _demoComments,
                             isSending: _isSendingComment,
                             view: _engagementView!,
-                            onViewChanged: (view) =>
-                                setState(() => _engagementView = view),
                             onSend: _sendComment,
                             onDelete: _deleteComment,
                             onReport: _reportComment,
@@ -666,6 +666,7 @@ class _PostInteractionRow extends StatelessWidget {
     required this.post,
     required this.userId,
     required this.isDemo,
+    required this.likesVisible,
     required this.commentsVisible,
     required this.onLike,
     required this.onLikes,
@@ -683,6 +684,7 @@ class _PostInteractionRow extends StatelessWidget {
   final SocialPost post;
   final String userId;
   final bool isDemo;
+  final bool likesVisible;
   final bool commentsVisible;
   final VoidCallback onLike;
   final VoidCallback onLikes;
@@ -702,6 +704,7 @@ class _PostInteractionRow extends StatelessWidget {
         likeCount: 18,
         commentCount: 5,
         liked: false,
+        likesVisible: likesVisible,
         commentsVisible: commentsVisible,
         onLike: onLike,
         onLikes: onLikes,
@@ -730,6 +733,7 @@ class _PostInteractionRow extends StatelessWidget {
                 likeCount: likesSnapshot.data ?? 0,
                 commentCount: commentsSnapshot.data?.length ?? 0,
                 liked: likedSnapshot.data ?? false,
+                likesVisible: likesVisible,
                 commentsVisible: commentsVisible,
                 onLike: onLike,
                 onLikes: onLikes,
@@ -755,6 +759,7 @@ class _InteractionButtons extends StatelessWidget {
     required this.likeCount,
     required this.commentCount,
     required this.liked,
+    required this.likesVisible,
     required this.commentsVisible,
     required this.onLike,
     required this.onLikes,
@@ -771,6 +776,7 @@ class _InteractionButtons extends StatelessWidget {
   final int likeCount;
   final int commentCount;
   final bool liked;
+  final bool likesVisible;
   final bool commentsVisible;
   final VoidCallback onLike;
   final VoidCallback onLikes;
@@ -790,7 +796,7 @@ class _InteractionButtons extends StatelessWidget {
         _CountAction(
           icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
           count: likeCount,
-          active: liked,
+          active: liked || likesVisible,
           tooltip: 'Gefällt mir',
           onTap: onLikes,
           onIconTap: onLike,
@@ -909,7 +915,6 @@ class _CommentsPanel extends StatelessWidget {
     required this.demoComments,
     required this.isSending,
     required this.view,
-    required this.onViewChanged,
     required this.onSend,
     required this.onDelete,
     required this.onReport,
@@ -924,7 +929,6 @@ class _CommentsPanel extends StatelessWidget {
   final List<SocialPostComment> demoComments;
   final bool isSending;
   final _PostEngagementView view;
-  final ValueChanged<_PostEngagementView> onViewChanged;
   final VoidCallback onSend;
   final ValueChanged<SocialPostComment> onDelete;
   final ValueChanged<SocialPostComment> onReport;
@@ -942,28 +946,6 @@ class _CommentsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _EngagementTab(
-                  icon: Icons.favorite_rounded,
-                  label: 'Gefällt mir',
-                  selected: view == _PostEngagementView.likes,
-                  onTap: () => onViewChanged(_PostEngagementView.likes),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _EngagementTab(
-                  icon: Icons.chat_bubble_rounded,
-                  label: 'Kommentare',
-                  selected: view == _PostEngagementView.comments,
-                  onTap: () => onViewChanged(_PostEngagementView.comments),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           if (view == _PostEngagementView.likes)
             if (isDemo)
               _LikesList(likes: _demoLikes)
@@ -1071,67 +1053,6 @@ class _CommentsPanel extends StatelessWidget {
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _EngagementTab extends StatelessWidget {
-  const _EngagementTab({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      splashFactory: NoSplash.splashFactory,
-      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected
-                ? CaRismaDesignTokens.bluePrimary
-                : Colors.white.withValues(alpha: 0.08),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 17,
-              color: selected
-                  ? CaRismaDesignTokens.blueBright
-                  : CaRismaDesignTokens.textSecondary,
-            ),
-            const SizedBox(width: 7),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected
-                      ? Colors.white
-                      : CaRismaDesignTokens.textSecondary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -228,9 +228,10 @@ Future<bool> showProfileVehicleModificationSheet(
                         Expanded(
                           child: _ModificationTextField(
                             controller: powerController,
-                            label: 'Leistungsänderung PS',
+                            label: 'Leistungsänderung',
                             maxLength: 5,
                             signedNumbersOnly: true,
+                            suffixText: 'PS',
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -340,6 +341,7 @@ class _ModificationTextField extends StatelessWidget {
     this.maxLines = 1,
     this.signedNumbersOnly = false,
     this.decimalNumbersOnly = false,
+    this.suffixText,
   });
 
   final TextEditingController controller;
@@ -348,6 +350,7 @@ class _ModificationTextField extends StatelessWidget {
   final int maxLines;
   final bool signedNumbersOnly;
   final bool decimalNumbersOnly;
+  final String? suffixText;
 
   @override
   Widget build(BuildContext context) {
@@ -364,7 +367,7 @@ class _ModificationTextField extends StatelessWidget {
         if (decimalNumbersOnly)
           FilteringTextInputFormatter.allow(RegExp(r'^\d*[,.]?\d{0,2}')),
       ],
-      decoration: _inputDecoration(label),
+      decoration: _inputDecoration(label).copyWith(suffixText: suffixText),
     );
   }
 }

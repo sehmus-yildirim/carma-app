@@ -43,6 +43,7 @@ import 'widgets/profile_vehicle_timeline_sheet.dart';
 import 'widgets/profile_photo_crop_screen.dart';
 import 'widgets/profile_post_details_sheet.dart';
 import 'widgets/profile_post_gallery_screen.dart';
+import 'widgets/profile_section_add_button.dart';
 
 const String _debugProfileContentPrefix = 'plaqa-debug-';
 
@@ -108,6 +109,133 @@ final List<SocialPost> _debugSocialPosts = <SocialPost>[
     locationLabel: 'Hamburg',
   ),
 ];
+
+const List<ProfileVehicleGalleryMedia> _debugVehicleGallery =
+    <ProfileVehicleGalleryMedia>[
+      ProfileVehicleGalleryMedia(
+        id: '${_debugProfileContentPrefix}gallery-front',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        mediaUrl: 'asset://assets/images/debug_bmw_x6_m50d.png',
+        mediaPath: '',
+        caption: 'Frontansicht des BMW X6 M50d.',
+        isMain: true,
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleGalleryMedia(
+        id: '${_debugProfileContentPrefix}gallery-side',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        mediaUrl: 'asset://assets/images/debug_bmw_x6_m50d.png',
+        mediaPath: '',
+        category: ProfileVehicleGalleryCategory.details,
+        caption: 'Seitendetails und schwarze Ausstattung.',
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleGalleryMedia(
+        id: '${_debugProfileContentPrefix}gallery-wheels',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        mediaUrl: 'asset://assets/images/debug_bmw_x6_m50d.png',
+        mediaPath: '',
+        category: ProfileVehicleGalleryCategory.modifications,
+        caption: 'Felgen und Fahrwerk im Detail.',
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleGalleryMedia(
+        id: '${_debugProfileContentPrefix}gallery-night',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        mediaUrl: 'asset://assets/images/debug_bmw_x6_m50d.png',
+        mediaPath: '',
+        category: ProfileVehicleGalleryCategory.exterior,
+        caption: 'Abendaufnahme in Hamburg.',
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+    ];
+
+final List<ProfileVehicleModification> _debugVehicleModifications =
+    <ProfileVehicleModification>[
+      ProfileVehicleModification(
+        id: '${_debugProfileContentPrefix}mod-wheels',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        title: '22-Zoll M-Felgen',
+        category: ProfileVehicleModificationCategory.wheels,
+        manufacturer: 'BMW M',
+        product: 'Doppelspeiche',
+        modifiedAt: DateTime(2024, 4, 12),
+        isRegistered: true,
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleModification(
+        id: '${_debugProfileContentPrefix}mod-software',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        title: 'Softwareoptimierung',
+        category: ProfileVehicleModificationCategory.software,
+        manufacturer: 'M Performance',
+        powerChangeHp: 32,
+        modifiedAt: DateTime(2025, 3, 8),
+        isRegistered: true,
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleModification(
+        id: '${_debugProfileContentPrefix}mod-suspension',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        title: 'Sportfahrwerk',
+        category: ProfileVehicleModificationCategory.suspension,
+        manufacturer: 'KW',
+        product: 'Street Comfort',
+        modifiedAt: DateTime(2025, 6, 21),
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+    ];
+
+final List<ProfileVehicleTimelineEntry> _debugVehicleTimeline =
+    <ProfileVehicleTimelineEntry>[
+      ProfileVehicleTimelineEntry(
+        id: '${_debugProfileContentPrefix}timeline-acquired',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        type: ProfileVehicleTimelineType.vehicleAcquired,
+        title: 'Fahrzeug übernommen',
+        description: 'Der BMW X6 M50d zieht ins Profil ein.',
+        eventDate: DateTime(2023, 5, 1),
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleTimelineEntry(
+        id: '${_debugProfileContentPrefix}timeline-wheels',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        type: ProfileVehicleTimelineType.wheelsInstalled,
+        title: 'Neue Felgen montiert',
+        description: '22-Zoll M-Felgen für die Sommersaison.',
+        eventDate: DateTime(2024, 4, 12),
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleTimelineEntry(
+        id: '${_debugProfileContentPrefix}timeline-service',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        type: ProfileVehicleTimelineType.maintenance,
+        title: 'Große Wartung',
+        description: 'Öl, Filter und Bremsen geprüft.',
+        eventDate: DateTime(2025, 2, 18),
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+      ProfileVehicleTimelineEntry(
+        id: '${_debugProfileContentPrefix}timeline-trip',
+        ownerUserId: _debugProfileContentPrefix,
+        vehicleId: debugProfileVehicleId,
+        type: ProfileVehicleTimelineType.trip,
+        title: 'Ausfahrt an die Ostsee',
+        description: 'Wochenendtour ab Hamburg.',
+        eventDate: DateTime(2026, 7, 19),
+        visibility: ProfileVehicleVisibility.contacts,
+      ),
+    ];
 
 bool _isDebugProfileContent(String id) =>
     id.startsWith(_debugProfileContentPrefix);
@@ -757,9 +885,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       onGenerateHero: _handleProfileHeroGeneration,
       isHeroRequestBusy: _busyHeroVehicleIds.contains,
       galleryMediaForVehicle: (vehicleId) => _isDebugProfileContent(vehicleId)
-          ? Stream<List<ProfileVehicleGalleryMedia>>.value(
-              const <ProfileVehicleGalleryMedia>[],
-            )
+          ? Stream<List<ProfileVehicleGalleryMedia>>.value(_debugVehicleGallery)
           : _isOwnProfile
           ? _profileVehicleGalleryRepository.watchOwnerMedia(
               userId: _userId,
@@ -774,7 +900,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       onDeleteGalleryMedia: _deleteVehicleGalleryImage,
       modificationsForVehicle: (vehicleId) => _isDebugProfileContent(vehicleId)
           ? Stream<List<ProfileVehicleModification>>.value(
-              const <ProfileVehicleModification>[],
+              _debugVehicleModifications,
             )
           : _isOwnProfile
           ? _profileVehicleModificationRepository.watchOwnerModifications(
@@ -792,7 +918,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       timelineEntriesForVehicle: (vehicleId) =>
           _isDebugProfileContent(vehicleId)
           ? Stream<List<ProfileVehicleTimelineEntry>>.value(
-              const <ProfileVehicleTimelineEntry>[],
+              _debugVehicleTimeline,
             )
           : _isOwnProfile
           ? _profileVehicleTimelineRepository.watchOwnerEntries(
@@ -2717,7 +2843,7 @@ class _ProfileHeroCard extends StatelessWidget {
                   11;
               final vehicleCardWidth = math.min(
                 availableVehicleWidth,
-                compact ? 158.0 : 172.0,
+                compact ? 136.0 : 144.0,
               );
               return Stack(
                 fit: StackFit.expand,
@@ -2870,10 +2996,12 @@ class _ProfileHeroCard extends StatelessWidget {
                       following: followingCount,
                       onFollowersTap: onFollowersTap,
                       onFollowingTap: onFollowingTap,
-                      visitorActions: !isOwnProfile && !isReadOnly
+                      visitorActions:
+                          !isOwnProfile && (!isReadOnly || isPreviewing)
                           ? _ProfileVisitorHeaderActions(
                               followState: followState,
                               isFollowActionBusy: isFollowActionBusy,
+                              previewOnly: isPreviewing,
                               onFollow: onFollow,
                               onMessage: onMessage,
                             )
@@ -2904,12 +3032,14 @@ class _ProfileVisitorHeaderActions extends StatelessWidget {
   const _ProfileVisitorHeaderActions({
     required this.followState,
     required this.isFollowActionBusy,
+    required this.previewOnly,
     required this.onFollow,
     required this.onMessage,
   });
 
   final ProfileFollowState followState;
   final bool isFollowActionBusy;
+  final bool previewOnly;
   final VoidCallback onFollow;
   final VoidCallback onMessage;
 
@@ -2943,12 +3073,14 @@ class _ProfileVisitorHeaderActions extends StatelessWidget {
         icon: followIcon,
         isBusy: isFollowActionBusy,
         isActive: isFollowing || isRequested,
-        onPressed: isDisabled || isFollowActionBusy ? null : onFollow,
+        onPressed: previewOnly || isDisabled || isFollowActionBusy
+            ? null
+            : onFollow,
       ),
       message: _ProfileHeaderIconButton(
         tooltip: 'Nachricht senden',
         icon: Icons.chat_bubble_outline_rounded,
-        onPressed: onMessage,
+        onPressed: previewOnly ? null : onMessage,
       ),
     );
   }
@@ -3303,21 +3435,24 @@ class _ProfileMainVehicleCard extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           if (showPlate)
-            SizedBox(
-              height: 26,
-              width: double.infinity,
-              child: FittedBox(
-                fit: BoxFit.contain,
-                alignment: Alignment.centerLeft,
-                child: SizedBox(
-                  width: 300,
-                  height: 78,
-                  child: CaRismaLicensePlatePreview(
-                    countryCode: vehicle.countryCode,
-                    region: vehicle.plateRegion,
-                    letters: vehicle.plateLetters,
-                    numbers: vehicle.plateNumbers,
-                    regionPresentation: regionPresentation,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                height: 26,
+                width: 116,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: 300,
+                    height: 78,
+                    child: CaRismaLicensePlatePreview(
+                      countryCode: vehicle.countryCode,
+                      region: vehicle.plateRegion,
+                      letters: vehicle.plateLetters,
+                      numbers: vehicle.plateNumbers,
+                      regionPresentation: regionPresentation,
+                    ),
                   ),
                 ),
               ),
@@ -4033,7 +4168,6 @@ class _ProfileTabs extends StatelessWidget {
                   ? null
                   : _ProfileTabActionButton(
                       tooltip: 'Beitrag erstellen',
-                      icon: Icons.add_rounded,
                       onPressed: onCreatePost!,
                     ),
             ),
@@ -4049,7 +4183,6 @@ class _ProfileTabs extends StatelessWidget {
                   ? null
                   : _ProfileTabActionButton(
                       tooltip: 'Fahrzeug hinzufügen',
-                      icon: Icons.add_rounded,
                       onPressed: onAddVehicle!,
                     ),
             ),
@@ -4134,46 +4267,15 @@ class _ProfileTabButton extends StatelessWidget {
 class _ProfileTabActionButton extends StatelessWidget {
   const _ProfileTabActionButton({
     required this.tooltip,
-    required this.icon,
     required this.onPressed,
   });
 
   final String tooltip;
-  final IconData icon;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onPressed,
-        child: _ProfileTabActionIcon(icon: icon),
-      ),
-    );
-  }
-}
-
-class _ProfileTabActionIcon extends StatelessWidget {
-  const _ProfileTabActionIcon({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(
-          color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.86),
-        ),
-      ),
-      child: Icon(icon, color: Colors.white, size: 18),
-    );
+    return ProfileSectionAddButton(tooltip: tooltip, onPressed: onPressed);
   }
 }
 

@@ -5,6 +5,7 @@ import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../data/profile_vehicle.dart';
 import '../../data/profile_vehicle_gallery_media.dart';
+import 'profile_section_add_button.dart';
 
 class ProfileVehicleGalleryCard extends StatelessWidget {
   const ProfileVehicleGalleryCard({
@@ -53,12 +54,9 @@ class ProfileVehicleGalleryCard extends StatelessWidget {
                     ),
                   ),
                   if (isOwnProfile)
-                    IconButton(
+                    ProfileSectionAddButton(
                       tooltip: 'Medium hinzufügen',
                       onPressed: onAdd,
-                      icon: const Icon(Icons.add_photo_alternate_outlined),
-                      iconSize: 20,
-                      color: CaRismaDesignTokens.blueBright,
                     ),
                 ],
               ),
@@ -146,12 +144,6 @@ class _EmptyGallery extends StatelessWidget {
             ),
           ),
         ),
-        if (isOwnProfile)
-          IconButton(
-            tooltip: 'Erstes Medium hinzufügen',
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_rounded),
-          ),
       ],
     );
   }
@@ -174,6 +166,7 @@ class _GalleryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageProvider = _galleryImageProvider(media.mediaUrl);
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: Stack(
@@ -195,7 +188,7 @@ class _GalleryTile extends StatelessWidget {
                       ),
                     )
                   : Ink.image(
-                      image: NetworkImage(media.mediaUrl),
+                      image: imageProvider,
                       fit: BoxFit.cover,
                       child: InkWell(onTap: onOpen),
                       onImageError: (_, _) {},
@@ -321,8 +314,8 @@ class _ProfileVehicleGalleryViewerState
                     child: InteractiveViewer(
                       minScale: 1,
                       maxScale: 4,
-                      child: Image.network(
-                        item.mediaUrl,
+                      child: Image(
+                        image: _galleryImageProvider(item.mediaUrl),
                         fit: BoxFit.contain,
                         loadingBuilder: (context, child, progress) =>
                             progress == null
@@ -378,6 +371,14 @@ class _ProfileVehicleGalleryViewerState
       ),
     );
   }
+}
+
+ImageProvider<Object> _galleryImageProvider(String mediaUrl) {
+  const assetPrefix = 'asset://';
+  if (mediaUrl.startsWith(assetPrefix)) {
+    return AssetImage(mediaUrl.substring(assetPrefix.length));
+  }
+  return NetworkImage(mediaUrl);
 }
 
 class _GalleryVideoPage extends StatefulWidget {
