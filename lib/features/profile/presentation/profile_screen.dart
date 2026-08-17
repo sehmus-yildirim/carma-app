@@ -712,6 +712,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleBack() async {
+    if (_isSaving) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Dein Profil wird noch gespeichert. Bitte warte einen Moment.',
+          ),
+        ),
+      );
+      return;
+    }
     if (!await _confirmDiscardChanges() || !mounted) return;
     Navigator.of(context).pop();
   }
@@ -724,6 +734,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<bool> _savePersonalData() async {
+    if (_isSaving) return false;
+
     final lockedProfile = _isPersonalDataLocked ? _loadedProfile : null;
     final firstName = lockedProfile?.firstName.trim().isNotEmpty == true
         ? lockedProfile!.firstName.trim()
@@ -782,15 +794,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         profilePhotoUrl = upload.url;
       }
 
-      final updatedProfile = await _profileRepository.updatePersonalData(
-        uid: firebaseUser.uid,
-        firstName: firstName,
-        lastName: lastName,
-        displayName: _displayName,
-        birthDate: birthDate,
-        photoUrl: profilePhotoUrl,
-      );
-      await _syncFirebaseUserProfile(
+      final updatedProfile = lockedProfile != null
+          ? await _profileRepository.updateProfilePhoto(
+              uid: firebaseUser.uid,
+              photoUrl: profilePhotoUrl,
+            )
+          : await _profileRepository.updatePersonalData(
+              uid: firebaseUser.uid,
+              firstName: firstName,
+              lastName: lastName,
+              displayName: _displayName,
+              birthDate: birthDate,
+              photoUrl: profilePhotoUrl,
+              verificationStatus:
+                  _loadedProfile?.verificationStatus.trim().isNotEmpty == true
+                  ? _loadedProfile!.verificationStatus.trim()
+                  : 'unverified',
+            );
+      final authProfileSynced = await _trySyncFirebaseUserProfile(
         firebaseUser,
         displayName: _displayName,
         photoUrl: profilePhotoUrl,
@@ -810,7 +831,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            lockedProfile == null
+            !authProfileSynced
+                ? 'Profil wurde gespeichert. Die Anzeige wird beim nächsten Start aktualisiert.'
+                : lockedProfile == null
                 ? 'Persönliche Daten wurden verbindlich gespeichert.'
                 : 'Profilbild wurde gespeichert.',
           ),
@@ -886,6 +909,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handlePersonalDataSave() async {
+    if (_isSaving) return;
     if (!await _confirmPersonalDataLock()) return;
     await _savePersonalData();
   }
@@ -1245,7 +1269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         longitude: platePosition?.longitude,
       );
       await _profileVehicleRepository.ensureLegacyPrimaryVehicle(profile);
-      await _syncFirebaseUserProfile(
+      await _trySyncFirebaseUserProfile(
         firebaseUser,
         displayName: _displayName,
         photoUrl: profilePhotoUrl,
@@ -1368,7 +1392,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : 'draft',
         ),
       );
-      await _syncFirebaseUserProfile(
+      await _trySyncFirebaseUserProfile(
         firebaseUser,
         displayName: null,
         photoUrl: profilePhotoUrl,
@@ -1413,37 +1437,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return error.message;
     }
 
+    if (error is FirebaseException) {
+      assert(() {
+        debugPrint(
+          'Profile save failed: plugin=${error.plugin}, code=${error.code}',
+        );
+        return true;
+      }());
+      if (error.plugin == 'firebase_storage' && error.code == 'unknown') {
+        return 'Der Bildspeicher ist derzeit nicht verfügbar. Bitte versuche es später erneut.';
+      }
+      return switch (error.code) {
+        'permission-denied' || 'unauthorized' =>
+          'Profilbild konnte wegen fehlender Berechtigung nicht gespeichert werden.',
+        'unauthenticated' =>
+          'Bitte melde dich erneut an, um dein Profilbild zu speichern.',
+        'object-not-found' =>
+          'Das Profilbild konnte nicht gefunden werden. Bitte wähle es erneut aus.',
+        'network-request-failed' || 'retry-limit-exceeded' =>
+          'Profilbild konnte wegen der Verbindung nicht gespeichert werden.',
+        _ =>
+          'Profil konnte gerade nicht gespeichert werden. Bitte versuche es erneut.',
+      };
+    }
+
+    assert(() {
+      debugPrint('Profile save failed: ${error.runtimeType}');
+      return true;
+    }());
+
     return 'Profil konnte gerade nicht gespeichert werden. Bitte prüfe deine Verbindung und Berechtigungen.';
   }
 
-  Future<void> _syncFirebaseUserProfile(
+  Future<bool> _trySyncFirebaseUserProfile(
     User firebaseUser, {
     required String? displayName,
     required String? photoUrl,
   }) async {
-    final nextDisplayName = displayName?.trim();
-    final nextPhotoUrl = photoUrl?.trim();
-    final currentDisplayName = firebaseUser.displayName?.trim();
-    final currentPhotoUrl = firebaseUser.photoURL?.trim();
+    try {
+      final nextDisplayName = displayName?.trim();
+      final nextPhotoUrl = photoUrl?.trim();
+      final currentDisplayName = firebaseUser.displayName?.trim();
+      final currentPhotoUrl = firebaseUser.photoURL?.trim();
 
-    if (currentPhotoUrl != null && currentPhotoUrl.isNotEmpty) {
-      await NetworkImage(currentPhotoUrl).evict();
-    }
+      if (currentPhotoUrl != null && currentPhotoUrl.isNotEmpty) {
+        await NetworkImage(currentPhotoUrl).evict();
+      }
 
-    if (nextDisplayName != null &&
-        nextDisplayName.isNotEmpty &&
-        nextDisplayName != currentDisplayName) {
-      await firebaseUser.updateDisplayName(nextDisplayName);
-    }
+      if (nextDisplayName != null &&
+          nextDisplayName.isNotEmpty &&
+          nextDisplayName != currentDisplayName) {
+        await firebaseUser.updateDisplayName(nextDisplayName);
+      }
 
-    if (nextPhotoUrl != currentPhotoUrl) {
-      await firebaseUser.updatePhotoURL(
-        nextPhotoUrl == null || nextPhotoUrl.isEmpty ? null : nextPhotoUrl,
-      );
-    }
+      if (nextPhotoUrl != currentPhotoUrl) {
+        await firebaseUser.updatePhotoURL(
+          nextPhotoUrl == null || nextPhotoUrl.isEmpty ? null : nextPhotoUrl,
+        );
+      }
 
-    if (nextPhotoUrl != null && nextPhotoUrl.isNotEmpty) {
-      await NetworkImage(nextPhotoUrl).evict();
+      if (nextPhotoUrl != null && nextPhotoUrl.isNotEmpty) {
+        await NetworkImage(nextPhotoUrl).evict();
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1493,7 +1551,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildDirectPersonalDataEntry() {
     final loadError = _profileLoadError;
     return PopScope(
-      canPop: !_hasUnsavedChanges,
+      canPop: !_hasUnsavedChanges && !_isSaving,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         await _handleBack();
@@ -1698,7 +1756,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : 28.0;
 
     return PopScope(
-      canPop: !_hasUnsavedChanges,
+      canPop: !_hasUnsavedChanges && !_isSaving,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         await _handleBack();
@@ -4608,7 +4666,17 @@ class _SheetActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _PrimaryActionButton(label: label, icon: icon, onTap: onTap);
+    return CaRismaPrimaryButton(
+      label: label,
+      icon: icon,
+      surfaceOutlined: true,
+      showShadow: false,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      borderRadius: 20,
+      iconSize: 24,
+      fontSize: 16,
+      onPressed: onTap,
+    );
   }
 }
 

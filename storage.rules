@@ -146,10 +146,15 @@ service firebase.storage {
           /databases/(default)/documents/public_profiles/$(userId)
         ).data.profileAccessEnabled == true
         && firestore.exists(postPath)
-        && firestore.get(postPath).data.visibility == 'public'
+        && firestore.get(postPath).data.visibility in ['public', 'contacts']
         && firestore.get(postPath).data.isDeleted == false
-        && firestore.get(postPath).data.imagePath
-          == 'profile_posts/' + userId + '/' + postId + '/' + fileName;
+        && firestore.get(postPath).data.get('isArchived', false) == false
+        && (
+          firestore.get(postPath).data.imagePath
+            == 'profile_posts/' + userId + '/' + postId + '/' + fileName
+          || 'profile_posts/' + userId + '/' + postId + '/' + fileName
+            in firestore.get(postPath).data.get('mediaPaths', [])
+        );
     }
 
     function hasActiveProfileConnectionById(connectionId, targetUserId) {
@@ -317,11 +322,23 @@ service firebase.storage {
         && request.resource.size < 8 * 1024 * 1024;
     }
 
-    function isValidProfilePostImageUpload(fileName) {
-      return fileName == 'image.jpg'
-        && request.resource.size > 0
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType == 'image/jpeg';
+    function isValidProfilePostMediaUpload(fileName) {
+      return request.resource.size > 0
+        && (
+          (
+            (
+              fileName == 'image.jpg'
+              || fileName.matches('^media_[0-9]{1,2}\\.jpg$')
+            )
+            && request.resource.size < 10 * 1024 * 1024
+            && request.resource.contentType == 'image/jpeg'
+          )
+          || (
+            fileName.matches('^media_[0-9]{1,2}\\.mp4$')
+            && request.resource.size < 80 * 1024 * 1024
+            && request.resource.contentType == 'video/mp4'
+          )
+        );
     }
 
     function isValidVehicleGalleryMediaUpload(fileName) {
@@ -362,11 +379,16 @@ service firebase.storage {
         && request.resource.size < 12 * 1024 * 1024;
     }
 
-    function canMutateProfileVerificationDocument(userId) {
+    function canMutateProfileVerificationDocument(userId, documentType) {
       let requestPath =
         /databases/(default)/documents/verification_requests/$(userId);
       return !firestore.exists(requestPath)
-        || !(firestore.get(requestPath).data.status in ['pending', 'verified']);
+        || (
+          !(firestore.get(requestPath).data.status in ['pending', 'verified'])
+          && !(firestore.get(requestPath).data
+            .get('documentStatuses', {})
+            .get(documentType, 'missing') in ['inReview', 'verified'])
+        );
     }
 
     function reportImagePath(reportId, userId, fileName) {
@@ -501,7 +523,7 @@ service firebase.storage {
         );
       allow create, update: if isSignedIn()
         && request.auth.uid == userId
-        && isValidProfilePostImageUpload(fileName);
+        && isValidProfilePostMediaUpload(fileName);
       allow delete: if isSignedIn()
         && request.auth.uid == userId;
     }
@@ -536,11 +558,11 @@ service firebase.storage {
         );
       allow create, update: if isSignedIn()
         && request.auth.uid == userId
-        && canMutateProfileVerificationDocument(userId)
+        && canMutateProfileVerificationDocument(userId, documentType)
         && isValidProfileDocumentUpload(documentType, fileName);
       allow delete: if isSignedIn()
         && request.auth.uid == userId
-        && canMutateProfileVerificationDocument(userId);
+        && canMutateProfileVerificationDocument(userId, documentType);
     }
 
     match /{allPaths=**} {

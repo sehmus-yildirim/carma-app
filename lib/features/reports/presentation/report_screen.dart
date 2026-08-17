@@ -21,6 +21,7 @@ import '../../../shared/widgets/carisma_secondary_button.dart';
 import '../../../shared/widgets/carisma_section_title.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../chats/data/chat_native_bridge.dart';
+import '../../settings/data/app_runtime_preferences.dart';
 import '../../settings/data/user_settings_repository.dart';
 import '../data/report_repository.dart';
 import '../domain/report_draft.dart';
@@ -149,6 +150,9 @@ class _ReportScreenState extends State<ReportScreen> {
     _numbersController.addListener(_refresh);
     _addressController.addListener(_refresh);
     _noteController.addListener(_refresh);
+    AppRuntimePreferences.instance.addListener(
+      _handleRuntimePreferencesChanged,
+    );
 
     _incomingReportNotifications = _reportRepository.watchReportNotifications(
       userId: widget.userState.userId,
@@ -163,6 +167,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   void dispose() {
+    AppRuntimePreferences.instance.removeListener(
+      _handleRuntimePreferencesChanged,
+    );
     _regionController.removeListener(_refresh);
     _lettersController.removeListener(_refresh);
     _numbersController.removeListener(_refresh);
@@ -185,6 +192,29 @@ class _ReportScreenState extends State<ReportScreen> {
 
   void _refresh() {
     setState(() {});
+  }
+
+  void _handleRuntimePreferencesChanged() {
+    _applyDefaultPlateCountry(
+      AppRuntimePreferences.instance.settings.defaultPlateCountry,
+    );
+  }
+
+  void _applyDefaultPlateCountry(String value) {
+    final defaultCountry = value.trim().toUpperCase();
+    if (!mounted ||
+        defaultCountry == _countryCode ||
+        !const <String>{'DE', 'AT', 'CH'}.contains(defaultCountry)) {
+      return;
+    }
+
+    setState(() {
+      _countryCode = defaultCountry;
+      _regionController.clear();
+      _lettersController.clear();
+      _numbersController.clear();
+      _clearMessages();
+    });
   }
 
   void _clearMessages() {
@@ -238,24 +268,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
     try {
       final settings = await _userSettingsRepository.load(userId);
-      final defaultCountry = settings.appPreferences.defaultPlateCountry
-          .trim()
-          .toUpperCase();
-
-      if (!mounted ||
-          defaultCountry.isEmpty ||
-          defaultCountry == _countryCode ||
-          !const <String>{'DE', 'AT', 'CH'}.contains(defaultCountry)) {
-        return;
-      }
-
-      setState(() {
-        _countryCode = defaultCountry;
-        _regionController.clear();
-        _lettersController.clear();
-        _numbersController.clear();
-        _clearMessages();
-      });
+      _applyDefaultPlateCountry(settings.appPreferences.defaultPlateCountry);
     } catch (_) {
       // App preferences are comfort settings and must not block reports.
     }

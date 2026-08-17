@@ -10,7 +10,6 @@ import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../profile/data/profile_vehicle.dart';
 import '../../profile/data/profile_vehicle_repository.dart';
-import '../../profile/presentation/profile_verification_screen.dart';
 import '../../profile/presentation/widgets/profile_vehicle_editor_sheet.dart';
 
 enum ProfileSettingsArea { personalData, documents, vehicles }
@@ -46,20 +45,10 @@ class _ProfileVerificationSettingsScreenState
           _vehicleRepository.createVehicleId(widget.userState.userId),
       vehicle: vehicle,
       onSave: _vehicleRepository.saveVehicle,
-      onOpenVerification: _openVerification,
     );
     if (!mounted || !saved) return;
     _showMessage(
       vehicle == null ? 'Fahrzeug hinzugefügt.' : 'Fahrzeug gespeichert.',
-    );
-  }
-
-  Future<void> _openVerification() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            ProfileVerificationScreen(userId: widget.userState.userId),
-      ),
     );
   }
 
@@ -141,7 +130,7 @@ class _ProfileVerificationSettingsScreenState
             children: [
               CaRismaSubPageHeader(
                 icon: Icons.directions_car_rounded,
-                title: 'Fahrzeuge & Kennzeichen',
+                title: 'Fahrzeuge',
                 onBack: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 18),
@@ -291,7 +280,7 @@ class _ProfileVerificationSettingsScreenState
             const CaRismaMessageCard(
               icon: Icons.info_outline_rounded,
               message:
-                  'Ein Hauptfahrzeug bestimmt die Kennzeichensuche und freigegebene Fahrzeugdaten. Änderungen können eine erneute Dokumentprüfung auslösen.',
+                  'Das Hauptfahrzeug wird vorrangig in deinem Profil angezeigt. Jedes aktive Fahrzeug bleibt über sein freigegebenes Kennzeichen auffindbar. Änderungen können eine erneute Dokumentprüfung auslösen.',
             ),
           ],
         );

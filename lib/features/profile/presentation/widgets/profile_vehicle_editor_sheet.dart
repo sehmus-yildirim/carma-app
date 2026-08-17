@@ -23,23 +23,54 @@ const _vehicleColors = <String>[
   'Gelb',
 ];
 
+const _otherVehicleBrand = 'Sonstige Marke';
+const _otherVehicleModel = 'Sonstiges Modell';
+
+const _vehicleKinds = <_VehicleKind>[
+  _VehicleKind(label: 'Pkw', vehicleType: ProfileVehicleType.passengerCar),
+  _VehicleKind(label: 'Motorrad', vehicleType: ProfileVehicleType.motorcycle),
+  _VehicleKind(
+    label: 'Transporter',
+    vehicleType: ProfileVehicleType.transporter,
+  ),
+  _VehicleKind(
+    label: 'Cabrio/Roadster',
+    vehicleType: ProfileVehicleType.passengerCar,
+    bodyStyle: 'Cabrio/Roadster',
+  ),
+  _VehicleKind(
+    label: 'SUV',
+    vehicleType: ProfileVehicleType.passengerCar,
+    bodyStyle: 'SUV',
+  ),
+  _VehicleKind(
+    label: 'Van',
+    vehicleType: ProfileVehicleType.passengerCar,
+    bodyStyle: 'Van',
+  ),
+];
+
 Future<bool> showProfileVehicleEditorSheet(
   BuildContext context, {
   required String userId,
   required String vehicleId,
   required Future<void> Function(ProfileVehicle vehicle) onSave,
-  Future<void> Function()? onOpenVerification,
   ProfileVehicle? vehicle,
 }) async {
-  var selectedBrand = vehicle?.brand.trim() ?? VehicleCatalog.brands.first;
-  var availableModels = _modelsForBrand(selectedBrand, vehicle?.model);
+  var vehicleKind = _vehicleKindFor(vehicle);
+  var availableBrands = _brandsForVehicleKind(vehicleKind, vehicle?.brand);
+  var selectedBrand = vehicle?.brand.trim() ?? availableBrands.first;
+  var availableModels = _modelsForBrand(
+    vehicleKind,
+    selectedBrand,
+    vehicle?.model,
+  );
   var selectedModel = vehicle?.model.trim() ?? availableModels.first;
   var selectedColor = vehicle?.color.trim() ?? _vehicleColors.first;
   var countryCode = vehicle?.countryCode.trim().toUpperCase() ?? 'DE';
   var status = vehicle?.status ?? ProfileVehicleStatus.active;
   var useRelationship =
       vehicle?.useRelationship ?? ProfileVehicleUseRelationship.owner;
-  var vehicleType = vehicle?.vehicleType ?? ProfileVehicleType.passengerCar;
   var plateType = vehicle?.plateType ?? ProfilePlateType.standard;
   var seasonStartMonth = vehicle?.seasonStartMonth;
   var seasonEndMonth = vehicle?.seasonEndMonth;
@@ -78,6 +109,10 @@ Future<bool> showProfileVehicleEditorSheet(
   final yearController = TextEditingController(
     text: vehicle?.year?.toString() ?? '',
   );
+  final customBrandController = TextEditingController();
+  final customModelController = TextEditingController();
+  final lettersFocusNode = FocusNode();
+  final numbersFocusNode = FocusNode();
   final verificationLocked = vehicle?.verificationLocked == true;
   void markDirty() => isDirty = true;
   for (final controller in [
@@ -87,6 +122,8 @@ Future<bool> showProfileVehicleEditorSheet(
     numbersController,
     mileageController,
     yearController,
+    customBrandController,
+    customModelController,
   ]) {
     controller.addListener(markDirty);
   }
@@ -98,7 +135,8 @@ Future<bool> showProfileVehicleEditorSheet(
       isDismissible: false,
       enableDrag: false,
       useSafeArea: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
+      barrierColor: Colors.black.withValues(alpha: 0.72),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -151,6 +189,12 @@ Future<bool> showProfileVehicleEditorSheet(
 
             Future<void> submit() async {
               if (isSaving) return;
+              final brand = selectedBrand == _otherVehicleBrand
+                  ? customBrandController.text.trim()
+                  : selectedBrand.trim();
+              final model = selectedModel == _otherVehicleModel
+                  ? customModelController.text.trim()
+                  : selectedModel.trim();
               final region = regionController.text.trim().toUpperCase();
               final letters = lettersController.text.trim().toUpperCase();
               var numbers = numbersController.text.trim().toUpperCase();
@@ -166,6 +210,16 @@ Future<bool> showProfileVehicleEditorSheet(
               }
               final yearText = yearController.text.trim();
               final year = int.tryParse(yearText);
+              if (brand.isEmpty || model.isEmpty) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Bitte gib die Fahrzeugmarke und das Modell vollständig ein.',
+                    ),
+                  ),
+                );
+                return;
+              }
               if (region.isEmpty ||
                   numbers.isEmpty ||
                   (plateConfig.usesLettersField && letters.isEmpty)) {
@@ -196,8 +250,8 @@ Future<bool> showProfileVehicleEditorSheet(
                   ProfileVehicle(
                     id: vehicle?.id ?? vehicleId,
                     ownerUserId: userId,
-                    brand: selectedBrand,
-                    model: selectedModel,
+                    brand: brand,
+                    model: model,
                     series: seriesController.text,
                     color: selectedColor,
                     countryCode: countryCode,
@@ -219,7 +273,7 @@ Future<bool> showProfileVehicleEditorSheet(
                     showPlate:
                         plateDisplayMode != ProfilePlateDisplayMode.hidden,
                     useRelationship: useRelationship,
-                    vehicleType: vehicleType,
+                    vehicleType: vehicleKind.vehicleType,
                     plateType: plateType,
                     seasonStartMonth: seasonStartMonth,
                     seasonEndMonth: seasonEndMonth,
@@ -230,7 +284,7 @@ Future<bool> showProfileVehicleEditorSheet(
                     plateDisplayMode: plateDisplayMode,
                     year: year,
                     firstRegistration: vehicle?.firstRegistration,
-                    bodyStyle: vehicle?.bodyStyle,
+                    bodyStyle: vehicleKind.bodyStyle,
                     engineDescription: vehicle?.engineDescription,
                     displacementCcm: vehicle?.displacementCcm,
                     horsepower: vehicle?.horsepower,
@@ -342,21 +396,66 @@ Future<bool> showProfileVehicleEditorSheet(
                         ),
                       ],
                       const SizedBox(height: 18),
+                      _VehicleDropdown<_VehicleKind>(
+                        label: 'Fahrzeugart',
+                        value: vehicleKind,
+                        values: _vehicleKinds,
+                        labelFor: (value) => value.label,
+                        enabled: !verificationLocked,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          updateEditor(() {
+                            final switchesCatalog =
+                                _usesMotorcycleCatalog(vehicleKind) !=
+                                _usesMotorcycleCatalog(value);
+                            vehicleKind = value;
+                            availableBrands = _brandsForVehicleKind(
+                              value,
+                              switchesCatalog ? null : selectedBrand,
+                            );
+                            if (!availableBrands.contains(selectedBrand)) {
+                              selectedBrand = availableBrands.first;
+                            }
+                            availableModels = _modelsForBrand(
+                              value,
+                              selectedBrand,
+                              switchesCatalog ? null : selectedModel,
+                            );
+                            if (!availableModels.contains(selectedModel)) {
+                              selectedModel = availableModels.first;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
                       _VehicleDropdown<String>(
                         label: 'Marke',
                         value: selectedBrand,
-                        values: VehicleCatalog.brands,
+                        values: availableBrands,
                         labelFor: (value) => value,
                         enabled: !verificationLocked,
                         onChanged: (value) {
                           if (value == null) return;
                           updateEditor(() {
                             selectedBrand = value;
-                            availableModels = _modelsForBrand(value, null);
+                            availableModels = _modelsForBrand(
+                              vehicleKind,
+                              value,
+                              null,
+                            );
                             selectedModel = availableModels.first;
                           });
                         },
                       ),
+                      if (selectedBrand == _otherVehicleBrand) ...[
+                        const SizedBox(height: 10),
+                        _VehicleTextField(
+                          controller: customBrandController,
+                          label: 'Eigene Marke',
+                          maxLength: 120,
+                          enabled: !verificationLocked,
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       _VehicleDropdown<String>(
                         label: 'Modell',
@@ -369,6 +468,15 @@ Future<bool> showProfileVehicleEditorSheet(
                           updateEditor(() => selectedModel = value);
                         },
                       ),
+                      if (selectedModel == _otherVehicleModel) ...[
+                        const SizedBox(height: 10),
+                        _VehicleTextField(
+                          controller: customModelController,
+                          label: 'Eigenes Modell',
+                          maxLength: 120,
+                          enabled: !verificationLocked,
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       _VehicleTextField(
                         controller: seriesController,
@@ -389,32 +497,12 @@ Future<bool> showProfileVehicleEditorSheet(
                         },
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _VehicleTextField(
-                              controller: yearController,
-                              label: 'Baujahr (optional)',
-                              maxLength: 4,
-                              numbersOnly: true,
-                              enabled: !verificationLocked,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _VehicleDropdown<ProfileVehicleType>(
-                              label: 'Fahrzeugart',
-                              value: vehicleType,
-                              values: ProfileVehicleType.values,
-                              labelFor: _vehicleTypeLabel,
-                              enabled: !verificationLocked,
-                              onChanged: (value) {
-                                if (value == null) return;
-                                updateEditor(() => vehicleType = value);
-                              },
-                            ),
-                          ),
-                        ],
+                      _VehicleTextField(
+                        controller: yearController,
+                        label: 'Baujahr',
+                        maxLength: 4,
+                        numbersOnly: true,
+                        enabled: !verificationLocked,
                       ),
                       const SizedBox(height: 10),
                       _VehicleDropdown<PlateCountryConfig>(
@@ -456,6 +544,12 @@ Future<bool> showProfileVehicleEditorSheet(
                           if (value == null) return;
                           updateEditor(() {
                             plateType = value;
+                            numbersController.text =
+                                _numbersForSelectedPlateType(
+                                  numbersController.text,
+                                  countryCode: countryCode,
+                                  plateType: value,
+                                );
                             if (value != ProfilePlateType.seasonal) {
                               seasonStartMonth = null;
                               seasonEndMonth = null;
@@ -537,7 +631,8 @@ Future<bool> showProfileVehicleEditorSheet(
                               controller: regionController,
                               label: plateConfig.regionLabel,
                               maxLength: plateConfig.regionMaxLength,
-                              upperCase: true,
+                              lettersOnly: true,
+                              textAlign: TextAlign.center,
                               enabled: !verificationLocked,
                             ),
                           ),
@@ -548,7 +643,15 @@ Future<bool> showProfileVehicleEditorSheet(
                                 controller: lettersController,
                                 label: 'Buchstaben',
                                 maxLength: plateConfig.lettersMaxLength,
-                                upperCase: true,
+                                lettersOnly: true,
+                                textAlign: TextAlign.center,
+                                focusNode: lettersFocusNode,
+                                labelFontSize: 10.5,
+                                onChanged: (value) {
+                                  if (value.trim().length >= 2) {
+                                    numbersFocusNode.requestFocus();
+                                  }
+                                },
                                 enabled: !verificationLocked,
                               ),
                             ),
@@ -558,8 +661,15 @@ Future<bool> showProfileVehicleEditorSheet(
                             child: _VehicleTextField(
                               controller: numbersController,
                               label: 'Zahlen',
-                              maxLength: plateConfig.numbersMaxLength,
-                              upperCase: true,
+                              maxLength: _plateNumberMaxLength(
+                                countryCode,
+                                plateType,
+                                plateConfig,
+                              ),
+                              plateNumberCountryCode: countryCode,
+                              plateType: plateType,
+                              textAlign: TextAlign.center,
+                              focusNode: numbersFocusNode,
                               enabled: !verificationLocked,
                             ),
                           ),
@@ -601,22 +711,6 @@ Future<bool> showProfileVehicleEditorSheet(
                       ),
                       const SizedBox(height: 10),
                       _VehicleVerificationSummary(vehicle: vehicle),
-                      if (onOpenVerification != null) ...[
-                        const SizedBox(height: 10),
-                        CaRismaPrimaryButton(
-                          label:
-                              vehicle?.verificationStatus ==
-                                  ProfileVehicleVerificationStatus.rejected
-                              ? 'Nachweis erneut einreichen'
-                              : 'Dokumente hochladen',
-                          icon: Icons.upload_file_rounded,
-                          surfaceOutlined: true,
-                          showShadow: false,
-                          onPressed: () async {
-                            await onOpenVerification();
-                          },
-                        ),
-                      ],
                       const SizedBox(height: 10),
                       _VehicleSwitch(
                         title: 'Im öffentlichen Profil anzeigen',
@@ -702,12 +796,18 @@ Future<bool> showProfileVehicleEditorSheet(
     );
     return result == true;
   } finally {
-    seriesController.dispose();
-    regionController.dispose();
-    lettersController.dispose();
-    numbersController.dispose();
-    mileageController.dispose();
-    yearController.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      seriesController.dispose();
+      regionController.dispose();
+      lettersController.dispose();
+      numbersController.dispose();
+      mileageController.dispose();
+      yearController.dispose();
+      customBrandController.dispose();
+      customModelController.dispose();
+      lettersFocusNode.dispose();
+      numbersFocusNode.dispose();
+    });
   }
 }
 
@@ -754,34 +854,66 @@ class _VehicleTextField extends StatelessWidget {
     required this.controller,
     required this.label,
     required this.maxLength,
-    this.upperCase = false,
+    this.lettersOnly = false,
     this.numbersOnly = false,
+    this.plateNumberCountryCode,
+    this.plateType,
+    this.textAlign = TextAlign.start,
+    this.focusNode,
+    this.onChanged,
+    this.labelFontSize,
     this.enabled = true,
   });
 
   final TextEditingController controller;
   final String label;
   final int maxLength;
-  final bool upperCase;
+  final bool lettersOnly;
   final bool numbersOnly;
+  final String? plateNumberCountryCode;
+  final ProfilePlateType? plateType;
+  final TextAlign textAlign;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onChanged;
+  final double? labelFontSize;
   final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       enabled: enabled,
-      textCapitalization: upperCase
+      textAlign: textAlign,
+      onChanged: onChanged,
+      textCapitalization: lettersOnly
           ? TextCapitalization.characters
           : TextCapitalization.sentences,
-      keyboardType: numbersOnly ? TextInputType.number : TextInputType.text,
+      keyboardType:
+          numbersOnly ||
+              (plateNumberCountryCode != null &&
+                  plateType != ProfilePlateType.electric &&
+                  plateType != ProfilePlateType.historic)
+          ? TextInputType.number
+          : TextInputType.text,
       inputFormatters: [
-        LengthLimitingTextInputFormatter(maxLength),
         if (numbersOnly) FilteringTextInputFormatter.digitsOnly,
-        if (upperCase)
-          FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9ÄÖÜäöü]')),
+        if (lettersOnly) const _UpperCaseVehicleFormatter(allowDigits: false),
+        if (plateNumberCountryCode != null && plateType != null)
+          _VehiclePlateNumberFormatter(
+            countryCode: plateNumberCountryCode!,
+            plateType: plateType!,
+          ),
+        LengthLimitingTextInputFormatter(maxLength),
       ],
-      decoration: _inputDecoration(label),
+      decoration: _inputDecoration(label).copyWith(
+        floatingLabelAlignment: textAlign == TextAlign.center
+            ? FloatingLabelAlignment.center
+            : FloatingLabelAlignment.start,
+        labelStyle: labelFontSize == null
+            ? null
+            : TextStyle(fontSize: labelFontSize),
+      ),
     );
   }
 }
@@ -1074,13 +1206,37 @@ InputDecoration _inputDecoration(String label) {
   );
 }
 
-List<String> _modelsForBrand(String brand, String? currentModel) {
-  final models = [...?VehicleCatalog.modelsByBrand[brand]];
+bool _usesMotorcycleCatalog(_VehicleKind kind) =>
+    kind.vehicleType == ProfileVehicleType.motorcycle;
+
+List<String> _brandsForVehicleKind(_VehicleKind kind, String? currentBrand) {
+  final brands = _usesMotorcycleCatalog(kind)
+      ? [...VehicleCatalog.motorcycleBrands]
+      : [...VehicleCatalog.brands];
+  final normalizedCurrent = currentBrand?.trim() ?? '';
+  if (normalizedCurrent.isNotEmpty && !brands.contains(normalizedCurrent)) {
+    brands.insert(0, normalizedCurrent);
+  }
+  return brands;
+}
+
+List<String> _modelsForBrand(
+  _VehicleKind kind,
+  String brand,
+  String? currentModel,
+) {
+  final catalog = _usesMotorcycleCatalog(kind)
+      ? VehicleCatalog.motorcycleModelsByBrand
+      : VehicleCatalog.modelsByBrand;
+  final models = [...?catalog[brand]];
+  if (!models.contains(_otherVehicleModel)) {
+    models.add(_otherVehicleModel);
+  }
   final normalizedCurrent = currentModel?.trim() ?? '';
   if (normalizedCurrent.isNotEmpty && !models.contains(normalizedCurrent)) {
     models.insert(0, normalizedCurrent);
   }
-  return models.isEmpty ? const ['Sonstiges'] : models;
+  return models.isEmpty ? const [_otherVehicleModel] : models;
 }
 
 String _statusLabel(ProfileVehicleStatus status) {
@@ -1106,11 +1262,59 @@ String _relationshipLabel(ProfileVehicleUseRelationship relationship) {
   };
 }
 
-String _vehicleTypeLabel(ProfileVehicleType type) {
-  return switch (type) {
-    ProfileVehicleType.passengerCar => 'Pkw',
-    ProfileVehicleType.motorcycle => 'Motorrad',
-    ProfileVehicleType.transporter => 'Transporter',
+class _VehicleKind {
+  const _VehicleKind({
+    required this.label,
+    required this.vehicleType,
+    this.bodyStyle,
+  });
+
+  final String label;
+  final ProfileVehicleType vehicleType;
+  final String? bodyStyle;
+}
+
+_VehicleKind _vehicleKindFor(ProfileVehicle? vehicle) {
+  if (vehicle == null) return _vehicleKinds.first;
+  final bodyStyle = vehicle.bodyStyle?.trim().toLowerCase();
+  for (final kind in _vehicleKinds) {
+    if (kind.bodyStyle?.toLowerCase() == bodyStyle && bodyStyle != null) {
+      return kind;
+    }
+  }
+  return _vehicleKinds.firstWhere(
+    (kind) => kind.bodyStyle == null && kind.vehicleType == vehicle.vehicleType,
+    orElse: () => _vehicleKinds.first,
+  );
+}
+
+int _plateNumberMaxLength(
+  String countryCode,
+  ProfilePlateType plateType,
+  PlateCountryConfig config,
+) {
+  if (countryCode != 'DE') return config.numbersMaxLength;
+  return plateType == ProfilePlateType.electric ||
+          plateType == ProfilePlateType.historic
+      ? 5
+      : 4;
+}
+
+String _numbersForSelectedPlateType(
+  String value, {
+  required String countryCode,
+  required ProfilePlateType plateType,
+}) {
+  if (countryCode != 'DE') {
+    return value.replaceAll(RegExp(r'[^0-9]'), '');
+  }
+  var digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+  if (digits.length > 4) digits = digits.substring(0, 4);
+  if (digits.isEmpty) return '';
+  return switch (plateType) {
+    ProfilePlateType.electric => '${digits}E',
+    ProfilePlateType.historic => '${digits}H',
+    _ => digits,
   };
 }
 
@@ -1132,3 +1336,57 @@ String _plateDisplayModeLabel(ProfilePlateDisplayMode mode) {
 }
 
 String _monthLabel(int month) => month.toString().padLeft(2, '0');
+
+class _UpperCaseVehicleFormatter extends TextInputFormatter {
+  const _UpperCaseVehicleFormatter({this.allowDigits = true});
+
+  final bool allowDigits;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final disallowed = allowDigits ? r'[^A-ZÄÖÜ0-9]' : r'[^A-ZÄÖÜ]';
+    final normalized = newValue.text.toUpperCase().replaceAll(
+      RegExp(disallowed),
+      '',
+    );
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+}
+
+class _VehiclePlateNumberFormatter extends TextInputFormatter {
+  const _VehiclePlateNumberFormatter({
+    required this.countryCode,
+    required this.plateType,
+  });
+
+  final String countryCode;
+  final ProfilePlateType plateType;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final input = newValue.text.toUpperCase().replaceAll(' ', '');
+    var digits = input.replaceAll(RegExp(r'[^0-9]'), '');
+    if (countryCode == 'DE' && digits.length > 4) {
+      digits = digits.substring(0, 4);
+    }
+    final suffix = switch ((countryCode, plateType)) {
+      ('DE', ProfilePlateType.electric) when input.contains('E') => 'E',
+      ('DE', ProfilePlateType.historic) when input.contains('H') => 'H',
+      _ => '',
+    };
+    final normalized = '$digits$suffix';
+    return TextEditingValue(
+      text: normalized,
+      selection: TextSelection.collapsed(offset: normalized.length),
+    );
+  }
+}

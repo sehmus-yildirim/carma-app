@@ -37,6 +37,13 @@ const supportedPlateDisplayModes = new Set([
   "shortened",
   "hidden",
 ]);
+const supportedProfileHighlights = new Set([
+  "plate",
+  "color",
+  "mileage",
+  "status",
+  "ownedSince",
+]);
 
 function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -89,6 +96,29 @@ function normalizeOptionalInteger(value, {minimum, maximum, label}) {
     );
   }
   return number;
+}
+
+function normalizeOptionalDate(value, label) {
+  if (value == null || value === "") return null;
+  const milliseconds = Number(value);
+  const date = new Date(milliseconds);
+  if (!Number.isFinite(milliseconds) || Number.isNaN(date.getTime())) {
+    throw new HttpsError("invalid-argument", `${label} ist ungültig.`);
+  }
+  return date;
+}
+
+function normalizeStringList(value, {allowed, maximum = 40}) {
+  if (!Array.isArray(value)) return [];
+  const result = [];
+  for (const item of value) {
+    const normalized = safeString(item);
+    if (normalized.length === 0 || normalized.length > 120) continue;
+    if (allowed != null && !allowed.has(normalized)) continue;
+    if (!result.includes(normalized)) result.push(normalized);
+    if (result.length >= maximum) break;
+  }
+  return result;
 }
 
 function validatePlateParts({
@@ -279,6 +309,10 @@ function normalizeVehicleInput(userId, input) {
     maximum: 99999999,
     label: "Der Kilometerstand",
   });
+  const profileHighlights = normalizeStringList(input?.profileHighlights, {
+    allowed: supportedProfileHighlights,
+    maximum: 5,
+  });
   const vehicle = {
     vehicleId,
     ownerUserId: userId,
@@ -305,8 +339,35 @@ function normalizeVehicleInput(userId, input) {
     allowContactRequests: input?.allowContactRequests === true,
     plateDisplayMode,
     year,
+    firstRegistration: normalizeOptionalDate(
+      input?.firstRegistration,
+      "Die Erstzulassung",
+    ),
     bodyStyle: nullableString(input?.bodyStyle, 80),
+    engineDescription: nullableString(input?.engineDescription, 80),
+    displacementCcm: normalizeOptionalInteger(input?.displacementCcm, {
+      minimum: 0,
+      maximum: 20000,
+      label: "Der Hubraum",
+    }),
+    horsepower: normalizeOptionalInteger(input?.horsepower, {
+      minimum: 0,
+      maximum: 5000,
+      label: "Die Leistung",
+    }),
+    kilowatts: normalizeOptionalInteger(input?.kilowatts, {
+      minimum: 0,
+      maximum: 4000,
+      label: "Die Leistung",
+    }),
+    fuelType: nullableString(input?.fuelType, 80),
+    transmission: nullableString(input?.transmission, 80),
+    drivetrain: nullableString(input?.drivetrain, 80),
+    equipment: normalizeStringList(input?.equipment, {maximum: 40}),
+    ownedSince: normalizeOptionalDate(input?.ownedSince, "Besitz seit"),
     mileage,
+    profileHighlights: profileHighlights.length === 0 ?
+      ["plate", "color", "mileage", "ownedSince"] : profileHighlights,
   };
   vehicle.displayPlate = formatDisplayPlate(vehicle);
   vehicle.plateKey = [
@@ -381,8 +442,10 @@ function vehicleLabel(vehicle) {
     .join(" ");
 }
 
-function publicVehicleData(vehicle, privateData) {
-  const fullPlate = vehicle.plateDisplayMode === "full";
+function publicVehicleData(vehicle, privateData, profile) {
+  const showPlateGlobally = profile?.showPlateOnPublicProfile === true;
+  const fullPlate = showPlateGlobally &&
+    vehicle.plateDisplayMode === "full";
   const publicData = {
     vehicleId: vehicle.vehicleId,
     ownerUserId: vehicle.ownerUserId,
@@ -394,21 +457,22 @@ function publicVehicleData(vehicle, privateData) {
     plateRegion: fullPlate ? vehicle.plateRegion : null,
     plateLetters: fullPlate ? vehicle.plateLetters : null,
     plateNumbers: fullPlate ? vehicle.plateNumbers : null,
-    plateDisplayLabel: vehicle.plateDisplayLabel,
+    plateDisplayLabel: showPlateGlobally ? vehicle.plateDisplayLabel : null,
     isPrimary: privateData.isPrimary === true,
     isVerified: privateData.isVerified === true,
     verificationStatus: safeString(privateData.verificationStatus) ||
       "unverified",
     status: vehicle.status,
     visibility: "contacts",
-    showPlate: vehicle.showPlate,
+    showPlate: showPlateGlobally && vehicle.showPlate,
     vehicleType: vehicle.vehicleType,
     plateType: vehicle.plateType,
     seasonStartMonth: vehicle.seasonStartMonth,
     seasonEndMonth: vehicle.seasonEndMonth,
     showOnPublicProfile: true,
     selectableInStories: vehicle.selectableInStories,
-    allowContactRequests: vehicle.allowContactRequests,
+    allowContactRequests: profile?.allowContactRequests !== false &&
+      vehicle.allowContactRequests,
     plateDisplayMode: vehicle.plateDisplayMode,
     year: vehicle.year,
     firstRegistration: privateData.firstRegistration ?? null,
@@ -424,6 +488,7 @@ function publicVehicleData(vehicle, privateData) {
       privateData.equipment : [],
     ownedSince: privateData.ownedSince ?? null,
     mileage: vehicle.mileage,
+    profileHighlights: vehicle.profileHighlights,
     createdAt: privateData.createdAt,
     updatedAt: privateData.updatedAt,
   };
@@ -443,6 +508,172 @@ function publicVehicleData(vehicle, privateData) {
     if (privateData[field] !== undefined) publicData[field] = privateData[field];
   }
   return publicData;
+}
+
+async function syncProfileVisibilityReferences({
+  firestore,
+  userId,
+  settings,
+  now,
+}) {
+  const normalizedUserId = safeString(userId);
+  if (normalizedUserId.length === 0) {
+    throw new HttpsError("invalid-argument", "Nutzer-ID fehlt.");
+  }
+
+  const profileReference = firestore.doc(
+    `users/${normalizedUserId}/profiles/main`,
+  );
+  const publicProfileReference = firestore.doc(
+    `public_profiles/${normalizedUserId}`,
+  );
+  const vehiclesReference = firestore.collection(
+    `users/${normalizedUserId}/vehicles`,
+  );
+  const [profileSnapshot, vehiclesSnapshot] = await Promise.all([
+    profileReference.get(),
+    vehiclesReference.get(),
+  ]);
+  if (!profileSnapshot.exists) {
+    return {updated: false, updatedVehicleCount: 0};
+  }
+
+  const profile = profileSnapshot.data() ?? {};
+  const effectiveProfile = {
+    ...profile,
+    showVehicleOnPublicProfile: settings?.showVehicle === true,
+    showPlateOnPublicProfile: settings?.showPlate === true,
+    allowContactRequests: settings?.allowContactRequests !== false,
+    profileAccessEnabled: settings?.profileVisibility !== "onlyMe",
+  };
+  const batch = firestore.batch();
+  const updatedAt = now ?? new Date();
+
+  batch.set(profileReference, {
+    showVehicleOnPublicProfile:
+      effectiveProfile.showVehicleOnPublicProfile,
+    showPlateOnPublicProfile: effectiveProfile.showPlateOnPublicProfile,
+    allowContactRequests: effectiveProfile.allowContactRequests,
+    profileAccessEnabled: effectiveProfile.profileAccessEnabled,
+    updatedAt,
+  }, {merge: true});
+  batch.set(publicProfileReference, {
+    showVehicleOnPublicProfile:
+      effectiveProfile.showVehicleOnPublicProfile,
+    showPlateOnPublicProfile: effectiveProfile.showPlateOnPublicProfile,
+    allowContactRequests: effectiveProfile.allowContactRequests,
+    profileAccessEnabled: effectiveProfile.profileAccessEnabled,
+    publicRegion: settings?.showRegion === true ?
+      nullableString(profile.publicRegion, 120) : null,
+    updatedAt,
+  }, {merge: true});
+
+  let updatedVehicleCount = 0;
+  for (const vehicleSnapshot of vehiclesSnapshot.docs) {
+    const privateData = vehicleSnapshot.data() ?? {};
+    const vehicleId = normalizeVehicleId(vehicleSnapshot.id);
+    const publicVehicleReference = firestore.doc(
+      `public_profiles/${normalizedUserId}/vehicles/${vehicleId}`,
+    );
+    let vehicle;
+    try {
+      vehicle = normalizeVehicleInput(normalizedUserId, {
+        ...privateData,
+        vehicleId,
+        showOnPublicProfile:
+          privateData.showOnPublicProfile === true ||
+          privateData.visibility === "contacts",
+        discoverableByPlate: privateData.discoverableByPlate !== false,
+        selectableInStories: privateData.selectableInStories !== false,
+        allowContactRequests: privateData.allowContactRequests !== false,
+      });
+    } catch (_) {
+      batch.delete(publicVehicleReference);
+      continue;
+    }
+
+    const vehicleIsPublic =
+      effectiveProfile.showVehicleOnPublicProfile === true &&
+      vehicle.showOnPublicProfile;
+    if (vehicleIsPublic) {
+      batch.set(
+        publicVehicleReference,
+        publicVehicleData(vehicle, privateData, effectiveProfile),
+        {merge: false},
+      );
+    } else {
+      batch.delete(publicVehicleReference);
+    }
+
+    const plateIdentity = plateIdentityFromData(privateData);
+    if (plateIdentity != null) {
+      batch.set(firestore.doc(`plates/${plateIdentity.plateDocumentId}`), {
+        allowContactRequests:
+          effectiveProfile.allowContactRequests &&
+          vehicle.discoverableByPlate &&
+          vehicle.allowContactRequests &&
+          activeVehicleStatuses.has(vehicle.status),
+        updatedAt,
+      }, {merge: true});
+    }
+    updatedVehicleCount += 1;
+  }
+
+  const primaryVehicle = vehiclesSnapshot.docs.find((snapshot) =>
+    snapshot.id === safeString(profile.primaryVehicleId));
+  if (primaryVehicle != null) {
+    try {
+      const primaryData = primaryVehicle.data() ?? {};
+      const normalizedPrimary = normalizeVehicleInput(normalizedUserId, {
+        ...primaryData,
+        vehicleId: primaryVehicle.id,
+        isPrimary: true,
+        showOnPublicProfile:
+          primaryData.showOnPublicProfile === true ||
+          primaryData.visibility === "contacts",
+        discoverableByPlate: primaryData.discoverableByPlate !== false,
+        selectableInStories: primaryData.selectableInStories !== false,
+        allowContactRequests: primaryData.allowContactRequests !== false,
+      });
+      const projection = profileVehicleProjection(
+        normalizedPrimary,
+        effectiveProfile,
+        primaryData.isVerified === true,
+      );
+      batch.set(publicProfileReference, {
+        ...projection.public,
+        updatedAt,
+      }, {merge: true});
+    } catch (_) {
+      batch.set(publicProfileReference, {
+        vehicleBrand: null,
+        vehicleModel: null,
+        vehicleColor: null,
+        countryCode: null,
+        plateRegion: null,
+        plateLetters: null,
+        plateNumbers: null,
+        plateDisplayLabel: null,
+        updatedAt,
+      }, {merge: true});
+    }
+  } else {
+    batch.set(publicProfileReference, {
+      primaryVehicleId: null,
+      vehicleBrand: null,
+      vehicleModel: null,
+      vehicleColor: null,
+      countryCode: null,
+      plateRegion: null,
+      plateLetters: null,
+      plateNumbers: null,
+      plateDisplayLabel: null,
+      updatedAt,
+    }, {merge: true});
+  }
+
+  await batch.commit();
+  return {updated: true, updatedVehicleCount};
 }
 
 function profileVehicleProjection(vehicle, profile, isVerified) {
@@ -674,7 +905,7 @@ async function saveProfileVehicle({
         existing?.verificationLocked === true,
       verificationRejectionReason: resetVerification ? null :
         existing?.verificationRejectionReason ?? null,
-      equipment: Array.isArray(existing?.equipment) ? existing.equipment : [],
+      equipment: vehicle.equipment,
       createdAt,
       updatedAt: now,
       deactivatedAt: null,
@@ -685,10 +916,11 @@ async function saveProfileVehicle({
     delete privateData.plateDisplayLabel;
 
     transaction.set(vehicleReference, privateData, {merge: false});
-    if (vehicle.showOnPublicProfile) {
+    if (profile.showVehicleOnPublicProfile === true &&
+        vehicle.showOnPublicProfile) {
       transaction.set(
         publicVehicleReference,
-        publicVehicleData(vehicle, privateData),
+        publicVehicleData(vehicle, privateData, profile),
         {merge: false},
       );
     } else {
@@ -782,7 +1014,8 @@ async function saveProfileVehicle({
       transaction.set(firestore.doc(
         `users/${userId}/vehicles/${vehicle.vehicleId}/timeline/vehicle_created`,
       ), timelineData, {merge: false});
-      if (vehicle.showOnPublicProfile) {
+      if (profile.showVehicleOnPublicProfile === true &&
+          vehicle.showOnPublicProfile) {
         transaction.set(firestore.doc(
           `public_profiles/${userId}/vehicles/${vehicle.vehicleId}/timeline/vehicle_created`,
         ), timelineData, {merge: false});
@@ -910,15 +1143,20 @@ async function setPrimaryProfileVehicle({
       isPrimary: true,
       updatedAt: now,
     }, {merge: true});
-    if (normalized.showOnPublicProfile) {
+    if (profile.showVehicleOnPublicProfile === true &&
+        normalized.showOnPublicProfile) {
       transaction.set(
         firestore.doc(`public_profiles/${userId}/vehicles/${vehicleId}`),
         publicVehicleData(normalized, {
           ...currentVehicle,
           isPrimary: true,
           updatedAt: now,
-        }),
+        }, profile),
         {merge: false},
+      );
+    } else {
+      transaction.delete(
+        firestore.doc(`public_profiles/${userId}/vehicles/${vehicleId}`),
       );
     }
     if (oldPrimarySnapshot?.exists === true) {
@@ -1069,76 +1307,87 @@ async function updatePrimaryVehicleLocation({
     throw new HttpsError("invalid-argument", "Der Standort ist ungültig.");
   }
   const profileReference = firestore.doc(`users/${userId}/profiles/main`);
+  const vehiclesReference = firestore.collection(`users/${userId}/vehicles`);
   return firestore.runTransaction(async (transaction) => {
     const profileSnapshot = await transaction.get(profileReference);
     if (!profileSnapshot.exists) {
       throw new HttpsError("not-found", "Das Profil wurde nicht gefunden.");
     }
     const profile = profileSnapshot.data() ?? {};
-    const primaryVehicleId = safeString(profile.primaryVehicleId);
-    if (primaryVehicleId.length === 0) {
+    const vehiclesSnapshot = await transaction.get(vehiclesReference);
+    const activeVehicles = vehiclesSnapshot.docs
+      .map((snapshot) => ({
+        snapshot,
+        data: snapshot.data() ?? {},
+      }))
+      .filter(({data}) =>
+        activeVehicleStatuses.has(safeString(data.status)) &&
+        data.discoverableByPlate !== false &&
+        data.allowContactRequests !== false &&
+        plateIdentityFromData(data) != null,
+      );
+    if (activeVehicles.length === 0) {
       throw new HttpsError(
         "failed-precondition",
-        "Hinterlege zuerst ein Hauptfahrzeug.",
+        "Hinterlege zuerst ein aktives Fahrzeug mit Kennzeichen.",
       );
     }
-    const vehicleId = normalizeVehicleId(primaryVehicleId);
-    const vehicleReference = firestore.doc(
-      `users/${userId}/vehicles/${vehicleId}`,
-    );
-    const vehicleSnapshot = await transaction.get(vehicleReference);
-    if (!vehicleSnapshot.exists) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Hinterlege zuerst ein Hauptfahrzeug.",
+    const plateEntries = [];
+    for (const {snapshot, data} of activeVehicles) {
+      const vehicleId = normalizeVehicleId(snapshot.id);
+      const identity = plateIdentityFromData(data);
+      const plateReference = firestore.doc(
+        `plates/${identity.plateDocumentId}`,
       );
+      const plateSnapshot = await transaction.get(plateReference);
+      if (plateSnapshot.exists &&
+          (safeString(plateSnapshot.data()?.ownerUserId) !== userId ||
+           (safeString(plateSnapshot.data()?.vehicleId).length > 0 &&
+            safeString(plateSnapshot.data()?.vehicleId) !== vehicleId))) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Ein Kennzeichen ist einem anderen Fahrzeug zugeordnet.",
+        );
+      }
+      plateEntries.push({
+        vehicleId,
+        vehicleData: data,
+        plateReference,
+        plateSnapshot,
+      });
     }
-    const vehicleData = vehicleSnapshot.data() ?? {};
-    const identity = plateIdentityFromData(vehicleData);
-    if (identity == null) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Das Kennzeichen ist unvollständig.",
-      );
+
+    for (const entry of plateEntries) {
+      const vehicle = normalizeVehicleInput(userId, {
+        ...entry.vehicleData,
+        vehicleId: entry.vehicleId,
+        showOnPublicProfile:
+          entry.vehicleData.showOnPublicProfile === true ||
+          entry.vehicleData.visibility === "contacts",
+        discoverableByPlate: true,
+        selectableInStories:
+          entry.vehicleData.selectableInStories !== false,
+        allowContactRequests: true,
+      });
+      transaction.set(entry.plateReference, {
+        ...plateProjection({
+          vehicle,
+          profile,
+          isPrimary:
+            safeString(profile.primaryVehicleId) === entry.vehicleId,
+          isVerified: entry.vehicleData.isVerified === true,
+          now,
+        }),
+        createdAt: entry.plateSnapshot.exists ?
+          entry.plateSnapshot.data()?.createdAt ?? now : now,
+        ...(hasLatitude ? {
+          latitude,
+          longitude,
+          locationUpdatedAt: now,
+        } : {}),
+      }, {merge: true});
     }
-    const plateReference = firestore.doc(`plates/${identity.plateDocumentId}`);
-    const plateSnapshot = await transaction.get(plateReference);
-    if (plateSnapshot.exists &&
-        (safeString(plateSnapshot.data()?.ownerUserId) !== userId ||
-         (safeString(plateSnapshot.data()?.vehicleId).length > 0 &&
-          safeString(plateSnapshot.data()?.vehicleId) !== vehicleId))) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Das Kennzeichen ist einem anderen Fahrzeug zugeordnet.",
-      );
-    }
-    const vehicle = normalizeVehicleInput(userId, {
-      ...vehicleData,
-      vehicleId,
-      showOnPublicProfile:
-        vehicleData.showOnPublicProfile === true ||
-        vehicleData.visibility === "contacts",
-      discoverableByPlate: vehicleData.discoverableByPlate !== false,
-      selectableInStories: vehicleData.selectableInStories !== false,
-      allowContactRequests: vehicleData.allowContactRequests !== false,
-    });
-    transaction.set(plateReference, {
-      ...plateProjection({
-        vehicle,
-        profile,
-        isPrimary: true,
-        isVerified: vehicleData.isVerified === true,
-        now,
-      }),
-      createdAt: plateSnapshot.exists ?
-        plateSnapshot.data()?.createdAt ?? now : now,
-      ...(hasLatitude ? {
-        latitude,
-        longitude,
-        locationUpdatedAt: now,
-      } : {}),
-    }, {merge: true});
-    return {updated: true};
+    return {updated: true, updatedVehicleCount: plateEntries.length};
   });
 }
 
@@ -1150,6 +1399,7 @@ module.exports = {
   saveProfileVehicle,
   setPrimaryProfileVehicle,
   shortenedPlateLabel,
+  syncProfileVisibilityReferences,
   updatePrimaryVehicleLocation,
   verificationCoreChanged,
 };

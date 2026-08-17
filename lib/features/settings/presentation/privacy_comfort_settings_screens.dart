@@ -12,13 +12,15 @@ import '../../chats/data/chat_repository.dart';
 import '../data/user_settings_repository.dart';
 
 typedef VisibilitySettingsChanged =
-    Future<void> Function(String title, VisibilitySettings settings);
+    Future<bool> Function(String title, VisibilitySettings settings);
 typedef ContactFilterSettingsChanged =
-    Future<void> Function(String title, ContactFilterSettings settings);
+    Future<bool> Function(String title, ContactFilterSettings settings);
+typedef ChatPrivacySettingsChanged =
+    Future<bool> Function(String title, ChatPrivacySettings settings);
 typedef StoryPrivacySettingsChanged =
-    Future<void> Function(String title, StoryPrivacySettings settings);
+    Future<bool> Function(String title, StoryPrivacySettings settings);
 typedef AppPreferenceSettingsChanged =
-    Future<void> Function(String title, AppPreferenceSettings settings);
+    Future<bool> Function(String title, AppPreferenceSettings settings);
 
 class VisibilitySettingsScreen extends StatefulWidget {
   const VisibilitySettingsScreen({
@@ -37,10 +39,25 @@ class VisibilitySettingsScreen extends StatefulWidget {
 
 class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
   late VisibilitySettings _settings = widget.initialSettings;
+  bool _hasChanges = false;
+  bool _isSaving = false;
 
-  Future<void> _update(String title, VisibilitySettings settings) async {
-    setState(() => _settings = settings);
-    await widget.onChanged(title, settings);
+  void _update(VisibilitySettings settings) {
+    setState(() {
+      _settings = settings;
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_hasChanges || _isSaving) return;
+    setState(() => _isSaving = true);
+    final saved = await widget.onChanged('Sichtbarkeit', _settings);
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      if (saved) _hasChanges = false;
+    });
   }
 
   @override
@@ -48,8 +65,6 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
     return _SettingsPage(
       icon: Icons.visibility_outlined,
       title: 'Sichtbarkeit',
-      description:
-          'Bestimme, wer dich finden darf und welche Fahrzeugdaten öffentlich erscheinen.',
       children: [
         _ChoiceSection(
           title: 'Öffentliches Profil',
@@ -67,10 +82,8 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
               description: 'Dein Profil bleibt für andere verborgen.',
             ),
           ],
-          onChanged: (value) => _update(
-            'Profil-Sichtbarkeit',
-            _settings.copyWith(profileVisibility: value),
-          ),
+          onChanged: (value) =>
+              _update(_settings.copyWith(profileVisibility: value)),
         ),
         const SizedBox(height: 12),
         _ChoiceSection(
@@ -90,10 +103,8 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
               description: 'Andere Nutzer finden dein Kennzeichen nicht.',
             ),
           ],
-          onChanged: (value) => _update(
-            'Kennzeichen-Sichtbarkeit',
-            _settings.copyWith(plateSearchVisibility: value),
-          ),
+          onChanged: (value) =>
+              _update(_settings.copyWith(plateSearchVisibility: value)),
         ),
         const SizedBox(height: 12),
         GlassCard(
@@ -106,10 +117,8 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
                 description: 'Marke und Modell öffentlich freigeben.',
                 value: _settings.showVehicle,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Fahrzeug-Sichtbarkeit',
-                  _settings.copyWith(showVehicle: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(showVehicle: value)),
               ),
               const SizedBox(height: 10),
               CaRismaSwitchRow(
@@ -118,10 +127,8 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
                 description: 'Nur deine grobe öffentliche Region anzeigen.',
                 value: _settings.showRegion,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Region-Sichtbarkeit',
-                  _settings.copyWith(showRegion: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(showRegion: value)),
               ),
               const SizedBox(height: 10),
               CaRismaSwitchRow(
@@ -131,10 +138,8 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
                     'Das Kennzeichen nur in erlaubten Bereichen anzeigen.',
                 value: _settings.showPlate,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Kennzeichen-Freigabe',
-                  _settings.copyWith(showPlate: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(showPlate: value)),
               ),
               const SizedBox(height: 10),
               CaRismaSwitchRow(
@@ -143,10 +148,8 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
                 description: 'Neue Kontaktanfragen grundsätzlich erlauben.',
                 value: _settings.allowContactRequests,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Kontaktanfragen',
-                  _settings.copyWith(allowContactRequests: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(allowContactRequests: value)),
               ),
             ],
           ),
@@ -156,6 +159,12 @@ class _VisibilitySettingsScreenState extends State<VisibilitySettingsScreen> {
           icon: Icons.lock_outline_rounded,
           message:
               'E-Mail Adresse, Telefonnummer, Geburtsdatum und Dokumente bleiben immer privat.',
+        ),
+        const SizedBox(height: 12),
+        _SaveSettingsButton(
+          enabled: _hasChanges,
+          isSaving: _isSaving,
+          onPressed: _save,
         ),
       ],
     );
@@ -180,6 +189,8 @@ class ContactRequestSettingsScreen extends StatefulWidget {
 class _ContactRequestSettingsScreenState
     extends State<ContactRequestSettingsScreen> {
   late ContactFilterSettings _settings = widget.initialSettings;
+  bool _hasChanges = false;
+  bool _isSaving = false;
 
   static const _reasons = <_ReasonOption>[
     _ReasonOption(
@@ -204,9 +215,22 @@ class _ContactRequestSettingsScreenState
     ),
   ];
 
-  Future<void> _update(String title, ContactFilterSettings settings) async {
-    setState(() => _settings = settings);
-    await widget.onChanged(title, settings);
+  void _update(ContactFilterSettings settings) {
+    setState(() {
+      _settings = settings;
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_hasChanges || _isSaving) return;
+    setState(() => _isSaving = true);
+    final saved = await widget.onChanged('Kontaktanfragen', _settings);
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      if (saved) _hasChanges = false;
+    });
   }
 
   Future<void> _toggleReason(String reason, bool selected) async {
@@ -220,8 +244,7 @@ class _ContactRequestSettingsScreenState
       );
       return;
     }
-    await _update(
-      'Anfragegründe',
+    _update(
       _settings.copyWith(allowedContactReasons: reasons.toList()..sort()),
     );
   }
@@ -234,8 +257,7 @@ class _ContactRequestSettingsScreenState
 
   Future<void> _setQuietMode(String value) async {
     final now = DateTime.now();
-    await _update(
-      'Ruhemodus',
+    _update(
       _settings.copyWith(
         contactRequestQuietModeUntil: switch (value) {
           '24h' => now.add(const Duration(hours: 24)),
@@ -252,8 +274,6 @@ class _ContactRequestSettingsScreenState
     return _SettingsPage(
       icon: Icons.person_add_alt_1_outlined,
       title: 'Kontaktanfragen',
-      description:
-          'Lege fest, wer dir aus welchem Anlass eine Anfrage senden darf.',
       children: [
         GlassCard(
           padding: const EdgeInsets.all(14),
@@ -266,7 +286,6 @@ class _ContactRequestSettingsScreenState
                 value: _settings.requireVerifiedRequester,
                 enabled: true,
                 onChanged: (value) => _update(
-                  'Verifizierungsfilter',
                   _settings.copyWith(requireVerifiedRequester: value),
                 ),
               ),
@@ -278,10 +297,8 @@ class _ContactRequestSettingsScreenState
                     'Anfragen unverifizierter Nutzer direkt zurückweisen.',
                 value: _settings.autoRejectUnverified,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Automatische Ablehnung',
-                  _settings.copyWith(autoRejectUnverified: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(autoRejectUnverified: value)),
               ),
             ],
           ),
@@ -338,6 +355,122 @@ class _ContactRequestSettingsScreenState
           message:
               'Diese Regeln werden bei neuen Kontaktanfragen serverseitig geprüft.',
         ),
+        const SizedBox(height: 12),
+        _SaveSettingsButton(
+          enabled: _hasChanges,
+          isSaving: _isSaving,
+          onPressed: _save,
+        ),
+      ],
+    );
+  }
+}
+
+class ChatPrivacySettingsScreen extends StatefulWidget {
+  const ChatPrivacySettingsScreen({
+    super.key,
+    required this.initialSettings,
+    required this.onChanged,
+  });
+
+  final ChatPrivacySettings initialSettings;
+  final ChatPrivacySettingsChanged onChanged;
+
+  @override
+  State<ChatPrivacySettingsScreen> createState() =>
+      _ChatPrivacySettingsScreenState();
+}
+
+class _ChatPrivacySettingsScreenState extends State<ChatPrivacySettingsScreen> {
+  late ChatPrivacySettings _settings = widget.initialSettings;
+  bool _hasChanges = false;
+  bool _isSaving = false;
+
+  void _update(ChatPrivacySettings settings) {
+    setState(() {
+      _settings = settings;
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_hasChanges || _isSaving) return;
+    setState(() => _isSaving = true);
+    final saved = await widget.onChanged('Chat-Privatsphäre', _settings);
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      if (saved) _hasChanges = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsPage(
+      icon: Icons.lock_outline_rounded,
+      title: 'Chat-Privatsphäre',
+      children: [
+        GlassCard(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            children: [
+              CaRismaSwitchRow(
+                icon: Icons.done_all_rounded,
+                title: 'Lesebestätigungen',
+                description:
+                    'Andere sollen deinen Gelesen-Status sehen dürfen.',
+                value: _settings.readReceiptsEnabled,
+                enabled: true,
+                onChanged: (value) =>
+                    _update(_settings.copyWith(readReceiptsEnabled: value)),
+              ),
+              const SizedBox(height: 10),
+              CaRismaSwitchRow(
+                icon: Icons.circle_outlined,
+                title: 'Online-Status',
+                description:
+                    'Eigene Präsenz wird nur bei aktiver Option aktualisiert.',
+                value: _settings.onlineStatusEnabled,
+                enabled: true,
+                onChanged: (value) =>
+                    _update(_settings.copyWith(onlineStatusEnabled: value)),
+              ),
+              const SizedBox(height: 10),
+              CaRismaSwitchRow(
+                icon: Icons.perm_media_outlined,
+                title: 'Medien automatisch speichern',
+                description:
+                    'Vorbereitet, bis lokales Auto-Speichern final angebunden ist.',
+                value: _settings.autoSaveMedia,
+                enabled: true,
+                onChanged: (value) =>
+                    _update(_settings.copyWith(autoSaveMedia: value)),
+              ),
+              const SizedBox(height: 10),
+              CaRismaSwitchRow(
+                icon: Icons.looks_one_outlined,
+                title: 'Einmal ansehen als Standard',
+                description: 'Fotos und Videos standardmäßig privat senden.',
+                value: _settings.defaultViewOnceMedia,
+                enabled: true,
+                onChanged: (value) =>
+                    _update(_settings.copyWith(defaultViewOnceMedia: value)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        const CaRismaMessageCard(
+          icon: Icons.info_outline_rounded,
+          message:
+              'Lesebestätigungen, Online-Status und Einmal-Ansehen wirken direkt im Chat. Auto-Speichern bleibt bis zur sicheren Medienablage vorbereitet.',
+        ),
+        const SizedBox(height: 12),
+        _SaveSettingsButton(
+          enabled: _hasChanges,
+          isSaving: _isSaving,
+          onPressed: _save,
+        ),
       ],
     );
   }
@@ -361,10 +494,25 @@ class StoryPrivacySettingsScreen extends StatefulWidget {
 class _StoryPrivacySettingsScreenState
     extends State<StoryPrivacySettingsScreen> {
   late StoryPrivacySettings _settings = widget.initialSettings;
+  bool _hasChanges = false;
+  bool _isSaving = false;
 
-  Future<void> _update(String title, StoryPrivacySettings settings) async {
-    setState(() => _settings = settings);
-    await widget.onChanged(title, settings);
+  void _update(StoryPrivacySettings settings) {
+    setState(() {
+      _settings = settings;
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_hasChanges || _isSaving) return;
+    setState(() => _isSaving = true);
+    final saved = await widget.onChanged('Story-Einstellungen', _settings);
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      if (saved) _hasChanges = false;
+    });
   }
 
   Future<void> _openExclusions() async {
@@ -376,10 +524,7 @@ class _StoryPrivacySettingsScreenState
       ),
     );
     if (!mounted || result == null) return;
-    await _update(
-      'Story-Ausschlüsse',
-      _settings.copyWith(excludedStoryUserIds: result),
-    );
+    _update(_settings.copyWith(excludedStoryUserIds: result));
   }
 
   @override
@@ -387,8 +532,6 @@ class _StoryPrivacySettingsScreenState
     return _SettingsPage(
       icon: Icons.auto_stories_outlined,
       title: 'Story-Einstellungen',
-      description:
-          'Steuere Zielgruppe, Antworten und Fahrzeugdaten für neue Storys.',
       children: [
         _ChoiceSection(
           title: 'Wer darf meine Story sehen?',
@@ -406,10 +549,8 @@ class _StoryPrivacySettingsScreenState
               description: 'Die Story bleibt nur für dich sichtbar.',
             ),
           ],
-          onChanged: (value) => _update(
-            'Story-Sichtbarkeit',
-            _settings.copyWith(storyVisibility: value),
-          ),
+          onChanged: (value) =>
+              _update(_settings.copyWith(storyVisibility: value)),
         ),
         const SizedBox(height: 12),
         _ActionCard(
@@ -431,10 +572,8 @@ class _StoryPrivacySettingsScreenState
                 description: 'Antworten auf neue Storys erlauben.',
                 value: _settings.storyRepliesEnabled,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Story-Antworten',
-                  _settings.copyWith(storyRepliesEnabled: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(storyRepliesEnabled: value)),
               ),
               const SizedBox(height: 10),
               CaRismaSwitchRow(
@@ -444,13 +583,17 @@ class _StoryPrivacySettingsScreenState
                     'Bei neuen Storys einen freigegebenen Fahrzeug-Sticker vorbereiten.',
                 value: _settings.defaultStoryVehicleData,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Story-Fahrzeugdaten',
-                  _settings.copyWith(defaultStoryVehicleData: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(defaultStoryVehicleData: value)),
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 12),
+        _SaveSettingsButton(
+          enabled: _hasChanges,
+          isSaving: _isSaving,
+          onPressed: _save,
         ),
       ],
     );
@@ -474,10 +617,25 @@ class AppComfortSettingsScreen extends StatefulWidget {
 
 class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
   late AppPreferenceSettings _settings = widget.initialSettings;
+  bool _hasChanges = false;
+  bool _isSaving = false;
 
-  Future<void> _update(String title, AppPreferenceSettings settings) async {
-    setState(() => _settings = settings);
-    await widget.onChanged(title, settings);
+  void _update(AppPreferenceSettings settings) {
+    setState(() {
+      _settings = settings;
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_hasChanges || _isSaving) return;
+    setState(() => _isSaving = true);
+    final saved = await widget.onChanged('App-Komfort', _settings);
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      if (saved) _hasChanges = false;
+    });
   }
 
   @override
@@ -485,7 +643,6 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
     return _SettingsPage(
       icon: Icons.tune_rounded,
       title: 'App-Komfort',
-      description: 'Passe Rückmeldungen und den Start der DACH-Bereiche an.',
       children: [
         GlassCard(
           padding: const EdgeInsets.all(14),
@@ -498,10 +655,8 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
                     'Vibrationen bei unterstützten Gesten und Aktionen.',
                 value: _settings.hapticsEnabled,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Haptik',
-                  _settings.copyWith(hapticsEnabled: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(hapticsEnabled: value)),
               ),
               const SizedBox(height: 10),
               CaRismaSwitchRow(
@@ -510,10 +665,8 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
                 description: 'Ton bei neu eingehenden Chatnachrichten.',
                 value: _settings.messageSoundsEnabled,
                 enabled: true,
-                onChanged: (value) => _update(
-                  'Nachrichtentöne',
-                  _settings.copyWith(messageSoundsEnabled: value),
-                ),
+                onChanged: (value) =>
+                    _update(_settings.copyWith(messageSoundsEnabled: value)),
               ),
             ],
           ),
@@ -540,32 +693,28 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
               description: 'Suchen und Melden starten mit der Schweiz.',
             ),
           ],
-          onChanged: (value) => _update(
-            'Standardland',
-            _settings.copyWith(defaultPlateCountry: value),
-          ),
+          onChanged: (value) =>
+              _update(_settings.copyWith(defaultPlateCountry: value)),
         ),
         const SizedBox(height: 12),
         const _ReadOnlyStatusCard(
           icon: Icons.language_rounded,
           title: 'Sprache',
-          value: 'Deutsch',
-          description:
-              'Weitere Sprachen folgen erst nach einer vollständigen professionellen Übersetzung.',
+          value: 'Demnächst',
+          description: 'Weitere Sprachen erscheinen in einer späteren Version.',
         ),
         const SizedBox(height: 10),
         const _ReadOnlyStatusCard(
           icon: Icons.dark_mode_outlined,
           title: 'Design',
-          value: 'Dunkel',
-          description:
-              'Das aktuelle plaqa-Design bleibt konsistent dunkel. Ein Hellmodus wird erst nach kompletter App-Migration angeboten.',
+          value: 'Demnächst',
+          description: 'Weitere Designs erscheinen in einer späteren Version.',
         ),
         const SizedBox(height: 12),
-        const CaRismaMessageCard(
-          icon: Icons.public_rounded,
-          message:
-              'DACH steht für Deutschland, Österreich und die Schweiz. Entfernungen werden in Kilometern angezeigt.',
+        _SaveSettingsButton(
+          enabled: _hasChanges,
+          isSaving: _isSaving,
+          onPressed: _save,
         ),
       ],
     );
@@ -655,18 +804,88 @@ class _StoryExclusionsScreenState extends State<_StoryExclusionsScreen> {
   }
 }
 
+class _SaveSettingsButton extends StatelessWidget {
+  const _SaveSettingsButton({
+    required this.enabled,
+    required this.isSaving,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final bool isSaving;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = enabled && !isSaving;
+    return Semantics(
+      button: true,
+      enabled: isEnabled,
+      label: 'Einstellungen speichern',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: isEnabled ? onPressed : null,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 160),
+          opacity: isEnabled || isSaving ? 1 : 0.46,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: double.infinity,
+            height: 58,
+            decoration: BoxDecoration(
+              color: CaRismaDesignTokens.controlSurface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: CaRismaDesignTokens.bluePrimary.withValues(
+                  alpha: isEnabled || isSaving ? 0.92 : 0.42,
+                ),
+                width: 1.5,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: isSaving
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.save_outlined, color: Colors.white, size: 21),
+                      SizedBox(width: 10),
+                      Text(
+                        'Einstellungen speichern',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingsPage extends StatelessWidget {
   const _SettingsPage({
     required this.icon,
     required this.title,
-    required this.description,
     required this.children,
+    this.description,
     this.onBack,
   });
 
   final IconData icon;
   final String title;
-  final String description;
+  final String? description;
   final List<Widget> children;
   final VoidCallback? onBack;
 
@@ -686,16 +905,18 @@ class _SettingsPage extends StatelessWidget {
                 onBack: onBack ?? () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 18),
-              Text(
-                description,
-                style: const TextStyle(
-                  color: CaRismaDesignTokens.textSecondary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15.5,
-                  height: 1.35,
+              if (description case final description?) ...[
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: CaRismaDesignTokens.textSecondary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15.5,
+                    height: 1.35,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 18),
+                const SizedBox(height: 18),
+              ],
               ...children,
             ],
           ),
@@ -943,7 +1164,7 @@ class _ReadOnlyStatusCard extends StatelessWidget {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           CaRismaBlueIconBox(icon: icon, size: 46, iconSize: 23),
           const SizedBox(width: 13),

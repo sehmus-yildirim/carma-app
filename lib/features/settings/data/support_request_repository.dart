@@ -5,6 +5,16 @@ import '../../../shared/firebase/carisma_firestore_paths.dart';
 
 enum SupportRequestType { problem, verification, feedback }
 
+class SupportTechnicalReference {
+  const SupportTechnicalReference({
+    required this.referenceId,
+    required this.referenceGroup,
+  });
+
+  final String referenceId;
+  final String referenceGroup;
+}
+
 class SupportRequestDraft {
   const SupportRequestDraft({
     required this.type,
@@ -13,6 +23,7 @@ class SupportRequestDraft {
     required this.allowContact,
     this.affectedArea,
     this.reproductionSteps,
+    this.technicalReference,
   });
 
   final SupportRequestType type;
@@ -21,6 +32,7 @@ class SupportRequestDraft {
   final bool allowContact;
   final String? affectedArea;
   final String? reproductionSteps;
+  final SupportTechnicalReference? technicalReference;
 
   bool get isValid {
     return category.trim().isNotEmpty && description.trim().length >= 20;
@@ -61,6 +73,12 @@ class SupportRequestRepository {
       'affectedArea': _trimmedOrNull(draft.affectedArea),
       'description': draft.description.trim(),
       'reproductionSteps': _trimmedOrNull(draft.reproductionSteps),
+      'technicalReferenceId': _trimmedOrNull(
+        draft.technicalReference?.referenceId,
+      ),
+      'technicalReferenceGroup': _trimmedOrNull(
+        draft.technicalReference?.referenceGroup,
+      ),
       'allowContact': draft.allowContact,
       'accountEmail': draft.allowContact ? _trimmedOrNull(accountEmail) : null,
       'appVersion': CaRismaAppConfig.appVersionLabel,

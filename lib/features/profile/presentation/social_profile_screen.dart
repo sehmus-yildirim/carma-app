@@ -1,25 +1,29 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../shared/models/carisma_models.dart';
-import '../../../shared/plate/plate_country_config.dart';
+import '../../../shared/plate/dach_plate_presentation.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
-import '../../../shared/widgets/carisma_primary_button.dart';
+import '../../../shared/widgets/carisma_license_plate_preview.dart';
 import '../../../shared/widgets/carisma_secondary_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../chats/data/chat_story_repository.dart';
+import '../../chats/data/chat_repository.dart';
 import '../../chats/presentation/chats_screen.dart';
 import '../data/follow_repository.dart';
 import '../data/profile_media_storage.dart';
 import '../data/profile_repository.dart';
 import '../data/profile_vehicle.dart';
-import '../data/profile_vehicle_encounter.dart';
-import '../data/profile_vehicle_encounter_repository.dart';
 import '../data/profile_vehicle_gallery_media.dart';
 import '../data/profile_vehicle_gallery_repository.dart';
 import '../data/profile_vehicle_hero_service.dart';
@@ -32,12 +36,81 @@ import '../data/social_post.dart';
 import '../data/social_post_repository.dart';
 import '../data/user_profile.dart' as profile_data;
 import 'widgets/profile_vehicle_details_sheet.dart';
-import 'widgets/profile_vehicle_encounter_request_sheet.dart';
 import 'widgets/profile_vehicle_editor_sheet.dart';
 import 'widgets/profile_vehicle_modification_sheet.dart';
 import 'widgets/profile_vehicle_panel.dart';
 import 'widgets/profile_vehicle_timeline_sheet.dart';
 import 'widgets/profile_photo_crop_screen.dart';
+import 'widgets/profile_post_details_sheet.dart';
+import 'widgets/profile_post_gallery_screen.dart';
+
+const String _debugProfileContentPrefix = 'plaqa-debug-';
+
+final List<SocialPost> _debugSocialPosts = <SocialPost>[
+  SocialPost(
+    id: '${_debugProfileContentPrefix}post-1',
+    ownerUserId: _debugProfileContentPrefix,
+    imageUrl: 'debug://bmw-x6-front',
+    imagePath: '',
+    createdAt: DateTime(2026, 8, 16, 18, 30),
+    section: SocialPostSection.posts,
+    visibility: 'private',
+    caption: 'Schwarzer BMW X6 M50d, Baujahr 2015.',
+    vehicleLabel: 'BMW X6 M50d',
+    locationLabel: 'Hamburg',
+  ),
+  SocialPost(
+    id: '${_debugProfileContentPrefix}post-4',
+    ownerUserId: _debugProfileContentPrefix,
+    imageUrl: 'debug://bmw-x6-interior',
+    imagePath: '',
+    createdAt: DateTime(2026, 8, 13, 14, 20),
+    section: SocialPostSection.posts,
+    visibility: 'private',
+    caption: 'Innenraum des X6 M50d in Schwarz.',
+    vehicleLabel: 'BMW X6 M50d',
+    locationLabel: 'Hamburg',
+  ),
+  SocialPost(
+    id: '${_debugProfileContentPrefix}post-5',
+    ownerUserId: _debugProfileContentPrefix,
+    imageUrl: 'debug://bmw-x6-night',
+    imagePath: '',
+    createdAt: DateTime(2026, 8, 12, 22, 5),
+    section: SocialPostSection.posts,
+    visibility: 'private',
+    caption: 'Nachtaufnahme mit dem BMW X6 M50d.',
+    vehicleLabel: 'BMW X6 M50d',
+    locationLabel: 'Hamburg',
+  ),
+  SocialPost(
+    id: '${_debugProfileContentPrefix}post-2',
+    ownerUserId: _debugProfileContentPrefix,
+    imageUrl: 'debug://bmw-x6-road',
+    imagePath: '',
+    createdAt: DateTime(2026, 8, 15, 20, 10),
+    section: SocialPostSection.posts,
+    visibility: 'private',
+    caption: 'Abendfahrt mit dem X6 durch Hamburg.',
+    vehicleLabel: 'BMW X6 M50d',
+    locationLabel: 'Hamburg',
+  ),
+  SocialPost(
+    id: '${_debugProfileContentPrefix}post-3',
+    ownerUserId: _debugProfileContentPrefix,
+    imageUrl: 'debug://bmw-x6-detail',
+    imagePath: '',
+    createdAt: DateTime(2026, 8, 14, 16, 45),
+    section: SocialPostSection.posts,
+    visibility: 'private',
+    caption: 'Detailaufnahme vor dem nächsten Treffen.',
+    vehicleLabel: 'BMW X6 M50d',
+    locationLabel: 'Hamburg',
+  ),
+];
+
+bool _isDebugProfileContent(String id) =>
+    id.startsWith(_debugProfileContentPrefix);
 
 Route<void> buildSocialProfileRoute({
   required String profileUserId,
@@ -75,6 +148,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
   final ProfileMediaStorage _profileMediaStorage = ProfileMediaStorage();
   final SocialPostRepository _socialPostRepository = SocialPostRepository();
   final ChatStoryRepository _storyRepository = ChatStoryRepository();
+  final ChatRepository _chatRepository = FirestoreChatRepository();
   final FollowRepository _followRepository = FollowRepository();
   final ProfileVehicleRepository _profileVehicleRepository =
       ProfileVehicleRepository();
@@ -87,17 +161,18 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ProfileVehicleModificationRepository();
   final ProfileVehicleTimelineRepository _profileVehicleTimelineRepository =
       ProfileVehicleTimelineRepository();
-  final ProfileVehicleEncounterRepository _profileVehicleEncounterRepository =
-      ProfileVehicleEncounterRepository();
   final ImagePicker _imagePicker = ImagePicker();
   late final Stream<int> _followerCountStream;
   late final Stream<int> _followingCountStream;
+  late final Stream<List<ProfileVehicle>> _vehiclesStream;
   Stream<FollowSummary>? _followSummaryStream;
   int _selectedTab = 0;
   bool _isFollowActionBusy = false;
   bool _isCreatingStory = false;
   bool _legacyVehicleSyncScheduled = false;
+  bool _isPreviewingOwnProfile = false;
   final Set<String> _busyHeroVehicleIds = <String>{};
+  final Set<String> _autoHeroRequestedVehicleIds = <String>{};
 
   String get _currentUserId =>
       FirebaseAuth.instance.currentUser?.uid ?? widget.userState?.userId ?? '';
@@ -108,6 +183,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
   }
 
   bool get _isOwnProfile => widget.isOwnProfile && _userId == _currentUserId;
+  bool get _canManageOwnProfile => _isOwnProfile && !_isPreviewingOwnProfile;
 
   @override
   void initState() {
@@ -124,6 +200,11 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         : _followRepository
               .watchFollowing(profileUserId)
               .map((relationships) => relationships.length);
+    _vehiclesStream = profileUserId.isEmpty
+        ? Stream<List<ProfileVehicle>>.value(const <ProfileVehicle>[])
+        : _isOwnProfile
+        ? _profileVehicleRepository.watchOwnerVehicles(profileUserId)
+        : _profileVehicleRepository.watchVisibleVehicles(profileUserId);
     if (!widget.readOnly &&
         !_isOwnProfile &&
         currentUserId.isNotEmpty &&
@@ -132,6 +213,13 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         currentUserId: currentUserId,
         profileUserId: profileUserId,
       );
+    }
+    if (!_isOwnProfile &&
+        profileUserId.isNotEmpty &&
+        currentUserId.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _profileRepository.recordProfileView(profileUserId).catchError((_) {});
+      });
     }
   }
 
@@ -220,6 +308,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _FollowListSheet(
         title: followers ? 'Follower' : 'Gefolgt',
@@ -259,7 +348,60 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     );
   }
 
-  Widget _buildProfileHero(profile_data.UserProfile? profile, int postCount) {
+  Future<void> _openExistingChat(profile_data.UserProfile? profile) async {
+    final currentUserId = _currentUserId.trim();
+    final profileUserId = _userId.trim();
+    if (currentUserId.isEmpty || profileUserId.isEmpty || _isOwnProfile) return;
+
+    try {
+      final chats = await _chatRepository.loadChats(userId: currentUserId);
+      ChatRecord? matchingChat;
+      for (final chat in chats) {
+        if (chat.participants.contains(profileUserId) &&
+            !chat.isDeletedFor(currentUserId)) {
+          matchingChat = chat;
+          break;
+        }
+      }
+      if (!mounted) return;
+      if (matchingChat == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Ein Chat ist erst nach einer angenommenen Kontaktanfrage verfügbar.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      await Navigator.of(context).push(
+        buildChatConversationRoute(
+          chatId: matchingChat.id,
+          displayName: matchingChat.displayNameFor(currentUserId),
+          profilePhotoUrl: matchingChat.profilePhotoUrlFor(currentUserId),
+          vehicleModel: matchingChat.vehicleModelLabel,
+          vehicleColor: matchingChat.vehicleColorLabel,
+          displayPlate: matchingChat.displayPlate,
+          profileUserId: profileUserId,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Der Chat konnte gerade nicht geöffnet werden.'),
+        ),
+      );
+    }
+  }
+
+  Widget _buildProfileHero(
+    profile_data.UserProfile? profile,
+    int postCount, {
+    required ProfileVehicle? primaryVehicle,
+    required bool compact,
+  }) {
     final storyStream = _currentUserId.trim().isEmpty
         ? Stream<List<ChatStoryRecord>>.value(const <ChatStoryRecord>[])
         : _isOwnProfile
@@ -313,6 +455,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                       children: [
                         _ProfileHeroCard(
                           profile: profile,
+                          primaryVehicle: primaryVehicle,
+                          compact: compact,
                           postCount: postCount,
                           followerCount: followerSnapshot.hasError
                               ? null
@@ -323,27 +467,35 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                           followState: summary.state,
                           isFollowActionBusy: _isFollowActionBusy,
                           isCreatingStory: _isCreatingStory,
-                          isOwnProfile: _isOwnProfile,
-                          isReadOnly: widget.readOnly,
+                          isOwnProfile: _canManageOwnProfile,
+                          isReadOnly:
+                              widget.readOnly || _isPreviewingOwnProfile,
+                          showPreviewToggle: _isOwnProfile,
+                          isPreviewing: _isPreviewingOwnProfile,
+                          onPreviewToggle: () => setState(
+                            () => _isPreviewingOwnProfile =
+                                !_isPreviewingOwnProfile,
+                          ),
                           activeStory: activeStory,
+                          onEditProfile: _canManageOwnProfile
+                              ? () => _showEditPublicProfileSheet(profile)
+                              : null,
                           onAvatarTap: activeStory != null
                               ? () => _openProfileStory(
                                   activeStory,
                                   profileStories,
                                 )
-                              : _isOwnProfile
+                              : _canManageOwnProfile
                               ? () => _showProfileIdentityActions(profile)
                               : null,
-                          onAvatarLongPress: _isOwnProfile
+                          onAvatarLongPress: _canManageOwnProfile
                               ? () => _showProfileIdentityActions(profile)
                               : null,
-                          onAddStory: _isOwnProfile
+                          onAddStory: _canManageOwnProfile
                               ? () => _createProfileStory()
                               : null,
-                          onEdit: () => _showEditPublicProfileSheet(profile),
-                          onCreatePost: () => _showCreatePostSheet(profile),
                           onFollow: () => _handleFollowAction(profile, summary),
-                          onMessage: () => Navigator.of(context).maybePop(),
+                          onMessage: () => _openExistingChat(profile),
                           onFollowersTap: canViewFollowers
                               ? () => _showFollowList(
                                   profile,
@@ -359,7 +511,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                                 )
                               : null,
                         ),
-                        if (_isOwnProfile)
+                        if (_canManageOwnProfile)
                           StreamBuilder<List<FollowRelationship>>(
                             stream: _followRepository.watchFollowRequests(
                               _userId,
@@ -392,8 +544,6 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-
     return CaRismaBackground(
       child: SafeArea(
         child: StreamBuilder<profile_data.UserProfile?>(
@@ -403,220 +553,263 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
           builder: (context, snapshot) {
             final profile = snapshot.data;
             _scheduleLegacyVehicleSync(profile);
-            return StreamBuilder<List<SocialPost>>(
-              stream: _socialPostRepository.watchUserPosts(
-                userId: _userId,
-                viewerUserId: _currentUserId,
-              ),
-              builder: (context, postsSnapshot) {
-                final posts = postsSnapshot.data ?? const <SocialPost>[];
-                final isLoadingPosts =
-                    postsSnapshot.connectionState == ConnectionState.waiting &&
-                    !postsSnapshot.hasData;
-                final isVehicleTab = _selectedTab == 1;
-                final visiblePosts = posts
-                    .where(
-                      (post) =>
-                          post.section ==
-                          (isVehicleTab
-                              ? SocialPostSection.vehicle
-                              : SocialPostSection.posts),
-                    )
-                    .toList(growable: false);
-                final postsContent = postsSnapshot.hasError
-                    ? _SocialPostsFeedbackState(
-                        key: const ValueKey('social-posts-error'),
-                        icon: Icons.cloud_off_rounded,
-                        title: 'Beiträge konnten nicht geladen werden',
-                        description:
-                            'Prüfe deine Verbindung und versuche es erneut.',
-                        actionLabel: 'Erneut versuchen',
-                        onAction: () => setState(() {}),
-                      )
-                    : isLoadingPosts
-                    ? const _SocialPostsLoadingState()
-                    : _SocialPostSectionContent(
-                        key: ValueKey(
-                          isVehicleTab ? 'vehicle-posts' : 'profile-posts',
-                        ),
-                        posts: visiblePosts,
-                        canCreatePost: _isOwnProfile,
-                        onCreatePost: () => _showCreatePostSheet(
-                          profile,
-                          initialSection: isVehicleTab
-                              ? SocialPostSection.vehicle
-                              : SocialPostSection.posts,
-                        ),
-                        onOpenPost: _showPostDetails,
-                        emptyTitle: isVehicleTab
-                            ? 'Noch keine Fahrzeugbilder'
-                            : 'Noch keine Beiträge',
-                        emptyDescription: isVehicleTab
-                            ? _isOwnProfile
-                                  ? 'Zeige dein Fahrzeug aus den besten Perspektiven.'
-                                  : 'Dieser Nutzer hat noch keine Fahrzeugbilder geteilt.'
-                            : _isOwnProfile
-                            ? 'Teile dein Fahrzeug, Treffen oder besondere Momente.'
-                            : 'Dieser Nutzer hat noch keine Beiträge geteilt.',
-                      );
-                return CustomScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  slivers: [
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        20,
-                        CaRismaDesignTokens.mainScreenTopInset,
-                        20,
-                        CaRismaDesignTokens.mainScreenBottomInset +
-                            keyboardInset +
-                            10,
-                      ),
-                      sliver: SliverList.list(
-                        children: [
-                          _buildProfileHero(profile, posts.length),
-                          const SizedBox(height: 22),
-                          _ProfileTabs(
-                            selectedIndex: _selectedTab,
-                            onChanged: (index) =>
-                                setState(() => _selectedTab = index),
+            return StreamBuilder<List<ProfileVehicle>>(
+              stream: _vehiclesStream,
+              builder: (context, vehicleSnapshot) {
+                final vehicles =
+                    vehicleSnapshot.data ?? const <ProfileVehicle>[];
+                final resolvedVehicles = _resolvedProfileVehicles(vehicles);
+                final primaryVehicle = _primaryVehicleFrom(resolvedVehicles);
+                _schedulePrimaryHeroGeneration(primaryVehicle);
+                return StreamBuilder<List<SocialPost>>(
+                  stream: _socialPostRepository.watchUserPosts(
+                    userId: _userId,
+                    viewerUserId: _currentUserId,
+                  ),
+                  builder: (context, postsSnapshot) {
+                    final storedPosts =
+                        postsSnapshot.data ?? const <SocialPost>[];
+                    final showDebugPosts =
+                        kDebugMode && _isOwnProfile && storedPosts.isEmpty;
+                    final posts = showDebugPosts
+                        ? _debugSocialPosts
+                        : storedPosts;
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxHeight < 760;
+                        final gap = compact ? 8.0 : 12.0;
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            16,
+                            CaRismaDesignTokens.mainScreenTopInset,
+                            16,
+                            8,
                           ),
-                          const SizedBox(height: 16),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 180),
-                            child: isVehicleTab
-                                ? Column(
-                                    key: const ValueKey('vehicle-posts'),
-                                    children: [
-                                      ProfileVehiclePanel(
-                                        profile: profile,
-                                        postCount: posts.length,
-                                        vehicles: _isOwnProfile
-                                            ? _profileVehicleRepository
-                                                  .watchOwnerVehicles(_userId)
-                                            : _profileVehicleRepository
-                                                  .watchVisibleVehicles(
-                                                    _userId,
-                                                  ),
-                                        isOwnProfile: _isOwnProfile,
-                                        onAdd: () =>
-                                            _openVehicleEditor(profile),
-                                        onEdit: (vehicle) => _openVehicleEditor(
-                                          profile,
-                                          vehicle: vehicle,
+                          child: Column(
+                            children: [
+                              _ProfileTopBar(
+                                showBack:
+                                    !_isOwnProfile &&
+                                    Navigator.of(context).canPop(),
+                                onBack: () => Navigator.of(context).maybePop(),
+                              ),
+                              SizedBox(height: gap),
+                              _buildProfileHero(
+                                profile,
+                                posts.length,
+                                primaryVehicle: primaryVehicle,
+                                compact: compact,
+                              ),
+                              SizedBox(height: gap),
+                              _ProfileTabs(
+                                selectedIndex: _selectedTab,
+                                onChanged: (index) =>
+                                    setState(() => _selectedTab = index),
+                                onCreatePost: _canManageOwnProfile
+                                    ? () => _showProfilePostActions(profile)
+                                    : null,
+                                onAddVehicle: _canManageOwnProfile
+                                    ? () => _openVehicleEditor(profile)
+                                    : null,
+                              ),
+                              SizedBox(height: gap),
+                              Expanded(
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 180),
+                                  child: _selectedTab == 1
+                                      ? SingleChildScrollView(
+                                          key: const ValueKey(
+                                            'profile-vehicle-scroll',
+                                          ),
+                                          physics:
+                                              const ClampingScrollPhysics(),
+                                          child: _buildVehiclePanel(
+                                            profile: profile,
+                                            postCount: posts.length,
+                                            vehicles: resolvedVehicles,
+                                            isLoading:
+                                                vehicleSnapshot
+                                                        .connectionState ==
+                                                    ConnectionState.waiting &&
+                                                !vehicleSnapshot.hasData,
+                                            loadError: vehicleSnapshot.error,
+                                          ),
+                                        )
+                                      : _buildPostsViewport(
+                                          profile: profile,
+                                          posts: posts
+                                              .where(
+                                                (post) =>
+                                                    post.section ==
+                                                    SocialPostSection.posts,
+                                              )
+                                              .toList(growable: false),
+                                          snapshot: postsSnapshot,
+                                          showDebugPosts: showDebugPosts,
                                         ),
-                                        onEditDetails: _openVehicleDetails,
-                                        onSetPrimary: _setPrimaryVehicle,
-                                        onArchive: _archiveVehicle,
-                                        onGenerateHero:
-                                            _requestVehicleHeroImage,
-                                        isHeroRequestBusy: (vehicleId) =>
-                                            _busyHeroVehicleIds.contains(
-                                              vehicleId,
-                                            ),
-                                        galleryMediaForVehicle: (vehicleId) =>
-                                            _isOwnProfile
-                                            ? _profileVehicleGalleryRepository
-                                                  .watchOwnerMedia(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  )
-                                            : _profileVehicleGalleryRepository
-                                                  .watchVisibleMedia(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  ),
-                                        onAddGalleryMedia:
-                                            _addVehicleGalleryImage,
-                                        onSetMainGalleryMedia: (_, media) =>
-                                            _setMainVehicleGalleryImage(media),
-                                        onDeleteGalleryMedia:
-                                            _deleteVehicleGalleryImage,
-                                        modificationsForVehicle: (vehicleId) =>
-                                            _isOwnProfile
-                                            ? _profileVehicleModificationRepository
-                                                  .watchOwnerModifications(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  )
-                                            : _profileVehicleModificationRepository
-                                                  .watchVisibleModifications(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  ),
-                                        onAddModification:
-                                            _openVehicleModificationEditor,
-                                        onEditModification:
-                                            (vehicle, modification) =>
-                                                _openVehicleModificationEditor(
-                                                  vehicle,
-                                                  modification: modification,
-                                                ),
-                                        onDeleteModification:
-                                            _deleteVehicleModification,
-                                        timelineEntriesForVehicle:
-                                            (vehicleId) => _isOwnProfile
-                                            ? _profileVehicleTimelineRepository
-                                                  .watchOwnerEntries(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  )
-                                            : _profileVehicleTimelineRepository
-                                                  .watchVisibleEntries(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  ),
-                                        onAddTimelineEntry:
-                                            _openVehicleTimelineEditor,
-                                        onEditTimelineEntry: (vehicle, entry) =>
-                                            _openVehicleTimelineEditor(
-                                              vehicle,
-                                              entry: entry,
-                                            ),
-                                        onDeleteTimelineEntry:
-                                            _deleteVehicleTimelineEntry,
-                                        currentUserId: _currentUserId,
-                                        encountersForVehicle: (vehicleId) =>
-                                            _isOwnProfile
-                                            ? _profileVehicleEncounterRepository
-                                                  .watchOwnerEncounters(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  )
-                                            : _profileVehicleEncounterRepository
-                                                  .watchVisibleEncounters(
-                                                    userId: _userId,
-                                                    vehicleId: vehicleId,
-                                                  ),
-                                        onRequestEncounter: (vehicle) =>
-                                            _requestVehicleEncounter(
-                                              profile,
-                                              vehicle,
-                                            ),
-                                        onAcceptEncounter:
-                                            _acceptVehicleEncounter,
-                                        onDeclineEncounter:
-                                            _declineVehicleEncounter,
-                                        onRemoveEncounter:
-                                            _removeVehicleEncounter,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      postsContent,
-                                    ],
-                                  )
-                                : postsContent,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        );
+                      },
+                    );
+                  },
                 );
               },
             );
           },
         ),
       ),
+    );
+  }
+
+  ProfileVehicle? _primaryVehicleFrom(List<ProfileVehicle> vehicles) {
+    for (final vehicle in vehicles) {
+      if (vehicle.isPrimary && !_isDebugProfileContent(vehicle.id)) {
+        return vehicle;
+      }
+    }
+    for (final vehicle in vehicles) {
+      if (!_isDebugProfileContent(vehicle.id)) return vehicle;
+    }
+    return vehicles.isEmpty ? null : vehicles.first;
+  }
+
+  void _schedulePrimaryHeroGeneration(ProfileVehicle? vehicle) {
+    if (!_isOwnProfile ||
+        vehicle == null ||
+        _isDebugProfileContent(vehicle.id) ||
+        _autoHeroRequestedVehicleIds.contains(vehicle.id) ||
+        vehicle.heroImageStatus == VehicleHeroImageStatus.ready ||
+        vehicle.heroImageStatus == VehicleHeroImageStatus.queued ||
+        vehicle.heroImageStatus == VehicleHeroImageStatus.generating) {
+      return;
+    }
+    _autoHeroRequestedVehicleIds.add(vehicle.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _requestVehicleHeroImage(vehicle);
+    });
+  }
+
+  List<ProfileVehicle> _resolvedProfileVehicles(List<ProfileVehicle> vehicles) {
+    if (kDebugMode &&
+        _isOwnProfile &&
+        !vehicles.any((vehicle) => vehicle.id == debugProfileVehicleId)) {
+      return <ProfileVehicle>[debugProfileVehicle, ...vehicles];
+    }
+    return vehicles;
+  }
+
+  Widget _buildPostsViewport({
+    required profile_data.UserProfile? profile,
+    required List<SocialPost> posts,
+    required AsyncSnapshot<List<SocialPost>> snapshot,
+    required bool showDebugPosts,
+  }) {
+    if (snapshot.hasError && !showDebugPosts) {
+      return _SocialPostsFeedbackState(
+        key: const ValueKey('social-posts-error'),
+        icon: Icons.cloud_off_rounded,
+        title: 'Beiträge konnten nicht geladen werden',
+        description: 'Prüfe deine Verbindung und versuche es erneut.',
+        actionLabel: 'Erneut versuchen',
+        onAction: () => setState(() {}),
+      );
+    }
+    if (!showDebugPosts &&
+        snapshot.connectionState == ConnectionState.waiting &&
+        !snapshot.hasData) {
+      return const _SocialPostsLoadingState();
+    }
+    return _SocialPostSectionContent(
+      key: const ValueKey('profile-posts'),
+      posts: posts,
+      canCreatePost: _canManageOwnProfile,
+      onCreatePost: () => _showCreatePostSheet(profile),
+      onOpenPost: (post) => _showPostDetails(post, profile),
+      emptyTitle: 'Noch keine Beiträge',
+      emptyDescription: _isOwnProfile
+          ? 'Teile dein Fahrzeug, Treffen oder besondere Momente.'
+          : 'Dieser Nutzer hat noch keine Beiträge geteilt.',
+    );
+  }
+
+  Widget _buildVehiclePanel({
+    required profile_data.UserProfile? profile,
+    required int postCount,
+    required List<ProfileVehicle> vehicles,
+    required bool isLoading,
+    required Object? loadError,
+  }) {
+    return ProfileVehiclePanel(
+      profile: profile,
+      postCount: postCount,
+      vehicles: vehicles,
+      isLoading: isLoading,
+      loadError: loadError,
+      isOwnProfile: _canManageOwnProfile,
+      onAdd: () => _openVehicleEditor(profile),
+      onEdit: (vehicle) => _openVehicleEditor(profile, vehicle: vehicle),
+      onEditDetails: _openVehicleDetails,
+      onSetPrimary: _setPrimaryVehicle,
+      onArchive: _archiveVehicle,
+      onGenerateHero: _handleProfileHeroGeneration,
+      isHeroRequestBusy: _busyHeroVehicleIds.contains,
+      galleryMediaForVehicle: (vehicleId) => _isDebugProfileContent(vehicleId)
+          ? Stream<List<ProfileVehicleGalleryMedia>>.value(
+              const <ProfileVehicleGalleryMedia>[],
+            )
+          : _isOwnProfile
+          ? _profileVehicleGalleryRepository.watchOwnerMedia(
+              userId: _userId,
+              vehicleId: vehicleId,
+            )
+          : _profileVehicleGalleryRepository.watchVisibleMedia(
+              userId: _userId,
+              vehicleId: vehicleId,
+            ),
+      onAddGalleryMedia: _addVehicleGalleryImage,
+      onSetMainGalleryMedia: (_, media) => _setMainVehicleGalleryImage(media),
+      onDeleteGalleryMedia: _deleteVehicleGalleryImage,
+      modificationsForVehicle: (vehicleId) => _isDebugProfileContent(vehicleId)
+          ? Stream<List<ProfileVehicleModification>>.value(
+              const <ProfileVehicleModification>[],
+            )
+          : _isOwnProfile
+          ? _profileVehicleModificationRepository.watchOwnerModifications(
+              userId: _userId,
+              vehicleId: vehicleId,
+            )
+          : _profileVehicleModificationRepository.watchVisibleModifications(
+              userId: _userId,
+              vehicleId: vehicleId,
+            ),
+      onAddModification: _openVehicleModificationEditor,
+      onEditModification: (vehicle, modification) =>
+          _openVehicleModificationEditor(vehicle, modification: modification),
+      onDeleteModification: _deleteVehicleModification,
+      timelineEntriesForVehicle: (vehicleId) =>
+          _isDebugProfileContent(vehicleId)
+          ? Stream<List<ProfileVehicleTimelineEntry>>.value(
+              const <ProfileVehicleTimelineEntry>[],
+            )
+          : _isOwnProfile
+          ? _profileVehicleTimelineRepository.watchOwnerEntries(
+              userId: _userId,
+              vehicleId: vehicleId,
+            )
+          : _profileVehicleTimelineRepository.watchVisibleEntries(
+              userId: _userId,
+              vehicleId: vehicleId,
+            ),
+      onAddTimelineEntry: _openVehicleTimelineEditor,
+      onEditTimelineEntry: (vehicle, entry) =>
+          _openVehicleTimelineEditor(vehicle, entry: entry),
+      onDeleteTimelineEntry: _deleteVehicleTimelineEntry,
+      onSaveVehicle: _profileVehicleRepository.saveVehicle,
+      profileViewCount: _profileRepository.watchProfileViewCount(_userId),
+      totalLikeCount: _socialPostRepository.watchTotalLikeCount(_userId),
     );
   }
 
@@ -679,6 +872,21 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         setState(() => _busyHeroVehicleIds.remove(vehicle.id));
       }
     }
+  }
+
+  Future<void> _handleProfileHeroGeneration(ProfileVehicle vehicle) async {
+    if (_isDebugProfileContent(vehicle.id)) {
+      if (_busyHeroVehicleIds.contains(vehicle.id)) return;
+      setState(() => _busyHeroVehicleIds.add(vehicle.id));
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+      setState(() => _busyHeroVehicleIds.remove(vehicle.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('KI-Testbild wurde aktualisiert.')),
+      );
+      return;
+    }
+    await _requestVehicleHeroImage(vehicle);
   }
 
   Future<void> _openVehicleEditor(
@@ -769,7 +977,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     if (!_isOwnProfile || _userId.isEmpty) return;
     final action = await showModalBottomSheet<_VehicleGalleryPickerAction>(
       context: context,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -869,7 +1077,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     return showModalBottomSheet<ProfileVehicleGalleryCategory>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) => SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -1061,158 +1269,6 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
           content: Text(
             'Timeline-Ereignis konnte nicht entfernt werden: $error',
           ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _requestVehicleEncounter(
-    profile_data.UserProfile? targetProfile,
-    ProfileVehicle targetVehicle,
-  ) async {
-    if (_isOwnProfile ||
-        _currentUserId.isEmpty ||
-        _userId.isEmpty ||
-        targetProfile == null) {
-      return;
-    }
-    try {
-      final vehicles = await _profileVehicleRepository
-          .watchOwnerVehicles(_currentUserId)
-          .first;
-      final visibleVehicles = vehicles
-          .where((vehicle) => vehicle.isPubliclyVisible)
-          .toList(growable: false);
-      if (!mounted) return;
-      if (visibleVehicles.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Gib zuerst mindestens ein Fahrzeug für Kontakte frei.',
-            ),
-          ),
-        );
-        return;
-      }
-      final draft = await showProfileVehicleEncounterRequestSheet(
-        context,
-        ownVehicles: visibleVehicles,
-        targetVehicle: targetVehicle,
-      );
-      if (draft == null || !mounted) return;
-      final currentProfile = await _profileRepository.getProfile(
-        _currentUserId,
-      );
-      final encounterId = _profileVehicleEncounterRepository.encounterIdFor(
-        firstUserId: _currentUserId,
-        firstVehicleId: draft.ownVehicle.id,
-        secondUserId: _userId,
-        secondVehicleId: targetVehicle.id,
-      );
-      await _profileVehicleEncounterRepository.createRequest(
-        ProfileVehicleEncounter(
-          id: encounterId,
-          initiatorUserId: _currentUserId,
-          recipientUserId: _userId,
-          initiatorVehicleId: draft.ownVehicle.id,
-          recipientVehicleId: targetVehicle.id,
-          initiatorVehicleLabel: draft.ownVehicle.displayName,
-          recipientVehicleLabel: targetVehicle.displayName,
-          participantUserIds: [_currentUserId, _userId],
-          initiatorPhotoUrl: currentProfile?.photoUrl,
-          recipientPhotoUrl: targetProfile.photoUrl,
-          type: draft.type,
-          status: ProfileVehicleEncounterStatus.requested,
-          locationLabel: draft.locationLabel,
-          encounterDate: draft.encounterDate,
-        ),
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Begegnungsanfrage gesendet.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Begegnung konnte nicht angefragt werden: $error'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _acceptVehicleEncounter(
-    ProfileVehicleEncounter encounter,
-  ) async {
-    try {
-      await _profileVehicleEncounterRepository.accept(encounter);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Begegnung bestätigt.')));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Begegnung konnte nicht bestätigt werden: $error'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _declineVehicleEncounter(
-    ProfileVehicleEncounter encounter,
-  ) async {
-    try {
-      await _profileVehicleEncounterRepository.decline(encounter);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Begegnungsanfrage abgelehnt.')),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Anfrage konnte nicht abgelehnt werden: $error'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _removeVehicleEncounter(
-    ProfileVehicleEncounter encounter,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Begegnung entfernen?'),
-        content: const Text(
-          'Die Begegnung wird aus beiden Fahrzeugprofilen entfernt.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Entfernen'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    try {
-      await _profileVehicleEncounterRepository.remove(encounter);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Begegnung entfernt.')));
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Begegnung konnte nicht entfernt werden: $error'),
         ),
       );
     }
@@ -1523,30 +1579,35 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
   Future<void> _showEditPublicProfileSheet(
     profile_data.UserProfile? profile,
   ) async {
+    final initialDisplayName = _displayNameFor(profile).trim();
+    final initialRegion = _profileRegionFor(profile).trim();
     final displayNameController = TextEditingController(
-      text: _displayNameFor(profile),
+      text: initialDisplayName,
     );
-    final bioController = TextEditingController(text: _publicBioFor(profile));
-    final regionController = TextEditingController(
-      text: _profileRegionFor(profile),
-    );
+    final regionController = TextEditingController(text: initialRegion);
     var isSaving = false;
-    var showVehicle = profile?.showVehicleOnPublicProfile ?? false;
-    var showPlate = profile?.showPlateOnPublicProfile ?? false;
-    var isPrivateProfile = profile?.isPrivateProfile ?? true;
-    var profileAccessEnabled = profile?.profileAccessEnabled ?? true;
-    var followersVisibility = profile?.followersVisibility ?? 'contacts';
-    var followingVisibility = profile?.followingVisibility ?? 'contacts';
+    var hasChanges = false;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            void updateChangeState() {
+              final changed =
+                  displayNameController.text.trim() != initialDisplayName ||
+                  regionController.text.trim() != initialRegion;
+              if (changed != hasChanges) {
+                setSheetState(() => hasChanges = changed);
+              }
+            }
+
             Future<void> savePublicProfile() async {
+              if (!hasChanges) return;
               final displayName = displayNameController.text.trim();
               if (displayName.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1567,14 +1628,18 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                         email: FirebaseAuth.instance.currentUser?.email ?? '',
                       ),
                   displayName: displayName,
-                  publicBio: bioController.text,
+                  publicBio: profile?.publicBio,
                   publicRegion: regionController.text,
-                  showVehicleOnPublicProfile: showVehicle,
-                  showPlateOnPublicProfile: showPlate,
-                  isPrivateProfile: isPrivateProfile,
-                  profileAccessEnabled: profileAccessEnabled,
-                  followersVisibility: followersVisibility,
-                  followingVisibility: followingVisibility,
+                  showVehicleOnPublicProfile:
+                      profile?.showVehicleOnPublicProfile ?? false,
+                  showPlateOnPublicProfile:
+                      profile?.showPlateOnPublicProfile ?? false,
+                  isPrivateProfile: profile?.isPrivateProfile ?? true,
+                  profileAccessEnabled: profile?.profileAccessEnabled ?? true,
+                  followersVisibility:
+                      profile?.followersVisibility ?? 'contacts',
+                  followingVisibility:
+                      profile?.followingVisibility ?? 'contacts',
                 );
                 if (!context.mounted) return;
                 Navigator.of(context).pop();
@@ -1584,12 +1649,15 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                     content: Text('Öffentliches Profil gespeichert.'),
                   ),
                 );
-              } catch (error) {
+              } catch (error, stackTrace) {
+                debugPrint(
+                  'Public profile could not be saved: $error\n$stackTrace',
+                );
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
+                  const SnackBar(
                     content: Text(
-                      'Profil konnte nicht gespeichert werden: $error',
+                      'Profil konnte gerade nicht gespeichert werden. Bitte versuche es erneut.',
                     ),
                   ),
                 );
@@ -1601,11 +1669,11 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
             }
 
             return Padding(
-              padding: EdgeInsets.fromLTRB(14, 0, 14, 14 + keyboardInset),
+              padding: EdgeInsets.fromLTRB(14, 12, 14, 14 + keyboardInset),
               child: GlassCard(
                 padding: const EdgeInsets.all(16),
                 child: SafeArea(
-                  top: false,
+                  top: true,
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1613,7 +1681,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                       children: [
                         _SheetHeader(
                           icon: Icons.edit_rounded,
-                          title: 'Öffentliches Profil',
+                          title: 'Profil bearbeiten',
                           onClose: () => Navigator.of(context).pop(),
                         ),
                         const SizedBox(height: 14),
@@ -1621,70 +1689,18 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                           controller: displayNameController,
                           label: 'Anzeigename',
                           icon: Icons.badge_outlined,
-                        ),
-                        const SizedBox(height: 10),
-                        _SocialTextField(
-                          controller: bioController,
-                          label: 'Biografie / Fahrzeugzeile',
-                          icon: Icons.directions_car_filled_outlined,
+                          onChanged: (_) => updateChangeState(),
                         ),
                         const SizedBox(height: 10),
                         _SocialTextField(
                           controller: regionController,
                           label: 'Stadt / Region',
                           icon: Icons.location_city_rounded,
-                        ),
-                        const SizedBox(height: 10),
-                        _PublicVisibilitySwitch(
-                          icon: Icons.directions_car_filled_outlined,
-                          title: 'Fahrzeug öffentlich anzeigen',
-                          value: showVehicle,
-                          onChanged: (value) =>
-                              setSheetState(() => showVehicle = value),
-                        ),
-                        const SizedBox(height: 10),
-                        _PublicVisibilitySwitch(
-                          icon: Icons.pin_outlined,
-                          title: 'Kennzeichen öffentlich anzeigen',
-                          value: showPlate,
-                          onChanged: (value) =>
-                              setSheetState(() => showPlate = value),
-                        ),
-                        const SizedBox(height: 10),
-                        _PublicVisibilitySwitch(
-                          icon: Icons.visibility_outlined,
-                          title: 'Profil für Kontakte freigeben',
-                          value: profileAccessEnabled,
-                          onChanged: (value) =>
-                              setSheetState(() => profileAccessEnabled = value),
-                        ),
-                        const SizedBox(height: 10),
-                        _PublicVisibilitySwitch(
-                          icon: Icons.lock_outline_rounded,
-                          title: 'Privates Profil',
-                          value: isPrivateProfile,
-                          onChanged: (value) =>
-                              setSheetState(() => isPrivateProfile = value),
-                        ),
-                        const SizedBox(height: 10),
-                        _ProfileVisibilitySelector(
-                          icon: Icons.people_outline_rounded,
-                          title: 'Follower-Liste',
-                          value: followersVisibility,
-                          onChanged: (value) =>
-                              setSheetState(() => followersVisibility = value),
-                        ),
-                        const SizedBox(height: 10),
-                        _ProfileVisibilitySelector(
-                          icon: Icons.person_search_outlined,
-                          title: 'Gefolgt-Liste',
-                          value: followingVisibility,
-                          onChanged: (value) =>
-                              setSheetState(() => followingVisibility = value),
+                          onChanged: (_) => updateChangeState(),
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'Persönliche Daten, Dokumente und Kennzeichen verwaltest du sicher in den Einstellungen.',
+                          'Sichtbarkeit, Fahrzeugdaten und Listen verwaltest du zentral in den Einstellungen.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: CaRismaDesignTokens.textSecondary,
@@ -1693,19 +1709,12 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                               ),
                         ),
                         const SizedBox(height: 14),
-                        CaRismaPrimaryButton(
+                        _ProfileOutlineActionButton(
                           label: 'Übernehmen',
                           icon: Icons.check_rounded,
                           isLoading: isSaving,
+                          isEnabled: hasChanges,
                           loadingLabel: 'Speichert...',
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          borderRadius: 20,
-                          iconSize: 21,
-                          fontSize: 15,
-                          showShadow: false,
                           onPressed: savePublicProfile,
                         ),
                       ],
@@ -1719,9 +1728,263 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       },
     );
 
+    await Future<void>.delayed(const Duration(milliseconds: 400));
     displayNameController.dispose();
-    bioController.dispose();
     regionController.dispose();
+  }
+
+  Future<void> _showProfilePostActions(
+    profile_data.UserProfile? profile,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(14),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SheetHeader(
+                icon: Icons.grid_view_rounded,
+                title: 'Beiträge',
+                onClose: () => Navigator.of(sheetContext).pop(),
+              ),
+              const SizedBox(height: 14),
+              _ProfilePhotoActionTile(
+                icon: Icons.add_photo_alternate_outlined,
+                title: 'Beitrag erstellen',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showCreatePostSheet(profile);
+                },
+              ),
+              const SizedBox(height: 8),
+              _ProfilePhotoActionTile(
+                icon: Icons.qr_code_2_rounded,
+                title: 'Profil teilen',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showProfileShareSheet(profile);
+                },
+              ),
+              const SizedBox(height: 8),
+              _ProfilePhotoActionTile(
+                icon: Icons.archive_outlined,
+                title: 'Archivierte Beiträge',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showArchivedPosts(profile);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showProfileShareSheet(profile_data.UserProfile? profile) async {
+    final link = 'https://plaqa.de/profile/$_userId';
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(14),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SheetHeader(
+                icon: Icons.qr_code_2_rounded,
+                title: 'Profil teilen',
+                onClose: () => Navigator.of(sheetContext).pop(),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: 210,
+                height: 210,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: QrImageView(
+                  data: link,
+                  backgroundColor: Colors.white,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Colors.black,
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _displayNameFor(profile),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: CaRismaSecondaryButton(
+                      label: 'Link kopieren',
+                      icon: Icons.link_rounded,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      borderRadius: 17,
+                      fontSize: 13,
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: link));
+                        if (sheetContext.mounted) {
+                          Navigator.of(sheetContext).pop();
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: CaRismaSecondaryButton(
+                      label: 'Teilen',
+                      icon: Icons.share_outlined,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      borderRadius: 17,
+                      fontSize: 13,
+                      onPressed: () => SharePlus.instance.share(
+                        ShareParams(text: 'Profil auf plaqa ansehen: $link'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showArchivedPosts(profile_data.UserProfile? profile) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(14),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(sheetContext).height * 0.72,
+            child: Column(
+              children: [
+                _SheetHeader(
+                  icon: Icons.archive_outlined,
+                  title: 'Archivierte Beiträge',
+                  onClose: () => Navigator.of(sheetContext).pop(),
+                ),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: StreamBuilder<List<SocialPost>>(
+                    stream: _socialPostRepository.watchUserPosts(
+                      userId: _userId,
+                      viewerUserId: _currentUserId,
+                      archived: true,
+                    ),
+                    builder: (context, snapshot) {
+                      final posts = snapshot.data ?? const <SocialPost>[];
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        );
+                      }
+                      if (posts.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Keine archivierten Beiträge.',
+                            style: TextStyle(
+                              color: CaRismaDesignTokens.textSecondary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        );
+                      }
+                      return ListView.separated(
+                        physics: const ClampingScrollPhysics(),
+                        itemCount: posts.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 9),
+                        itemBuilder: (context, index) {
+                          final post = posts[index];
+                          return Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: CaRismaDesignTokens.controlSurface,
+                              borderRadius: BorderRadius.circular(17),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SizedBox.square(
+                                    dimension: 58,
+                                    child: _SocialPostImage(post: post),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    post.caption?.trim().isNotEmpty == true
+                                        ? post.caption!.trim()
+                                        : 'Beitrag',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Wiederherstellen',
+                                  onPressed: () =>
+                                      _socialPostRepository.setPostArchived(
+                                        userId: _userId,
+                                        post: post,
+                                        archived: false,
+                                      ),
+                                  icon: const Icon(
+                                    Icons.unarchive_outlined,
+                                    color: CaRismaDesignTokens.blueBright,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showCreatePostSheet(
@@ -1732,49 +1995,120 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       return;
     }
 
-    XFile? selectedImage;
+    final selectedMedia = <XFile>[];
     bool isPicking = false;
     bool isPublishing = false;
     var selectedSection = initialSection;
+    var selectedVisibility = SocialPostVisibility.public;
     final descriptionController = TextEditingController();
     final locationController = TextEditingController();
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            Future<void> pickImage(ImageSource source) async {
+            Future<void> pickGalleryMedia() async {
               if (isPicking) return;
               setSheetState(() => isPicking = true);
               try {
-                final image = await _imagePicker.pickImage(
-                  source: source,
-                  imageQuality: 88,
-                  maxWidth: 1600,
-                );
-                if (image != null) setSheetState(() => selectedImage = image);
+                final media = await Navigator.of(context)
+                    .push<List<ProfilePostGallerySelection>>(
+                      MaterialPageRoute<List<ProfilePostGallerySelection>>(
+                        builder: (_) => const ProfilePostGalleryScreen(
+                          maxSelection: SocialPostRepository.maxMediaPerPost,
+                        ),
+                      ),
+                    );
+                if (media != null && media.isNotEmpty && context.mounted) {
+                  setSheetState(() {
+                    selectedMedia
+                      ..clear()
+                      ..addAll(media.map((item) => XFile(item.path)));
+                  });
+                }
+              } finally {
+                if (context.mounted) setSheetState(() => isPicking = false);
+              }
+            }
+
+            Future<void> pickCameraMedia() async {
+              if (isPicking) return;
+              final type = await showDialog<SocialPostMediaType>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Kamera'),
+                  content: const Text('Was möchtest du aufnehmen?'),
+                  actions: [
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(
+                        dialogContext,
+                      ).pop(SocialPostMediaType.image),
+                      icon: const Icon(Icons.photo_camera_rounded),
+                      label: const Text('Foto'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(
+                        dialogContext,
+                      ).pop(SocialPostMediaType.video),
+                      icon: const Icon(Icons.videocam_rounded),
+                      label: const Text('Video'),
+                    ),
+                  ],
+                ),
+              );
+              if (type == null || !context.mounted) return;
+              setSheetState(() => isPicking = true);
+              try {
+                final media = type == SocialPostMediaType.video
+                    ? await _imagePicker.pickVideo(
+                        source: ImageSource.camera,
+                        maxDuration: const Duration(minutes: 2),
+                      )
+                    : await _imagePicker.pickImage(
+                        source: ImageSource.camera,
+                        imageQuality: 88,
+                        maxWidth: 1600,
+                        requestFullMetadata: false,
+                      );
+                if (media != null) {
+                  setSheetState(() {
+                    if (selectedMedia.length ==
+                        SocialPostRepository.maxMediaPerPost) {
+                      selectedMedia.removeLast();
+                    }
+                    selectedMedia.add(media);
+                  });
+                }
               } finally {
                 if (context.mounted) setSheetState(() => isPicking = false);
               }
             }
 
             Future<void> publishPost() async {
-              final image = selectedImage;
-              if (image == null || isPublishing) return;
+              if (selectedMedia.isEmpty || isPublishing) return;
 
               setSheetState(() => isPublishing = true);
               try {
-                await _socialPostRepository.createImagePost(
+                await _socialPostRepository.createMediaPost(
                   userId: _userId,
-                  imageFile: File(image.path),
+                  uploads: selectedMedia
+                      .map(
+                        (media) => SocialPostUpload(
+                          file: File(media.path),
+                          type: _postMediaTypeFor(media),
+                        ),
+                      )
+                      .toList(growable: false),
                   caption: descriptionController.text,
                   vehicleLabel: _vehicleShortLabelFor(profile),
                   locationLabel: locationController.text,
                   section: selectedSection,
+                  visibility: selectedVisibility,
                 );
 
                 if (!context.mounted) return;
@@ -1783,12 +2117,13 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                 ScaffoldMessenger.of(this.context).showSnackBar(
                   const SnackBar(content: Text('Beitrag veröffentlicht.')),
                 );
-              } catch (error) {
+              } catch (error, stackTrace) {
+                debugPrint('Post could not be published: $error\n$stackTrace');
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
+                  const SnackBar(
                     content: Text(
-                      'Beitrag konnte nicht veröffentlicht werden: $error',
+                      'Beitrag konnte gerade nicht veröffentlicht werden. Bitte versuche es erneut.',
                     ),
                   ),
                 );
@@ -1800,11 +2135,11 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
             }
 
             return Padding(
-              padding: EdgeInsets.fromLTRB(14, 0, 14, 14 + keyboardInset),
+              padding: EdgeInsets.fromLTRB(14, 12, 14, 14 + keyboardInset),
               child: GlassCard(
                 padding: const EdgeInsets.all(16),
                 child: SafeArea(
-                  top: false,
+                  top: true,
                   child: SingleChildScrollView(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1816,11 +2151,13 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                           onClose: () => Navigator.of(context).pop(),
                         ),
                         const SizedBox(height: 14),
-                        _PostImagePicker(
-                          image: selectedImage,
+                        _PostMediaPicker(
+                          media: selectedMedia,
                           isLoading: isPicking,
-                          onGallery: () => pickImage(ImageSource.gallery),
-                          onCamera: () => pickImage(ImageSource.camera),
+                          onGallery: pickGalleryMedia,
+                          onCamera: pickCameraMedia,
+                          onRemove: (media) =>
+                              setSheetState(() => selectedMedia.remove(media)),
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -1858,6 +2195,12 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                           value: _vehicleShortLabelFor(profile),
                         ),
                         const SizedBox(height: 10),
+                        _PostVisibilitySelector(
+                          value: selectedVisibility,
+                          onChanged: (value) =>
+                              setSheetState(() => selectedVisibility = value),
+                        ),
+                        const SizedBox(height: 10),
                         _SocialTextField(
                           controller: locationController,
                           label: 'Ort (optional)',
@@ -1865,23 +2208,15 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                           maxLength: 120,
                         ),
                         const SizedBox(height: 14),
-                        CaRismaPrimaryButton(
+                        _ProfileOutlineActionButton(
                           label: 'Veröffentlichen',
                           icon: Icons.send_rounded,
                           isEnabled:
-                              selectedImage != null &&
+                              selectedMedia.isNotEmpty &&
                               !isPicking &&
                               !isPublishing,
                           isLoading: isPublishing,
                           loadingLabel: 'Veröffentlicht...',
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          borderRadius: 20,
-                          iconSize: 21,
-                          fontSize: 15,
-                          showShadow: false,
                           onPressed: publishPost,
                         ),
                         const SizedBox(height: 10),
@@ -1906,120 +2241,209 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       },
     );
 
+    await Future<void>.delayed(const Duration(milliseconds: 400));
     descriptionController.dispose();
     locationController.dispose();
   }
 
-  Future<void> _showPostDetails(SocialPost post) {
+  Future<void> _showPostDetails(
+    SocialPost post,
+    profile_data.UserProfile? profile,
+  ) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        final maxImageHeight = MediaQuery.of(context).size.height * 0.56;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      builder: (sheetContext) => ProfilePostDetailsSheet(
+        post: post,
+        repository: _socialPostRepository,
+        viewerUserId: _currentUserId,
+        viewerDisplayName:
+            FirebaseAuth.instance.currentUser?.displayName?.trim().isNotEmpty ==
+                true
+            ? FirebaseAuth.instance.currentUser!.displayName!.trim()
+            : 'Nutzer',
+        viewerPhotoUrl:
+            FirebaseAuth.instance.currentUser?.photoURL?.trim() ?? '',
+        ownerDisplayName: _displayNameFor(profile),
+        ownerPhotoUrl: profile?.photoUrl?.trim() ?? '',
+        isOwner: _isOwnProfile,
+        isDemo: _isDebugProfileContent(post.id),
+        demoMediaBuilder: (post, _) => _SocialPostImage(post: post),
+        onEdit: () {
+          Navigator.of(sheetContext).pop();
+          _showEditPostSheet(post);
+        },
+        onTogglePin: () {
+          Navigator.of(sheetContext).pop();
+          _togglePostPinned(post);
+        },
+        onArchive: () {
+          Navigator.of(sheetContext).pop();
+          _archivePost(post);
+        },
+        onDelete: () {
+          Navigator.of(sheetContext).pop();
+          _confirmDeletePost(post);
+        },
+        onShare: () => _sharePost(post),
+      ),
+    );
+  }
+
+  Future<void> _showEditPostSheet(SocialPost post) async {
+    if (_isDebugProfileContent(post.id)) return;
+    final captionController = TextEditingController(text: post.caption ?? '');
+    final locationController = TextEditingController(
+      text: post.locationLabel ?? '',
+    );
+    var visibility = post.visibilityMode;
+    var isSaving = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            14,
+            12,
+            14,
+            14 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: GlassCard(
-            padding: const EdgeInsets.all(14),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SheetHeader(
-                      icon: Icons.photo_outlined,
-                      title: 'Beitrag',
-                      onClose: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: maxImageHeight),
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Image.network(
-                            post.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                DecoratedBox(
-                                  decoration: const BoxDecoration(
-                                    color: CaRismaDesignTokens.surface2,
-                                  ),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.broken_image_outlined,
-                                      color: CaRismaDesignTokens.textMuted,
-                                      size: 34,
-                                    ),
-                                  ),
-                                ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (post.caption?.trim().isNotEmpty ?? false) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        post.caption!.trim(),
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                    if (post.vehicleLabel?.trim().isNotEmpty ?? false) ...[
-                      const SizedBox(height: 14),
-                      _PostMetaTile(
-                        icon: Icons.directions_car_filled_outlined,
-                        title: 'Fahrzeug',
-                        value: post.vehicleLabel!.trim(),
-                      ),
-                    ],
-                    if (post.locationLabel?.trim().isNotEmpty ?? false) ...[
-                      const SizedBox(height: 10),
-                      _PostMetaTile(
-                        icon: Icons.location_on_outlined,
-                        title: 'Ort',
-                        value: post.locationLabel!.trim(),
-                      ),
-                    ],
-                    if (_isOwnProfile) ...[
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _confirmDeletePost(post),
-                          icon: const Icon(Icons.delete_outline_rounded),
-                          label: const Text('Beitrag löschen'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFEF4444),
-                            side: const BorderSide(
-                              color: Color(0xFFEF4444),
-                              width: 1,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SheetHeader(
+                  icon: Icons.edit_rounded,
+                  title: 'Beitrag bearbeiten',
+                  onClose: () => Navigator.of(sheetContext).pop(),
                 ),
-              ),
+                const SizedBox(height: 14),
+                _SocialTextField(
+                  controller: captionController,
+                  label: 'Beschreibung',
+                  icon: Icons.notes_rounded,
+                  maxLength: 220,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 10),
+                _SocialTextField(
+                  controller: locationController,
+                  label: 'Ort (optional)',
+                  icon: Icons.location_on_outlined,
+                  maxLength: 120,
+                ),
+                const SizedBox(height: 10),
+                _PostVisibilitySelector(
+                  value: visibility,
+                  onChanged: (value) => setSheetState(() => visibility = value),
+                ),
+                const SizedBox(height: 14),
+                _ProfileOutlineActionButton(
+                  label: 'Änderungen speichern',
+                  icon: Icons.check_rounded,
+                  isLoading: isSaving,
+                  loadingLabel: 'Speichert...',
+                  onPressed: () async {
+                    setSheetState(() => isSaving = true);
+                    try {
+                      await _socialPostRepository.updatePost(
+                        userId: _userId,
+                        post: post,
+                        caption: captionController.text,
+                        locationLabel: locationController.text,
+                        visibility: visibility,
+                      );
+                      if (sheetContext.mounted) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    } catch (_) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Beitrag konnte gerade nicht gespeichert werden.',
+                            ),
+                          ),
+                        );
+                      }
+                    } finally {
+                      if (context.mounted) {
+                        setSheetState(() => isSaving = false);
+                      }
+                    }
+                  },
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    captionController.dispose();
+    locationController.dispose();
+  }
+
+  Future<void> _togglePostPinned(SocialPost post) async {
+    if (_isDebugProfileContent(post.id)) return;
+    try {
+      await _socialPostRepository.setPostPinned(
+        userId: _userId,
+        post: post,
+        pinned: !post.isPinned,
+      );
+    } on SocialPostRepositoryException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  Future<void> _archivePost(SocialPost post) async {
+    if (_isDebugProfileContent(post.id)) return;
+    try {
+      await _socialPostRepository.setPostArchived(
+        userId: _userId,
+        post: post,
+        archived: true,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Beitrag archiviert.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Beitrag konnte nicht archiviert werden.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _sharePost(SocialPost post) async {
+    final link = 'https://plaqa.de/profile/${post.ownerUserId}/post/${post.id}';
+    await SharePlus.instance.share(
+      ShareParams(text: 'Beitrag auf plaqa ansehen: $link'),
     );
   }
 
   Future<void> _confirmDeletePost(SocialPost post) async {
+    if (_isDebugProfileContent(post.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Der Beispielbeitrag wird nur lokal angezeigt.'),
+        ),
+      );
+      return;
+    }
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -2047,14 +2471,18 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     try {
       await _socialPostRepository.deletePost(userId: _userId, post: post);
       if (!mounted) return;
-      Navigator.of(context).pop();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Beitrag gelöscht.')));
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('Post could not be deleted: $error\n$stackTrace');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Beitrag konnte nicht gelöscht werden: $error')),
+        const SnackBar(
+          content: Text(
+            'Beitrag konnte gerade nicht gelöscht werden. Bitte versuche es erneut.',
+          ),
+        ),
       );
     }
   }
@@ -2096,9 +2524,120 @@ class _SheetHeader extends StatelessWidget {
   }
 }
 
+class _ProfileOutlineActionButton extends StatelessWidget {
+  const _ProfileOutlineActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.isEnabled = true,
+    this.isLoading = false,
+    this.loadingLabel,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool isEnabled;
+  final bool isLoading;
+  final String? loadingLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = isEnabled && !isLoading;
+    return Opacity(
+      opacity: enabled || isLoading ? 1 : 0.46,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: enabled ? onPressed : null,
+          borderRadius: BorderRadius.circular(18),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: CaRismaDesignTokens.card,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: enabled || isLoading
+                    ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: 1.4,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading)
+                  const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: CaRismaDesignTokens.blueBright,
+                    ),
+                  )
+                else
+                  Icon(icon, color: Colors.white, size: 20),
+                const SizedBox(width: 9),
+                Flexible(
+                  child: Text(
+                    isLoading ? loadingLabel ?? label : label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileTopBar extends StatelessWidget {
+  const _ProfileTopBar({required this.showBack, required this.onBack});
+
+  final bool showBack;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: showBack ? 42 : 0,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: showBack
+                ? IconButton(
+                    tooltip: 'Zurück',
+                    onPressed: onBack,
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  )
+                : const SizedBox.square(dimension: 42),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProfileHeroCard extends StatelessWidget {
   const _ProfileHeroCard({
     required this.profile,
+    required this.primaryVehicle,
+    required this.compact,
     required this.postCount,
     required this.followerCount,
     required this.followingCount,
@@ -2107,12 +2646,14 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.isCreatingStory,
     required this.isOwnProfile,
     required this.isReadOnly,
+    required this.showPreviewToggle,
+    required this.isPreviewing,
+    required this.onPreviewToggle,
     required this.activeStory,
+    required this.onEditProfile,
     required this.onAvatarTap,
     required this.onAvatarLongPress,
     required this.onAddStory,
-    required this.onEdit,
-    required this.onCreatePost,
     required this.onFollow,
     required this.onMessage,
     required this.onFollowersTap,
@@ -2120,6 +2661,8 @@ class _ProfileHeroCard extends StatelessWidget {
   });
 
   final profile_data.UserProfile? profile;
+  final ProfileVehicle? primaryVehicle;
+  final bool compact;
   final int postCount;
   final int? followerCount;
   final int? followingCount;
@@ -2128,12 +2671,14 @@ class _ProfileHeroCard extends StatelessWidget {
   final bool isCreatingStory;
   final bool isOwnProfile;
   final bool isReadOnly;
+  final bool showPreviewToggle;
+  final bool isPreviewing;
+  final VoidCallback onPreviewToggle;
   final ChatStoryRecord? activeStory;
+  final VoidCallback? onEditProfile;
   final VoidCallback? onAvatarTap;
   final VoidCallback? onAvatarLongPress;
   final VoidCallback? onAddStory;
-  final VoidCallback onEdit;
-  final VoidCallback onCreatePost;
   final VoidCallback onFollow;
   final VoidCallback onMessage;
   final VoidCallback? onFollowersTap;
@@ -2141,205 +2686,681 @@ class _ProfileHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vehicle = primaryVehicle;
+    final heroImageUrl = vehicle?.heroImageUrl?.trim() ?? '';
+    final isDebugVehicle = vehicle?.id == debugProfileVehicleId;
+    final canShowPlate =
+        vehicle != null &&
+        (isOwnProfile ||
+            ((profile?.showPlateOnPublicProfile ?? false) &&
+                vehicle.showPlate &&
+                vehicle.plateDisplayMode != ProfilePlateDisplayMode.hidden));
+    final isVerified = profile?.verificationStatus == 'verified';
+    final region = profile?.publicRegion?.trim() ?? '';
+
     return GlassCard(
-      padding: const EdgeInsets.all(16),
-      glow: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _SocialAvatar(
-                profile: profile,
-                size: 68,
-                hasActiveStory: activeStory != null,
-                showStoryBadge: isOwnProfile,
-                storyBadgeIcon: activeStory == null
-                    ? Icons.photo_camera_rounded
-                    : Icons.add_rounded,
-                isStoryActionBusy: isCreatingStory,
-                onTap: onAvatarTap,
-                onLongPress: onAvatarLongPress,
-                onStoryBadgeTap: onAddStory,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _displayNameFor(profile),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 23,
-                            height: 1,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _profileSubtitleFor(profile),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: CaRismaDesignTokens.textSecondary,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
+        child: SizedBox(
+          height: compact ? 206 : 226,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding = compact ? 12.0 : 15.0;
+              final statsWidth = constraints.maxWidth * 0.51;
+              final avatarSize = compact ? 58.0 : 66.0;
+              final logoWidth = compact ? 154.0 : 174.0;
+              final availableVehicleWidth =
+                  constraints.maxWidth -
+                  statsWidth -
+                  (horizontalPadding * 2) -
+                  11;
+              final vehicleCardWidth = math.min(
+                availableVehicleWidth,
+                compact ? 158.0 : 172.0,
+              );
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFF20242B),
+                          Color(0xFF111419),
+                          Color(0xFF080A0D),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                  if (vehicle != null)
+                    Positioned(
+                      top: 14,
+                      right: -18,
+                      width: constraints.maxWidth * 0.68,
+                      height: compact ? 132 : 148,
+                      child: _ProfileVehicleHeroArtwork(
+                        imageUrl: heroImageUrl,
+                        hasVehicle: true,
+                        isDebugVehicle: isDebugVehicle,
+                      ),
+                    ),
+                  if (showPreviewToggle)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: _ProfileHeaderIconButton(
+                        tooltip: isPreviewing
+                            ? 'Eigene Ansicht öffnen'
+                            : 'Profil als Besucher ansehen',
+                        icon: isPreviewing
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        onPressed: onPreviewToggle,
+                      ),
+                    ),
+                  Positioned(
+                    left: horizontalPadding,
+                    top: compact ? 13 : 16,
+                    right: constraints.maxWidth * 0.38,
+                    child: Row(
+                      children: [
+                        _SocialAvatar(
+                          profile: profile,
+                          size: avatarSize,
+                          hasActiveStory: activeStory != null,
+                          showStoryBadge: isOwnProfile,
+                          storyBadgeIcon: activeStory == null
+                              ? Icons.photo_camera_rounded
+                              : Icons.add_rounded,
+                          isStoryActionBusy: isCreatingStory,
+                          onTap: onAvatarTap,
+                          onLongPress: onAvatarLongPress,
+                          onStoryBadgeTap: onAddStory,
+                        ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      _displayNameFor(profile),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: compact ? 18 : 21,
+                                          ),
+                                    ),
+                                  ),
+                                  if (isVerified) ...[
+                                    const SizedBox(width: 5),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: CaRismaDesignTokens.blueBright,
+                                      size: 18,
+                                    ),
+                                  ],
+                                  if (isOwnProfile &&
+                                      onEditProfile != null) ...[
+                                    const SizedBox(width: 5),
+                                    _ProfileHeaderIconButton(
+                                      tooltip: 'Profil bearbeiten',
+                                      icon: Icons.edit_rounded,
+                                      onPressed: onEditProfile,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                region.isNotEmpty
+                                    ? region
+                                    : _profileSubtitleFor(profile),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: CaRismaDesignTokens.textSecondary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    left: horizontalPadding,
+                    top: compact ? 82 : 91,
+                    width: logoWidth,
+                    child: Image.asset(
+                      'assets/images/plaqa_logo_transparent.png',
+                      height: compact ? 38 : 43,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerLeft,
+                      errorBuilder: (_, _, _) => const Text(
+                        'plaqa',
+                        textAlign: TextAlign.left,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: horizontalPadding,
+                    bottom: compact ? 14 : 16,
+                    width: statsWidth,
+                    child: _ProfileHeroStats(
+                      posts: postCount,
+                      followers: followerCount,
+                      following: followingCount,
+                      onFollowersTap: onFollowersTap,
+                      onFollowingTap: onFollowingTap,
+                      visitorActions: !isOwnProfile && !isReadOnly
+                          ? _ProfileVisitorHeaderActions(
+                              followState: followState,
+                              isFollowActionBusy: isFollowActionBusy,
+                              onFollow: onFollow,
+                              onMessage: onMessage,
+                            )
+                          : null,
+                    ),
+                  ),
+                  if (vehicle != null)
+                    Positioned(
+                      right: horizontalPadding,
+                      bottom: compact ? 11 : 13,
+                      width: vehicleCardWidth,
+                      child: _ProfileMainVehicleCard(
+                        vehicle: vehicle,
+                        showPlate: canShowPlate,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 18),
-          _ProfileStatsRow(
-            posts: postCount,
-            followers: followerCount,
-            following: followingCount,
-            onFollowersTap: onFollowersTap,
-            onFollowingTap: onFollowingTap,
-          ),
-          if (isOwnProfile) ...[
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: CaRismaSecondaryButton(
-                    label: 'Profil bearbeiten',
-                    icon: Icons.edit_rounded,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    borderRadius: 18,
-                    fontSize: 13.5,
-                    onPressed: onEdit,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CaRismaPrimaryButton(
-                    label: 'Beitrag erstellen',
-                    icon: Icons.add_rounded,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 12,
-                    ),
-                    borderRadius: 18,
-                    iconSize: 18,
-                    fontSize: 12,
-                    showShadow: false,
-                    onPressed: onCreatePost,
-                  ),
-                ),
-              ],
-            ),
-          ] else if (!isReadOnly) ...[
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: _FollowProfileButton(
-                    state: followState,
-                    isLoading: isFollowActionBusy,
-                    onPressed: onFollow,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CaRismaSecondaryButton(
-                    label: 'Nachricht',
-                    icon: Icons.chat_bubble_outline_rounded,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    borderRadius: 18,
-                    fontSize: 13.5,
-                    onPressed: onMessage,
-                  ),
-                ),
-              ],
-            ),
-            if (followState == ProfileFollowState.followedBy) ...[
-              const SizedBox(height: 9),
-              Text(
-                'Folgt dir',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: CaRismaDesignTokens.textSecondary,
-                  fontWeight: FontWeight.w800,
-                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileVisitorHeaderActions extends StatelessWidget {
+  const _ProfileVisitorHeaderActions({
+    required this.followState,
+    required this.isFollowActionBusy,
+    required this.onFollow,
+    required this.onMessage,
+  });
+
+  final ProfileFollowState followState;
+  final bool isFollowActionBusy;
+  final VoidCallback onFollow;
+  final VoidCallback onMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final isFollowing =
+        followState == ProfileFollowState.following ||
+        followState == ProfileFollowState.mutual;
+    final isRequested = followState == ProfileFollowState.followRequested;
+    final isDisabled =
+        followState == ProfileFollowState.blocked ||
+        followState == ProfileFollowState.restricted;
+    final followIcon = isRequested
+        ? Icons.schedule_rounded
+        : isFollowing
+        ? Icons.how_to_reg_rounded
+        : isDisabled
+        ? Icons.block_rounded
+        : Icons.person_add_alt_1_rounded;
+    final followTooltip = isRequested
+        ? 'Anfrage gesendet'
+        : isFollowing
+        ? 'Gefolgt'
+        : isDisabled
+        ? 'Folgen nicht verfügbar'
+        : 'Folgen';
+
+    return _ProfileVisitorActionsData(
+      follow: _ProfileHeaderIconButton(
+        tooltip: followTooltip,
+        icon: followIcon,
+        isBusy: isFollowActionBusy,
+        isActive: isFollowing || isRequested,
+        onPressed: isDisabled || isFollowActionBusy ? null : onFollow,
+      ),
+      message: _ProfileHeaderIconButton(
+        tooltip: 'Nachricht senden',
+        icon: Icons.chat_bubble_outline_rounded,
+        onPressed: onMessage,
+      ),
+    );
+  }
+}
+
+class _ProfileVisitorActionsData extends StatelessWidget {
+  const _ProfileVisitorActionsData({
+    required this.follow,
+    required this.message,
+  });
+
+  final Widget follow;
+  final Widget message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Center(child: follow)),
+        Expanded(child: Center(child: message)),
+        const Expanded(child: SizedBox.shrink()),
+      ],
+    );
+  }
+}
+
+class _ProfileHeaderIconButton extends StatelessWidget {
+  const _ProfileHeaderIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.isBusy = false,
+    this.isActive = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool isBusy;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: Ink(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xE6080B12),
+              border: Border.all(
+                color: isActive
+                    ? CaRismaDesignTokens.bluePrimary
+                    : Colors.white.withValues(alpha: 0.15),
               ),
-            ],
+            ),
+            child: Center(
+              child: isBusy
+                  ? const SizedBox.square(
+                      dimension: 13,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: CaRismaDesignTokens.blueBright,
+                      ),
+                    )
+                  : Icon(
+                      icon,
+                      color: isActive
+                          ? CaRismaDesignTokens.blueBright
+                          : Colors.white,
+                      size: 17,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileVehicleHeroArtwork extends StatelessWidget {
+  const _ProfileVehicleHeroArtwork({
+    required this.imageUrl,
+    required this.hasVehicle,
+    required this.isDebugVehicle,
+  });
+
+  final String imageUrl;
+  final bool hasVehicle;
+  final bool isDebugVehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 24),
+        child: Icon(
+          hasVehicle
+              ? Icons.directions_car_filled_rounded
+              : Icons.route_rounded,
+          color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.42),
+          size: 72,
+        ),
+      ),
+    );
+    final image = isDebugVehicle
+        ? Image.asset(
+            'assets/images/debug_bmw_x6_m50d.png',
+            fit: BoxFit.contain,
+            alignment: Alignment.centerRight,
+            filterQuality: FilterQuality.high,
+          )
+        : imageUrl.isEmpty
+        ? fallback
+        : Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            alignment: Alignment.centerRight,
+            filterQuality: FilterQuality.high,
+            loadingBuilder: (_, child, progress) =>
+                progress == null ? child : fallback,
+            errorBuilder: (_, _, _) => fallback,
+          );
+    final enhancedImage = ColorFiltered(
+      colorFilter: const ColorFilter.matrix(<double>[
+        1.12,
+        0,
+        0,
+        0,
+        8,
+        0,
+        1.12,
+        0,
+        0,
+        10,
+        0,
+        0,
+        1.18,
+        0,
+        16,
+        0,
+        0,
+        0,
+        1,
+        0,
+      ]),
+      child: image,
+    );
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => const LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [Colors.transparent, Colors.white, Colors.white],
+        stops: [0, 0.18, 1],
+      ).createShader(bounds),
+      child: ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (bounds) => const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white, Colors.white, Colors.transparent],
+          stops: [0, 0.88, 1],
+        ).createShader(bounds),
+        child: enhancedImage,
+      ),
+    );
+  }
+}
+
+class _ProfileHeroStats extends StatelessWidget {
+  const _ProfileHeroStats({
+    required this.posts,
+    required this.followers,
+    required this.following,
+    required this.onFollowersTap,
+    required this.onFollowingTap,
+    this.visitorActions,
+  });
+
+  final int posts;
+  final int? followers;
+  final int? following;
+  final VoidCallback? onFollowersTap;
+  final VoidCallback? onFollowingTap;
+  final Widget? visitorActions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (visitorActions != null) ...[
+          visitorActions!,
+          const SizedBox(height: 3),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: _ProfileHeroStat(label: 'Beiträge', value: posts),
+            ),
+            const _ProfileStatDivider(),
+            Expanded(
+              child: _ProfileHeroStat(
+                label: 'Follower',
+                value: followers,
+                onTap: onFollowersTap,
+              ),
+            ),
+            const _ProfileStatDivider(),
+            Expanded(
+              child: _ProfileHeroStat(
+                label: 'Folgt',
+                value: following,
+                onTap: onFollowingTap,
+              ),
+            ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileHeroStat extends StatelessWidget {
+  const _ProfileHeroStat({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
+
+  final String label;
+  final int? value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value?.toString() ?? '–',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileStatDivider extends StatelessWidget {
+  const _ProfileStatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 34,
+      color: Colors.white.withValues(alpha: 0.13),
+    );
+  }
+}
+
+class _ProfileMainVehicleCard extends StatelessWidget {
+  const _ProfileMainVehicleCard({
+    required this.vehicle,
+    required this.showPlate,
+  });
+
+  final ProfileVehicle vehicle;
+  final bool showPlate;
+
+  @override
+  Widget build(BuildContext context) {
+    final regionPresentation = registrationRegionPresentationFor(
+      countryCode: vehicle.countryCode,
+      plateCode: vehicle.plateRegion,
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 7),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xE5142C55), Color(0xED0A1427)],
+        ),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.72),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.16),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const style = TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              );
+              return Text(
+                _fittingVehicleLabel(vehicle, constraints.maxWidth, style),
+                maxLines: 1,
+                style: style,
+              );
+            },
+          ),
+          const SizedBox(height: 5),
+          if (showPlate)
+            SizedBox(
+              height: 26,
+              width: double.infinity,
+              child: FittedBox(
+                fit: BoxFit.contain,
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: 300,
+                  height: 78,
+                  child: CaRismaLicensePlatePreview(
+                    countryCode: vehicle.countryCode,
+                    region: vehicle.plateRegion,
+                    letters: vehicle.plateLetters,
+                    numbers: vehicle.plateNumbers,
+                    regionPresentation: regionPresentation,
+                  ),
+                ),
+              ),
+            )
+          else
+            const Text(
+              'Kennzeichen verborgen',
+              style: TextStyle(
+                color: CaRismaDesignTokens.textSecondary,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-class _FollowProfileButton extends StatelessWidget {
-  const _FollowProfileButton({
-    required this.state,
-    required this.isLoading,
-    required this.onPressed,
-  });
+String _fittingVehicleLabel(
+  ProfileVehicle vehicle,
+  double maxWidth,
+  TextStyle style,
+) {
+  final parts = <String>[
+    vehicle.brand.trim(),
+    vehicle.model.trim(),
+    vehicle.series?.trim() ?? '',
+  ].where((part) => part.isNotEmpty).toList(growable: false);
+  if (parts.isEmpty) return 'Fahrzeug';
 
-  final ProfileFollowState state;
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final isFollowing =
-        state == ProfileFollowState.following ||
-        state == ProfileFollowState.mutual;
-    final isRequested = state == ProfileFollowState.followRequested;
-    final isDisabled =
-        state == ProfileFollowState.blocked ||
-        state == ProfileFollowState.restricted;
-    final label = switch (state) {
-      ProfileFollowState.notFollowing => 'Folgen',
-      ProfileFollowState.followRequested => 'Angefragt',
-      ProfileFollowState.following => 'Gefolgt',
-      ProfileFollowState.followedBy => 'Zurückfolgen',
-      ProfileFollowState.mutual => 'Gefolgt',
-      ProfileFollowState.blocked => 'Blockiert',
-      ProfileFollowState.restricted => 'Eingeschränkt',
-    };
-
-    if (isFollowing || isRequested || isDisabled) {
-      return CaRismaSecondaryButton(
-        label: isLoading ? 'Wird geändert...' : label,
-        icon: isRequested
-            ? Icons.schedule_rounded
-            : isFollowing
-            ? Icons.person_remove_outlined
-            : Icons.block_rounded,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        borderRadius: 18,
-        fontSize: 13.5,
-        isEnabled: !isLoading && !isDisabled,
-        onPressed: onPressed,
-      );
+  for (var length = parts.length; length > 0; length -= 1) {
+    final candidate = parts.take(length).join(' ');
+    final painter = TextPainter(
+      text: TextSpan(text: candidate, style: style),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    if (!painter.didExceedMaxLines && painter.width <= maxWidth) {
+      return candidate;
     }
-
-    return CaRismaPrimaryButton(
-      label: isLoading ? 'Wird geändert...' : label,
-      icon: Icons.person_add_alt_1_rounded,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      borderRadius: 18,
-      iconSize: 20,
-      fontSize: 13.5,
-      showShadow: false,
-      isLoading: isLoading,
-      onPressed: onPressed,
-    );
   }
+  return parts.first;
 }
 
 class _FollowRequestsBanner extends StatelessWidget {
@@ -2359,9 +3380,10 @@ class _FollowRequestsBanner extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.12),
+            color: CaRismaDesignTokens.card,
             border: Border.all(
-              color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.24),
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.82),
+              width: 1.3,
             ),
           ),
           child: Row(
@@ -2982,105 +4004,18 @@ class _ProfilePhotoActionTile extends StatelessWidget {
   }
 }
 
-class _ProfileStatsRow extends StatelessWidget {
-  const _ProfileStatsRow({
-    required this.posts,
-    required this.followers,
-    required this.following,
-    required this.onFollowersTap,
-    required this.onFollowingTap,
-  });
-
-  final int posts;
-  final int? followers;
-  final int? following;
-  final VoidCallback? onFollowersTap;
-  final VoidCallback? onFollowingTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ProfileStat(label: 'Beiträge', value: posts),
-        ),
-        Expanded(
-          child: _ProfileStat(
-            label: 'Follower',
-            value: followers,
-            onTap: onFollowersTap,
-          ),
-        ),
-        Expanded(
-          child: _ProfileStat(
-            label: 'Folgt',
-            value: following,
-            onTap: onFollowingTap,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileStat extends StatelessWidget {
-  const _ProfileStat({required this.label, required this.value, this.onTap});
-
-  final String label;
-  final int? value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          splashFactory: NoSplash.splashFactory,
-          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: CaRismaDesignTokens.controlSurface,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  value?.toString() ?? '–',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: CaRismaDesignTokens.textSecondary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ProfileTabs extends StatelessWidget {
-  const _ProfileTabs({required this.selectedIndex, required this.onChanged});
+  const _ProfileTabs({
+    required this.selectedIndex,
+    required this.onChanged,
+    this.onCreatePost,
+    this.onAddVehicle,
+  });
 
   final int selectedIndex;
   final ValueChanged<int> onChanged;
+  final VoidCallback? onCreatePost;
+  final VoidCallback? onAddVehicle;
 
   @override
   Widget build(BuildContext context) {
@@ -3094,6 +4029,13 @@ class _ProfileTabs extends StatelessWidget {
               icon: Icons.grid_view_rounded,
               isSelected: selectedIndex == 0,
               onTap: () => onChanged(0),
+              trailing: onCreatePost == null
+                  ? null
+                  : _ProfileTabActionButton(
+                      tooltip: 'Beitrag erstellen',
+                      icon: Icons.add_rounded,
+                      onPressed: onCreatePost!,
+                    ),
             ),
           ),
           const SizedBox(width: 6),
@@ -3103,6 +4045,13 @@ class _ProfileTabs extends StatelessWidget {
               icon: Icons.directions_car_rounded,
               isSelected: selectedIndex == 1,
               onTap: () => onChanged(1),
+              trailing: onAddVehicle == null
+                  ? null
+                  : _ProfileTabActionButton(
+                      tooltip: 'Fahrzeug hinzufügen',
+                      icon: Icons.add_rounded,
+                      onPressed: onAddVehicle!,
+                    ),
             ),
           ),
         ],
@@ -3117,12 +4066,14 @@ class _ProfileTabButton extends StatelessWidget {
     required this.icon,
     required this.isSelected,
     required this.onTap,
+    this.trailing,
   });
 
   final String label;
   final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -3171,10 +4122,57 @@ class _ProfileTabButton extends StatelessWidget {
                   ),
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 4), trailing!],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ProfileTabActionButton extends StatelessWidget {
+  const _ProfileTabActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: _ProfileTabActionIcon(icon: icon),
+      ),
+    );
+  }
+}
+
+class _ProfileTabActionIcon extends StatelessWidget {
+  const _ProfileTabActionIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(
+          color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.86),
+        ),
+      ),
+      child: Icon(icon, color: Colors.white, size: 18),
     );
   }
 }
@@ -3200,11 +4198,14 @@ class _SocialPostSectionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (posts.isEmpty) {
-      return _EmptyPostsState(
-        canCreatePost: canCreatePost,
-        onCreatePost: onCreatePost,
-        title: emptyTitle,
-        description: emptyDescription,
+      return SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: _EmptyPostsState(
+          canCreatePost: canCreatePost,
+          onCreatePost: onCreatePost,
+          title: emptyTitle,
+          description: emptyDescription,
+        ),
       );
     }
 
@@ -3334,14 +4335,12 @@ class _EmptyPostsState extends StatelessWidget {
           ),
           if (canCreatePost) ...[
             const SizedBox(height: 16),
-            CaRismaPrimaryButton(
+            CaRismaSecondaryButton(
               label: 'Ersten Beitrag erstellen',
               icon: Icons.add_rounded,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               borderRadius: 20,
-              iconSize: 21,
               fontSize: 15,
-              showShadow: false,
               onPressed: onCreatePost,
             ),
           ],
@@ -3361,8 +4360,8 @@ class _ProfilePostGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return GridView.builder(
       key: const ValueKey('profile-post-grid'),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.zero,
       itemCount: posts.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
@@ -3391,25 +4390,35 @@ class _ProfilePostGrid extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      post.imageUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Icon(
-                        Icons.broken_image_outlined,
-                        color: CaRismaDesignTokens.textMuted,
-                        size: 24,
+                    _SocialPostImage(post: post),
+                    if (post.resolvedMedia.length > 1)
+                      const Positioned(
+                        top: 7,
+                        right: 7,
+                        child: Icon(
+                          Icons.collections_rounded,
+                          color: Colors.white,
+                          size: 17,
+                        ),
                       ),
-                    ),
+                    if (post.resolvedMedia.first.isVideo)
+                      const Center(
+                        child: Icon(
+                          Icons.play_circle_fill_rounded,
+                          color: Colors.white,
+                          size: 34,
+                        ),
+                      ),
+                    if (post.isPinned)
+                      const Positioned(
+                        top: 7,
+                        left: 7,
+                        child: Icon(
+                          Icons.push_pin_rounded,
+                          color: CaRismaDesignTokens.blueBright,
+                          size: 16,
+                        ),
+                      ),
                     if ((post.caption?.trim().isNotEmpty ?? false))
                       Positioned(
                         right: 7,
@@ -3431,6 +4440,168 @@ class _ProfilePostGrid extends StatelessWidget {
   }
 }
 
+class _SocialPostImage extends StatelessWidget {
+  const _SocialPostImage({required this.post});
+
+  final SocialPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isDebugProfileContent(post.id)) {
+      return _DebugPostArtwork(source: post.imageUrl);
+    }
+
+    final media = post.resolvedMedia.first;
+    if (media.isVideo) {
+      return const ColoredBox(
+        color: CaRismaDesignTokens.surface2,
+        child: Center(
+          child: Icon(
+            Icons.videocam_rounded,
+            color: CaRismaDesignTokens.textMuted,
+            size: 34,
+          ),
+        ),
+      );
+    }
+
+    return Image.network(
+      media.url,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(
+          child: SizedBox.square(
+            dimension: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => const ColoredBox(
+        color: CaRismaDesignTokens.surface2,
+        child: Center(
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: CaRismaDesignTokens.textMuted,
+            size: 30,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DebugPostArtwork extends StatelessWidget {
+  const _DebugPostArtwork({required this.source});
+
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRoad = source.endsWith('road');
+    final isDetail = source.endsWith('detail');
+    final isInterior = source.endsWith('interior');
+    final isNight = source.endsWith('night');
+    final icon = isRoad
+        ? Icons.route_rounded
+        : isDetail
+        ? Icons.album_rounded
+        : isInterior
+        ? Icons.airline_seat_recline_extra_rounded
+        : isNight
+        ? Icons.nightlight_round
+        : Icons.directions_car_filled_rounded;
+    final title = isRoad
+        ? 'ABENDFAHRT'
+        : isDetail
+        ? 'M50d DETAIL'
+        : isInterior
+        ? 'M INTERIEUR'
+        : isNight
+        ? 'NACHTAUFNAHME'
+        : 'BMW X6 M50d';
+    final accent = isDetail || isInterior
+        ? const Color(0xFFFF7A1A)
+        : CaRismaDesignTokens.blueBright;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 180;
+        return ColoredBox(
+          color: const Color(0xFF0D1016),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                left: -constraints.maxWidth * 0.12,
+                right: constraints.maxWidth * 0.16,
+                bottom: -constraints.maxHeight * 0.25,
+                child: Container(
+                  height: constraints.maxHeight * 0.68,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(
+                      constraints.maxHeight * 0.3,
+                    ),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.5),
+                      width: compact ? 2 : 4,
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                child: Icon(
+                  icon,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  size: compact ? 36 : 84,
+                ),
+              ),
+              Positioned(
+                left: compact ? 8 : 18,
+                right: compact ? 8 : 18,
+                bottom: compact ? 8 : 18,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: compact ? 9 : 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: compact ? 7 : 14,
+                left: compact ? 7 : 14,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 6 : 9,
+                    vertical: compact ? 3 : 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: CaRismaDesignTokens.card,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: accent.withValues(alpha: 0.78)),
+                  ),
+                  child: Text(
+                    'BEISPIEL',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compact ? 7 : 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _SocialTextField extends StatelessWidget {
   const _SocialTextField({
     required this.controller,
@@ -3438,6 +4609,7 @@ class _SocialTextField extends StatelessWidget {
     required this.icon,
     this.maxLength,
     this.maxLines = 1,
+    this.onChanged,
   });
 
   final TextEditingController controller;
@@ -3445,11 +4617,13 @@ class _SocialTextField extends StatelessWidget {
   final IconData icon;
   final int? maxLength;
   final int maxLines;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      onChanged: onChanged,
       maxLength: maxLength,
       maxLines: maxLines,
       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
@@ -3465,135 +4639,23 @@ class _SocialTextField extends StatelessWidget {
   }
 }
 
-class _PublicVisibilitySwitch extends StatelessWidget {
-  const _PublicVisibilitySwitch({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(13, 9, 9, 9),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: CaRismaDesignTokens.blueBright, size: 20),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          Switch.adaptive(value: value, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileVisibilitySelector extends StatelessWidget {
-  const _ProfileVisibilitySelector({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const labels = <String, String>{
-      'contacts': 'Profilkontakte',
-      'followers': 'Nur Follower',
-      'onlyMe': 'Nur ich',
-    };
-    final effectiveValue = labels.containsKey(value) ? value : 'contacts';
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(13, 7, 10, 7),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: CaRismaDesignTokens.blueBright, size: 20),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: effectiveValue,
-              dropdownColor: CaRismaDesignTokens.surface2,
-              borderRadius: BorderRadius.circular(16),
-              iconEnabledColor: CaRismaDesignTokens.blueBright,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-              items: labels.entries
-                  .map(
-                    (entry) => DropdownMenuItem<String>(
-                      value: entry.key,
-                      child: Text(entry.value),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: (selection) {
-                if (selection != null) onChanged(selection);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PostImagePicker extends StatelessWidget {
-  const _PostImagePicker({
-    required this.image,
+class _PostMediaPicker extends StatelessWidget {
+  const _PostMediaPicker({
+    required this.media,
     required this.isLoading,
     required this.onGallery,
     required this.onCamera,
+    required this.onRemove,
   });
 
-  final XFile? image;
+  final List<XFile> media;
   final bool isLoading;
   final VoidCallback onGallery;
   final VoidCallback onCamera;
+  final ValueChanged<XFile> onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final selectedImage = image;
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(minHeight: 210),
@@ -3602,7 +4664,7 @@ class _PostImagePicker extends StatelessWidget {
         color: CaRismaDesignTokens.controlSurface,
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      child: selectedImage == null
+      child: media.isEmpty
           ? Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -3615,7 +4677,7 @@ class _PostImagePicker extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Bild auswählen',
+                    'Fotos oder Videos auswählen',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -3623,7 +4685,7 @@ class _PostImagePicker extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Wähle ein Foto aus deiner Galerie oder öffne die Kamera.',
+                    'Wähle bis zu zehn Medien aus oder öffne die Kamera.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: CaRismaDesignTokens.textSecondary,
@@ -3668,13 +4730,178 @@ class _PostImagePicker extends StatelessWidget {
                 ],
               ),
             )
-          : ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: Image.file(File(selectedImage.path), fit: BoxFit.cover),
+          : Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1.35,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: _LocalPostMediaPreview(file: media.first),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 64,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: media.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 7),
+                      itemBuilder: (context, index) {
+                        final file = media[index];
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox.square(
+                                dimension: 58,
+                                child: _LocalPostMediaPreview(file: file),
+                              ),
+                            ),
+                            Positioned(
+                              top: -5,
+                              right: -5,
+                              child: GestureDetector(
+                                onTap: () => onRemove(file),
+                                child: const CircleAvatar(
+                                  radius: 10,
+                                  backgroundColor: Color(0xFFEF4444),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 13,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CaRismaSecondaryButton(
+                          label: 'Galerie',
+                          icon: Icons.photo_library_rounded,
+                          isEnabled: !isLoading,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          borderRadius: 16,
+                          fontSize: 13,
+                          onPressed: onGallery,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: CaRismaSecondaryButton(
+                          label: 'Kamera',
+                          icon: Icons.photo_camera_rounded,
+                          isEnabled: !isLoading,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          borderRadius: 16,
+                          fontSize: 13,
+                          onPressed: onCamera,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
+    );
+  }
+}
+
+class _LocalPostMediaPreview extends StatelessWidget {
+  const _LocalPostMediaPreview({required this.file});
+
+  final XFile file;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_postMediaTypeFor(file) == SocialPostMediaType.video) {
+      return const ColoredBox(
+        color: CaRismaDesignTokens.surface2,
+        child: Center(
+          child: Icon(Icons.play_circle_fill_rounded, color: Colors.white),
+        ),
+      );
+    }
+    return Image.file(File(file.path), fit: BoxFit.cover);
+  }
+}
+
+class _PostVisibilitySelector extends StatelessWidget {
+  const _PostVisibilitySelector({required this.value, required this.onChanged});
+
+  final SocialPostVisibility value;
+  final ValueChanged<SocialPostVisibility> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = <SocialPostVisibility, String>{
+      SocialPostVisibility.public: 'Öffentlich',
+      SocialPostVisibility.contacts: 'Nur Kontakte',
+      SocialPostVisibility.onlyMe: 'Nur ich',
+    };
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 7, 10, 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: CaRismaDesignTokens.controlSurface,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.visibility_outlined,
+            color: CaRismaDesignTokens.blueBright,
+            size: 20,
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              'Sichtbarkeit',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<SocialPostVisibility>(
+              value: value,
+              isDense: true,
+              dropdownColor: CaRismaDesignTokens.surface2,
+              borderRadius: BorderRadius.circular(16),
+              iconEnabledColor: CaRismaDesignTokens.blueBright,
+              icon: const Padding(
+                padding: EdgeInsets.only(left: 5),
+                child: Icon(Icons.keyboard_arrow_down_rounded),
+              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+              items: labels.entries
+                  .map(
+                    (entry) => DropdownMenuItem<SocialPostVisibility>(
+                      value: entry.key,
+                      child: Text(entry.value, maxLines: 1),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (selection) {
+                if (selection != null) onChanged(selection);
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3712,7 +4939,8 @@ class _PostMetaTile extends StatelessWidget {
               ),
             ),
           ),
-          Flexible(
+          SizedBox(
+            width: 132,
             child: Text(
               value,
               maxLines: 1,
@@ -3742,23 +4970,8 @@ String _displayNameFor(profile_data.UserProfile? profile) {
 }
 
 String _profileSubtitleFor(profile_data.UserProfile? profile) {
-  final publicBio = _publicBioFor(profile);
-  if (publicBio.isNotEmpty) return publicBio;
-
-  final parts = <String>[
-    _vehicleShortLabelFor(profile),
-    _profileRegionFor(profile),
-    _displayPlateFor(profile),
-  ];
+  final parts = <String>[_profileRegionFor(profile)];
   return parts.where((part) => part.trim().isNotEmpty).join(' · ');
-}
-
-String _vehicleLineFor(profile_data.UserProfile? profile) =>
-    '${_vehicleShortLabelFor(profile)} · ${_displayPlateFor(profile)}';
-
-String _publicBioFor(profile_data.UserProfile? profile) {
-  final publicBio = profile?.publicBio?.trim() ?? '';
-  return publicBio.isNotEmpty ? publicBio : _vehicleLineFor(profile);
 }
 
 String _profileRegionFor(profile_data.UserProfile? profile) {
@@ -3774,14 +4987,17 @@ String _vehicleShortLabelFor(profile_data.UserProfile? profile) {
   return [brand, model].where((part) => part.isNotEmpty).join(' ');
 }
 
-String _displayPlateFor(profile_data.UserProfile? profile) {
-  final displayPlate = formatDisplayPlate(
-    countryCode: profile?.countryCode ?? 'DE',
-    region: profile?.plateRegion ?? '',
-    letters: profile?.plateLetters ?? '',
-    numbers: profile?.plateNumbers ?? '',
-  );
-  return displayPlate.isEmpty ? 'Kennzeichen nicht öffentlich' : displayPlate;
+SocialPostMediaType _postMediaTypeFor(XFile file) {
+  final mimeType = file.mimeType?.toLowerCase() ?? '';
+  final path = file.path.toLowerCase();
+  if (mimeType.startsWith('video/') ||
+      path.endsWith('.mp4') ||
+      path.endsWith('.mov') ||
+      path.endsWith('.m4v') ||
+      path.endsWith('.webm')) {
+    return SocialPostMediaType.video;
+  }
+  return SocialPostMediaType.image;
 }
 
 String _safeText(String? value, String fallback) {

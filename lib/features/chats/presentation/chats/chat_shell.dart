@@ -42,6 +42,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
       FirestoreContactRequestRepository();
   final ChatStoryRepository _storyRepository = ChatStoryRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
+  final ProfileVehicleRepository _profileVehicleRepository =
+      ProfileVehicleRepository();
   final ChatAttachmentStorage _attachmentStorage = ChatAttachmentStorage();
   final UserSettingsRepository _userSettingsRepository =
       UserSettingsRepository();
@@ -998,6 +1000,17 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
       if (profile == null) {
         return null;
+      }
+
+      final primaryVehicleId = profile.primaryVehicleId?.trim() ?? '';
+      if (primaryVehicleId.isNotEmpty) {
+        final primaryVehicle = await _profileVehicleRepository.getOwnerVehicle(
+          userId: trimmedUserId,
+          vehicleId: primaryVehicleId,
+        );
+        if (primaryVehicle != null && !primaryVehicle.selectableInStories) {
+          return null;
+        }
       }
 
       final vehicleParts = <String>[

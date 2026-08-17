@@ -30,7 +30,6 @@ class ProfileVehicleGalleryCard extends StatelessWidget {
       stream: media,
       builder: (context, snapshot) {
         final items = snapshot.data ?? const <ProfileVehicleGalleryMedia>[];
-        final preview = items.take(6).toList(growable: false);
         return GlassCard(
           padding: const EdgeInsets.all(15),
           child: Column(
@@ -79,42 +78,31 @@ class ProfileVehicleGalleryCard extends StatelessWidget {
                     color: CaRismaDesignTokens.textSecondary,
                   ),
                 )
-              else if (preview.isEmpty)
+              else if (items.isEmpty)
                 _EmptyGallery(isOwnProfile: isOwnProfile, onAdd: onAdd)
               else ...[
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: preview.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 6,
-                    mainAxisSpacing: 6,
-                  ),
-                  itemBuilder: (context, index) => _GalleryTile(
-                    media: preview[index],
-                    remainingCount: index == preview.length - 1
-                        ? items.length - preview.length
-                        : 0,
-                    isOwnProfile: isOwnProfile,
-                    onOpen: () => showProfileVehicleGallery(
-                      context,
-                      media: items,
-                      initialIndex: index,
+                SizedBox(
+                  height: 154,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: items.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
+                    itemBuilder: (context, index) => SizedBox(
+                      width: 188,
+                      child: _GalleryTile(
+                        media: items[index],
+                        isOwnProfile: isOwnProfile,
+                        onOpen: () => showProfileVehicleGallery(
+                          context,
+                          media: items,
+                          initialIndex: index,
+                        ),
+                        onSetMain: () => onSetMain(items[index]),
+                        onDelete: () => onDelete(items[index]),
+                      ),
                     ),
-                    onSetMain: () => onSetMain(preview[index]),
-                    onDelete: () => onDelete(preview[index]),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => showProfileVehicleGallery(
-                    context,
-                    media: items,
-                    initialIndex: 0,
-                  ),
-                  icon: const Icon(Icons.fullscreen_rounded),
-                  label: Text('Alle ${items.length} Medien'),
                 ),
               ],
             ],
@@ -172,7 +160,6 @@ class _EmptyGallery extends StatelessWidget {
 class _GalleryTile extends StatelessWidget {
   const _GalleryTile({
     required this.media,
-    required this.remainingCount,
     required this.isOwnProfile,
     required this.onOpen,
     required this.onSetMain,
@@ -180,7 +167,6 @@ class _GalleryTile extends StatelessWidget {
   });
 
   final ProfileVehicleGalleryMedia media;
-  final int remainingCount;
   final bool isOwnProfile;
   final VoidCallback onOpen;
   final VoidCallback onSetMain;
@@ -218,24 +204,6 @@ class _GalleryTile extends StatelessWidget {
           ),
           if (media.isMain)
             const Positioned(left: 6, top: 6, child: _MainBadge()),
-          if (remainingCount > 0)
-            Positioned.fill(
-              child: Material(
-                color: Colors.black.withValues(alpha: 0.58),
-                child: InkWell(
-                  onTap: onOpen,
-                  child: Center(
-                    child: Text(
-                      '+$remainingCount',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
           if (isOwnProfile)
             Positioned(
               right: 2,

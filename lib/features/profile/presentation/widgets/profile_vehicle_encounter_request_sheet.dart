@@ -35,7 +35,7 @@ showProfileVehicleEncounterRequestSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
           Future<void> chooseDate() async {

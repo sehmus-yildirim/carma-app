@@ -13,6 +13,7 @@ import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../auth/data/search_credit_repository.dart';
+import '../../settings/data/app_runtime_preferences.dart';
 import '../../settings/data/user_settings_repository.dart';
 import '../../chats/presentation/chats_screen.dart';
 import '../data/plate_search_result.dart';
@@ -118,6 +119,9 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
     _regionController.addListener(_handlePlateInputChanged);
     _lettersController.addListener(_handlePlateInputChanged);
     _numbersController.addListener(_handlePlateInputChanged);
+    AppRuntimePreferences.instance.addListener(
+      _handleRuntimePreferencesChanged,
+    );
     _loadLocation();
     _loadDefaultPlateCountry();
     _watchSearchCredit();
@@ -126,6 +130,9 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
   @override
   void dispose() {
     unawaited(_searchCreditSubscription?.cancel());
+    AppRuntimePreferences.instance.removeListener(
+      _handleRuntimePreferencesChanged,
+    );
     _regionController.dispose();
     _lettersController.dispose();
     _numbersController.dispose();
@@ -139,6 +146,29 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
     setState(_clearSearchOutcome);
   }
 
+  void _handleRuntimePreferencesChanged() {
+    _applyDefaultPlateCountry(
+      AppRuntimePreferences.instance.settings.defaultPlateCountry,
+    );
+  }
+
+  void _applyDefaultPlateCountry(String value) {
+    final defaultCountry = value.trim().toUpperCase();
+    if (!mounted ||
+        defaultCountry == _countryCode ||
+        !const <String>{'DE', 'AT', 'CH'}.contains(defaultCountry)) {
+      return;
+    }
+
+    setState(() {
+      _countryCode = defaultCountry;
+      _regionController.clear();
+      _lettersController.clear();
+      _numbersController.clear();
+      _clearSearchOutcome();
+    });
+  }
+
   Future<void> _loadDefaultPlateCountry() async {
     final userId = FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
 
@@ -148,24 +178,7 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
 
     try {
       final settings = await _userSettingsRepository.load(userId);
-      final defaultCountry = settings.appPreferences.defaultPlateCountry
-          .trim()
-          .toUpperCase();
-
-      if (!mounted ||
-          defaultCountry.isEmpty ||
-          defaultCountry == _countryCode ||
-          !const <String>{'DE', 'AT', 'CH'}.contains(defaultCountry)) {
-        return;
-      }
-
-      setState(() {
-        _countryCode = defaultCountry;
-        _regionController.clear();
-        _lettersController.clear();
-        _numbersController.clear();
-        _clearSearchOutcome();
-      });
+      _applyDefaultPlateCountry(settings.appPreferences.defaultPlateCountry);
     } catch (_) {
       // App preferences are comfort settings and must not block search.
     }

@@ -33,6 +33,7 @@ import '../../settings/data/user_settings_repository.dart';
 import '../../settings/data/app_runtime_preferences.dart';
 import '../../profile/data/profile_connection_repository.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/data/profile_vehicle_repository.dart';
 import '../../profile/presentation/social_profile_screen.dart';
 import '../../../shared/plate/plate_country_config.dart';
 

@@ -146,6 +146,8 @@ class _DataExportRequestScreenState extends State<DataExportRequestScreen> {
                 loadingLabel: 'Anfrage wird gesendet...',
                 icon: Icons.lock_outline_rounded,
                 isLoading: _submitting,
+                surfaceOutlined: true,
+                showShadow: false,
                 onPressed: _submit,
               ),
             ],
@@ -254,7 +256,7 @@ class _ExportContentLine extends StatelessWidget {
               ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           CaRismaBlueIconBox(icon: icon, size: 42, iconSize: 21),
           const SizedBox(width: 12),

@@ -48,7 +48,7 @@ Future<bool> showProfileVehicleModificationSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {

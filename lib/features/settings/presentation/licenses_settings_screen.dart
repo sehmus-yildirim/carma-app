@@ -5,7 +5,6 @@ import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
-import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 
@@ -77,12 +76,6 @@ class CaRismaLicensesScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              const CaRismaMessageCard(
-                icon: Icons.balance_outlined,
-                message:
-                    'plaqa verwendet Open-Source-Software. Deren Urheber- und Lizenzhinweise bleiben vollständig einsehbar.',
               ),
               const SizedBox(height: 12),
               GestureDetector(
@@ -204,10 +197,15 @@ class _OpenSourceLicensesScreenState extends State<_OpenSourceLicensesScreen> {
                       ),
                     )
                   else if (snapshot.hasError)
-                    const CaRismaMessageCard(
-                      icon: Icons.error_outline_rounded,
-                      message:
-                          'Die Lizenzhinweise konnten gerade nicht geladen werden.',
+                    const GlassCard(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        'Die Lizenzhinweise konnten gerade nicht geladen werden.',
+                        style: TextStyle(
+                          color: CaRismaDesignTokens.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     )
                   else
                     ...?snapshot.data?.map(

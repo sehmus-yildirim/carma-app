@@ -1,15 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../shared/firebase/carisma_firestore_paths.dart';
 import 'user_profile.dart';
 
 class ProfileRepository {
-  ProfileRepository({FirebaseFirestore? firestore}) : _firestore = firestore;
+  ProfileRepository({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  }) : _firestore = firestore,
+       _functions = functions;
 
   final FirebaseFirestore? _firestore;
+  final FirebaseFunctions? _functions;
 
   FirebaseFirestore get _database => _firestore ?? FirebaseFirestore.instance;
+  FirebaseFunctions get _cloudFunctions =>
+      _functions ?? FirebaseFunctions.instanceFor(region: 'europe-west3');
 
   DocumentReference<Map<String, dynamic>> _profileDocument(String uid) {
     return _database.doc(CaRismaFirestorePaths.userProfile(uid));
@@ -53,6 +61,23 @@ class ProfileRepository {
     }
 
     return UserProfile.fromFirestore(document);
+  }
+
+  Stream<int> watchProfileViewCount(String uid) {
+    final userId = uid.trim();
+    if (userId.isEmpty) return Stream<int>.value(0);
+    return _publicProfileDocument(userId).snapshots().map((document) {
+      final value = document.data()?['profileViewCount'];
+      return value is int && value >= 0 ? value : 0;
+    });
+  }
+
+  Future<void> recordProfileView(String profileUserId) async {
+    final userId = profileUserId.trim();
+    if (userId.isEmpty) return;
+    await _cloudFunctions.httpsCallable('recordProfileView').call<void>({
+      'profileUserId': userId,
+    });
   }
 
   Future<void> createProfileIfMissing(User user) async {
@@ -180,6 +205,7 @@ class ProfileRepository {
     required String displayName,
     required DateTime birthDate,
     required String? photoUrl,
+    required String verificationStatus,
   }) async {
     final normalizedUid = uid.trim();
     if (normalizedUid.isEmpty) {
@@ -208,8 +234,33 @@ class ProfileRepository {
       'uid': normalizedUid,
       'displayName': displayName.trim(),
       'photoUrl': _trimmedOrNull(photoUrl),
+      'verificationStatus': verificationStatus.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    await batch.commit();
+    return getProfile(normalizedUid);
+  }
+
+  Future<UserProfile?> updateProfilePhoto({
+    required String uid,
+    required String? photoUrl,
+  }) async {
+    final normalizedUid = uid.trim();
+    if (normalizedUid.isEmpty) {
+      throw ArgumentError('Nutzer-ID darf nicht leer sein.');
+    }
+
+    final normalizedPhotoUrl = _trimmedOrNull(photoUrl);
+    final batch = _database.batch();
+    batch.set(_profileDocument(normalizedUid), {
+      'photoUrl': normalizedPhotoUrl,
+      'profilePhotoLocalPath': null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.update(_publicProfileDocument(normalizedUid), {
+      'photoUrl': normalizedPhotoUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
     await batch.commit();
     return getProfile(normalizedUid);
   }

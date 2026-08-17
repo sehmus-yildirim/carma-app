@@ -208,8 +208,21 @@ class ProfileVehicleRepository {
       'allowContactRequests': vehicle.allowContactRequests,
       'plateDisplayMode': vehicle.plateDisplayMode.name,
       'year': vehicle.year,
+      'firstRegistration': vehicle.firstRegistration?.millisecondsSinceEpoch,
       'bodyStyle': _trimmedOrNull(vehicle.bodyStyle),
+      'engineDescription': _trimmedOrNull(vehicle.engineDescription),
+      'displacementCcm': vehicle.displacementCcm,
+      'horsepower': vehicle.horsepower,
+      'kilowatts': vehicle.kilowatts,
+      'fuelType': _trimmedOrNull(vehicle.fuelType),
+      'transmission': _trimmedOrNull(vehicle.transmission),
+      'drivetrain': _trimmedOrNull(vehicle.drivetrain),
+      'equipment': vehicle.equipment,
+      'ownedSince': vehicle.ownedSince?.millisecondsSinceEpoch,
       'mileage': vehicle.mileage,
+      'profileHighlights': vehicle.profileHighlights
+          .map((value) => value.name)
+          .toList(growable: false),
     };
   }
 

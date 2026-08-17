@@ -18,7 +18,7 @@ class CaRismaMessageCard extends StatelessWidget {
     return GlassCard(
       padding: const EdgeInsets.all(15),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 42,

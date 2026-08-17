@@ -115,7 +115,7 @@ class ProfileVehicleTimelineCard extends StatelessWidget {
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.75,
@@ -294,7 +294,9 @@ IconData _timelineIcon(ProfileVehicleTimelineType type) {
 }
 
 String _formatDate(DateTime date) {
-  final day = date.day.toString().padLeft(2, '0');
-  final month = date.month.toString().padLeft(2, '0');
-  return '$day.$month.${date.year}';
+  const months = <String>[
+    'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
+  ];
+  return '${months[date.month - 1]} ${date.year}';
 }

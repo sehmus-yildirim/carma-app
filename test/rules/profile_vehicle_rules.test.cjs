@@ -39,7 +39,10 @@ before(async () => {
 afterEach(async () => testEnv.clearFirestore());
 after(async () => testEnv?.cleanup());
 
-async function seedVehicleData({withConnection = false} = {}) {
+async function seedVehicleData({
+  withConnection = false,
+  showVehicle = true,
+} = {}) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const database = context.firestore();
     await setDoc(doc(database, 'users', ownerUserId, 'vehicles', vehicleId), {
@@ -53,6 +56,7 @@ async function seedVehicleData({withConnection = false} = {}) {
     await setDoc(doc(database, 'public_profiles', ownerUserId), {
       uid: ownerUserId,
       profileAccessEnabled: true,
+      showVehicleOnPublicProfile: showVehicle,
       displayName: 'Sehmus Y.',
     });
     await setDoc(
@@ -151,6 +155,16 @@ describe('profile vehicle Firestore rules', () => {
     await testEnv.clearFirestore();
     await seedVehicleData({withConnection: true});
     await assertSucceeds(getDoc(doc(outsider, ...path)));
+  });
+
+  test('global vehicle visibility blocks public vehicle reads', async () => {
+    await seedVehicleData({withConnection: true, showVehicle: false});
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderUserId).firestore();
+    const path = ['public_profiles', ownerUserId, 'vehicles', vehicleId];
+
+    await assertSucceeds(getDoc(doc(owner, ...path)));
+    await assertFails(getDoc(doc(outsider, ...path)));
   });
 
   test('exact plate metadata is owner-only and never listable', async () => {

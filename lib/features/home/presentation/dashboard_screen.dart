@@ -27,6 +27,7 @@ import '../../profile/data/user_profile.dart' as firestore_profile;
 import '../../plate_search/data/plate_contact_reason.dart';
 import '../../plate_search/data/plate_search_result.dart';
 import '../../plate_search/data/plate_search_service.dart';
+import '../../settings/data/app_runtime_preferences.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.userState, this.onOpenChats});
@@ -176,10 +177,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
 
     _searchCredit = widget.userState.searchCredit.normalizeForCurrentMonth();
+    _countryCode = _normalizedDefaultCountry(
+      AppRuntimePreferences.instance.settings.defaultPlateCountry,
+    );
 
     _regionController.addListener(_refresh);
     _lettersController.addListener(_refresh);
     _numbersController.addListener(_refresh);
+    AppRuntimePreferences.instance.addListener(
+      _handleRuntimePreferencesChanged,
+    );
 
     _watchSearchCredit();
     _loadCurrentUserFirstName();
@@ -223,6 +230,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _searchCreditSubscription?.cancel();
+    AppRuntimePreferences.instance.removeListener(
+      _handleRuntimePreferencesChanged,
+    );
 
     _regionController.removeListener(_refresh);
     _lettersController.removeListener(_refresh);
@@ -241,6 +251,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _refresh() {
     setState(() {});
+  }
+
+  String _normalizedDefaultCountry(String value) {
+    final countryCode = value.trim().toUpperCase();
+    return const <String>{'DE', 'AT', 'CH'}.contains(countryCode)
+        ? countryCode
+        : 'DE';
+  }
+
+  void _handleRuntimePreferencesChanged() {
+    final countryCode = _normalizedDefaultCountry(
+      AppRuntimePreferences.instance.settings.defaultPlateCountry,
+    );
+    if (!mounted || countryCode == _countryCode) {
+      return;
+    }
+
+    setState(() {
+      _countryCode = countryCode;
+      _regionController.clear();
+      _lettersController.clear();
+      _numbersController.clear();
+      _clearResultMessages();
+    });
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   void _watchSearchCredit() {

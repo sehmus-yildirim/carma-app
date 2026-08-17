@@ -468,6 +468,7 @@ service cloud.firestore {
           'vin',
           'ownedSince',
           'mileage',
+          'profileHighlights',
           'heroImageUrl',
           'heroImagePath',
           'heroImageStatus',
@@ -633,6 +634,15 @@ service cloud.firestore {
             && request.resource.data.mileage >= 0
           )
         )
+        && request.resource.data.get('profileHighlights', ['plate']) is list
+        && request.resource.data.get('profileHighlights', ['plate']).size() <= 5
+        && request.resource.data.get('profileHighlights', ['plate']).hasOnly([
+          'plate',
+          'color',
+          'mileage',
+          'status',
+          'ownedSince',
+        ])
         && isNullableStringWithMax(
           request.resource.data.get('heroImageUrl', null),
           1000
@@ -722,6 +732,7 @@ service cloud.firestore {
         'vin',
         'ownedSince',
         'mileage',
+        'profileHighlights',
         'updatedAt',
       ]);
     }
@@ -1147,6 +1158,13 @@ service cloud.firestore {
         && get(
           /databases/$(database)/documents/public_profiles/$(userId)
         ).data.profileAccessEnabled == true;
+    }
+
+    function profileAllowsVehicleAccess(userId) {
+      return profileAllowsAccess(userId)
+        && get(
+          /databases/$(database)/documents/public_profiles/$(userId)
+        ).data.showVehicleOnPublicProfile == true;
     }
 
     function isActiveProfileConnectionData(connectionData, targetUserId) {
@@ -1682,6 +1700,80 @@ service cloud.firestore {
         || isValidChatCreateForPendingRequestWrite(chatId, requestId);
     }
 
+    function verificationStatus(data, key) {
+      return data.get('documentStatuses', {}).get(key, 'missing');
+    }
+
+    function isProtectedVerificationStatus(status) {
+      return status in ['inReview', 'verified'];
+    }
+
+    function keepsProtectedVerificationData() {
+      let statusChanged = request.resource.data.documentStatuses
+        .diff(resource.data.get('documentStatuses', {}))
+        .affectedKeys();
+      let pathChanged = request.resource.data.documentStoragePaths
+        .diff(resource.data.get('documentStoragePaths', {}))
+        .affectedKeys();
+      let identityProtected = isProtectedVerificationStatus(
+          verificationStatus(resource.data, 'identityFront')
+        ) || isProtectedVerificationStatus(
+          verificationStatus(resource.data, 'identityBack')
+        );
+      let driverProtected = isProtectedVerificationStatus(
+          verificationStatus(resource.data, 'driverLicenseFront')
+        ) || isProtectedVerificationStatus(
+          verificationStatus(resource.data, 'driverLicenseBack')
+        );
+      let vehicleProtected = isProtectedVerificationStatus(
+          verificationStatus(resource.data, 'vehicleFront')
+        ) || isProtectedVerificationStatus(
+          verificationStatus(resource.data, 'vehicleBack')
+        );
+      return (!statusChanged.hasAny(['identityFront'])
+          || request.resource.data.documentStatuses.identityFront
+            in ['missing', 'uploaded'])
+        && (!statusChanged.hasAny(['identityBack'])
+          || request.resource.data.documentStatuses.identityBack
+            in ['missing', 'uploaded'])
+        && (!statusChanged.hasAny(['driverLicenseFront'])
+          || request.resource.data.documentStatuses.driverLicenseFront
+            in ['missing', 'uploaded'])
+        && (!statusChanged.hasAny(['driverLicenseBack'])
+          || request.resource.data.documentStatuses.driverLicenseBack
+            in ['missing', 'uploaded'])
+        && (!statusChanged.hasAny(['vehicleFront'])
+          || request.resource.data.documentStatuses.vehicleFront
+            in ['missing', 'uploaded'])
+        && (!statusChanged.hasAny(['vehicleBack'])
+          || request.resource.data.documentStatuses.vehicleBack
+            in ['missing', 'uploaded'])
+        && (!identityProtected
+          || (!statusChanged.hasAny(['identityFront', 'identityBack'])
+            && !pathChanged.hasAny(['identityFront', 'identityBack'])
+            && request.resource.data.identityDocumentType
+              == resource.data.get('identityDocumentType', 'identityCard')
+            && request.resource.data.documentExpiresAt.get('identity', null)
+              == resource.data.get('documentExpiresAt', {}).get('identity', null)))
+        && (!driverProtected
+          || (!statusChanged.hasAny([
+              'driverLicenseFront',
+              'driverLicenseBack'
+            ])
+            && !pathChanged.hasAny([
+              'driverLicenseFront',
+              'driverLicenseBack'
+            ])
+            && request.resource.data.documentExpiresAt.get('driverLicense', null)
+              == resource.data.get('documentExpiresAt', {}).get('driverLicense', null)))
+        && (!vehicleProtected
+          || (!statusChanged.hasAny(['vehicleFront', 'vehicleBack'])
+            && !pathChanged.hasAny(['vehicleFront', 'vehicleBack'])
+            && request.resource.data.vehicleId == resource.data.vehicleId
+            && request.resource.data.vehicleRelationship
+              == resource.data.vehicleRelationship));
+    }
+
     function isValidVerificationDraftMap(userId, requestId) {
       let paths = request.resource.data.documentStoragePaths;
       let statuses = request.resource.data.documentStatuses;
@@ -1697,6 +1789,11 @@ service cloud.firestore {
         && request.resource.data.status == 'draft'
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() <= 80
+        && request.resource.data.identityDocumentType in [
+          'identityCard',
+          'passport',
+          'residencePermit'
+        ]
         && paths is map
         && paths.keys().hasOnly([
           'identityFront',
@@ -1744,17 +1841,29 @@ service cloud.firestore {
           'vehicleBack'
         ])
         && (!('identityFront' in statuses)
-          || statuses.identityFront in ['missing', 'uploaded'])
+          || statuses.identityFront in [
+            'missing', 'uploaded', 'inReview', 'verified', 'rejected', 'expired'
+          ])
         && (!('identityBack' in statuses)
-          || statuses.identityBack in ['missing', 'uploaded'])
+          || statuses.identityBack in [
+            'missing', 'uploaded', 'inReview', 'verified', 'rejected', 'expired'
+          ])
         && (!('driverLicenseFront' in statuses)
-          || statuses.driverLicenseFront in ['missing', 'uploaded'])
+          || statuses.driverLicenseFront in [
+            'missing', 'uploaded', 'inReview', 'verified', 'rejected', 'expired'
+          ])
         && (!('driverLicenseBack' in statuses)
-          || statuses.driverLicenseBack in ['missing', 'uploaded'])
+          || statuses.driverLicenseBack in [
+            'missing', 'uploaded', 'inReview', 'verified', 'rejected', 'expired'
+          ])
         && (!('vehicleFront' in statuses)
-          || statuses.vehicleFront in ['missing', 'uploaded'])
+          || statuses.vehicleFront in [
+            'missing', 'uploaded', 'inReview', 'verified', 'rejected', 'expired'
+          ])
         && (!('vehicleBack' in statuses)
-          || statuses.vehicleBack in ['missing', 'uploaded'])
+          || statuses.vehicleBack in [
+            'missing', 'uploaded', 'inReview', 'verified', 'rejected', 'expired'
+          ])
         && reasons is map
         && reasons.keys().hasOnly([
           'identityFront',
@@ -1791,7 +1900,8 @@ service cloud.firestore {
           'leasingCompanyFamily',
           'authorizedUser',
         ]
-        && request.resource.data.authorizationConfirmed == false
+        && request.resource.data.authorizationConfirmed is bool
+        && request.resource.data.vehicleAssignmentConfirmed is bool
         && request.resource.data.consentVersion == null
         && request.resource.data.consentAcceptedAt == null
         && request.resource.data.submittedAt == null
@@ -1807,12 +1917,14 @@ service cloud.firestore {
           'profilePath',
           'status',
           'displayName',
+          'identityDocumentType',
           'documentStoragePaths',
           'documentStatuses',
           'documentRejectionReasons',
           'documentExpiresAt',
           'vehicleId',
           'vehicleRelationship',
+          'vehicleAssignmentConfirmed',
           'authorizationConfirmed',
           'consentVersion',
           'consentAcceptedAt',
@@ -1828,7 +1940,81 @@ service cloud.firestore {
 
     function isValidVerificationDraftCreate(requestId) {
       return isSignedIn()
-        && isValidVerificationDraftMap(request.auth.uid, requestId);
+        && isValidVerificationDraftMap(request.auth.uid, requestId)
+        && request.resource.data.documentRejectionReasons.size() == 0
+        && request.resource.data.documentStatuses.values().hasOnly([
+          'missing',
+          'uploaded'
+        ]);
+    }
+
+    function isValidTargetedVerificationResubmission(requestId) {
+      return isSignedIn()
+        && request.auth.uid == requestId
+        && resource.data.userId == request.auth.uid
+        && resource.data.status in ['rejected', 'expired']
+        && request.resource.data.requestId == resource.data.requestId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.profilePath == resource.data.profilePath
+        && request.resource.data.displayName == resource.data.displayName
+        && request.resource.data.status == 'draft'
+        && request.resource.data.identityDocumentType
+          == resource.data.get('identityDocumentType', 'identityCard')
+        && request.resource.data.documentStoragePaths
+          == resource.data.get('documentStoragePaths', {})
+        && request.resource.data.documentRejectionReasons
+          == resource.data.get('documentRejectionReasons', {})
+        && request.resource.data.documentExpiresAt
+          == resource.data.get('documentExpiresAt', {})
+        && request.resource.data.vehicleId == resource.data.vehicleId
+        && request.resource.data.vehicleRelationship
+          == resource.data.vehicleRelationship
+        && request.resource.data.vehicleAssignmentConfirmed is bool
+        && request.resource.data.authorizationConfirmed is bool
+        && request.resource.data.consentVersion == null
+        && request.resource.data.consentAcceptedAt == null
+        && request.resource.data.submittedAt == null
+        && request.resource.data.reviewedAt == null
+        && request.resource.data.reviewedBy == null
+        && request.resource.data.rejectionReason == null
+        && request.resource.data.retentionUntil == null
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.documentStatuses is map
+        && request.resource.data.documentStatuses.keys().hasOnly([
+          'identityFront',
+          'identityBack',
+          'driverLicenseFront',
+          'driverLicenseBack',
+          'vehicleFront',
+          'vehicleBack'
+        ])
+        && keepsProtectedVerificationData()
+        && request.resource.data.keys().hasOnly([
+          'requestId',
+          'userId',
+          'profilePath',
+          'status',
+          'displayName',
+          'identityDocumentType',
+          'documentStoragePaths',
+          'documentStatuses',
+          'documentRejectionReasons',
+          'documentExpiresAt',
+          'vehicleId',
+          'vehicleRelationship',
+          'vehicleAssignmentConfirmed',
+          'authorizationConfirmed',
+          'consentVersion',
+          'consentAcceptedAt',
+          'submittedAt',
+          'reviewedAt',
+          'reviewedBy',
+          'rejectionReason',
+          'retentionUntil',
+          'createdAt',
+          'updatedAt',
+        ]);
     }
 
     function isValidVerificationDraftUpdate(requestId) {
@@ -1836,7 +2022,10 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && resource.data.status in ['draft', 'rejected', 'expired']
         && isValidVerificationDraftMap(request.auth.uid, requestId)
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.documentRejectionReasons
+          == resource.data.get('documentRejectionReasons', {})
+        && keepsProtectedVerificationData();
     }
 
     function hasValidOwnerProfileCreateVerificationFields() {
@@ -3338,7 +3527,7 @@ service cloud.firestore {
         allow read: if isOwner(userId)
           || (
             hasActiveProfileConnection(userId)
-            && profileAllowsAccess(userId)
+            && profileAllowsVehicleAccess(userId)
           );
         // Stammdaten, öffentliche Projektion, Hauptfahrzeug und Kennzeichen
         // werden ausschließlich atomar durch die Fahrzeug-Functions geschrieben.
@@ -3352,7 +3541,7 @@ service cloud.firestore {
               )
               &&
               hasActiveProfileConnection(userId)
-              && profileAllowsAccess(userId)
+              && profileAllowsVehicleAccess(userId)
             );
           allow create, update: if isOwner(userId)
             && exists(
@@ -3375,7 +3564,7 @@ service cloud.firestore {
               )
               &&
               hasActiveProfileConnection(userId)
-              && profileAllowsAccess(userId)
+              && profileAllowsVehicleAccess(userId)
             );
           allow create, update: if isOwner(userId)
             && exists(
@@ -3398,7 +3587,7 @@ service cloud.firestore {
               )
               &&
               hasActiveProfileConnection(userId)
-              && profileAllowsAccess(userId)
+              && profileAllowsVehicleAccess(userId)
             );
           allow create, update: if isOwner(userId)
             && existsAfter(
@@ -3420,7 +3609,7 @@ service cloud.firestore {
                 /databases/$(database)/documents/public_profiles/$(userId)/vehicles/$(vehicleId)
               )
               && hasActiveProfileConnection(userId)
-              && profileAllowsAccess(userId)
+              && profileAllowsVehicleAccess(userId)
             );
           allow create, update: if isSignedIn()
             && existsAfter(
@@ -3567,6 +3756,30 @@ service cloud.firestore {
               && request.resource.data.reproductionSteps.size() <= 2000
             )
           )
+          && (
+            request.resource.data.get('technicalReferenceId', null) == null
+            || (
+              request.resource.data.type == 'verification'
+              && request.resource.data.get('technicalReferenceId', null) == userId
+            )
+          )
+          && (
+            request.resource.data.get('technicalReferenceGroup', null) == null
+            || (
+              request.resource.data.type == 'verification'
+              && request.resource.data.get('technicalReferenceGroup', null) in [
+                'identity',
+                'driverLicense',
+                'vehicle'
+              ]
+            )
+          )
+          && (
+            (request.resource.data.get('technicalReferenceId', null) == null
+              && request.resource.data.get('technicalReferenceGroup', null) == null)
+            || (request.resource.data.get('technicalReferenceId', null) != null
+              && request.resource.data.get('technicalReferenceGroup', null) != null)
+          )
           && request.resource.data.allowContact is bool
           && (
             request.resource.data.accountEmail == null
@@ -3588,6 +3801,8 @@ service cloud.firestore {
             'affectedArea',
             'description',
             'reproductionSteps',
+            'technicalReferenceId',
+            'technicalReferenceGroup',
             'allowContact',
             'accountEmail',
             'appVersion',
@@ -3647,8 +3862,9 @@ service cloud.firestore {
           || (
             hasActiveProfileConnection(userId)
             && profileAllowsAccess(userId)
-            && resource.data.visibility == 'public'
+            && resource.data.visibility in ['public', 'contacts']
             && resource.data.isDeleted == false
+            && resource.data.get('isArchived', false) == false
           );
         allow create: if isOwner(userId)
           && request.resource.data.keys().hasOnly([
@@ -3656,24 +3872,42 @@ service cloud.firestore {
             'ownerUserId',
             'imageUrl',
             'imagePath',
+            'mediaUrls',
+            'mediaPaths',
+            'mediaTypes',
             'caption',
             'vehicleLabel',
+            'vehicleId',
             'locationLabel',
             'section',
             'visibility',
             'createdAt',
             'updatedAt',
-            'isDeleted'
+            'isDeleted',
+            'isArchived',
+            'pinnedAt'
           ])
           && request.resource.data.postId == postId
           && request.resource.data.ownerUserId == userId
           && request.resource.data.imageUrl is string
           && request.resource.data.imageUrl.size() > 0
           && request.resource.data.imageUrl.size() <= 1000
+          && request.resource.data.mediaUrls is list
+          && request.resource.data.mediaPaths is list
+          && request.resource.data.mediaTypes is list
+          && request.resource.data.mediaUrls.size() > 0
+          && request.resource.data.mediaUrls.size() <= 10
+          && request.resource.data.mediaPaths.size()
+            == request.resource.data.mediaUrls.size()
+          && request.resource.data.mediaTypes.size()
+            == request.resource.data.mediaUrls.size()
+          && request.resource.data.mediaTypes.hasOnly(['image', 'video'])
           && request.resource.data.imagePath
-            == 'profile_posts/' + userId + '/' + postId + '/image.jpg'
+            == request.resource.data.mediaPaths[0]
+          && request.resource.data.imageUrl
+            == request.resource.data.mediaUrls[0]
           && request.resource.data.section in ['posts', 'vehicle']
-          && request.resource.data.visibility == 'public'
+          && request.resource.data.visibility in ['public', 'contacts', 'onlyMe']
           && (
             request.resource.data.caption == null ||
             (
@@ -3689,6 +3923,14 @@ service cloud.firestore {
             )
           )
           && (
+            request.resource.data.vehicleId == null ||
+            (
+              request.resource.data.vehicleId is string
+              && request.resource.data.vehicleId.size() > 0
+              && request.resource.data.vehicleId.size() <= 128
+            )
+          )
+          && (
             request.resource.data.locationLabel == null ||
             (
               request.resource.data.locationLabel is string
@@ -3697,9 +3939,238 @@ service cloud.firestore {
           )
           && request.resource.data.createdAt is timestamp
           && request.resource.data.updatedAt is timestamp
-          && request.resource.data.isDeleted == false;
-        allow update: if false;
+          && request.resource.data.isDeleted == false
+          && request.resource.data.isArchived == false
+          && request.resource.data.pinnedAt == null;
+        allow update: if isOwner(userId)
+          && request.resource.data.postId == resource.data.postId
+          && request.resource.data.ownerUserId == resource.data.ownerUserId
+          && request.resource.data.imageUrl == resource.data.imageUrl
+          && request.resource.data.imagePath == resource.data.imagePath
+          && request.resource.data.get('mediaUrls', [])
+            == resource.data.get('mediaUrls', [])
+          && request.resource.data.get('mediaPaths', [])
+            == resource.data.get('mediaPaths', [])
+          && request.resource.data.get('mediaTypes', [])
+            == resource.data.get('mediaTypes', [])
+          && request.resource.data.section == resource.data.section
+          && request.resource.data.get('vehicleId', null)
+            == resource.data.get('vehicleId', null)
+          && request.resource.data.isDeleted == resource.data.isDeleted
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.visibility in ['public', 'contacts', 'onlyMe']
+          && request.resource.data.isArchived is bool
+          && (
+            request.resource.data.pinnedAt == null
+            || request.resource.data.pinnedAt is timestamp
+          )
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'caption',
+            'locationLabel',
+            'visibility',
+            'isArchived',
+            'pinnedAt',
+            'updatedAt'
+          ]);
         allow delete: if isOwner(userId);
+
+        match /likes/{likerUserId} {
+          allow read: if isOwner(userId)
+            || (
+              hasActiveProfileConnection(userId)
+              && profileAllowsAccess(userId)
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.visibility in ['public', 'contacts']
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.isDeleted == false
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.get('isArchived', false) == false
+            );
+          allow create: if isSignedIn()
+            && request.auth.uid == likerUserId
+            && (
+              isOwner(userId)
+              || (
+                hasActiveProfileConnection(userId)
+                && profileAllowsAccess(userId)
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.visibility in ['public', 'contacts']
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.isDeleted == false
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.get('isArchived', false) == false
+              )
+            )
+            && request.resource.data.userId == likerUserId
+            && request.resource.data.postOwnerUserId == userId
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
+            && request.resource.data.displayName.size() <= 100
+            && request.resource.data.photoUrl is string
+            && request.resource.data.photoUrl.size() <= 1000
+            && request.resource.data.createdAt is timestamp
+            && request.resource.data.keys().hasOnly([
+              'userId',
+              'postOwnerUserId',
+              'displayName',
+              'photoUrl',
+              'createdAt'
+            ]);
+          allow update: if false;
+          allow delete: if isSignedIn() && request.auth.uid == likerUserId;
+        }
+
+        match /comments/{commentId} {
+          allow read: if isOwner(userId)
+            || (
+              hasActiveProfileConnection(userId)
+              && profileAllowsAccess(userId)
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.visibility in ['public', 'contacts']
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.isDeleted == false
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.get('isArchived', false) == false
+            );
+          allow create: if isSignedIn()
+            && (
+              isOwner(userId)
+              || (
+                hasActiveProfileConnection(userId)
+                && profileAllowsAccess(userId)
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.visibility in ['public', 'contacts']
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.isDeleted == false
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.get('isArchived', false) == false
+              )
+            )
+            && request.resource.data.commentId == commentId
+            && request.resource.data.postId == postId
+            && request.resource.data.postOwnerUserId == userId
+            && request.resource.data.authorUserId == request.auth.uid
+            && request.resource.data.authorDisplayName is string
+            && request.resource.data.authorDisplayName.size() <= 100
+            && request.resource.data.authorPhotoUrl is string
+            && request.resource.data.authorPhotoUrl.size() <= 1000
+            && request.resource.data.text is string
+            && request.resource.data.text.size() > 0
+            && request.resource.data.text.size() <= 500
+            && request.resource.data.createdAt is timestamp
+            && request.resource.data.updatedAt is timestamp
+            && request.resource.data.isDeleted == false
+            && request.resource.data.keys().hasOnly([
+              'commentId',
+              'postId',
+              'postOwnerUserId',
+              'authorUserId',
+              'authorDisplayName',
+              'authorPhotoUrl',
+              'text',
+              'createdAt',
+              'updatedAt',
+              'isDeleted'
+            ]);
+          allow update: if isSignedIn()
+            && (
+              request.auth.uid == resource.data.authorUserId
+              || request.auth.uid == userId
+            )
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'isDeleted',
+              'updatedAt'
+            ])
+            && request.resource.data.isDeleted == true
+            && request.resource.data.updatedAt is timestamp;
+          allow delete: if false;
+
+          match /reports/{reporterUserId} {
+            allow read: if false;
+            allow create: if isSignedIn()
+              && request.auth.uid == reporterUserId
+              && (
+                isOwner(userId)
+                || (
+                  hasActiveProfileConnection(userId)
+                  && profileAllowsAccess(userId)
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.visibility in ['public', 'contacts']
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.isDeleted == false
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.get('isArchived', false) == false
+                )
+              )
+              && request.resource.data.reporterUserId == reporterUserId
+              && request.resource.data.createdAt is timestamp
+              && request.resource.data.keys().hasOnly([
+                'reporterUserId',
+                'createdAt'
+              ]);
+            allow update, delete: if false;
+          }
+
+          match /reactions/{reactingUserId} {
+            allow read: if isOwner(userId)
+              || (
+                hasActiveProfileConnection(userId)
+                && profileAllowsAccess(userId)
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.visibility in ['public', 'contacts']
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.isDeleted == false
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.get('isArchived', false) == false
+              );
+            allow create, update: if isSignedIn()
+              && request.auth.uid == reactingUserId
+              && (
+                isOwner(userId)
+                || (
+                  hasActiveProfileConnection(userId)
+                  && profileAllowsAccess(userId)
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.visibility in ['public', 'contacts']
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.isDeleted == false
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.get('isArchived', false) == false
+                )
+              )
+              && request.resource.data.userId == reactingUserId
+              && request.resource.data.type in ['like', 'dislike', 'heart']
+              && request.resource.data.updatedAt is timestamp
+              && request.resource.data.keys().hasOnly([
+                'userId',
+                'type',
+                'updatedAt'
+              ]);
+            allow delete: if isSignedIn()
+              && request.auth.uid == reactingUserId;
+          }
+        }
       }
 
       match /moderation_actions/{actionId} {
@@ -3856,13 +4327,14 @@ service cloud.firestore {
 
     match /verification_requests/{requestId} {
       allow read: if isAdmin()
-        || (
-          isSignedIn()
-          && resource.data.userId == request.auth.uid
-        );
+          || (
+            isSignedIn()
+            && request.auth.uid == requestId
+          );
 
       allow create: if isValidVerificationDraftCreate(requestId);
-      allow update: if isValidVerificationDraftUpdate(requestId);
+      allow update: if isValidTargetedVerificationResubmission(requestId)
+        || isValidVerificationDraftUpdate(requestId);
       allow delete: if false;
 
       match /history/{historyId} {

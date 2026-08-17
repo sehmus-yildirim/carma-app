@@ -6,6 +6,8 @@ const {
   normalizeVehicleInput,
   saveProfileVehicle,
   setPrimaryProfileVehicle,
+  syncProfileVisibilityReferences,
+  updatePrimaryVehicleLocation,
 } = require("./profile_vehicle_management");
 
 function fakeFirestore(initialDocuments = {}) {
@@ -21,6 +23,16 @@ function fakeFirestore(initialDocuments = {}) {
     };
   }
 
+  function collectionReference(collectionPath) {
+    return {
+      path: collectionPath,
+      isCollection: true,
+      async get() {
+        return collectionSnapshotFor(this);
+      },
+    };
+  }
+
   function snapshotFor(document) {
     const value = documents.get(document.path);
     return {
@@ -28,6 +40,25 @@ function fakeFirestore(initialDocuments = {}) {
       data: () => value,
       ref: document,
     };
+  }
+
+  function collectionSnapshotFor(collection) {
+    const prefix = `${collection.path}/`;
+    const docs = [...documents.entries()]
+      .filter(([path]) => {
+        if (!path.startsWith(prefix)) return false;
+        return !path.slice(prefix.length).includes("/");
+      })
+      .map(([path, value]) => {
+        const ref = reference(path);
+        return {
+          id: path.slice(prefix.length),
+          exists: true,
+          data: () => value,
+          ref,
+        };
+      });
+    return {docs, empty: docs.length === 0, size: docs.length};
   }
 
   function setDocument(document, data, merge) {
@@ -40,9 +71,42 @@ function fakeFirestore(initialDocuments = {}) {
     documents,
     writes,
     doc: reference,
+    collection: collectionReference,
+    batch() {
+      const operations = [];
+      return {
+        set(document, data, options) {
+          operations.push({
+            type: "set",
+            document,
+            data,
+            merge: options?.merge === true,
+          });
+        },
+        delete(document) {
+          operations.push({type: "delete", document});
+        },
+        async commit() {
+          for (const operation of operations) {
+            if (operation.type === "set") {
+              setDocument(
+                operation.document,
+                operation.data,
+                operation.merge,
+              );
+            } else {
+              documents.delete(operation.document.path);
+              writes.push({type: "delete", path: operation.document.path});
+            }
+          }
+        },
+      };
+    },
     async runTransaction(callback) {
       return callback({
-        get: async (document) => snapshotFor(document),
+        get: async (referenceOrQuery) => referenceOrQuery.isCollection === true
+          ? collectionSnapshotFor(referenceOrQuery)
+          : snapshotFor(referenceOrQuery),
         set(document, data, options) {
           setDocument(document, data, options?.merge === true);
         },
@@ -192,6 +256,179 @@ test("first save reserves the plate and stays idempotent", async () => {
     "vehicle-1");
   assert.equal([...firestore.documents.keys()].filter((path) =>
     path.endsWith("/timeline/vehicle_created")).length, 2);
+});
+
+test("an active secondary vehicle remains discoverable by its own plate", async () => {
+  const userId = "user-secondary";
+  const primary = storedVehicle(userId, {
+    vehicleId: "vehicle-primary",
+    plateRegion: "HH",
+    plateLetters: "AA",
+    plateNumbers: "1",
+    isPrimary: true,
+  });
+  const firestore = fakeFirestore({
+    [`users/${userId}/profiles/main`]: profileData(userId, {
+      primaryVehicleId: "vehicle-primary",
+    }),
+    [`public_profiles/${userId}`]: {uid: userId},
+    [`users/${userId}/vehicles/vehicle-primary`]: primary,
+    [`public_profiles/${userId}/vehicles/vehicle-primary`]: primary,
+    "plates/DE_HHAA1": plateData(userId, primary, {isPrimary: true}),
+  });
+
+  const result = await saveProfileVehicle({
+    firestore,
+    authContext: {uid: userId},
+    input: vehicleInput({
+      vehicleId: "vehicle-secondary",
+      isPrimary: false,
+    }),
+    now: new Date("2026-08-14T08:00:00Z"),
+  });
+
+  const secondaryPlate = firestore.documents.get("plates/DE_FDRT2918");
+  assert.equal(result.isPrimary, false);
+  assert.equal(secondaryPlate.vehicleId, "vehicle-secondary");
+  assert.equal(secondaryPlate.isPrimary, false);
+  assert.equal(secondaryPlate.isActive, true);
+  assert.equal(secondaryPlate.isDeleted, false);
+  assert.equal(secondaryPlate.allowContactRequests, true);
+});
+
+test("global visibility is a hard ceiling for every vehicle", async () => {
+  const userId = "user-privacy";
+  const vehicle = storedVehicle(userId);
+  const firestore = fakeFirestore({
+    [`users/${userId}/profiles/main`]: profileData(userId, {
+      primaryVehicleId: vehicle.vehicleId,
+      publicRegion: "Hamburg",
+    }),
+    [`public_profiles/${userId}`]: {
+      uid: userId,
+      showVehicleOnPublicProfile: true,
+      showPlateOnPublicProfile: true,
+      profileAccessEnabled: true,
+    },
+    [`users/${userId}/vehicles/${vehicle.vehicleId}`]: vehicle,
+    [`public_profiles/${userId}/vehicles/${vehicle.vehicleId}`]: {
+      ...vehicle,
+      plateRegion: "FD",
+      plateLetters: "RT",
+      plateNumbers: "2918",
+    },
+    "plates/DE_FDRT2918": plateData(userId, vehicle, {
+      allowContactRequests: true,
+    }),
+  });
+
+  await syncProfileVisibilityReferences({
+    firestore,
+    userId,
+    settings: {
+      profileVisibility: "contacts",
+      showVehicle: true,
+      showPlate: false,
+      showRegion: false,
+      allowContactRequests: false,
+    },
+    now: new Date("2026-08-16T10:00:00Z"),
+  });
+
+  const publicVehicle = firestore.documents.get(
+    `public_profiles/${userId}/vehicles/${vehicle.vehicleId}`,
+  );
+  assert.equal(publicVehicle.brand, "Mercedes-Benz");
+  assert.equal(publicVehicle.plateRegion, null);
+  assert.equal(publicVehicle.plateLetters, null);
+  assert.equal(publicVehicle.plateNumbers, null);
+  assert.equal(publicVehicle.showPlate, false);
+  assert.equal(publicVehicle.allowContactRequests, false);
+  assert.equal(
+    firestore.documents.get("plates/DE_FDRT2918").allowContactRequests,
+    false,
+  );
+
+  await syncProfileVisibilityReferences({
+    firestore,
+    userId,
+    settings: {
+      profileVisibility: "onlyMe",
+      showVehicle: false,
+      showPlate: false,
+      showRegion: false,
+      allowContactRequests: false,
+    },
+    now: new Date("2026-08-16T10:01:00Z"),
+  });
+
+  assert.equal(
+    firestore.documents.has(
+      `public_profiles/${userId}/vehicles/${vehicle.vehicleId}`,
+    ),
+    false,
+  );
+  assert.equal(
+    firestore.documents.get(`public_profiles/${userId}`).profileAccessEnabled,
+    false,
+  );
+});
+
+test("location refresh updates every active discoverable vehicle", async () => {
+  const userId = "user-location";
+  const primary = storedVehicle(userId, {
+    vehicleId: "vehicle-primary",
+    plateRegion: "HH",
+    plateLetters: "AA",
+    plateNumbers: "1",
+    isPrimary: true,
+  });
+  const secondary = storedVehicle(userId, {
+    vehicleId: "vehicle-secondary",
+    plateRegion: "B",
+    plateLetters: "CD",
+    plateNumbers: "2",
+    isPrimary: false,
+  });
+  const hidden = storedVehicle(userId, {
+    vehicleId: "vehicle-hidden",
+    plateRegion: "M",
+    plateLetters: "EF",
+    plateNumbers: "3",
+    isPrimary: false,
+    discoverableByPlate: false,
+  });
+  const firestore = fakeFirestore({
+    [`users/${userId}/profiles/main`]: profileData(userId, {
+      primaryVehicleId: "vehicle-primary",
+    }),
+    [`users/${userId}/vehicles/vehicle-primary`]: primary,
+    [`users/${userId}/vehicles/vehicle-secondary`]: secondary,
+    [`users/${userId}/vehicles/vehicle-hidden`]: hidden,
+    "plates/DE_HHAA1": plateData(userId, primary),
+    "plates/DE_BCD2": plateData(userId, secondary),
+    "plates/DE_MEF3": plateData(userId, hidden),
+  });
+  const now = new Date("2026-08-14T08:00:00Z");
+
+  const result = await updatePrimaryVehicleLocation({
+    firestore,
+    authContext: {uid: userId},
+    input: {latitude: 53.55, longitude: 9.99},
+    now,
+  });
+
+  assert.equal(result.updatedVehicleCount, 2);
+  assert.equal(firestore.documents.get("plates/DE_HHAA1").latitude, 53.55);
+  assert.equal(firestore.documents.get("plates/DE_BCD2").longitude, 9.99);
+  assert.equal(
+    firestore.documents.get("plates/DE_BCD2").locationUpdatedAt,
+    now,
+  );
+  assert.equal(
+    firestore.documents.get("plates/DE_MEF3").locationUpdatedAt,
+    undefined,
+  );
 });
 
 test("an active plate cannot be claimed by another vehicle", async () => {

@@ -41,6 +41,30 @@ enum ProfileVerificationDocumentStatus {
   }
 }
 
+enum ProfileVerificationIdentityDocumentType {
+  identityCard,
+  passport,
+  residencePermit;
+
+  static ProfileVerificationIdentityDocumentType fromValue(Object? value) {
+    final normalized = value?.toString().trim();
+    return values.firstWhere(
+      (type) => type.name == normalized,
+      orElse: () => ProfileVerificationIdentityDocumentType.identityCard,
+    );
+  }
+
+  String get label => switch (this) {
+    ProfileVerificationIdentityDocumentType.identityCard => 'Personalausweis',
+    ProfileVerificationIdentityDocumentType.passport => 'Reisepass',
+    ProfileVerificationIdentityDocumentType.residencePermit =>
+      'Aufenthaltstitel',
+  };
+
+  bool get requiresBackSide =>
+      this != ProfileVerificationIdentityDocumentType.passport;
+}
+
 enum ProfileVehicleRelationship {
   owner,
   leasingCompany,
@@ -83,8 +107,19 @@ abstract final class ProfileVerificationDocumentKeys {
     vehicleBack,
   ];
 
+  static const identityGroup = 'identity';
+  static const driverLicenseGroup = 'driverLicense';
+  static const vehicleGroup = 'vehicle';
+
+  static const groupKeys = <String>[
+    identityGroup,
+    driverLicenseGroup,
+    vehicleGroup,
+  ];
+
   static const groups = <ProfileVerificationDocumentGroup>[
     ProfileVerificationDocumentGroup(
+      groupKey: identityGroup,
       title: 'Identität bestätigen',
       subtitle: 'Amtlicher Lichtbildausweis, vollständig und gut lesbar.',
       iconName: 'identity',
@@ -93,6 +128,7 @@ abstract final class ProfileVerificationDocumentKeys {
       expirationKey: identityExpiration,
     ),
     ProfileVerificationDocumentGroup(
+      groupKey: driverLicenseGroup,
       title: 'Führerschein',
       subtitle: 'Gültiger Führerschein als zusätzlicher Identitätsnachweis.',
       iconName: 'driverLicense',
@@ -101,6 +137,7 @@ abstract final class ProfileVerificationDocumentKeys {
       expirationKey: driverLicenseExpiration,
     ),
     ProfileVerificationDocumentGroup(
+      groupKey: vehicleGroup,
       title: 'Fahrzeugbezug bestätigen',
       subtitle: 'Fahrzeugschein oder geeigneter Berechtigungsnachweis.',
       iconName: 'vehicle',
@@ -109,6 +146,51 @@ abstract final class ProfileVerificationDocumentKeys {
       includesVehicleAssignment: true,
     ),
   ];
+
+  static List<String> requiredFor(
+    ProfileVerificationIdentityDocumentType identityType,
+  ) {
+    return <String>[
+      identityFront,
+      if (identityType.requiresBackSide) identityBack,
+      driverLicenseFront,
+      driverLicenseBack,
+      vehicleFront,
+      vehicleBack,
+    ];
+  }
+
+  static List<String> keysForGroup(
+    String groupKey,
+    ProfileVerificationIdentityDocumentType identityType,
+  ) {
+    return switch (groupKey) {
+      identityGroup => <String>[
+        identityFront,
+        if (identityType.requiresBackSide) identityBack,
+      ],
+      driverLicenseGroup => const <String>[
+        driverLicenseFront,
+        driverLicenseBack,
+      ],
+      vehicleGroup => const <String>[vehicleFront, vehicleBack],
+      _ => const <String>[],
+    };
+  }
+
+  static String groupFor(String key) => switch (key) {
+    identityFront || identityBack => identityGroup,
+    driverLicenseFront || driverLicenseBack => driverLicenseGroup,
+    vehicleFront || vehicleBack => vehicleGroup,
+    _ => '',
+  };
+
+  static String groupLabel(String groupKey) => switch (groupKey) {
+    identityGroup => 'Identität',
+    driverLicenseGroup => 'Führerschein',
+    vehicleGroup => 'Fahrzeug',
+    _ => 'Nachweis',
+  };
 
   static String labelFor(String key) => switch (key) {
     identityFront || identityBack => 'Identität',
@@ -126,6 +208,7 @@ abstract final class ProfileVerificationDocumentKeys {
 
 class ProfileVerificationDocumentGroup {
   const ProfileVerificationDocumentGroup({
+    required this.groupKey,
     required this.title,
     required this.subtitle,
     required this.iconName,
@@ -135,6 +218,7 @@ class ProfileVerificationDocumentGroup {
     this.includesVehicleAssignment = false,
   });
 
+  final String groupKey;
   final String title;
   final String subtitle;
   final String iconName;
@@ -153,11 +237,14 @@ class ProfileVerificationRequest {
     required this.displayName,
     required this.documentStoragePaths,
     required this.documentStatuses,
+    this.identityDocumentType =
+        ProfileVerificationIdentityDocumentType.identityCard,
     this.documentExpiresAt = const {},
     this.documentRejectionReasons = const {},
     this.vehicleId,
     this.vehicleRelationship = ProfileVehicleRelationship.owner,
     this.authorizationConfirmed = false,
+    this.vehicleAssignmentConfirmed = false,
     this.consentVersion,
     this.consentAcceptedAt,
     this.countryCode,
@@ -175,6 +262,8 @@ class ProfileVerificationRequest {
     this.reviewedBy,
     this.rejectionReason,
     this.retentionUntil,
+    this.documentsCleanedAt,
+    this.submittedDocumentGroups = const [],
     this.legacyDocumentRemoteUrls = const {},
   });
 
@@ -185,11 +274,13 @@ class ProfileVerificationRequest {
   final String displayName;
   final Map<String, String?> documentStoragePaths;
   final Map<String, ProfileVerificationDocumentStatus> documentStatuses;
+  final ProfileVerificationIdentityDocumentType identityDocumentType;
   final Map<String, DateTime?> documentExpiresAt;
   final Map<String, String?> documentRejectionReasons;
   final String? vehicleId;
   final ProfileVehicleRelationship vehicleRelationship;
   final bool authorizationConfirmed;
+  final bool vehicleAssignmentConfirmed;
   final String? consentVersion;
   final DateTime? consentAcceptedAt;
   final String? countryCode;
@@ -207,6 +298,8 @@ class ProfileVerificationRequest {
   final String? reviewedBy;
   final String? rejectionReason;
   final DateTime? retentionUntil;
+  final DateTime? documentsCleanedAt;
+  final List<String> submittedDocumentGroups;
 
   // Read-only migration support. New requests never write download URLs.
   final Map<String, String?> legacyDocumentRemoteUrls;
@@ -215,17 +308,76 @@ class ProfileVerificationRequest {
       status == ProfileVerificationStatus.pending ||
       status == ProfileVerificationStatus.verified;
 
-  int get completedDocumentCount =>
-      ProfileVerificationDocumentKeys.required.where((key) {
-        final status = documentStatusFor(key);
-        return status != ProfileVerificationDocumentStatus.missing &&
-            status != ProfileVerificationDocumentStatus.uploading &&
-            status != ProfileVerificationDocumentStatus.rejected &&
-            status != ProfileVerificationDocumentStatus.expired;
-      }).length;
+  List<String> get requiredDocumentKeys =>
+      ProfileVerificationDocumentKeys.requiredFor(identityDocumentType);
+
+  int get completedDocumentCount => requiredDocumentKeys.where((key) {
+    final status = documentStatusFor(key);
+    return status != ProfileVerificationDocumentStatus.missing &&
+        status != ProfileVerificationDocumentStatus.uploading &&
+        status != ProfileVerificationDocumentStatus.rejected &&
+        status != ProfileVerificationDocumentStatus.expired;
+  }).length;
 
   bool get hasAllRequiredDocuments =>
-      completedDocumentCount == ProfileVerificationDocumentKeys.required.length;
+      completedDocumentCount == requiredDocumentKeys.length;
+
+  bool canEditDocument(String key) {
+    if (!requiredDocumentKeys.contains(key) &&
+        key != ProfileVerificationDocumentKeys.identityBack) {
+      return false;
+    }
+    if (status == ProfileVerificationStatus.pending ||
+        status == ProfileVerificationStatus.verified) {
+      return false;
+    }
+    final documentStatus = documentStatusFor(key);
+    return documentStatus != ProfileVerificationDocumentStatus.inReview &&
+        documentStatus != ProfileVerificationDocumentStatus.verified;
+  }
+
+  bool isGroupVerified(String groupKey) {
+    final keys = ProfileVerificationDocumentKeys.keysForGroup(
+      groupKey,
+      identityDocumentType,
+    );
+    return keys.isNotEmpty &&
+        keys.every(
+          (key) =>
+              documentStatusFor(key) ==
+              ProfileVerificationDocumentStatus.verified,
+        );
+  }
+
+  bool isGroupProtected(String groupKey) {
+    final keys = ProfileVerificationDocumentKeys.keysForGroup(
+      groupKey,
+      identityDocumentType,
+    );
+    return keys.any((key) {
+      final status = documentStatusFor(key);
+      return status == ProfileVerificationDocumentStatus.verified ||
+          status == ProfileVerificationDocumentStatus.inReview;
+    });
+  }
+
+  ProfileVerificationDocumentStatus groupStatus(String groupKey) {
+    final statuses = ProfileVerificationDocumentKeys.keysForGroup(
+      groupKey,
+      identityDocumentType,
+    ).map(documentStatusFor).toList(growable: false);
+    for (final status in const [
+      ProfileVerificationDocumentStatus.rejected,
+      ProfileVerificationDocumentStatus.expired,
+      ProfileVerificationDocumentStatus.inReview,
+      ProfileVerificationDocumentStatus.uploading,
+      ProfileVerificationDocumentStatus.uploaded,
+      ProfileVerificationDocumentStatus.missing,
+    ]) {
+      if (statuses.contains(status)) return status;
+    }
+    return ProfileVerificationDocumentStatus.verified;
+  }
 
   DateTime? expirationFor(String key) => documentExpiresAt[key];
 
@@ -265,6 +417,9 @@ class ProfileVerificationRequest {
       displayName: data['displayName'] as String? ?? '',
       documentStoragePaths: storagePaths,
       documentStatuses: _documentStatusMap(data['documentStatuses']),
+      identityDocumentType: ProfileVerificationIdentityDocumentType.fromValue(
+        data['identityDocumentType'],
+      ),
       documentExpiresAt: _dateTimeMap(data['documentExpiresAt']),
       documentRejectionReasons: _nullableStringMap(
         data['documentRejectionReasons'],
@@ -274,6 +429,8 @@ class ProfileVerificationRequest {
         data['vehicleRelationship'],
       ),
       authorizationConfirmed: data['authorizationConfirmed'] as bool? ?? false,
+      vehicleAssignmentConfirmed:
+          data['vehicleAssignmentConfirmed'] as bool? ?? false,
       consentVersion: data['consentVersion'] as String?,
       consentAcceptedAt: _dateTimeFromValue(data['consentAcceptedAt']),
       countryCode: data['countryCode'] as String?,
@@ -291,6 +448,8 @@ class ProfileVerificationRequest {
       reviewedBy: data['reviewedBy'] as String?,
       rejectionReason: data['rejectionReason'] as String?,
       retentionUntil: _dateTimeFromValue(data['retentionUntil']),
+      documentsCleanedAt: _dateTimeFromValue(data['documentsCleanedAt']),
+      submittedDocumentGroups: _stringList(data['submittedDocumentGroups']),
       legacyDocumentRemoteUrls: legacyUrls,
     );
   }
@@ -335,6 +494,11 @@ class ProfileVerificationRequest {
       return MapEntry(key.toString(), _dateTimeFromValue(mapValue));
     });
   }
+
+  static List<String> _stringList(Object? value) {
+    if (value is! List) return const [];
+    return value.whereType<String>().toList(growable: false);
+  }
 }
 
 class ProfileVerificationHistoryEntry {
@@ -343,12 +507,18 @@ class ProfileVerificationHistoryEntry {
     required this.status,
     this.reason,
     this.createdAt,
+    this.documentGroups = const [],
+    this.validUntil,
+    this.eventType,
   });
 
   final String id;
   final ProfileVerificationStatus status;
   final String? reason;
   final DateTime? createdAt;
+  final List<String> documentGroups;
+  final DateTime? validUntil;
+  final String? eventType;
 
   factory ProfileVerificationHistoryEntry.fromFirestore(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
@@ -361,6 +531,13 @@ class ProfileVerificationHistoryEntry {
       createdAt: ProfileVerificationRequest._dateTimeFromValue(
         data['createdAt'],
       ),
+      documentGroups: ProfileVerificationRequest._stringList(
+        data['documentGroups'],
+      ),
+      validUntil: ProfileVerificationRequest._dateTimeFromValue(
+        data['validUntil'],
+      ),
+      eventType: data['eventType'] as String?,
     );
   }
 }
@@ -373,6 +550,9 @@ class ProfileVerificationNotification {
     required this.message,
     required this.isRead,
     this.createdAt,
+    this.documentGroup,
+    this.expiresAt,
+    this.daysRemaining,
   });
 
   final String id;
@@ -381,6 +561,9 @@ class ProfileVerificationNotification {
   final String message;
   final bool isRead;
   final DateTime? createdAt;
+  final String? documentGroup;
+  final DateTime? expiresAt;
+  final int? daysRemaining;
 
   factory ProfileVerificationNotification.fromFirestore(
     QueryDocumentSnapshot<Map<String, dynamic>> document,
@@ -397,6 +580,11 @@ class ProfileVerificationNotification {
       createdAt: ProfileVerificationRequest._dateTimeFromValue(
         data['createdAt'],
       ),
+      documentGroup: data['documentGroup'] as String?,
+      expiresAt: ProfileVerificationRequest._dateTimeFromValue(
+        data['expiresAt'],
+      ),
+      daysRemaining: data['daysRemaining'] as int?,
     );
   }
 }

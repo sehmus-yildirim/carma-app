@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
@@ -187,6 +188,54 @@ class ProfileMediaStorage {
       } on FirebaseException catch (error) {
         if (error.code != 'object-not-found') rethrow;
       }
+    }
+  }
+
+  Future<Uint8List> loadVerificationDocumentPreview({
+    required String userId,
+    required String documentType,
+    required String storagePath,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedType = documentType.trim();
+    final normalizedPath = storagePath.trim();
+    final allowedPaths = <String>{
+      'profile_documents/$normalizedUserId/$normalizedType/$normalizedType.png',
+      'profile_documents/$normalizedUserId/$normalizedType/$normalizedType.jpg',
+    };
+    if (normalizedUserId.isEmpty ||
+        !const {
+          'identityFront',
+          'identityBack',
+          'driverLicenseFront',
+          'driverLicenseBack',
+          'vehicleFront',
+          'vehicleBack',
+        }.contains(normalizedType) ||
+        !allowedPaths.contains(normalizedPath)) {
+      throw const ProfileMediaStorageException(
+        'Die Dokumentvorschau konnte nicht eindeutig zugeordnet werden.',
+      );
+    }
+    try {
+      final bytes = await _bucket
+          .ref(normalizedPath)
+          .getData(_maxVerificationDocumentBytes);
+      if (bytes == null || bytes.isEmpty) {
+        throw const ProfileMediaStorageException(
+          'Für diesen Nachweis ist keine Vorschau mehr verfügbar.',
+        );
+      }
+      return bytes;
+    } on FirebaseException catch (error) {
+      if (error.code == 'object-not-found') {
+        throw const ProfileMediaStorageException(
+          'Der Nachweis wurde nach der Speicherfrist sicher gelöscht.',
+        );
+      }
+      throw const ProfileMediaStorageException(
+        'Die private Vorschau konnte gerade nicht geladen werden.',
+      );
     }
   }
 

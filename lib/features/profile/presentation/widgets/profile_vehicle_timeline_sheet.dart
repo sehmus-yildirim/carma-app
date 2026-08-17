@@ -26,19 +26,9 @@ Future<bool> showProfileVehicleTimelineSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
-          Future<void> chooseDate() async {
-            final selected = await showDatePicker(
-              context: context,
-              initialDate: eventDate,
-              firstDate: DateTime(1950),
-              lastDate: DateTime.now(),
-            );
-            if (selected != null) setSheetState(() => eventDate = selected);
-          }
-
           Future<void> save() async {
             final title = titleController.text.trim();
             if (title.isEmpty || isSaving) return;
@@ -159,13 +149,53 @@ Future<bool> showProfileVehicleTimelineSheet(
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.event_outlined),
-                    title: const Text('Datum'),
-                    subtitle: Text(_formatDate(eventDate)),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: chooseDate,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: eventDate.month,
+                          decoration: const InputDecoration(labelText: 'Monat'),
+                          items: List<int>.generate(12, (index) => index + 1)
+                              .map(
+                                (month) => DropdownMenuItem<int>(
+                                  value: month,
+                                  child: Text(_monthLabel(month)),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (month) {
+                            if (month == null) return;
+                            setSheetState(
+                              () => eventDate = DateTime(eventDate.year, month),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          initialValue: eventDate.year,
+                          decoration: const InputDecoration(labelText: 'Jahr'),
+                          items: List<int>.generate(
+                            DateTime.now().year - 1949,
+                            (index) => DateTime.now().year - index,
+                          )
+                              .map(
+                                (year) => DropdownMenuItem<int>(
+                                  value: year,
+                                  child: Text('$year'),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (year) {
+                            if (year == null) return;
+                            setSheetState(
+                              () => eventDate = DateTime(year, eventDate.month),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
@@ -183,7 +213,7 @@ Future<bool> showProfileVehicleTimelineSheet(
                   const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: isSaving ? null : save,
                       icon: isSaving
                           ? const SizedBox.square(
@@ -229,8 +259,20 @@ String profileVehicleTimelineTypeLabel(ProfileVehicleTimelineType type) {
   };
 }
 
-String _formatDate(DateTime date) {
-  final day = date.day.toString().padLeft(2, '0');
-  final month = date.month.toString().padLeft(2, '0');
-  return '$day.$month.${date.year}';
+String _monthLabel(int month) {
+  const months = <String>[
+    'Januar',
+    'Februar',
+    'März',
+    'April',
+    'Mai',
+    'Juni',
+    'Juli',
+    'August',
+    'September',
+    'Oktober',
+    'November',
+    'Dezember',
+  ];
+  return months[month - 1];
 }

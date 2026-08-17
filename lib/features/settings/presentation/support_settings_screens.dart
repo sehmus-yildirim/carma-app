@@ -64,6 +64,49 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
           'Öffentlich sind ausschließlich die von dir freigegebenen Profil-, Fahrzeug-, Regions- und Kennzeichenangaben. E-Mail, Telefonnummer, Geburtsdatum und Dokumente bleiben privat.',
       keywords: 'datenschutz öffentlich privat daten',
     ),
+    _FaqEntry(
+      question: 'Wie lange bleibt eine Kontaktanfrage aktiv?',
+      answer:
+          'Eine Kontaktanfrage läuft nach 48 Stunden ab. Danach kann sie nicht mehr angenommen werden. Du kannst eine gesendete Anfrage vorher zurückziehen; der Empfänger kann sie annehmen oder ablehnen.',
+      keywords: 'anfrage ablauf 48 stunden zurückziehen ablehnen',
+    ),
+    _FaqEntry(
+      question: 'Wie verwalte ich mehrere Fahrzeuge?',
+      answer:
+          'Unter Einstellungen, Profil & Verifizierung und Fahrzeuge kannst du weitere Fahrzeuge hinterlegen. Das Hauptfahrzeug bestimmt die Darstellung im Profil; jedes aktive und freigegebene Kennzeichen kann unabhängig davon gesucht werden.',
+      keywords: 'fahrzeug hauptfahrzeug kennzeichen hinzufügen verwalten',
+    ),
+    _FaqEntry(
+      question: 'Warum kann ich keine Fotos oder Sprachmemos senden?',
+      answer:
+          'Prüfe unter Einstellungen, Schutz & Daten und App-Berechtigungen den Zugriff auf Kamera, Mikrofon und Medien. Dauerhaft abgelehnte Rechte kannst du direkt in den Android-Einstellungen wieder erlauben.',
+      keywords: 'foto video sprachmemo kamera mikrofon galerie berechtigung',
+    ),
+    _FaqEntry(
+      question: 'Was passiert mit ablaufenden Dokumenten?',
+      answer:
+          'Vor dem Ablauf eines Identitätsnachweises oder Führerscheins erinnert dich plaqa an die Erneuerung. Du reichst nur den betroffenen Nachweis erneut ein; weiterhin gültige und bestätigte Dokumente bleiben erhalten.',
+      keywords: 'dokument ausweis führerschein ablauf erneuern erinnerung',
+    ),
+    _FaqEntry(
+      question: 'Wie ändere ich meine Privatsphäre?',
+      answer:
+          'Unter Einstellungen und Privatsphäre steuerst du Auffindbarkeit, Kontaktanfragen, Chat-Privatsphäre und Story-Sichtbarkeit. Änderungen werden erst übernommen, wenn du im jeweiligen Bereich auf Einstellungen speichern tippst.',
+      keywords:
+          'privatsphäre sichtbarkeit chat story kontaktanfragen speichern',
+    ),
+    _FaqEntry(
+      question: 'Wie fordere ich meine Daten an oder lösche mein Konto?',
+      answer:
+          'Den Datenexport findest du unter Schutz & Daten und Datenschutz. Die Kontolöschung liegt getrennt unter Konto & Sicherheit und erfordert eine erneute Bestätigung, damit sie nicht versehentlich ausgelöst wird.',
+      keywords: 'datenexport konto löschen datenschutz sicherheit',
+    ),
+    _FaqEntry(
+      question: 'Wie aktiviere ich den Zwei-Faktor-Schutz?',
+      answer:
+          'Öffne Einstellungen, Konto & Sicherheit und Kontoschutz. Dort kannst du nach erneuter Anmeldung eine Mobiltelefonnummer bestätigen und später auch wieder kontrolliert entfernen.',
+      keywords: 'zwei faktor sms telefon sicherheit mfa',
+    ),
   ];
 
   @override
@@ -176,10 +219,16 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
 }
 
 class SupportRequestScreen extends StatefulWidget {
-  const SupportRequestScreen({super.key, required this.type, this.repository});
+  const SupportRequestScreen({
+    super.key,
+    required this.type,
+    this.repository,
+    this.technicalReference,
+  });
 
   final SupportRequestType type;
   final SupportRequestRepository? repository;
+  final SupportTechnicalReference? technicalReference;
 
   @override
   State<SupportRequestScreen> createState() => _SupportRequestScreenState();
@@ -239,6 +288,16 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
     super.initState();
     _repository = widget.repository ?? SupportRequestRepository();
     _category = _categories.first;
+    final group = widget.technicalReference?.referenceGroup;
+    if (widget.type == SupportRequestType.verification && group != null) {
+      _category = switch (group) {
+        'identity' => 'Ausweis',
+        'driverLicense' => 'Führerschein',
+        'vehicle' => 'Fahrzeugschein',
+        _ => _category,
+      };
+      _areaController.text = 'Dokumentenverifizierung';
+    }
   }
 
   @override
@@ -266,6 +325,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
       description: _descriptionController.text,
       reproductionSteps: _stepsController.text,
       allowContact: _allowContact,
+      technicalReference: widget.technicalReference,
     );
     if (!draft.isValid) {
       setState(() {
@@ -322,6 +382,9 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
               CaRismaSubPageHeader(
                 icon: _icon,
                 title: _title,
+                titleFontSize: widget.type == SupportRequestType.verification
+                    ? 17.5
+                    : null,
                 onBack: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 18),
@@ -412,6 +475,8 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
                 loadingLabel: 'Wird gesendet...',
                 icon: Icons.send_rounded,
                 isLoading: _isSubmitting,
+                surfaceOutlined: true,
+                showShadow: false,
                 onPressed: _submit,
               ),
             ],

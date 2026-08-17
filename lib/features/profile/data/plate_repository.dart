@@ -15,14 +15,14 @@ class PlateRepository {
     double? longitude,
   }) async {
     if (profile.uid.trim().isEmpty) return;
-    await _refreshPrimaryPlate(latitude: latitude, longitude: longitude);
+    await _refreshActiveVehiclePlates(latitude: latitude, longitude: longitude);
   }
 
   Future<void> updatePlateProfileVisibility({
     required UserProfile profile,
   }) async {
     if (profile.uid.trim().isEmpty) return;
-    await _refreshPrimaryPlate();
+    await _refreshActiveVehiclePlates();
   }
 
   Future<void> deactivatePlateForProfile(UserProfile profile) async {
@@ -30,7 +30,7 @@ class PlateRepository {
     // Fahrzeug-Functions. Dieser Legacy-Einstieg schreibt bewusst nicht mehr.
   }
 
-  Future<void> _refreshPrimaryPlate({
+  Future<void> _refreshActiveVehiclePlates({
     double? latitude,
     double? longitude,
   }) async {

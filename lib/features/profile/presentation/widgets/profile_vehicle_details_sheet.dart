@@ -17,6 +17,26 @@ const _equipmentOptions = <String>[
   'Anhängerkupplung',
   'Assistenzpaket',
   'Soft-Close',
+  'Abstandsregeltempomat',
+  'Spurhalteassistent',
+  'Totwinkelassistent',
+  'Notbremsassistent',
+  'Matrix-LED',
+  'Adaptives Kurvenlicht',
+  'Keyless Entry',
+  'Elektrische Heckklappe',
+  'Memory-Sitze',
+  'Massagefunktion',
+  'Lenkradheizung',
+  'Klimaautomatik',
+  'Apple CarPlay',
+  'Android Auto',
+  'DAB-Radio',
+  'Induktives Laden',
+  'Parkassistent',
+  'Nachtsichtassistent',
+  'Luftfederung',
+  'Sportabgasanlage',
 ];
 
 Future<bool> showProfileVehicleDetailsSheet(
@@ -59,7 +79,7 @@ Future<bool> showProfileVehicleDetailsSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -96,24 +116,10 @@ Future<bool> showProfileVehicleDetailsSheet(
               setSheetState(() => isSaving = true);
               try {
                 await onSave(
-                  ProfileVehicle(
-                    id: vehicle.id,
-                    ownerUserId: vehicle.ownerUserId,
-                    brand: vehicle.brand,
-                    model: vehicle.model,
-                    series: vehicle.series,
-                    color: vehicle.color,
-                    countryCode: vehicle.countryCode,
-                    plateRegion: vehicle.plateRegion,
-                    plateLetters: vehicle.plateLetters,
-                    plateNumbers: vehicle.plateNumbers,
-                    isPrimary: vehicle.isPrimary,
-                    isVerified: vehicle.isVerified,
-                    status: vehicle.status,
-                    visibility: vehicle.visibility,
-                    showPlate: vehicle.showPlate,
+                  vehicle.copyWith(
                     year: year,
                     firstRegistration: firstRegistration,
+                    clearFirstRegistration: firstRegistration == null,
                     bodyStyle: bodyStyle,
                     engineDescription: engineController.text,
                     displacementCcm: int.tryParse(
@@ -129,16 +135,8 @@ Future<bool> showProfileVehicleDetailsSheet(
                     tsn: tsnController.text,
                     vin: vinController.text,
                     ownedSince: ownedSince,
+                    clearOwnedSince: ownedSince == null,
                     mileage: int.tryParse(mileageController.text.trim()),
-                    heroImageUrl: vehicle.heroImageUrl,
-                    heroImagePath: vehicle.heroImagePath,
-                    heroImageStatus: vehicle.heroImageStatus,
-                    heroSourceHash: vehicle.heroSourceHash,
-                    heroPromptVersion: vehicle.heroPromptVersion,
-                    heroProvider: vehicle.heroProvider,
-                    heroError: vehicle.heroError,
-                    createdAt: vehicle.createdAt,
-                    updatedAt: vehicle.updatedAt,
                   ),
                 );
                 if (sheetContext.mounted) {
@@ -258,7 +256,7 @@ Future<bool> showProfileVehicleDetailsSheet(
                             _DetailTextField(
                               controller: engineController,
                               label: 'Motorisierung',
-                              maxLength: 160,
+                              maxLength: 40,
                             ),
                             const SizedBox(height: 10),
                             Row(

@@ -30,6 +30,7 @@ function draftData(overrides = {}) {
     profilePath: `users/${ownerUserId}/profiles/main`,
     status: 'draft',
     displayName: '',
+    identityDocumentType: 'identityCard',
     documentStoragePaths: {
       identityFront:
         `profile_documents/${ownerUserId}/identityFront/identityFront.png`,
@@ -42,6 +43,7 @@ function draftData(overrides = {}) {
     },
     vehicleId: 'vehicle-1',
     vehicleRelationship: 'owner',
+    vehicleAssignmentConfirmed: false,
     authorizationConfirmed: false,
     consentVersion: null,
     consentAcceptedAt: null,
@@ -89,6 +91,18 @@ afterEach(async () => {
 after(async () => testEnv?.cleanup());
 
 describe('profile verification Firestore rules', () => {
+  test('owner can read an own request path before a draft exists', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderUserId).firestore();
+
+    await assertSucceeds(getDoc(
+      doc(owner, 'verification_requests', ownerUserId),
+    ));
+    await assertFails(getDoc(
+      doc(outsider, 'verification_requests', ownerUserId),
+    ));
+  });
+
   test('owner can create only a private draft with canonical paths', async () => {
     const owner = testEnv.authenticatedContext(ownerUserId).firestore();
     const request = doc(owner, 'verification_requests', ownerUserId);
@@ -142,6 +156,105 @@ describe('profile verification Firestore rules', () => {
       status: 'draft',
       updatedAt: Timestamp.now(),
     }));
+  });
+
+  test('owner can resubmit a rejected group but cannot alter verified evidence', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const request = doc(owner, 'verification_requests', ownerUserId);
+    const canonical = (key) =>
+      `profile_documents/${ownerUserId}/${key}/${key}.png`;
+    const reviewed = draftData({
+      status: 'rejected',
+      documentStoragePaths: {
+        identityFront: canonical('identityFront'),
+        identityBack: canonical('identityBack'),
+        driverLicenseFront: canonical('driverLicenseFront'),
+        driverLicenseBack: canonical('driverLicenseBack'),
+        vehicleFront: canonical('vehicleFront'),
+        vehicleBack: canonical('vehicleBack'),
+      },
+      documentStatuses: {
+        identityFront: 'verified',
+        identityBack: 'verified',
+        driverLicenseFront: 'verified',
+        driverLicenseBack: 'verified',
+        vehicleFront: 'rejected',
+        vehicleBack: 'rejected',
+      },
+      documentRejectionReasons: {
+        vehicleFront: 'Fahrzeugschein ist nicht lesbar.',
+        vehicleBack: 'Fahrzeugschein ist nicht lesbar.',
+      },
+    });
+    await seedRequest(reviewed);
+
+    await assertSucceeds(setDoc(request, draftData({
+      createdAt: reviewed.createdAt,
+      documentStoragePaths: reviewed.documentStoragePaths,
+      documentStatuses: {
+        ...reviewed.documentStatuses,
+        vehicleFront: 'uploaded',
+        vehicleBack: 'uploaded',
+      },
+      documentRejectionReasons: reviewed.documentRejectionReasons,
+      vehicleAssignmentConfirmed: true,
+    })));
+
+    await seedRequest(reviewed);
+    await assertFails(setDoc(request, draftData({
+      createdAt: reviewed.createdAt,
+      documentStoragePaths: reviewed.documentStoragePaths,
+      documentStatuses: {
+        ...reviewed.documentStatuses,
+        identityFront: 'uploaded',
+      },
+      documentRejectionReasons: reviewed.documentRejectionReasons,
+    })));
+  });
+
+  test('client cannot create a draft with forged review statuses', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    await assertFails(setDoc(
+      doc(owner, 'verification_requests', ownerUserId),
+      draftData({documentStatuses: {identityFront: 'verified'}}),
+    ));
+  });
+
+  test('verification support references are scoped and contain no document data', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const valid = {
+      requestId: 'support-1',
+      userId: ownerUserId,
+      type: 'verification',
+      category: 'Dokumentenprüfung',
+      affectedArea: 'Verifizierung',
+      description: 'Mein Identitätsnachweis wurde abgelehnt und ich benötige Hilfe.',
+      reproductionSteps: null,
+      technicalReferenceId: ownerUserId,
+      technicalReferenceGroup: 'identity',
+      allowContact: false,
+      accountEmail: null,
+      appVersion: '1.0.0',
+      status: 'received',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+    await assertSucceeds(setDoc(
+      doc(owner, 'users', ownerUserId, 'support_requests', 'support-1'),
+      valid,
+    ));
+    await assertFails(setDoc(
+      doc(owner, 'users', ownerUserId, 'support_requests', 'support-2'),
+      {
+        ...valid,
+        requestId: 'support-2',
+        technicalReferenceId: outsiderUserId,
+      },
+    ));
+    await assertFails(setDoc(
+      doc(owner, 'users', ownerUserId, 'support_requests', 'support-3'),
+      {...valid, requestId: 'support-3', documentUrl: 'private'},
+    ));
   });
 
   test('owner cannot grant a verification badge to the private profile', async () => {
@@ -334,5 +447,25 @@ describe('profile verification Storage rules', () => {
     }));
     const {deleteObject} = require('firebase/storage');
     await assertFails(deleteObject(ref(ownerStorage, validPath)));
+  });
+
+  test('targeted resubmission cannot replace verified storage objects', async () => {
+    const ownerStorage = testEnv.authenticatedContext(ownerUserId).storage();
+    const vehiclePath =
+      `profile_documents/${ownerUserId}/vehicleFront/vehicleFront.png`;
+    await seedRequest(draftData({
+      status: 'rejected',
+      documentStatuses: {
+        identityFront: 'verified',
+        vehicleFront: 'rejected',
+      },
+    }));
+
+    await assertFails(uploadBytes(ref(ownerStorage, validPath), pngBytes, {
+      contentType: 'image/png',
+    }));
+    await assertSucceeds(uploadBytes(ref(ownerStorage, vehiclePath), pngBytes, {
+      contentType: 'image/png',
+    }));
   });
 });

@@ -457,92 +457,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  void _showStatusOverviewDialog({
+  void _openStatusOverviewScreen({
     required String title,
     required IconData icon,
     required String intro,
     required List<_SettingsStatusLine> items,
   }) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: CaRismaDesignTokens.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
-          ),
-          title: Row(
-            children: [
-              Icon(icon, color: CaRismaDesignTokens.bluePrimary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    intro,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      fontWeight: FontWeight.w700,
-                      height: 1.38,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  ...items.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _SettingsDialogStatusCard(
-                        icon: item.icon,
-                        iconColor: item.statusColor,
-                        title: item.title,
-                        body: item.body,
-                        status: item.status,
-                        statusColor: item.statusColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text(
-                'Schließen',
-                style: TextStyle(
-                  color: CaRismaDesignTokens.bluePrimary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _SettingsStatusOverviewScreen(
+          title: title,
+          icon: icon,
+          intro: intro,
+          items: items,
+        ),
+      ),
     );
   }
 
-  void _showLegalConsentStatusDialog() {
+  void _openLegalConsentStatusScreen() {
     final statuses = LegalConsentStatusResolver.resolve(
       widget.userState.legalConsents,
     );
 
-    _showStatusOverviewDialog(
+    _openStatusOverviewScreen(
       title: 'Einwilligungen',
       icon: Icons.fact_check_outlined,
       intro:
@@ -582,7 +520,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showPrivacyPreferencesStatusDialog() {
+  void _openPrivacyPreferencesStatusScreen() {
     String enabledLabel(bool value) => value ? 'Aktiv' : 'Deaktiviert';
     String visibilityLabel(String value) => switch (value) {
       'public' => 'Öffentlich',
@@ -590,11 +528,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _ => 'Kontakte',
     };
 
-    _showStatusOverviewDialog(
-      title: 'Datenschutz-Präferenzen',
+    _openStatusOverviewScreen(
+      title: 'Präferenzen',
       icon: Icons.privacy_tip_outlined,
       intro:
-          'Diese Vorgaben werden im privaten Settings-Bereich deines Kontos gespeichert. Kennzeichensuche, Chat- und Story-Codepfade lesen die jeweils unterstützten Werte; Schutz bleibt zusätzlich von der serverseitigen Prüfung abhängig.',
+          'Deine gespeicherten Einstellungen für Sichtbarkeit und Privatsphäre.',
       items: [
         _SettingsStatusLine(
           icon: Icons.visibility_outlined,
@@ -630,7 +568,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         _SettingsStatusLine(
           icon: Icons.person_add_alt_1_outlined,
-          title: 'Kontaktanfragen',
+          title: 'Kontaktanfrage',
           body:
               'Anfragen ${enabledLabel(_visibilitySettings.allowContactRequests)} · Nur verifizierte Nutzer ${enabledLabel(_contactFilterSettings.requireVerifiedRequester)}',
           status: 'Serverseitig geprüft',
@@ -678,18 +616,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'Einwilligungen verwalten':
-        _showLegalConsentStatusDialog();
+        _openLegalConsentStatusScreen();
         return;
       case 'Datenschutz-Präferenzen':
-        _showPrivacyPreferencesStatusDialog();
+        _openPrivacyPreferencesStatusScreen();
         return;
       case 'Werbung & Tracking':
-        _showSettingsInfo(
+        _openStatusOverviewScreen(
           title: 'Werbung & Tracking',
           icon: Icons.ads_click_outlined,
-          body:
-              'plaqa nutzt aktuell keine personalisierte Werbung und kein Werbetracking.\n\n'
-              'Falls später Analyse-, Werbe- oder Trackingfunktionen ergänzt werden, müssen sie hier transparent erklärt und rechtlich geprüft werden.',
+          intro:
+              'Hier siehst du transparent, welche Werbe- und Trackingfunktionen plaqa aktuell verwendet.',
+          items: const [
+            _SettingsStatusLine(
+              icon: Icons.do_not_disturb_alt_rounded,
+              title: 'Personalisierte Werbung',
+              body: 'plaqa zeigt aktuell keine personalisierte Werbung.',
+              status: 'Nicht genutzt',
+              statusColor: CaRismaDesignTokens.success,
+            ),
+            _SettingsStatusLine(
+              icon: Icons.track_changes_outlined,
+              title: 'Werbetracking',
+              body: 'Es werden aktuell keine Daten für Werbetracking genutzt.',
+              status: 'Nicht genutzt',
+              statusColor: CaRismaDesignTokens.success,
+            ),
+            _SettingsStatusLine(
+              icon: Icons.policy_outlined,
+              title: 'Zukünftige Änderungen',
+              body:
+                  'Neue Analyse-, Werbe- oder Trackingfunktionen werden vor ihrer Nutzung transparent erklärt und rechtlich geprüft.',
+              status: 'Transparent',
+              statusColor: CaRismaDesignTokens.bluePrimary,
+            ),
+          ],
         );
         return;
       case 'App-Berechtigungen':
@@ -964,7 +925,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _updateNotificationPreference({
-    required String title,
     required bool value,
     required ValueChanged<bool> applyValue,
   }) {
@@ -972,7 +932,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       applyValue(value);
     });
 
-    _saveNotificationSettings(title);
+    _saveNotificationSettings();
   }
 
   Future<void> _loadNotificationSettings() async {
@@ -1043,7 +1003,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _saveNotificationSettings(String title) async {
+  Future<void> _saveNotificationSettings() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1068,13 +1028,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         userId: userId,
         settings: settings,
       );
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$title wurde gespeichert.')));
     } catch (_) {
       if (!mounted) {
         return;
@@ -1090,11 +1043,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _saveVisibilitySettings(
+  Future<bool> _saveVisibilitySettings(
     String title,
     VisibilitySettings settings,
-  ) async {
-    await _saveUserSettings(
+  ) {
+    return _saveUserSettings(
       title: title,
       applyValue: () => _visibilitySettings = settings,
       save: (userId) => Future.wait([
@@ -1108,15 +1061,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           allowContactRequests: settings.allowContactRequests,
         ),
       ]),
-      suffix: ' Die Änderung ist jetzt aktiv.',
     );
   }
 
-  Future<void> _saveContactFilterSettings(
+  Future<bool> _saveContactFilterSettings(
     String title,
     ContactFilterSettings settings,
-  ) async {
-    await _saveUserSettings(
+  ) {
+    return _saveUserSettings(
       title: title,
       applyValue: () => _contactFilterSettings = settings,
       save: (userId) =>
@@ -1124,11 +1076,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _saveChatPrivacySettings(
+  Future<bool> _saveChatPrivacySettings(
     String title,
     ChatPrivacySettings settings,
-  ) async {
-    await _saveUserSettings(
+  ) {
+    return _saveUserSettings(
       title: title,
       applyValue: () => _chatPrivacySettings = settings,
       save: (userId) =>
@@ -1136,11 +1088,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _saveStoryPrivacySettings(
+  Future<bool> _saveStoryPrivacySettings(
     String title,
     StoryPrivacySettings settings,
-  ) async {
-    await _saveUserSettings(
+  ) {
+    return _saveUserSettings(
       title: title,
       applyValue: () => _storyPrivacySettings = settings,
       save: (userId) =>
@@ -1148,11 +1100,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _saveAppPreferenceSettings(
+  Future<bool> _saveAppPreferenceSettings(
     String title,
     AppPreferenceSettings settings,
-  ) async {
-    await _saveUserSettings(
+  ) {
+    return _saveUserSettings(
       title: title,
       applyValue: () {
         _appPreferenceSettings = settings;
@@ -1160,15 +1112,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
       save: (userId) =>
           _userSettingsRepository.saveAppPreferences(userId, settings),
-      suffix: ' Die Änderung ist jetzt aktiv.',
     );
   }
 
-  Future<void> _saveUserSettings({
+  Future<bool> _saveUserSettings({
     required String title,
     required VoidCallback applyValue,
     required Future<void> Function(String userId) save,
-    String suffix = ' Wird nach Server-Anbindung erzwungen.',
   }) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
@@ -1179,7 +1129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       );
-      return;
+      return false;
     }
 
     setState(applyValue);
@@ -1187,20 +1137,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await save(userId);
       if (!mounted) {
-        return;
+        return false;
       }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$title gespeichert.$suffix')));
+      return true;
     } catch (_) {
       if (!mounted) {
-        return;
+        return false;
       }
 
       await _loadUserSettings();
       if (!mounted) {
-        return;
+        return false;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1210,6 +1157,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       );
+      return false;
     }
   }
 
@@ -1271,7 +1219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openDetailPage({
     required IconData icon,
     required String title,
-    required String description,
+    String? description,
     required List<_SettingsDetailItem> items,
     ValueChanged<String>? onItemTap,
   }) {
@@ -1367,57 +1315,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openChatPrivacy() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => _SettingsSwitchScreen(
-          icon: Icons.lock_outline_rounded,
-          title: 'Chat-Privatsphäre',
-          description:
-              'Steuere, welche Chat-Privatsphäre bereits im MVP wirksam ist.',
-          note:
-              'Lesebestätigungen und Einmal-Ansehen-Standard wirken im Chat. Online-Status und Auto-Speichern bleiben vorbereitet.',
-          items: [
-            _SettingsSwitchItem(
-              icon: Icons.done_all_rounded,
-              title: 'Lesebestätigungen',
-              description: 'Andere sollen deinen Gelesen-Status sehen dürfen.',
-              value: _chatPrivacySettings.readReceiptsEnabled,
-              onChanged: (value) => _saveChatPrivacySettings(
-                'Lesebestätigungen',
-                _chatPrivacySettings.copyWith(readReceiptsEnabled: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.circle_outlined,
-              title: 'Online-Status',
-              description:
-                  'Eigene Präsenz wird nur bei aktiver Option aktualisiert.',
-              value: _chatPrivacySettings.onlineStatusEnabled,
-              onChanged: (value) => _saveChatPrivacySettings(
-                'Online-Status',
-                _chatPrivacySettings.copyWith(onlineStatusEnabled: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.perm_media_outlined,
-              title: 'Medien automatisch speichern',
-              description:
-                  'Vorbereitet, bis lokales Auto-Speichern final angebunden ist.',
-              value: _chatPrivacySettings.autoSaveMedia,
-              onChanged: (value) => _saveChatPrivacySettings(
-                'Medien speichern',
-                _chatPrivacySettings.copyWith(autoSaveMedia: value),
-              ),
-            ),
-            _SettingsSwitchItem(
-              icon: Icons.looks_one_outlined,
-              title: 'Einmal ansehen als Standard',
-              description: 'Fotos und Videos standardmäßig privat senden.',
-              value: _chatPrivacySettings.defaultViewOnceMedia,
-              onChanged: (value) => _saveChatPrivacySettings(
-                'Einmal ansehen',
-                _chatPrivacySettings.copyWith(defaultViewOnceMedia: value),
-              ),
-            ),
-          ],
+        builder: (_) => ChatPrivacySettingsScreen(
+          initialSettings: _chatPrivacySettings,
+          onChanged: _saveChatPrivacySettings,
         ),
       ),
     );
@@ -1438,8 +1338,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _openDetailPage(
       icon: Icons.privacy_tip_rounded,
       title: 'Datenschutz',
-      description:
-          'Kontrolliere deine Daten, Einwilligungen und Datenschutzrechte.',
       items: const [
         _SettingsDetailItem(
           icon: Icons.file_download_outlined,
@@ -1519,7 +1417,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _openDetailPage(
       icon: Icons.support_agent_rounded,
       title: 'Support',
-      description: 'Hilfe, Feedback und Kontakt zum plaqa-Support.',
       items: const [
         _SettingsDetailItem(
           icon: Icons.help_outline_rounded,
@@ -1567,8 +1464,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _openDetailPage(
       icon: Icons.description_rounded,
       title: 'Rechtliches',
-      description:
-          'AGB, Datenschutz, Community-Richtlinien, Impressum, Lizenzen und App-Informationen.',
       items: const [
         _SettingsDetailItem(
           icon: Icons.article_outlined,
@@ -1728,7 +1623,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: _notifyContactRequests,
                         onChanged: (value) {
                           _updateNotificationPreference(
-                            title: 'Kontaktanfragen',
                             value: value,
                             applyValue: (nextValue) {
                               _notifyContactRequests = nextValue;
@@ -1744,7 +1638,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: _notifyChats,
                         onChanged: (value) {
                           _updateNotificationPreference(
-                            title: 'Chats',
                             value: value,
                             applyValue: (nextValue) {
                               _notifyChats = nextValue;
@@ -1761,7 +1654,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: _notifyReports,
                         onChanged: (value) {
                           _updateNotificationPreference(
-                            title: 'Anonyme Hinweise',
                             value: value,
                             applyValue: (nextValue) {
                               _notifyReports = nextValue;
@@ -1778,7 +1670,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: _notifyVerification,
                         onChanged: (value) {
                           _updateNotificationPreference(
-                            title: 'Verifizierung',
                             value: value,
                             applyValue: (nextValue) {
                               _notifyVerification = nextValue;
@@ -2040,22 +1931,6 @@ class _SettingsRow extends StatelessWidget {
   }
 }
 
-class _SettingsSwitchItem {
-  const _SettingsSwitchItem({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-}
-
 class _SettingsStatusLine {
   const _SettingsStatusLine({
     required this.icon,
@@ -2072,6 +1947,74 @@ class _SettingsStatusLine {
   final Color statusColor;
 }
 
+class _SettingsStatusOverviewScreen extends StatelessWidget {
+  const _SettingsStatusOverviewScreen({
+    required this.title,
+    required this.icon,
+    required this.intro,
+    required this.items,
+  });
+
+  final String title;
+  final IconData icon;
+  final String intro;
+  final List<_SettingsStatusLine> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return CaRismaBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: ListView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            children: [
+              CaRismaSubPageHeader(
+                icon: icon,
+                title: title,
+                onBack: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(height: 18),
+              GlassCard(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      intro,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w700,
+                        height: 1.38,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ...items.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _SettingsDialogStatusCard(
+                          icon: item.icon,
+                          iconColor: item.statusColor,
+                          title: item.title,
+                          body: item.body,
+                          status: item.status,
+                          statusColor: item.statusColor,
+                          boxedIcon: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SettingsDialogStatusCard extends StatelessWidget {
   const _SettingsDialogStatusCard({
     required this.icon,
@@ -2080,6 +2023,7 @@ class _SettingsDialogStatusCard extends StatelessWidget {
     this.iconColor = CaRismaDesignTokens.bluePrimary,
     this.status,
     this.statusColor = CaRismaDesignTokens.bluePrimary,
+    this.boxedIcon = false,
   });
 
   final IconData icon;
@@ -2088,6 +2032,7 @@ class _SettingsDialogStatusCard extends StatelessWidget {
   final String body;
   final String? status;
   final Color statusColor;
+  final bool boxedIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -2099,10 +2044,13 @@ class _SettingsDialogStatusCard extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, color: iconColor, size: 22),
-          const SizedBox(width: 11),
+          if (boxedIcon)
+            CaRismaBlueIconBox(icon: icon, size: 44, iconSize: 22)
+          else
+            Icon(icon, color: iconColor, size: 22),
+          SizedBox(width: boxedIcon ? 12 : 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2165,164 +2113,6 @@ class _SettingsDialogStatusCard extends StatelessWidget {
   }
 }
 
-class _SettingsSwitchScreen extends StatelessWidget {
-  const _SettingsSwitchScreen({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.items,
-    required this.note,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final List<_SettingsSwitchItem> items;
-  final String note;
-
-  @override
-  Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return CaRismaBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(
-              20,
-              18,
-              20,
-              CaRismaDesignTokens.mainScreenBottomInset + 10 + keyboardInset,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CaRismaSubPageHeader(
-                  icon: icon,
-                  title: title,
-                  onBack: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  description,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.5,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                GlassCard(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    children: List.generate(items.length, (index) {
-                      final item = items[index];
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index == items.length - 1 ? 0 : 10,
-                        ),
-                        child: _SettingsSwitchTile(item: item),
-                      );
-                    }),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                GlassCard(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
-                        color: CaRismaDesignTokens.bluePrimary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          note,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.68),
-                            fontWeight: FontWeight.w700,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsSwitchTile extends StatelessWidget {
-  const _SettingsSwitchTile({required this.item});
-
-  final _SettingsSwitchItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Row(
-        children: [
-          CaRismaBlueIconBox(icon: item.icon, size: 44, iconSize: 22),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.description,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.66),
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Switch.adaptive(
-            value: item.value,
-            onChanged: item.onChanged,
-            activeThumbColor: CaRismaDesignTokens.bluePrimary,
-            activeTrackColor: CaRismaDesignTokens.bluePrimary.withValues(
-              alpha: 0.38,
-            ),
-            inactiveThumbColor: Colors.white.withValues(alpha: 0.72),
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AppVersionCard extends StatelessWidget {
   const _AppVersionCard();
 
@@ -2335,32 +2125,21 @@ class _AppVersionCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 42,
+              height: 42,
+              padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
+                color: Colors.black,
                 borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    CaRismaDesignTokens.bluePrimary,
-                    CaRismaDesignTokens.bluePrimary,
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: CaRismaDesignTokens.bluePrimary.withValues(
-                      alpha: 0.30,
-                    ),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
+                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
               ),
-              child: const Icon(
-                Icons.local_activity_rounded,
-                color: Colors.white,
-                size: 20,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: Image.asset(
+                  'assets/images/plaqa_app_icon.png',
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                ),
               ),
             ),
             const SizedBox(width: 13),
@@ -2528,15 +2307,6 @@ class _AppPermissionsSettingsScreenState
                     ),
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
                     children: [
-                      Text(
-                        'plaqa fragt Berechtigungen erst an, wenn du die jeweilige Funktion verwendest. Hier kannst du nur den aktuellen Systemstatus prüfen.',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w700,
-                          height: 1.36,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
                       if (_isLoading && snapshot == null)
                         const _AppPermissionLoadingCard()
                       else if (_errorMessage case final error?)
@@ -2587,15 +2357,6 @@ class _AppPermissionsSettingsScreenState
                         enabled: isAndroid && !_isOpeningSettings,
                         isPrimary: true,
                         onTap: _openAndroidSettings,
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'Kontakte werden über den Android-Picker ausgewählt. plaqa benötigt dafür keinen vollständigen Zugriff auf dein Adressbuch. Mitteilungen sind derzeit nicht als Android-Push-Berechtigung angebunden.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.54),
-                          fontWeight: FontWeight.w700,
-                          height: 1.36,
-                        ),
                       ),
                     ],
                   ),
@@ -2659,7 +2420,7 @@ class _AppPermissionTile extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           CaRismaBlueIconBox(icon: definition.icon, size: 44, iconSize: 22),
           const SizedBox(width: 12),
@@ -3028,16 +2789,6 @@ class _SafetyCenterSettingsScreenState
                   onBack: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(height: 18),
-                Text(
-                  'Behalte Blockierungen, Warnungen, Vorfälle und Schutzregeln im Blick.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.5,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 20),
                 GlassCard(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -3267,7 +3018,7 @@ class _SecurityCenterInfoTile extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             width: 42,
@@ -3764,14 +3515,14 @@ class _SettingsDetailScreen extends StatelessWidget {
   const _SettingsDetailScreen({
     required this.icon,
     required this.title,
-    required this.description,
+    this.description,
     required this.items,
     required this.onItemTap,
   });
 
   final IconData icon;
   final String title;
-  final String description;
+  final String? description;
   final List<_SettingsDetailItem> items;
   final ValueChanged<String> onItemTap;
 
@@ -3800,17 +3551,20 @@ class _SettingsDetailScreen extends StatelessWidget {
                   title: title,
                   onBack: () => Navigator.of(context).pop(),
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  description,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.5,
-                    height: 1.35,
+                if (description case final text?) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    text,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16.5,
+                      height: 1.35,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
+                ] else
+                  const SizedBox(height: 18),
                 GlassCard(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -3942,19 +3696,6 @@ class _CaRismaLegalContentScreenState extends State<CaRismaLegalContentScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        _content.description,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15.5,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 18),
                     ...List.generate(_content.sections.length, (index) {
                       final section = _content.sections[index];
@@ -4028,14 +3769,12 @@ class _LegalContent {
   const _LegalContent({
     required this.title,
     required this.icon,
-    required this.description,
     required this.sections,
     this.versionLabel,
   });
 
   final String title;
   final IconData icon;
-  final String description;
   final List<_LegalSection> sections;
   final String? versionLabel;
 
@@ -4044,8 +3783,6 @@ class _LegalContent {
       'AGB' => const _LegalContent(
         title: 'AGB',
         icon: Icons.description_outlined,
-        description:
-            'Allgemeine Geschäftsbedingungen und Nutzungsbedingungen für plaqa.',
         versionLabel: 'Aktuelle AGB-Version: ${LegalVersions.terms}',
         sections: [
           _LegalSection(
@@ -5253,7 +4990,6 @@ Diese Nutzungsbedingungen sind vor Veröffentlichung durch einen Rechtsanwalt mi
       'Datenschutzerklärung' => const _LegalContent(
         title: 'Datenschutz',
         icon: Icons.privacy_tip_outlined,
-        description: 'Datenschutzerklärung für plaqa.',
         versionLabel: 'Aktuelle Datenschutz-Version: ${LegalVersions.privacy}',
         sections: [
           _LegalSection(
@@ -6359,8 +6095,6 @@ Der Entwurf sollte vor Veröffentlichung durch einen Rechtsanwalt mit Schwerpunk
       'Community-Richtlinien' => const _LegalContent(
         title: 'Community-Richtlinien',
         icon: Icons.shield_outlined,
-        description:
-            'Verhaltensregeln für eine sichere und verantwortungsvolle Nutzung von plaqa.',
         versionLabel: 'Aktuelle Version: ${LegalVersions.responsibleUse}',
         sections: [
           _LegalSection(
@@ -7255,8 +6989,6 @@ Diese Community-Richtlinien sind vor der Veröffentlichung durch einen Rechtsanw
       'Impressum' => const _LegalContent(
         title: 'Impressum',
         icon: Icons.business_rounded,
-        description:
-            'Anbieterkennzeichnung für die Veröffentlichung von plaqa.',
         sections: [
           _LegalSection(
             title: '1. Angaben gemäß § 5 DDG',
@@ -7344,7 +7076,6 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
       'Über plaqa' => _LegalContent(
         title: 'Über plaqa',
         icon: Icons.info_outline_rounded,
-        description: 'Die sichere Fahrzeug-Community von plaqa.',
         sections: [
           const _LegalSection(
             title: 'Unsere Idee',
@@ -7375,8 +7106,6 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
       'Lizenzen' => const _LegalContent(
         title: 'Lizenzen',
         icon: Icons.workspace_premium_outlined,
-        description:
-            'Übersicht für Open-Source-Lizenzen und verwendete Pakete.',
         sections: [
           _LegalSection(
             title: 'Flutter & Dart',
@@ -7398,7 +7127,6 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
       _ => _LegalContent(
         title: title,
         icon: Icons.description_rounded,
-        description: 'Rechtliche Informationen zu plaqa.',
         sections: const [
           _LegalSection(
             title: 'Entwurf',

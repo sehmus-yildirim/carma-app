@@ -8,8 +8,11 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.location.Geocoder
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaRecorder
 import android.media.MediaPlayer
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -43,6 +46,7 @@ class MainActivity : FlutterActivity() {
     private var voiceMemoFile: File? = null
     private var voiceMemoStartedAt: Long = 0L
     private var voiceMemoPlayer: MediaPlayer? = null
+    private var messageRingtone: Ringtone? = null
     private val allowedDocumentMimeTypes = arrayOf(
         "text/*",
         "application/pdf",
@@ -78,9 +82,42 @@ class MainActivity : FlutterActivity() {
                     "recognizePlateSpeech" -> recognizePlateSpeech(result)
                     "getAppPermissionStatuses" -> getAppPermissionStatuses(result)
                     "openAppSettings" -> openAppSettings(result)
+                    "playMessageSound" -> playMessageSound(result)
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun playMessageSound(result: MethodChannel.Result) {
+        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        val notificationsAudible =
+            audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL &&
+                audioManager.getStreamVolume(AudioManager.STREAM_NOTIFICATION) > 0
+
+        if (!notificationsAudible) {
+            result.success(false)
+            return
+        }
+
+        try {
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            val ringtone = RingtoneManager.getRingtone(applicationContext, soundUri)
+            if (ringtone == null) {
+                result.success(false)
+                return
+            }
+
+            ringtone.audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            messageRingtone?.stop()
+            messageRingtone = ringtone
+            ringtone.play()
+            result.success(true)
+        } catch (_: Exception) {
+            result.success(false)
+        }
     }
 
     private fun getAppPermissionStatuses(result: MethodChannel.Result) {

@@ -41,6 +41,14 @@ enum VehicleHeroImageStatus {
   regenerationRequired,
 }
 
+enum ProfileVehicleHighlight {
+  plate,
+  color,
+  mileage,
+  status,
+  ownedSince,
+}
+
 class ProfileVehicle {
   const ProfileVehicle({
     required this.id,
@@ -88,6 +96,12 @@ class ProfileVehicle {
     this.vin,
     this.ownedSince,
     this.mileage,
+    this.profileHighlights = const <ProfileVehicleHighlight>[
+      ProfileVehicleHighlight.plate,
+      ProfileVehicleHighlight.color,
+      ProfileVehicleHighlight.mileage,
+      ProfileVehicleHighlight.ownedSince,
+    ],
     this.heroImageUrl,
     this.heroImagePath,
     this.heroImageStatus = VehicleHeroImageStatus.notGenerated,
@@ -145,6 +159,7 @@ class ProfileVehicle {
   final String? vin;
   final DateTime? ownedSince;
   final int? mileage;
+  final List<ProfileVehicleHighlight> profileHighlights;
   final String? heroImageUrl;
   final String? heroImagePath;
   final VehicleHeroImageStatus heroImageStatus;
@@ -271,6 +286,7 @@ class ProfileVehicle {
       vin: data['vin'] as String?,
       ownedSince: _dateTimeFromValue(data['ownedSince']),
       mileage: data['mileage'] as int?,
+      profileHighlights: _highlightListFromValue(data['profileHighlights']),
       heroImageUrl: data['heroImageUrl'] as String?,
       heroImagePath: data['heroImagePath'] as String?,
       heroImageStatus: _enumFromName(
@@ -369,6 +385,7 @@ class ProfileVehicle {
       'vin': _trimmedOrNull(vin)?.toUpperCase(),
       'ownedSince': ownedSince == null ? null : Timestamp.fromDate(ownedSince!),
       'mileage': mileage,
+      'profileHighlights': profileHighlights.map((value) => value.name).toList(),
       'deactivatedAt': deactivatedAt == null
           ? null
           : Timestamp.fromDate(deactivatedAt!),
@@ -423,6 +440,7 @@ class ProfileVehicle {
       'equipment': _normalizedStringList(equipment),
       'ownedSince': ownedSince == null ? null : Timestamp.fromDate(ownedSince!),
       'mileage': mileage,
+      'profileHighlights': profileHighlights.map((value) => value.name).toList(),
     };
   }
 
@@ -458,6 +476,7 @@ class ProfileVehicle {
     String? publicPlateLabel,
     int? year,
     DateTime? firstRegistration,
+    bool clearFirstRegistration = false,
     String? bodyStyle,
     String? engineDescription,
     int? displacementCcm,
@@ -471,7 +490,9 @@ class ProfileVehicle {
     String? tsn,
     String? vin,
     DateTime? ownedSince,
+    bool clearOwnedSince = false,
     int? mileage,
+    List<ProfileVehicleHighlight>? profileHighlights,
     String? heroImageUrl,
     String? heroImagePath,
     VehicleHeroImageStatus? heroImageStatus,
@@ -517,7 +538,9 @@ class ProfileVehicle {
       plateDisplayMode: plateDisplayMode ?? this.plateDisplayMode,
       publicPlateLabel: publicPlateLabel ?? this.publicPlateLabel,
       year: year ?? this.year,
-      firstRegistration: firstRegistration ?? this.firstRegistration,
+      firstRegistration: clearFirstRegistration
+          ? null
+          : firstRegistration ?? this.firstRegistration,
       bodyStyle: bodyStyle ?? this.bodyStyle,
       engineDescription: engineDescription ?? this.engineDescription,
       displacementCcm: displacementCcm ?? this.displacementCcm,
@@ -530,8 +553,9 @@ class ProfileVehicle {
       hsn: hsn ?? this.hsn,
       tsn: tsn ?? this.tsn,
       vin: vin ?? this.vin,
-      ownedSince: ownedSince ?? this.ownedSince,
+      ownedSince: clearOwnedSince ? null : ownedSince ?? this.ownedSince,
       mileage: mileage ?? this.mileage,
+      profileHighlights: profileHighlights ?? this.profileHighlights,
       heroImageUrl: heroImageUrl ?? this.heroImageUrl,
       heroImagePath: heroImagePath ?? this.heroImagePath,
       heroImageStatus: heroImageStatus ?? this.heroImageStatus,
@@ -611,6 +635,28 @@ class ProfileVehicle {
   static List<String> _stringListFromValue(Object? value) {
     if (value is! List) return const [];
     return _normalizedStringList(value.whereType<String>());
+  }
+
+  static List<ProfileVehicleHighlight> _highlightListFromValue(Object? value) {
+    if (value is! List) {
+      return const <ProfileVehicleHighlight>[
+        ProfileVehicleHighlight.plate,
+        ProfileVehicleHighlight.color,
+        ProfileVehicleHighlight.mileage,
+        ProfileVehicleHighlight.ownedSince,
+      ];
+    }
+    final highlights = <ProfileVehicleHighlight>[];
+    for (final name in value.whereType<String>()) {
+      for (final highlight in ProfileVehicleHighlight.values) {
+        if (highlight.name == name && !highlights.contains(highlight)) {
+          highlights.add(highlight);
+        }
+      }
+    }
+    return highlights.isEmpty
+        ? const <ProfileVehicleHighlight>[ProfileVehicleHighlight.plate]
+        : highlights.take(5).toList(growable: false);
   }
 
   static List<String> _normalizedStringList(Iterable<String> values) {

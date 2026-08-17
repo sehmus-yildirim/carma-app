@@ -1,20 +1,61 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../data/profile_vehicle.dart';
-import '../../data/profile_vehicle_encounter.dart';
 import '../../data/profile_vehicle_gallery_media.dart';
 import '../../data/profile_vehicle_modification.dart';
 import '../../data/profile_vehicle_timeline_entry.dart';
 import '../../data/user_profile.dart';
 import 'profile_vehicle_gallery_card.dart';
-import 'profile_vehicle_encounters_card.dart';
 import 'profile_vehicle_statistics_card.dart';
 import 'profile_vehicle_timeline_card.dart';
 
 enum ProfileVehicleMenuAction { edit, details, setPrimary, archive }
+
+const String debugProfileVehicleId = 'plaqa-debug-bmw-x6-m50d';
+
+const ProfileVehicle debugProfileVehicle = ProfileVehicle(
+  id: debugProfileVehicleId,
+  ownerUserId: 'plaqa-debug-profile',
+  brand: 'BMW',
+  model: 'X6',
+  series: 'M50d',
+  color: 'Schwarz',
+  countryCode: 'DE',
+  plateRegion: 'HH',
+  plateLetters: 'SY',
+  plateNumbers: '4700',
+  isPrimary: true,
+  status: ProfileVehicleStatus.active,
+  visibility: ProfileVehicleVisibility.contacts,
+  showPlate: true,
+  vehicleType: ProfileVehicleType.passengerCar,
+  plateType: ProfilePlateType.standard,
+  showOnPublicProfile: true,
+  discoverableByPlate: false,
+  selectableInStories: false,
+  allowContactRequests: false,
+  plateDisplayMode: ProfilePlateDisplayMode.full,
+  year: 2015,
+  bodyStyle: 'SUV',
+  engineDescription: '3,0 l M Performance Diesel',
+  horsepower: 381,
+  kilowatts: 280,
+  fuelType: 'Diesel',
+  transmission: '8-Gang Automatik',
+  drivetrain: 'Allrad',
+  equipment: <String>[
+    'M Sportpaket',
+    'xDrive',
+    'Lederausstattung',
+    'Navigationssystem',
+    'Rückfahrkamera',
+    'Sitzheizung',
+  ],
+);
 
 class ProfileVehiclePanel extends StatefulWidget {
   const ProfileVehiclePanel({
@@ -22,6 +63,8 @@ class ProfileVehiclePanel extends StatefulWidget {
     required this.profile,
     required this.postCount,
     required this.vehicles,
+    required this.isLoading,
+    required this.loadError,
     required this.isOwnProfile,
     required this.onAdd,
     required this.onEdit,
@@ -42,17 +85,16 @@ class ProfileVehiclePanel extends StatefulWidget {
     required this.onAddTimelineEntry,
     required this.onEditTimelineEntry,
     required this.onDeleteTimelineEntry,
-    required this.currentUserId,
-    required this.encountersForVehicle,
-    required this.onRequestEncounter,
-    required this.onAcceptEncounter,
-    required this.onDeclineEncounter,
-    required this.onRemoveEncounter,
+    required this.onSaveVehicle,
+    required this.profileViewCount,
+    required this.totalLikeCount,
   });
 
   final UserProfile? profile;
   final int postCount;
-  final Stream<List<ProfileVehicle>> vehicles;
+  final List<ProfileVehicle> vehicles;
+  final bool isLoading;
+  final Object? loadError;
   final bool isOwnProfile;
   final VoidCallback onAdd;
   final ValueChanged<ProfileVehicle> onEdit;
@@ -82,13 +124,9 @@ class ProfileVehiclePanel extends StatefulWidget {
   final void Function(ProfileVehicle vehicle, ProfileVehicleTimelineEntry entry)
   onEditTimelineEntry;
   final ValueChanged<ProfileVehicleTimelineEntry> onDeleteTimelineEntry;
-  final String currentUserId;
-  final Stream<List<ProfileVehicleEncounter>> Function(String vehicleId)
-  encountersForVehicle;
-  final ValueChanged<ProfileVehicle> onRequestEncounter;
-  final ValueChanged<ProfileVehicleEncounter> onAcceptEncounter;
-  final ValueChanged<ProfileVehicleEncounter> onDeclineEncounter;
-  final ValueChanged<ProfileVehicleEncounter> onRemoveEncounter;
+  final Future<void> Function(ProfileVehicle vehicle) onSaveVehicle;
+  final Stream<int> profileViewCount;
+  final Stream<int> totalLikeCount;
 
   @override
   State<ProfileVehiclePanel> createState() => _ProfileVehiclePanelState();
@@ -99,181 +137,159 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<ProfileVehicle>>(
-      stream: widget.vehicles,
-      builder: (context, snapshot) {
-        final resolvedVehicles = _resolvedVehicles(snapshot.data ?? const []);
-        final selectedVehicle = _selectedVehicle(resolvedVehicles);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.isOwnProfile ? 'Meine Fahrzeuge' : 'Fahrzeuge',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                if (widget.isOwnProfile)
-                  IconButton(
-                    tooltip: 'Fahrzeug hinzufügen',
-                    onPressed: widget.onAdd,
-                    icon: const Icon(Icons.add_rounded),
-                    color: CaRismaDesignTokens.blueBright,
-                  ),
-              ],
+    final resolvedVehicles = _resolvedVehicles(widget.vehicles);
+    final selectedVehicle = _selectedVehicle(resolvedVehicles);
+    final isDebugVehicle = selectedVehicle?.id == debugProfileVehicleId;
+    final canManageSelected = widget.isOwnProfile && !isDebugVehicle;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.isLoading && resolvedVehicles.isEmpty)
+          const _VehicleLoadingState()
+        else if (widget.loadError != null)
+          const _VehicleMessageState(
+            icon: Icons.cloud_off_rounded,
+            title: 'Fahrzeuge konnten nicht geladen werden',
+            message: 'Prüfe deine Verbindung und versuche es erneut.',
+          )
+        else if (resolvedVehicles.isEmpty)
+          _VehicleMessageState(
+            icon: Icons.directions_car_outlined,
+            title: 'Noch kein Fahrzeug',
+            message: widget.isOwnProfile
+                ? 'Füge dein erstes Fahrzeug zu deinem Profil hinzu.'
+                : 'Dieser Nutzer zeigt aktuell kein Fahrzeug.',
+            actionLabel: widget.isOwnProfile ? 'Fahrzeug hinzufügen' : null,
+            onAction: widget.isOwnProfile ? widget.onAdd : null,
+          )
+        else ...[
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragEnd: (details) => _selectFromSwipe(
+              resolvedVehicles,
+              selectedVehicle,
+              details.primaryVelocity ?? 0,
             ),
-            const SizedBox(height: 10),
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                resolvedVehicles.isEmpty)
-              const _VehicleLoadingState()
-            else if (snapshot.hasError)
-              const _VehicleMessageState(
-                icon: Icons.cloud_off_rounded,
-                title: 'Fahrzeuge konnten nicht geladen werden',
-                message: 'Prüfe deine Verbindung und versuche es erneut.',
-              )
-            else if (resolvedVehicles.isEmpty)
-              _VehicleMessageState(
-                icon: Icons.directions_car_outlined,
-                title: 'Noch kein Fahrzeug',
-                message: widget.isOwnProfile
-                    ? 'Füge dein erstes Fahrzeug zu deinem Profil hinzu.'
-                    : 'Dieser Nutzer zeigt aktuell kein Fahrzeug.',
-                actionLabel: widget.isOwnProfile ? 'Fahrzeug hinzufügen' : null,
-                onAction: widget.isOwnProfile ? widget.onAdd : null,
-              )
-            else ...[
-              _VehicleHeroCard(
-                vehicle: selectedVehicle!,
-                isOwnProfile: widget.isOwnProfile,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: _VehicleHeroCard(
+                key: ValueKey(selectedVehicle!.id),
+                vehicle: selectedVehicle,
+                showGenerationControl: widget.isOwnProfile,
                 isGenerationBusy: widget.isHeroRequestBusy(selectedVehicle.id),
                 onGenerate: () => widget.onGenerateHero(selectedVehicle),
+                onEditHighlights: canManageSelected
+                    ? () => _editHighlights(selectedVehicle)
+                    : null,
               ),
-              if (resolvedVehicles.length > 1) ...[
-                const SizedBox(height: 12),
-                _VehicleSelector(
-                  vehicles: resolvedVehicles,
-                  selectedVehicleId: selectedVehicle.id,
-                  onSelected: (vehicle) {
-                    setState(() => _selectedVehicleId = vehicle.id);
-                  },
-                ),
-              ],
-              const SizedBox(height: 12),
-              ProfileVehicleGalleryCard(
-                vehicle: selectedVehicle,
-                media: widget.galleryMediaForVehicle(selectedVehicle.id),
-                isOwnProfile: widget.isOwnProfile,
-                onAdd: () => widget.onAddGalleryMedia(selectedVehicle),
-                onSetMain: (media) =>
-                    widget.onSetMainGalleryMedia(selectedVehicle, media),
-                onDelete: widget.onDeleteGalleryMedia,
+            ),
+          ),
+          if (resolvedVehicles.length > 1) ...[
+            const SizedBox(height: 12),
+            _VehicleSelector(
+              vehicles: resolvedVehicles,
+              selectedVehicleId: selectedVehicle.id,
+              onSelected: (vehicle) {
+                setState(() => _selectedVehicleId = vehicle.id);
+              },
+            ),
+          ],
+          const SizedBox(height: 12),
+          ProfileVehicleGalleryCard(
+            vehicle: selectedVehicle,
+            media: widget.galleryMediaForVehicle(selectedVehicle.id),
+            isOwnProfile: canManageSelected,
+            onAdd: () => widget.onAddGalleryMedia(selectedVehicle),
+            onSetMain: (media) =>
+                widget.onSetMainGalleryMedia(selectedVehicle, media),
+            onDelete: widget.onDeleteGalleryMedia,
+          ),
+          const SizedBox(height: 12),
+          _VehicleDataCard(
+            vehicle: selectedVehicle,
+            isOwnProfile: canManageSelected,
+            onEdit: () => widget.onEditDetails(selectedVehicle),
+          ),
+          const SizedBox(height: 12),
+          _VehicleEquipmentCard(
+            vehicle: selectedVehicle,
+            isOwnProfile: canManageSelected,
+            onEdit: () => widget.onEditDetails(selectedVehicle),
+          ),
+          const SizedBox(height: 12),
+          _VehicleModificationsCard(
+            vehicle: selectedVehicle,
+            modifications: widget.modificationsForVehicle(selectedVehicle.id),
+            isOwnProfile: canManageSelected,
+            onAdd: () => widget.onAddModification(selectedVehicle),
+            onEdit: (modification) =>
+                widget.onEditModification(selectedVehicle, modification),
+            onDelete: widget.onDeleteModification,
+          ),
+          const SizedBox(height: 12),
+          ProfileVehicleTimelineCard(
+            vehicle: selectedVehicle,
+            entries: widget.timelineEntriesForVehicle(selectedVehicle.id),
+            isOwnProfile: canManageSelected,
+            onAdd: () => widget.onAddTimelineEntry(selectedVehicle),
+            onEdit: (entry) =>
+                widget.onEditTimelineEntry(selectedVehicle, entry),
+            onDelete: widget.onDeleteTimelineEntry,
+          ),
+          const SizedBox(height: 12),
+          ProfileVehicleStatisticsCard(
+            profileViews: widget.profileViewCount,
+            totalLikes: widget.totalLikeCount,
+          ),
+          if (widget.isOwnProfile && !isDebugVehicle) ...[
+            const SizedBox(height: 18),
+            Text(
+              'Verwalten',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
               ),
-              const SizedBox(height: 12),
-              _VehicleDataCard(
-                vehicle: selectedVehicle,
-                isOwnProfile: widget.isOwnProfile,
-                onEdit: () => widget.onEditDetails(selectedVehicle),
+            ),
+            const SizedBox(height: 9),
+            for (var index = 0; index < resolvedVehicles.length; index++) ...[
+              _ProfileVehicleCard(
+                vehicle: resolvedVehicles[index],
+                isOwnProfile: true,
+                onAction: (action) {
+                  switch (action) {
+                    case ProfileVehicleMenuAction.edit:
+                      widget.onEdit(resolvedVehicles[index]);
+                    case ProfileVehicleMenuAction.details:
+                      widget.onEditDetails(resolvedVehicles[index]);
+                    case ProfileVehicleMenuAction.setPrimary:
+                      widget.onSetPrimary(resolvedVehicles[index]);
+                    case ProfileVehicleMenuAction.archive:
+                      widget.onArchive(resolvedVehicles[index]);
+                  }
+                },
               ),
-              const SizedBox(height: 12),
-              _VehicleEquipmentCard(
-                vehicle: selectedVehicle,
-                isOwnProfile: widget.isOwnProfile,
-                onEdit: () => widget.onEditDetails(selectedVehicle),
-              ),
-              const SizedBox(height: 12),
-              _VehicleModificationsCard(
-                vehicle: selectedVehicle,
-                modifications: widget.modificationsForVehicle(
-                  selectedVehicle.id,
-                ),
-                isOwnProfile: widget.isOwnProfile,
-                onAdd: () => widget.onAddModification(selectedVehicle),
-                onEdit: (modification) =>
-                    widget.onEditModification(selectedVehicle, modification),
-                onDelete: widget.onDeleteModification,
-              ),
-              const SizedBox(height: 12),
-              ProfileVehicleTimelineCard(
-                vehicle: selectedVehicle,
-                entries: widget.timelineEntriesForVehicle(selectedVehicle.id),
-                isOwnProfile: widget.isOwnProfile,
-                onAdd: () => widget.onAddTimelineEntry(selectedVehicle),
-                onEdit: (entry) =>
-                    widget.onEditTimelineEntry(selectedVehicle, entry),
-                onDelete: widget.onDeleteTimelineEntry,
-              ),
-              const SizedBox(height: 12),
-              ProfileVehicleEncountersCard(
-                vehicle: selectedVehicle,
-                currentUserId: widget.currentUserId,
-                encounters: widget.encountersForVehicle(selectedVehicle.id),
-                isOwnProfile: widget.isOwnProfile,
-                onRequest: () => widget.onRequestEncounter(selectedVehicle),
-                onAccept: widget.onAcceptEncounter,
-                onDecline: widget.onDeclineEncounter,
-                onRemove: widget.onRemoveEncounter,
-              ),
-              const SizedBox(height: 12),
-              ProfileVehicleStatisticsCard(
-                vehicle: selectedVehicle,
-                postCount: widget.postCount,
-                encounters: widget.encountersForVehicle(selectedVehicle.id),
-                isOwnProfile: widget.isOwnProfile,
-              ),
-              if (widget.isOwnProfile) ...[
-                const SizedBox(height: 18),
-                Text(
-                  'Verwalten',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                for (
-                  var index = 0;
-                  index < resolvedVehicles.length;
-                  index++
-                ) ...[
-                  _ProfileVehicleCard(
-                    vehicle: resolvedVehicles[index],
-                    isOwnProfile: true,
-                    onAction: (action) {
-                      switch (action) {
-                        case ProfileVehicleMenuAction.edit:
-                          widget.onEdit(resolvedVehicles[index]);
-                        case ProfileVehicleMenuAction.details:
-                          widget.onEditDetails(resolvedVehicles[index]);
-                        case ProfileVehicleMenuAction.setPrimary:
-                          widget.onSetPrimary(resolvedVehicles[index]);
-                        case ProfileVehicleMenuAction.archive:
-                          widget.onArchive(resolvedVehicles[index]);
-                      }
-                    },
-                  ),
-                  if (index < resolvedVehicles.length - 1)
-                    const SizedBox(height: 10),
-                ],
-              ],
+              if (index < resolvedVehicles.length - 1)
+                const SizedBox(height: 10),
             ],
           ],
-        );
-      },
+        ],
+      ],
     );
   }
 
   List<ProfileVehicle> _resolvedVehicles(List<ProfileVehicle> vehicles) {
     if (vehicles.isNotEmpty) return vehicles;
     final currentProfile = widget.profile;
-    if (currentProfile == null) return const [];
-    final legacyVehicle = ProfileVehicle.fromLegacyProfile(currentProfile);
-    return legacyVehicle.hasRequiredData ? [legacyVehicle] : const [];
+    if (currentProfile != null) {
+      final legacyVehicle = ProfileVehicle.fromLegacyProfile(currentProfile);
+      if (legacyVehicle.hasRequiredData) return <ProfileVehicle>[legacyVehicle];
+    }
+    if (kDebugMode && widget.isOwnProfile) {
+      return const <ProfileVehicle>[debugProfileVehicle];
+    }
+    return const <ProfileVehicle>[];
   }
 
   ProfileVehicle? _selectedVehicle(List<ProfileVehicle> vehicles) {
@@ -289,20 +305,98 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
     }
     return vehicles.first;
   }
+
+  void _selectFromSwipe(
+    List<ProfileVehicle> vehicles,
+    ProfileVehicle selected,
+    double velocity,
+  ) {
+    if (vehicles.length < 2 || velocity.abs() < 180) return;
+    final index = vehicles.indexWhere((vehicle) => vehicle.id == selected.id);
+    if (index < 0) return;
+    final nextIndex = velocity < 0 ? index + 1 : index - 1;
+    if (nextIndex < 0 || nextIndex >= vehicles.length) return;
+    setState(() => _selectedVehicleId = vehicles[nextIndex].id);
+  }
+
+  Future<void> _editHighlights(ProfileVehicle vehicle) async {
+    final selected = <ProfileVehicleHighlight>{...vehicle.profileHighlights};
+    final result = await showModalBottomSheet<List<ProfileVehicleHighlight>>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: CaRismaDesignTokens.background,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Fahrzeuginformationen',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Wähle bis zu fünf Angaben für deine Fahrzeugkarte.',
+                style: TextStyle(color: CaRismaDesignTokens.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              for (final highlight in ProfileVehicleHighlight.values)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: selected.contains(highlight),
+                  title: Text(_highlightLabel(highlight)),
+                  secondary: Icon(_highlightIcon(highlight)),
+                  onChanged: (enabled) {
+                    setSheetState(() {
+                      if (enabled == true && selected.length < 5) {
+                        selected.add(highlight);
+                      } else if (enabled == false && selected.length > 1) {
+                        selected.remove(highlight);
+                      }
+                    });
+                  },
+                ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(
+                    sheetContext,
+                  ).pop(selected.toList(growable: false)),
+                  icon: const Icon(Icons.check_rounded),
+                  label: const Text('Auswahl übernehmen'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    await widget.onSaveVehicle(vehicle.copyWith(profileHighlights: result));
+  }
 }
 
 class _VehicleHeroCard extends StatelessWidget {
   const _VehicleHeroCard({
+    super.key,
     required this.vehicle,
-    required this.isOwnProfile,
+    required this.showGenerationControl,
     required this.isGenerationBusy,
     required this.onGenerate,
+    required this.onEditHighlights,
   });
 
   final ProfileVehicle vehicle;
-  final bool isOwnProfile;
+  final bool showGenerationControl;
   final bool isGenerationBusy;
   final VoidCallback onGenerate;
+  final VoidCallback? onEditHighlights;
 
   @override
   Widget build(BuildContext context) {
@@ -319,12 +413,32 @@ class _VehicleHeroCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (imageUrl.isNotEmpty)
-                    Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const _VehicleHeroPlaceholder(),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFF20242B),
+                          Color(0xFF111419),
+                          Color(0xFF080A0D),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (vehicle.id == debugProfileVehicleId)
+                    const _DebugVehicleHeroPlaceholder()
+                  else if (imageUrl.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 12, 8),
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const _VehicleHeroPlaceholder(),
+                      ),
                     )
                   else
                     const _VehicleHeroPlaceholder(),
@@ -340,7 +454,7 @@ class _VehicleHeroCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (isOwnProfile)
+                  if (showGenerationControl)
                     Positioned(
                       top: 12,
                       right: 12,
@@ -358,38 +472,22 @@ class _VehicleHeroCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                vehicle.displayName,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.headlineSmall
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                _statusLabel(vehicle.status),
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.78,
-                                      ),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ],
+                          child: Text(
+                            vehicle.displayName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
                           ),
                         ),
-                        if (vehicle.isPrimary)
-                          const _VehicleChip(
-                            icon: Icons.star_rounded,
-                            label: 'Hauptfahrzeug',
-                          ),
+                        const SizedBox(width: 10),
+                        _VehicleChip(
+                          icon: Icons.circle,
+                          label: _statusLabel(vehicle.status),
+                        ),
                       ],
                     ),
                   ),
@@ -397,36 +495,36 @@ class _VehicleHeroCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(15, 13, 15, 15),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              padding: const EdgeInsets.fromLTRB(15, 12, 15, 15),
+              child: Column(
                 children: [
-                  if (vehicle.showPlate || isOwnProfile)
-                    _VehicleChip(
-                      icon: Icons.pin_outlined,
-                      label: vehicle.displayPlate,
+                  if (onEditHighlights != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        tooltip: 'Fahrzeuginformationen auswählen',
+                        onPressed: onEditHighlights,
+                        icon: const Icon(Icons.tune_rounded),
+                        iconSize: 19,
+                      ),
                     ),
-                  if (vehicle.color.trim().isNotEmpty)
-                    _VehicleChip(
-                      icon: Icons.palette_outlined,
-                      label: vehicle.color.trim(),
+                  SizedBox(
+                    height: 68,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: vehicle.profileHighlights.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final highlight = vehicle.profileHighlights[index];
+                        return _VehicleHighlightTile(
+                          icon: _highlightIcon(highlight),
+                          title: _highlightLabel(highlight),
+                          value: _highlightValue(vehicle, highlight),
+                        );
+                      },
                     ),
-                  if (vehicle.mileage != null)
-                    _VehicleChip(
-                      icon: Icons.speed_rounded,
-                      label: '${vehicle.mileage} km',
-                    ),
-                  if (vehicle.ownedSince != null)
-                    _VehicleChip(
-                      icon: Icons.calendar_month_outlined,
-                      label: 'Seit ${vehicle.ownedSince!.year}',
-                    ),
-                  if (vehicle.isVerified)
-                    const _VehicleChip(
-                      icon: Icons.verified_rounded,
-                      label: 'Verifiziert',
-                    ),
+                  ),
                 ],
               ),
             ),
@@ -442,19 +540,30 @@ class _VehicleHeroPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF171D2A), Color(0xFF0D1320), Color(0xFF063264)],
-        ),
+    return Center(
+      child: Icon(
+        Icons.directions_car_filled_rounded,
+        size: 84,
+        color: Colors.white.withValues(alpha: 0.13),
       ),
-      child: Center(
-        child: Icon(
-          Icons.directions_car_filled_rounded,
-          size: 84,
-          color: Colors.white.withValues(alpha: 0.13),
+    );
+  }
+}
+
+class _DebugVehicleHeroPlaceholder extends StatelessWidget {
+  const _DebugVehicleHeroPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Colors.transparent),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 12, 8),
+        child: Image.asset(
+          'assets/images/debug_bmw_x6_m50d.png',
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.high,
         ),
       ),
     );
@@ -479,10 +588,10 @@ class _VehicleHeroGenerationControl extends StatelessWidget {
         status == VehicleHeroImageStatus.queued ||
         status == VehicleHeroImageStatus.generating;
     final label = switch (status) {
-      VehicleHeroImageStatus.notGenerated => 'Bild erstellen',
+      VehicleHeroImageStatus.notGenerated => 'KI-Bild',
       VehicleHeroImageStatus.failed => 'Erneut versuchen',
       VehicleHeroImageStatus.regenerationRequired => 'Neu erstellen',
-      VehicleHeroImageStatus.ready => 'Neu erstellen',
+      VehicleHeroImageStatus.ready => 'KI-Bild neu',
       VehicleHeroImageStatus.queued ||
       VehicleHeroImageStatus.generating => 'Wird erstellt',
     };
@@ -746,7 +855,7 @@ class _VehicleEquipmentCard extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (context) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -812,9 +921,9 @@ class _VehicleSectionHeader extends StatelessWidget {
         ),
         if (onEdit != null)
           IconButton(
-            tooltip: '$title bearbeiten',
+            tooltip: '$title hinzufügen oder bearbeiten',
             onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined),
+            icon: const Icon(Icons.add_rounded),
             iconSize: 19,
           ),
       ],
@@ -913,7 +1022,7 @@ class _VehicleModificationsCard extends StatelessWidget {
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1320),
+      backgroundColor: CaRismaDesignTokens.background,
       builder: (context) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
@@ -1247,6 +1356,64 @@ class _VehicleChip extends StatelessWidget {
   }
 }
 
+class _VehicleHighlightTile extends StatelessWidget {
+  const _VehicleHighlightTile({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 142,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: CaRismaDesignTokens.blueBright),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: CaRismaDesignTokens.textMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _VehicleLoadingState extends StatelessWidget {
   const _VehicleLoadingState();
 
@@ -1331,4 +1498,54 @@ String _statusLabel(ProfileVehicleStatus status) {
     ProfileVehicleStatus.noLongerOwned => 'Nicht mehr im Besitz',
     ProfileVehicleStatus.archived => 'Archiviert',
   };
+}
+
+String _highlightLabel(ProfileVehicleHighlight highlight) {
+  return switch (highlight) {
+    ProfileVehicleHighlight.plate => 'Kennzeichen',
+    ProfileVehicleHighlight.color => 'Farbe',
+    ProfileVehicleHighlight.mileage => 'Kilometerstand',
+    ProfileVehicleHighlight.status => 'Status',
+    ProfileVehicleHighlight.ownedSince => 'Besitzer seit',
+  };
+}
+
+IconData _highlightIcon(ProfileVehicleHighlight highlight) {
+  return switch (highlight) {
+    ProfileVehicleHighlight.plate => Icons.pin_outlined,
+    ProfileVehicleHighlight.color => Icons.palette_outlined,
+    ProfileVehicleHighlight.mileage => Icons.speed_rounded,
+    ProfileVehicleHighlight.status => Icons.info_outline_rounded,
+    ProfileVehicleHighlight.ownedSince => Icons.calendar_month_outlined,
+  };
+}
+
+String _highlightValue(
+  ProfileVehicle vehicle,
+  ProfileVehicleHighlight highlight,
+) {
+  return switch (highlight) {
+    ProfileVehicleHighlight.plate => vehicle.displayPlate,
+    ProfileVehicleHighlight.color =>
+      vehicle.color.trim().isEmpty ? 'Nicht angegeben' : vehicle.color.trim(),
+    ProfileVehicleHighlight.mileage =>
+      vehicle.mileage == null
+          ? 'Nicht angegeben'
+          : '${_formatNumber(vehicle.mileage!)} km',
+    ProfileVehicleHighlight.status => _statusLabel(vehicle.status),
+    ProfileVehicleHighlight.ownedSince =>
+      vehicle.ownedSince == null
+          ? 'Nicht angegeben'
+          : '${vehicle.ownedSince!.month.toString().padLeft(2, '0')}.${vehicle.ownedSince!.year}',
+  };
+}
+
+String _formatNumber(int value) {
+  final source = '$value';
+  final buffer = StringBuffer();
+  for (var index = 0; index < source.length; index++) {
+    if (index > 0 && (source.length - index) % 3 == 0) buffer.write('.');
+    buffer.write(source[index]);
+  }
+  return buffer.toString();
 }
