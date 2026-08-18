@@ -288,13 +288,13 @@ Future<bool> showProfileVehicleDetailsSheet(
                 if (sheetContext.mounted) {
                   Navigator.of(sheetContext).pop(true);
                 }
-              } catch (error) {
+              } catch (_) {
                 if (!sheetContext.mounted) return;
                 setSheetState(() => isSaving = false);
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Fahrzeugdaten konnten nicht gespeichert werden: $error',
+                      'Fahrzeugdaten konnten nicht gespeichert werden.',
                     ),
                   ),
                 );

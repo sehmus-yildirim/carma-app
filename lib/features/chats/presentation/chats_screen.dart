@@ -388,7 +388,10 @@ Future<ChatStoryRecord?> showProfileStoryComposer({
         ? error.message
         : error is ProfileStoryCreationException
         ? error.message
-        : 'Story konnte nicht gespeichert werden: $error';
+        : _friendlyChatUiError(
+            error,
+            fallback: 'Story konnte nicht gespeichert werden.',
+          );
     throw ProfileStoryCreationException(
       cleanupError == null
           ? message

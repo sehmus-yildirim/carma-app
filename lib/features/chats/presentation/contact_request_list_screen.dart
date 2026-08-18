@@ -101,9 +101,11 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Die Aktion konnte nicht abgeschlossen werden.'),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -148,9 +150,11 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Aktion fehlgeschlagen: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Die Anfrage konnte nicht angenommen werden.'),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -212,10 +216,7 @@ class _ContactRequestListScreenState extends State<ContactRequestListScreen> {
                     }
 
                     if (snapshot.hasError) {
-                      return _RequestErrorCard(
-                        error: snapshot.error.toString(),
-                        onRetry: _reload,
-                      );
+                      return _RequestErrorCard(onRetry: _reload);
                     }
 
                     final requests =
@@ -494,9 +495,8 @@ class _RequestLoadingCard extends StatelessWidget {
 }
 
 class _RequestErrorCard extends StatelessWidget {
-  const _RequestErrorCard({required this.error, required this.onRetry});
+  const _RequestErrorCard({required this.onRetry});
 
-  final String error;
   final VoidCallback onRetry;
 
   @override
@@ -515,7 +515,7 @@ class _RequestErrorCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            error,
+            'Bitte prüfe deine Verbindung und versuche es erneut.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.72),
               fontWeight: FontWeight.w700,

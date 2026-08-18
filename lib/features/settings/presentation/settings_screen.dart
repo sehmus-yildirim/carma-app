@@ -4384,7 +4384,7 @@ Nutzer dürfen Hinweise nicht ungeprüft als Beweis oder amtliche Feststellung b
 
 12.1 Meldefunktion
 
-Nutzer können Inhalte, Nachrichten, Hinweise oder Konten über die vorgesehene Meldefunktion oder über info@plaqa.de melden.
+Nutzer können Inhalte, Nachrichten, Hinweise oder Konten über die vorgesehene Meldefunktion oder über support@plaqa.de melden.
 
 Eine Meldung sollte möglichst enthalten:
 
@@ -4468,7 +4468,7 @@ Eine Begründung kann eingeschränkt werden, soweit dies erforderlich ist, um:
 
 Nutzer können gegen eine Moderations-, Einschränkungs- oder Sperrentscheidung Beschwerde einlegen:
 
-E-Mail: info@plaqa.de
+E-Mail: support@plaqa.de
 
 [ANGABE ERGÄNZEN: In-App-Beschwerdeweg und Bearbeitungsfrist.]
 
@@ -4742,7 +4742,7 @@ Nutzer müssen plaqa unverzüglich informieren, wenn sie Kenntnis erhalten von:
 * Sicherheitslücken,
 * manipulierten oder gefälschten Verifizierungen.
 
-Die Meldung ist an info@plaqa.de zu richten oder über die vorgesehene App-Funktion abzugeben.''',
+Die Meldung ist an support@plaqa.de zu richten oder über die vorgesehene App-Funktion abzugeben.''',
           ),
           _LegalSection(
             title: '19. Account-Löschung, Kündigung und Vertragsende',
@@ -4753,7 +4753,7 @@ Der Nutzer kann den unentgeltlichen Nutzungsvertrag jederzeit ohne Einhaltung ei
 Die Kündigung erfolgt durch:
 
 * Löschung des Kontos innerhalb der App oder
-* eine eindeutige Erklärung an info@plaqa.de.
+* eine eindeutige Erklärung an support@plaqa.de.
 
 [ANGABE ERGÄNZEN: Genauer In-App-Pfad zur Kontolöschung.]
 
@@ -5042,9 +5042,7 @@ Website: plaqa.de''',
             body:
                 r'''Anfragen zum Datenschutz, zu Betroffenenrechten oder zur Verarbeitung personenbezogener Daten können gerichtet werden an:
 
-E-Mail: info@plaqa.de
-
-[ANGABE ERGÄNZEN: Falls eine separate Datenschutz-E-Mail eingerichtet wird, zum Beispiel datenschutz@plaqa.de, hier eintragen.]
+E-Mail: privacy@plaqa.de
 
 [RECHTLICH PRÜFEN: Ob ein betrieblicher Datenschutzbeauftragter bestellt werden muss. Falls ein Datenschutzbeauftragter bestellt wird, sind dessen Kontaktdaten an dieser Stelle aufzunehmen.]''',
           ),
@@ -5889,7 +5887,7 @@ Eine pauschale unbegrenzte Vorratsspeicherung findet nicht statt. Gleichzeitig k
 
 [ANGABE ERGÄNZEN: In-App-Pfad, zum Beispiel „Einstellungen > Konto > Konto löschen“]
 
-oder per E-Mail an info@plaqa.de beantragen.
+oder per E-Mail an privacy@plaqa.de beantragen.
 
 Vor einer Löschung kann eine Identitäts- oder Kontobestätigung erforderlich sein, um unberechtigte Löschanträge zu verhindern.
 
@@ -5913,7 +5911,7 @@ Die Kontolöschung kann insbesondere folgende Folgen haben:
             body:
                 r'''Nutzer können Auskunft über die zu ihrer Person verarbeiteten Daten verlangen. Soweit die Voraussetzungen vorliegen, kann außerdem ein Datenexport in einem strukturierten, gängigen und maschinenlesbaren Format verlangt werden.
 
-Anfragen können an info@plaqa.de gerichtet werden.
+Anfragen können an privacy@plaqa.de gerichtet werden.
 
 Zur Verhinderung unberechtigter Datenzugriffe kann eine angemessene Identitätsprüfung erforderlich sein.
 
@@ -6730,7 +6728,7 @@ Sie ist keine Garantie für:
 Verstöße können gemeldet werden:
 
 * über die vorgesehene Meldefunktion innerhalb der App,
-* per E-Mail an info@plaqa.de.
+* per E-Mail an support@plaqa.de.
 
 In-App-Meldeweg:
 [ANGABE ERGÄNZEN: genauer Menüpfad]
@@ -6832,7 +6830,7 @@ Nutzer können gegen eine Warnung, Inhaltsentfernung, Funktionsbeschränkung ode
 
 Kontakt:
 
-E-Mail: info@plaqa.de
+E-Mail: support@plaqa.de
 
 [ANGABE ERGÄNZEN: In-App-Beschwerdeweg]
 
@@ -6974,7 +6972,7 @@ Website: plaqa.de''',
 6. DSA-Prüfung
     [RECHTLICH PRÜFEN: Rechtliche Einordnung als Vermittlungsdienst, Hostingdienst oder Online-Plattform sowie anwendbare Ausnahmen und Pflichten.]
 7. Kontaktmöglichkeit
-    [ANGABE ERGÄNZEN: gegebenenfalls separate Support- oder Beschwerde-E-Mail und Kontaktformular.]
+    Support- und Beschwerde-E-Mail: support@plaqa.de
 8. Abstimmung mit AGB
     Moderations-, Sperr-, Lösch-, Beschwerde- und Kündigungsregelungen müssen in beiden Dokumenten übereinstimmen.
 9. Abstimmung mit der Datenschutzerklärung

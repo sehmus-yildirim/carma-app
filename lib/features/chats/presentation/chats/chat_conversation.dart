@@ -1273,7 +1273,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Nachrichten konnten nicht geladen werden: $error',
+                  _friendlyChatUiError(
+                    error,
+                    fallback: 'Nachrichten konnten nicht geladen werden.',
+                  ),
                 ),
               ),
             );
@@ -1711,7 +1714,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Dokument konnte nicht ausgewählt werden: $error'),
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Dokument konnte nicht ausgewählt werden.',
+            ),
+          ),
         ),
       );
     }
@@ -2295,7 +2303,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Standort konnte nicht gesendet werden: $error'),
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Standort konnte nicht gesendet werden.',
+            ),
+          ),
         ),
       );
     }
@@ -2341,7 +2354,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kontakt konnte nicht gesendet werden: $error')),
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Kontakt konnte nicht gesendet werden.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -2358,7 +2378,14 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Karte konnte nicht geöffnet werden: $error')),
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Karte konnte nicht geöffnet werden.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -2382,7 +2409,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Dokument konnte nicht geöffnet werden: $error'),
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Dokument konnte nicht geöffnet werden.',
+            ),
+          ),
         ),
       );
     }
@@ -2549,7 +2581,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Sprachnachricht konnte nicht abgespielt werden: $error',
+            _friendlyChatUiError(
+              error,
+              fallback: 'Sprachnachricht konnte nicht abgespielt werden.',
+            ),
           ),
         ),
       );
@@ -2589,7 +2624,10 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Stern-Markierung konnte nicht gespeichert werden: $error',
+            _friendlyChatUiError(
+              error,
+              fallback: 'Stern-Markierung konnte nicht gespeichert werden.',
+            ),
           ),
         ),
       );
@@ -2649,7 +2687,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Reaktion konnte nicht gespeichert werden: $error'),
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Reaktion konnte nicht gespeichert werden.',
+            ),
+          ),
         ),
       );
     }
@@ -2727,7 +2770,12 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Nachricht konnte nicht gelöscht werden: $error'),
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Nachricht konnte nicht gelöscht werden.',
+            ),
+          ),
         ),
       );
     }
@@ -3578,7 +3626,13 @@ class _ChatProfileSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
+      _showSnackBar(
+        context,
+        _friendlyChatUiError(
+          error,
+          fallback: 'Teilen konnte nicht geöffnet werden.',
+        ),
+      );
     }
   }
 
@@ -3616,7 +3670,10 @@ class _ChatProfileSheet extends StatelessWidget {
 
       _showSnackBar(
         context,
-        'Speichern konnte nicht ausgeführt werden: $error',
+        _friendlyChatUiError(
+          error,
+          fallback: 'Speichern konnte nicht ausgeführt werden.',
+        ),
       );
     }
   }
@@ -3655,7 +3712,10 @@ class _ChatProfileSheet extends StatelessWidget {
 
       _showSnackBar(
         context,
-        'Speichern konnte nicht ausgeführt werden: $error',
+        _friendlyChatUiError(
+          error,
+          fallback: 'Speichern konnte nicht ausgeführt werden.',
+        ),
       );
     }
   }
@@ -4287,7 +4347,13 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
+      _showSnackBar(
+        context,
+        _friendlyChatUiError(
+          error,
+          fallback: 'Teilen konnte nicht geöffnet werden.',
+        ),
+      );
     }
   }
 
@@ -4326,7 +4392,10 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
 
       _showSnackBar(
         context,
-        'Speichern konnte nicht ausgeführt werden: $error',
+        _friendlyChatUiError(
+          error,
+          fallback: 'Speichern konnte nicht ausgeführt werden.',
+        ),
       );
     }
   }
@@ -4523,7 +4592,13 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
+      _showSnackBar(
+        context,
+        _friendlyChatUiError(
+          error,
+          fallback: 'Teilen konnte nicht geöffnet werden.',
+        ),
+      );
     }
   }
 
@@ -4725,7 +4800,13 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
         return;
       }
 
-      _showSnackBar(context, 'Teilen konnte nicht geöffnet werden: $error');
+      _showSnackBar(
+        context,
+        _friendlyChatUiError(
+          error,
+          fallback: 'Teilen konnte nicht geöffnet werden.',
+        ),
+      );
     }
   }
 
@@ -4764,7 +4845,10 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
 
       _showSnackBar(
         context,
-        'Speichern konnte nicht ausgeführt werden: $error',
+        _friendlyChatUiError(
+          error,
+          fallback: 'Speichern konnte nicht ausgeführt werden.',
+        ),
       );
     }
   }

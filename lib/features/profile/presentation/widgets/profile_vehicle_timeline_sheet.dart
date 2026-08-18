@@ -114,13 +114,13 @@ Future<bool> showProfileVehicleTimelineSheet(
                 ),
               );
               if (sheetContext.mounted) Navigator.of(sheetContext).pop(true);
-            } catch (error) {
+            } catch (_) {
               if (!sheetContext.mounted) return;
               setSheetState(() => isSaving = false);
               ScaffoldMessenger.of(sheetContext).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'Timeline-Eintrag konnte nicht gespeichert werden: $error',
+                    'Timeline-Eintrag konnte nicht gespeichert werden.',
                   ),
                 ),
               );

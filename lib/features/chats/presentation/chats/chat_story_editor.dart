@@ -460,7 +460,12 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Story-Medium konnte nicht geladen werden: $error'),
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Story-Medium konnte nicht geladen werden.',
+            ),
+          ),
         ),
       );
     } finally {
@@ -505,7 +510,14 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Foto konnte nicht aufgenommen werden: $error')),
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Foto konnte nicht aufgenommen werden.',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -659,7 +671,14 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Video konnte nicht gestartet werden: $error')),
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Video konnte nicht gestartet werden.',
+            ),
+          ),
+        ),
       );
     }
   }
@@ -720,7 +739,12 @@ class _StoryCaptureScreenState extends State<_StoryCaptureScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Video konnte nicht gespeichert werden: $error'),
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Video konnte nicht gespeichert werden.',
+            ),
+          ),
         ),
       );
     } finally {
@@ -2255,7 +2279,12 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Standort konnte nicht geladen werden: $error'),
+            content: Text(
+              _friendlyChatUiError(
+                error,
+                fallback: 'Standort konnte nicht geladen werden.',
+              ),
+            ),
           ),
         );
       }
@@ -2798,7 +2827,11 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Speichern fehlgeschlagen: $error')),
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(error, fallback: 'Speichern fehlgeschlagen.'),
+          ),
+        ),
       );
     } finally {
       if (mounted) {

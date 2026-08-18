@@ -422,7 +422,7 @@ class _ChatImageEditorScreenState extends State<_ChatImageEditorScreen> {
       final file = await _renderEditedFile();
       await widget.nativeBridge.saveImageToGallery(
         url: file.path,
-        fileName: 'CaRisma_${DateTime.now().millisecondsSinceEpoch}.png',
+        fileName: 'plaqa_${DateTime.now().millisecondsSinceEpoch}.png',
         contentType: 'image/png',
       );
       if (mounted) {

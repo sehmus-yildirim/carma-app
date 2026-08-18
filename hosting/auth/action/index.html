@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="theme-color" content="#0a0d12">
+    <title>plaqa Konto</title>
+    <link rel="icon" href="/assets/plaqa_app_icon.png">
+    <link rel="stylesheet" href="/auth/action/styles.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="auth-panel" aria-live="polite">
+        <img class="brand-logo" src="/assets/plaqa_logo_transparent.png" alt="plaqa">
+
+        <div id="loading-state" class="state-view">
+          <span class="spinner" aria-hidden="true"></span>
+          <h1>Aktion wird geprüft</h1>
+          <p>Bitte warte einen Moment.</p>
+        </div>
+
+        <div id="message-state" class="state-view hidden">
+          <span id="message-icon" class="state-icon" aria-hidden="true">✓</span>
+          <h1 id="message-title"></h1>
+          <p id="message-text"></p>
+          <a id="continue-link" class="primary-action hidden" href="https://plaqa.de">Weiter</a>
+        </div>
+
+        <form id="password-form" class="state-view hidden" novalidate>
+          <h1>Neues Passwort festlegen</h1>
+          <p id="reset-account" class="account-hint"></p>
+          <label for="new-password">Neues Passwort</label>
+          <div class="password-field">
+            <input id="new-password" name="new-password" type="password" minlength="8" autocomplete="new-password" required>
+            <button class="visibility-button" type="button" data-target="new-password" aria-label="Passwort anzeigen">Anzeigen</button>
+          </div>
+          <label for="confirm-password">Passwort wiederholen</label>
+          <div class="password-field">
+            <input id="confirm-password" name="confirm-password" type="password" minlength="8" autocomplete="new-password" required>
+            <button class="visibility-button" type="button" data-target="confirm-password" aria-label="Passwort anzeigen">Anzeigen</button>
+          </div>
+          <p id="form-error" class="form-error hidden"></p>
+          <button id="password-submit" class="primary-action" type="submit">Passwort speichern</button>
+        </form>
+
+        <footer>
+          <a href="mailto:support@plaqa.de">Support</a>
+          <span aria-hidden="true">•</span>
+          <a href="mailto:privacy@plaqa.de">Datenschutz</a>
+        </footer>
+      </section>
+    </main>
+    <script type="module" src="/auth/action/action.js"></script>
+  </body>
+</html>

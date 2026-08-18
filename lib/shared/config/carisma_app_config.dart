@@ -7,6 +7,14 @@ class CaRismaAppConfig {
   static const String appVersion = '1.0.0';
   static const String buildLabel = 'Lokaler MVP';
 
+  static const String websiteUrl = 'https://plaqa.de';
+  static const String authActionUrl = 'https://auth.plaqa.de/auth/action';
+  static const String generalEmail = 'info@plaqa.de';
+  static const String noReplyEmail = 'no-reply@plaqa.de';
+  static const String supportEmail = 'support@plaqa.de';
+  static const String privacyEmail = 'privacy@plaqa.de';
+  static const String partnersEmail = 'partners@plaqa.de';
+
   static const String localUserId = 'local-user';
 
   static const bool useMockPlateSearch = kDebugMode;

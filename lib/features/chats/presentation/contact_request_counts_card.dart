@@ -35,7 +35,6 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
 
     if (userId.trim().isEmpty) {
       return const _ContactRequestData(
-        userId: '',
         incoming: [],
         outgoing: [],
         error: 'Du bist derzeit nicht angemeldet.',
@@ -46,17 +45,12 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
       final incoming = await _repository.loadIncomingRequests(userId: userId);
       final outgoing = await _repository.loadOutgoingRequests(userId: userId);
 
+      return _ContactRequestData(incoming: incoming, outgoing: outgoing);
+    } catch (_) {
       return _ContactRequestData(
-        userId: userId,
-        incoming: incoming,
-        outgoing: outgoing,
-      );
-    } catch (error) {
-      return _ContactRequestData(
-        userId: userId,
         incoming: [],
         outgoing: [],
-        error: error.toString(),
+        error: 'Kontaktanfragen konnten nicht geladen werden.',
       );
     }
   }
@@ -174,13 +168,6 @@ class _RequestContent extends StatelessWidget {
             'Keine offenen Kontaktanfragen gefunden.',
             style: _bodyStyle(context),
           ),
-        const SizedBox(height: 8),
-        Text(
-          'UID: ${data.shortUserId}',
-          style: _bodyStyle(
-            context,
-          ).copyWith(color: Colors.white.withValues(alpha: 0.52), fontSize: 12),
-        ),
         const SizedBox(height: 10),
         GestureDetector(
           onTap: onReload,
@@ -237,7 +224,7 @@ class _ErrorContent extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Fehler beim Laden:\n$error',
+          error,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Colors.white.withValues(alpha: 0.78),
             fontWeight: FontWeight.w700,
@@ -339,22 +326,12 @@ class _RequestMiniTile extends StatelessWidget {
 
 class _ContactRequestData {
   const _ContactRequestData({
-    required this.userId,
     required this.incoming,
     required this.outgoing,
     this.error,
   });
 
-  final String userId;
   final List<ContactRequestRecord> incoming;
   final List<ContactRequestRecord> outgoing;
   final String? error;
-
-  String get shortUserId {
-    if (userId.length <= 10) {
-      return userId;
-    }
-
-    return '${userId.substring(0, 5)}...${userId.substring(userId.length - 5)}';
-  }
 }

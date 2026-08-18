@@ -488,11 +488,6 @@ exports.requestVehicleHeroImage = onCall(
     );
     const now = Timestamp.now();
 
-    logger.info("Vehicle hero handler entered", {
-      userId,
-      vehicleId,
-    });
-
     await ensureLegacyVehicleForHero({
       userId,
       vehicleId,
@@ -500,16 +495,7 @@ exports.requestVehicleHeroImage = onCall(
     });
 
     const generation = await db.runTransaction(async (transaction) => {
-      logger.info("Vehicle hero transaction reading vehicle", {
-        userId,
-        vehicleId,
-      });
       const vehicleSnapshot = await transaction.get(vehicleReference);
-      logger.info("Vehicle hero transaction vehicle read", {
-        userId,
-        vehicleId,
-        vehicleExists: vehicleSnapshot.exists,
-      });
       if (!vehicleSnapshot.exists) {
         throw new HttpsError("not-found", "Das Fahrzeug wurde nicht gefunden.");
       }
@@ -580,15 +566,6 @@ exports.requestVehicleHeroImage = onCall(
         currentRequestCount - 1 :
         currentRequestCount;
       const requestCount = hasActiveWindow ? effectiveRequestCount + 1 : 1;
-      logger.info("Vehicle hero request limit evaluated", {
-        userId,
-        vehicleId,
-        currentStatus,
-        currentRequestCount,
-        effectiveRequestCount,
-        requestCount,
-        hasStalePendingAttempt,
-      });
       if (requestCount > maxVehicleHeroRequestsPerWindow) {
         throw new HttpsError(
           "resource-exhausted",
@@ -622,23 +599,12 @@ exports.requestVehicleHeroImage = onCall(
       };
     });
 
-    logger.info("Vehicle hero request prepared", {
-      userId,
-      vehicleId,
-      alreadyReady: generation.alreadyReady,
-    });
-
     if (generation.alreadyReady) {
       return {accepted: true, status: "ready"};
     }
 
     let uploadedImagePath = "";
     try {
-      logger.info("Vehicle hero model call started", {
-        userId,
-        vehicleId,
-        model: vehicleHeroModel,
-      });
       const generatedImage = await generateVehicleHeroImage(
         generation.source,
       );
@@ -696,9 +662,7 @@ exports.requestVehicleHeroImage = onCall(
         error,
       );
       logger.error("Vehicle hero generation failed", {
-        userId,
-        vehicleId,
-        error: error instanceof Error ? error.message : String(error),
+        errorType: errorType(error),
       });
       if (error instanceof HttpsError) {
         throw error;
@@ -763,10 +727,6 @@ async function ensureLegacyVehicleForHero({
     updatedAt: now,
   }, {merge: false});
 
-  logger.info("Legacy vehicle created for hero generation", {
-    userId,
-    vehicleId,
-  });
 }
 
 exports.maintainChatStories = onSchedule(
@@ -935,9 +895,7 @@ async function deactivateAndDeleteStory(story) {
     } catch (error) {
       mediaDeleteFailed = true;
       logger.warn("Expired Story media could not be deleted", {
-        storyId: story.id,
-        mediaPath,
-        error: error instanceof Error ? error.message : String(error),
+        errorType: errorType(error),
       });
     }
   }
@@ -1273,8 +1231,7 @@ async function deleteStorageFileQuietly(imagePath) {
     await getStorage().bucket().file(imagePath).delete({ignoreNotFound: true});
   } catch (error) {
     logger.warn("Vehicle hero image could not be deleted", {
-      imagePath,
-      error: error instanceof Error ? error.message : String(error),
+      errorType: errorType(error),
     });
   }
 }

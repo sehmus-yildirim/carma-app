@@ -383,8 +383,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         case ProfileFollowState.restricted:
           break;
       }
-    } catch (error, stackTrace) {
-      debugPrint('Vehicle hero request could not start: $error\n$stackTrace');
+    } catch (error) {
+      debugPrint('Vehicle hero request could not start: ${error.runtimeType}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1041,12 +1041,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Hauptfahrzeug aktualisiert.')),
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Hauptfahrzeug konnte nicht geändert werden: $error'),
-        ),
+        SnackBar(content: Text('Hauptfahrzeug konnte nicht geändert werden.')),
       );
     }
   }
@@ -1196,12 +1194,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
           ),
         ),
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Medium konnte nicht gespeichert werden: $error'),
-        ),
+        SnackBar(content: Text('Medium konnte nicht gespeichert werden.')),
       );
     }
   }
@@ -1263,12 +1259,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Hauptbild aktualisiert.')));
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Hauptbild konnte nicht geändert werden: $error'),
-        ),
+        SnackBar(content: Text('Hauptbild konnte nicht geändert werden.')),
       );
     }
   }
@@ -1305,10 +1299,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isVideo ? 'Video entfernt.' : 'Bild entfernt.')),
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Medium konnte nicht entfernt werden: $error')),
+        const SnackBar(content: Text('Medium konnte nicht entfernt werden.')),
       );
     }
   }
@@ -1346,10 +1340,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Umbau entfernt.')));
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Umbau konnte nicht entfernt werden: $error')),
+        const SnackBar(content: Text('Umbau konnte nicht entfernt werden.')),
       );
     }
   }
@@ -1413,13 +1407,11 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Timeline-Ereignis entfernt.')),
       );
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Timeline-Ereignis konnte nicht entfernt werden: $error',
-          ),
+          content: Text('Timeline-Ereignis konnte nicht entfernt werden.'),
         ),
       );
     }
@@ -1456,12 +1448,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Fahrzeug archiviert.')));
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Fahrzeug konnte nicht archiviert werden: $error'),
-        ),
+        SnackBar(content: Text('Fahrzeug konnte nicht archiviert werden.')),
       );
     }
   }
@@ -1567,9 +1557,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                 _ProfilePhotoActionTile(
                   icon: Icons.add_photo_alternate_outlined,
                   title: 'Beitrag erstellen',
-                  onTap: () => Navigator.of(
-                    sheetContext,
-                  ).pop(_ProfileCreateAction.post),
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_ProfileCreateAction.post),
                 ),
               ],
             ),
@@ -1606,12 +1595,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.message)));
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Story konnte nicht gespeichert werden: $error'),
-        ),
+        SnackBar(content: Text('Story konnte nicht gespeichert werden.')),
       );
     } finally {
       if (mounted) setState(() => _isCreatingStory = false);
@@ -1772,12 +1759,10 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Profilbild entfernt.')));
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Profilbild konnte nicht entfernt werden: $error'),
-        ),
+        SnackBar(content: Text('Profilbild konnte nicht entfernt werden.')),
       );
     }
   }
@@ -1855,9 +1840,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                     content: Text('Öffentliches Profil gespeichert.'),
                   ),
                 );
-              } catch (error, stackTrace) {
+              } catch (error) {
                 debugPrint(
-                  'Public profile could not be saved: $error\n$stackTrace',
+                  'Public profile could not be saved: ${error.runtimeType}',
                 );
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -2325,8 +2310,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                 ScaffoldMessenger.of(this.context).showSnackBar(
                   const SnackBar(content: Text('Beitrag veröffentlicht.')),
                 );
-              } catch (error, stackTrace) {
-                debugPrint('Post could not be published: $error\n$stackTrace');
+              } catch (error) {
+                debugPrint('Post could not be published: ${error.runtimeType}');
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -2682,8 +2667,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Beitrag gelöscht.')));
-    } catch (error, stackTrace) {
-      debugPrint('Post could not be deleted: $error\n$stackTrace');
+    } catch (error) {
+      debugPrint('Post could not be deleted: ${error.runtimeType}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -4219,10 +4204,7 @@ class _ProfilePhotoActionTile extends StatelessWidget {
 }
 
 class _ProfileTabs extends StatelessWidget {
-  const _ProfileTabs({
-    required this.selectedIndex,
-    required this.onChanged,
-  });
+  const _ProfileTabs({required this.selectedIndex, required this.onChanged});
 
   final int selectedIndex;
   final ValueChanged<int> onChanged;

@@ -633,7 +633,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Abgelaufene Story konnte nicht bereinigt werden: $error',
+            _friendlyChatUiError(
+              error,
+              fallback: 'Abgelaufene Story konnte nicht bereinigt werden.',
+            ),
           ),
         ),
       );
@@ -977,7 +980,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
   String _storySaveErrorMessage(Object error, {Object? cleanupError}) {
     final message = error is ChatAttachmentStorageException
         ? error.message
-        : 'Story konnte nicht gespeichert werden: $error';
+        : _friendlyChatUiError(
+            error,
+            fallback: 'Story konnte nicht gespeichert werden.',
+          );
 
     if (cleanupError == null) {
       return message;
@@ -1697,7 +1703,14 @@ class _ChatsScreenState extends State<ChatsScreen> {
       }
 
       ScaffoldMessenger.of(dialogContext).showSnackBar(
-        SnackBar(content: Text('Story konnte nicht gelöscht werden: $error')),
+        SnackBar(
+          content: Text(
+            _friendlyChatUiError(
+              error,
+              fallback: 'Story konnte nicht gelöscht werden.',
+            ),
+          ),
+        ),
       );
       return;
     }
@@ -1846,7 +1859,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
               messenger.showSnackBar(
                 SnackBar(
-                  content: Text('Karten konnten nicht geöffnet werden: $error'),
+                  content: Text(
+                    _friendlyChatUiError(
+                      error,
+                      fallback: 'Karten konnten nicht geöffnet werden.',
+                    ),
+                  ),
                 ),
               );
             }
@@ -1934,7 +1952,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
               messenger.showSnackBar(
                 SnackBar(
-                  content: Text('Link konnte nicht geöffnet werden: $error'),
+                  content: Text(
+                    _friendlyChatUiError(
+                      error,
+                      fallback: 'Link konnte nicht geöffnet werden.',
+                    ),
+                  ),
                 ),
               );
             }
