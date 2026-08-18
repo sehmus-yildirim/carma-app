@@ -230,6 +230,20 @@ test("validates DACH plates, types and season data", () => {
   })), /Saisonzeitraum/);
 });
 
+test("normalizes equipment case-insensitively and rejects more than 40", () => {
+  const normalized = normalizeVehicleInput("user-1", vehicleInput({
+    equipment: ["Panorama", "panorama", "Sitzheizung"],
+  }));
+  assert.deepEqual(normalized.equipment, ["Panorama", "Sitzheizung"]);
+
+  assert.throws(
+    () => normalizeVehicleInput("user-1", vehicleInput({
+      equipment: Array.from({length: 41}, (_, index) => `Extra ${index}`),
+    })),
+    /Maximal 40 Ausstattungen/,
+  );
+});
+
 test("first save reserves the plate and stays idempotent", async () => {
   const userId = "user-first";
   const firestore = fakeFirestore({
@@ -256,6 +270,38 @@ test("first save reserves the plate and stays idempotent", async () => {
     "vehicle-1");
   assert.equal([...firestore.documents.keys()].filter((path) =>
     path.endsWith("/timeline/vehicle_created")).length, 2);
+});
+
+test("stores vehicle identifiers privately and never projects them publicly", async () => {
+  const userId = "user-private-identifiers";
+  const firestore = fakeFirestore({
+    [`users/${userId}/profiles/main`]: profileData(userId),
+    [`public_profiles/${userId}`]: {uid: userId},
+  });
+
+  await saveProfileVehicle({
+    firestore,
+    authContext: {uid: userId},
+    input: vehicleInput({
+      hsn: " 0005 ",
+      tsn: " abc ",
+      vin: " wba12345678901234 ",
+    }),
+    now: new Date("2026-08-14T08:00:00Z"),
+  });
+
+  const privateVehicle = firestore.documents.get(
+    `users/${userId}/vehicles/vehicle-1`,
+  );
+  const publicVehicle = firestore.documents.get(
+    `public_profiles/${userId}/vehicles/vehicle-1`,
+  );
+  assert.equal(privateVehicle.hsn, "0005");
+  assert.equal(privateVehicle.tsn, "ABC");
+  assert.equal(privateVehicle.vin, "WBA12345678901234");
+  assert.equal(Object.hasOwn(publicVehicle, "hsn"), false);
+  assert.equal(Object.hasOwn(publicVehicle, "tsn"), false);
+  assert.equal(Object.hasOwn(publicVehicle, "vin"), false);
 });
 
 test("an active secondary vehicle remains discoverable by its own plate", async () => {

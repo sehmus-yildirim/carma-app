@@ -218,6 +218,9 @@ class ProfileVehicleRepository {
       'transmission': _trimmedOrNull(vehicle.transmission),
       'drivetrain': _trimmedOrNull(vehicle.drivetrain),
       'equipment': vehicle.equipment,
+      'hsn': _trimmedOrNull(vehicle.hsn)?.toUpperCase(),
+      'tsn': _trimmedOrNull(vehicle.tsn)?.toUpperCase(),
+      'vin': _trimmedOrNull(vehicle.vin)?.toUpperCase(),
       'ownedSince': vehicle.ownedSince?.millisecondsSinceEpoch,
       'mileage': vehicle.mileage,
       'profileHighlights': vehicle.profileHighlights

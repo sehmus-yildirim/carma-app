@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../../../../shared/widgets/glass_card.dart';
-import '../../data/profile_vehicle.dart';
 import '../../data/profile_vehicle_timeline_entry.dart';
 import 'profile_section_add_button.dart';
 
 class ProfileVehicleTimelineCard extends StatelessWidget {
   const ProfileVehicleTimelineCard({
     super.key,
-    required this.vehicle,
     required this.entries,
     required this.isOwnProfile,
     required this.onAdd,
@@ -17,7 +15,6 @@ class ProfileVehicleTimelineCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  final ProfileVehicle vehicle;
   final Stream<List<ProfileVehicleTimelineEntry>> entries;
   final bool isOwnProfile;
   final VoidCallback onAdd;
@@ -30,7 +27,6 @@ class ProfileVehicleTimelineCard extends StatelessWidget {
       stream: entries,
       builder: (context, snapshot) {
         final items = snapshot.data ?? const <ProfileVehicleTimelineEntry>[];
-        final preview = items.take(4).toList(growable: false);
         return GlassCard(
           padding: const EdgeInsets.all(15),
           child: Column(
@@ -61,98 +57,54 @@ class ProfileVehicleTimelineCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (snapshot.hasError)
-                Text(
-                  'Timeline konnte nicht geladen werden.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: CaRismaDesignTokens.textSecondary,
-                  ),
-                )
-              else if (preview.isEmpty)
-                Text(
-                  isOwnProfile
-                      ? 'Ergänze die Geschichte dieses Fahrzeugs.'
-                      : 'Keine Timeline-Ereignisse freigegeben.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: CaRismaDesignTokens.textSecondary,
-                  ),
-                )
-              else ...[
-                for (var index = 0; index < preview.length; index++)
-                  _TimelineRow(
-                    entry: preview[index],
-                    showLine: index < preview.length - 1,
-                    isOwnProfile: isOwnProfile,
-                    onEdit: () => onEdit(preview[index]),
-                    onDelete: () => onDelete(preview[index]),
-                  ),
-                if (items.length > preview.length)
-                  TextButton.icon(
-                    onPressed: () => _showAll(context, items),
-                    icon: const Icon(Icons.expand_more_rounded),
-                    label: Text('Alle ${items.length} Ereignisse'),
-                  ),
-              ],
+              SizedBox(
+                height: 176,
+                child:
+                    snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData
+                    ? const Center(child: CircularProgressIndicator())
+                    : snapshot.hasError
+                    ? Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          'Timeline konnte nicht geladen werden.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: CaRismaDesignTokens.textSecondary,
+                              ),
+                        ),
+                      )
+                    : items.isEmpty
+                    ? Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          isOwnProfile
+                              ? 'Ergänze die Geschichte dieses Fahrzeugs.'
+                              : 'Keine Timeline-Ereignisse freigegeben.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: CaRismaDesignTokens.textSecondary,
+                              ),
+                        ),
+                      )
+                    : ListView.builder(
+                        physics: const ClampingScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemExtent: 88,
+                        itemCount: items.length,
+                        itemBuilder: (context, index) => _TimelineRow(
+                          entry: items[index],
+                          showLine: index < items.length - 1,
+                          isOwnProfile: isOwnProfile,
+                          onEdit: () => onEdit(items[index]),
+                          onDelete: () => onDelete(items[index]),
+                        ),
+                      ),
+              ),
             ],
           ),
         );
       },
-    );
-  }
-
-  void _showAll(BuildContext context, List<ProfileVehicleTimelineEntry> items) {
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: CaRismaDesignTokens.background,
-      builder: (sheetContext) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.75,
-        minChildSize: 0.4,
-        maxChildSize: 0.94,
-        builder: (context, controller) => ListView.builder(
-          controller: controller,
-          padding: const EdgeInsets.all(20),
-          itemCount: items.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Text(
-                  'Timeline · ${vehicle.displayName}',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              );
-            }
-            final entry = items[index - 1];
-            return _TimelineRow(
-              entry: entry,
-              showLine: index < items.length,
-              isOwnProfile: isOwnProfile,
-              onEdit: () {
-                Navigator.of(sheetContext).pop();
-                onEdit(entry);
-              },
-              onDelete: () {
-                Navigator.of(sheetContext).pop();
-                onDelete(entry);
-              },
-            );
-          },
-        ),
-      ),
     );
   }
 }
@@ -199,7 +151,7 @@ class _TimelineRow extends StatelessWidget {
               if (showLine)
                 Container(
                   width: 2,
-                  height: 58,
+                  height: 60,
                   color: CaRismaDesignTokens.bluePrimary.withValues(
                     alpha: 0.22,
                   ),
@@ -210,7 +162,7 @@ class _TimelineRow extends StatelessWidget {
         const SizedBox(width: 9),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -224,7 +176,7 @@ class _TimelineRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   entry.title,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white,
@@ -235,19 +187,10 @@ class _TimelineRow extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     entry.description!.trim(),
-                    maxLines: 3,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: CaRismaDesignTokens.textSecondary,
-                    ),
-                  ),
-                ],
-                if (entry.isAutomaticallyCreated) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Automatisch',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: CaRismaDesignTokens.textMuted,
                     ),
                   ),
                 ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plaqa/features/profile/data/profile_vehicle.dart';
 import 'package:plaqa/features/profile/data/profile_vehicle_repository.dart';
+import 'package:plaqa/features/profile/presentation/widgets/profile_vehicle_details_sheet.dart';
 import 'package:plaqa/features/profile/presentation/widgets/profile_vehicle_editor_sheet.dart';
 import 'package:plaqa/features/settings/presentation/profile_verification_settings_screen.dart';
 import 'package:plaqa/shared/models/carisma_models.dart';
@@ -177,6 +178,146 @@ void main() {
     await tester.pumpAndSettle();
     expect(_fieldController(tester, 'Zahlen').text, '1234');
   });
+
+  testWidgets('vehicle editor saves all four vehicle card values', (
+    tester,
+  ) async {
+    final repository = _FakeVehicleRepository(const []);
+    await tester.pumpWidget(_editorApp(repository));
+    await tester.tap(find.text('Editor öffnen'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(_fieldWithLabel('Stadt'), 'HH');
+    await tester.enterText(_fieldWithLabel('Buchstaben'), 'SY');
+    await tester.enterText(_fieldWithLabel('Zahlen'), '4700');
+    await tester.enterText(_fieldWithLabel('Leistung (PS)'), '381');
+    await tester.enterText(_fieldWithLabel('Erstzulassung'), '01.06.2015');
+    await tester.enterText(_fieldWithLabel('Kilometerstand'), '123111');
+    await tester.enterText(_fieldWithLabel('Besitzer seit'), '15.08.2020');
+
+    await tester.ensureVisible(find.text('Fahrzeug speichern'));
+    await tester.tap(find.text('Fahrzeug speichern'));
+    await tester.pumpAndSettle();
+
+    expect(repository.savedVehicle, isNotNull);
+    expect(repository.savedVehicle!.horsepower, 381);
+    expect(repository.savedVehicle!.mileage, 123111);
+    expect(repository.savedVehicle!.firstRegistration, DateTime(2015, 6, 1));
+    expect(repository.savedVehicle!.ownedSince, DateTime(2020, 8, 15));
+  });
+
+  testWidgets(
+    'equipment can be selected, added, removed, saved and stays vehicle-specific',
+    (tester) async {
+      await tester.pumpWidget(
+        _EquipmentHost(
+          vehicles: [
+            _vehicle(isPrimary: true).copyWith(equipment: const ['Panorama']),
+            _vehicle(
+              isPrimary: false,
+              id: 'vehicle-b',
+            ).copyWith(equipment: const ['Sitzheizung']),
+          ],
+        ),
+      );
+
+      await tester.tap(find.text('Ausstattung 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('equipment-option-M-Paket')));
+      await tester.enterText(
+        find.byKey(const ValueKey('custom-equipment-input')),
+        'panorama',
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('add-custom-equipment')),
+      );
+      await tester.tap(find.byKey(const ValueKey('add-custom-equipment')));
+      await tester.pump();
+      expect(
+        find.text('Diese Ausstattung ist bereits ausgewählt.'),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('custom-equipment-input')),
+        'Keramikversiegelung',
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('add-custom-equipment')),
+      );
+      await tester.tap(find.byKey(const ValueKey('add-custom-equipment')));
+      await tester.pump();
+      final customChip = find.widgetWithText(InputChip, 'Keramikversiegelung');
+      expect(customChip, findsOneWidget);
+      tester.widget<InputChip>(customChip).onDeleted!.call();
+      await tester.pump();
+      expect(customChip, findsNothing);
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('save-vehicle-details')),
+      );
+      await tester.tap(find.byKey(const ValueKey('save-vehicle-details')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ausstattung 1'));
+      await tester.pumpAndSettle();
+      final firstVehicleOption = tester.widget<FilterChip>(
+        find.byKey(const ValueKey('equipment-option-M-Paket')),
+      );
+      expect(firstVehicleOption.selected, isTrue);
+      await tester.tap(find.byTooltip('Schließen'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Ausstattung 2'));
+      await tester.pumpAndSettle();
+      final secondVehicleOption = tester.widget<FilterChip>(
+        find.byKey(const ValueKey('equipment-option-M-Paket')),
+      );
+      expect(secondVehicleOption.selected, isFalse);
+      expect(
+        tester
+            .widget<FilterChip>(
+              find.byKey(const ValueKey('equipment-option-Sitzheizung')),
+            )
+            .selected,
+        isTrue,
+      );
+      await tester.tap(find.byTooltip('Schließen'));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('equipment limit and unsaved discard are explained', (
+    tester,
+  ) async {
+    final fullVehicle = _vehicle(
+      isPrimary: true,
+    ).copyWith(equipment: List<String>.generate(40, (index) => 'Extra $index'));
+    await tester.pumpWidget(_EquipmentHost(vehicles: [fullVehicle]));
+    await tester.tap(find.text('Ausstattung 1'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('custom-equipment-input')),
+      'Noch ein Extra',
+    );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('add-custom-equipment')),
+    );
+    await tester.tap(find.byKey(const ValueKey('add-custom-equipment')));
+    await tester.pump();
+    expect(find.textContaining('Maximal 40 Ausstattungen'), findsOneWidget);
+
+    final customChip = find.widgetWithText(InputChip, 'Extra 0');
+    tester.widget<InputChip>(customChip).onDeleted!.call();
+    await tester.pump();
+    await tester.ensureVisible(find.byTooltip('Schließen'));
+    await tester.tap(find.byTooltip('Schließen'));
+    await tester.pumpAndSettle();
+    expect(find.text('Änderungen verwerfen?'), findsOneWidget);
+    await tester.tap(find.text('Weiter bearbeiten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ausstattung'), findsWidgets);
+  });
 }
 
 Finder _fieldWithLabel(String label) {
@@ -219,11 +360,12 @@ Widget _editorApp(_FakeVehicleRepository repository) {
 
 ProfileVehicle _vehicle({
   required bool isPrimary,
+  String id = 'vehicle-a',
   ProfileVehicleVerificationStatus verificationStatus =
       ProfileVehicleVerificationStatus.evidenceMissing,
 }) {
   return ProfileVehicle(
-    id: 'vehicle-a',
+    id: id,
     ownerUserId: 'user-a',
     brand: 'BMW',
     model: 'X6',
@@ -263,4 +405,43 @@ class _FakeVehicleRepository extends ProfileVehicleRepository {
     required String userId,
     required String vehicleId,
   }) async {}
+}
+
+class _EquipmentHost extends StatefulWidget {
+  const _EquipmentHost({required this.vehicles});
+
+  final List<ProfileVehicle> vehicles;
+
+  @override
+  State<_EquipmentHost> createState() => _EquipmentHostState();
+}
+
+class _EquipmentHostState extends State<_EquipmentHost> {
+  late final List<ProfileVehicle> _vehicles = [...widget.vehicles];
+
+  Future<void> _open(BuildContext sheetContext, int index) async {
+    await showProfileVehicleDetailsSheet(
+      sheetContext,
+      vehicle: _vehicles[index],
+      section: ProfileVehicleDetailsSection.equipment,
+      onSave: (vehicle) async => setState(() => _vehicles[index] = vehicle),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Builder(
+        builder: (sheetContext) => Scaffold(
+          body: ListView.builder(
+            itemCount: _vehicles.length,
+            itemBuilder: (context, index) => TextButton(
+              onPressed: () => _open(sheetContext, index),
+              child: Text('Ausstattung ${index + 1}'),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

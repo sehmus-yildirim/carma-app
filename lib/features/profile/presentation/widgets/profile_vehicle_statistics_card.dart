@@ -37,7 +37,7 @@ class ProfileVehicleStatisticsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -49,7 +49,7 @@ class ProfileVehicleStatisticsCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _StatisticTile(
                   statistic: _VehicleStatistic(
@@ -78,28 +78,28 @@ class _StatisticTile extends StatelessWidget {
       stream: statistic.values,
       initialData: 0,
       builder: (context, snapshot) => Container(
-        constraints: const BoxConstraints(minHeight: 88),
-        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(minHeight: 72),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusSmall),
           color: CaRismaDesignTokens.controlSurface,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
         child: Row(
           children: [
             Icon(
               statistic.icon,
-              size: 24,
+              size: 21,
               color: CaRismaDesignTokens.blueBright,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    snapshot.hasError ? '–' : '${snapshot.data ?? 0}',
+                    '${snapshot.hasError ? 0 : snapshot.data ?? 0}',
                     maxLines: 1,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: Colors.white,

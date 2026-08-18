@@ -174,10 +174,10 @@ service firebase.storage {
         ).data.status in ['active', 'archived']
         && firestore.get(
           /databases/(default)/documents/chats/$(firestore.get(connectionPath).data.chatId)
-        ).data.get('deletedBy', {})[request.auth.uid] != true
+        ).data.get('deletedBy', {}).get(request.auth.uid, false) != true
         && firestore.get(
           /databases/(default)/documents/chats/$(firestore.get(connectionPath).data.chatId)
-        ).data.get('deletedBy', {})[targetUserId] != true;
+        ).data.get('deletedBy', {}).get(targetUserId, false) != true;
     }
 
     function hasActiveProfileConnection(targetUserId) {

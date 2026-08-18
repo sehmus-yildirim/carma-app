@@ -31,6 +31,16 @@ class ProfileVehicleGalleryCard extends StatelessWidget {
       stream: media,
       builder: (context, snapshot) {
         final items = snapshot.data ?? const <ProfileVehicleGalleryMedia>[];
+        final groups = _galleryGroups
+            .map(
+              (group) => (
+                group: group,
+                items: items
+                    .where((item) => group.categories.contains(item.category))
+                    .toList(growable: false),
+              ),
+            )
+            .toList(growable: false);
         return GlassCard(
           padding: const EdgeInsets.all(15),
           child: Column(
@@ -76,33 +86,35 @@ class ProfileVehicleGalleryCard extends StatelessWidget {
                     color: CaRismaDesignTokens.textSecondary,
                   ),
                 )
-              else if (items.isEmpty)
-                _EmptyGallery(isOwnProfile: isOwnProfile, onAdd: onAdd)
-              else ...[
-                SizedBox(
-                  height: 154,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: items.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 8),
-                    itemBuilder: (context, index) => SizedBox(
-                      width: 188,
-                      child: _GalleryTile(
-                        media: items[index],
-                        isOwnProfile: isOwnProfile,
-                        onOpen: () => showProfileVehicleGallery(
-                          context,
-                          media: items,
-                          initialIndex: index,
-                        ),
-                        onSetMain: () => onSetMain(items[index]),
-                        onDelete: () => onDelete(items[index]),
-                      ),
-                    ),
+              else
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 9,
+                    mainAxisSpacing: 9,
+                    childAspectRatio: 1.38,
                   ),
+                  itemCount: groups.length,
+                  itemBuilder: (context, index) {
+                    final group = groups[index];
+                    return _GalleryCategoryTile(
+                      label: group.group.label,
+                      icon: group.group.icon,
+                      items: group.items,
+                      isOwnProfile: isOwnProfile,
+                      onAdd: onAdd,
+                      onOpen: (initialIndex) => showProfileVehicleGallery(
+                        context,
+                        media: group.items,
+                        initialIndex: initialIndex,
+                      ),
+                      onSetMain: onSetMain,
+                      onDelete: onDelete,
+                    );
+                  },
                 ),
-              ],
             ],
           ),
         );
@@ -111,118 +123,302 @@ class ProfileVehicleGalleryCard extends StatelessWidget {
   }
 }
 
-class _EmptyGallery extends StatelessWidget {
-  const _EmptyGallery({required this.isOwnProfile, required this.onAdd});
+const _galleryGroups = <_GalleryGroup>[
+  _GalleryGroup(
+    label: 'Außenansicht',
+    icon: Icons.directions_car_outlined,
+    categories: <ProfileVehicleGalleryCategory>{
+      ProfileVehicleGalleryCategory.exterior,
+    },
+  ),
+  _GalleryGroup(
+    label: 'Innenraum',
+    icon: Icons.airline_seat_recline_normal_rounded,
+    categories: <ProfileVehicleGalleryCategory>{
+      ProfileVehicleGalleryCategory.interior,
+    },
+  ),
+  _GalleryGroup(
+    label: 'Details',
+    icon: Icons.search_rounded,
+    categories: <ProfileVehicleGalleryCategory>{
+      ProfileVehicleGalleryCategory.engineBay,
+      ProfileVehicleGalleryCategory.details,
+      ProfileVehicleGalleryCategory.beforeAfter,
+      ProfileVehicleGalleryCategory.documentation,
+    },
+  ),
+  _GalleryGroup(
+    label: 'Umbauten',
+    icon: Icons.build_outlined,
+    categories: <ProfileVehicleGalleryCategory>{
+      ProfileVehicleGalleryCategory.modifications,
+    },
+  ),
+];
 
-  final bool isOwnProfile;
-  final VoidCallback onAdd;
+class _GalleryGroup {
+  const _GalleryGroup({
+    required this.label,
+    required this.icon,
+    required this.categories,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(
-            Icons.image_outlined,
-            color: CaRismaDesignTokens.textMuted,
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Text(
-            isOwnProfile
-                ? 'Füge die ersten Bilder oder Videos hinzu.'
-                : 'Für dieses Fahrzeug wurden keine Medien freigegeben.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: CaRismaDesignTokens.textSecondary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  final String label;
+  final IconData icon;
+  final Set<ProfileVehicleGalleryCategory> categories;
 }
 
-class _GalleryTile extends StatelessWidget {
-  const _GalleryTile({
-    required this.media,
+class _GalleryCategoryTile extends StatelessWidget {
+  const _GalleryCategoryTile({
+    required this.label,
+    required this.icon,
+    required this.items,
     required this.isOwnProfile,
+    required this.onAdd,
     required this.onOpen,
     required this.onSetMain,
     required this.onDelete,
   });
 
-  final ProfileVehicleGalleryMedia media;
+  final String label;
+  final IconData icon;
+  final List<ProfileVehicleGalleryMedia> items;
   final bool isOwnProfile;
-  final VoidCallback onOpen;
-  final VoidCallback onSetMain;
-  final VoidCallback onDelete;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onOpen;
+  final ValueChanged<ProfileVehicleGalleryMedia> onSetMain;
+  final ValueChanged<ProfileVehicleGalleryMedia> onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final imageProvider = _galleryImageProvider(media.mediaUrl);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Hero(
-            tag: 'vehicle-gallery-${media.ownerUserId}-${media.id}',
-            child: Material(
-              color: const Color(0xFF121722),
-              child: media.mediaType == ProfileVehicleGalleryMediaType.video
-                  ? InkWell(
-                      onTap: onOpen,
-                      child: const Center(
-                        child: Icon(
-                          Icons.play_circle_fill_rounded,
-                          size: 38,
-                          color: Colors.white,
-                        ),
-                      ),
-                    )
-                  : Ink.image(
-                      image: imageProvider,
-                      fit: BoxFit.cover,
-                      child: InkWell(onTap: onOpen),
-                      onImageError: (_, _) {},
+    final coverIndex = items.indexWhere((item) => item.isMain);
+    final resolvedCoverIndex = coverIndex >= 0 ? coverIndex : 0;
+    final cover = items.isEmpty ? null : items[resolvedCoverIndex];
+    return Material(
+      color: CaRismaDesignTokens.controlSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: items.isEmpty ? (isOwnProfile ? onAdd : null) : () => onOpen(0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: cover == null
+                  ? Icon(icon, color: CaRismaDesignTokens.textMuted, size: 30)
+                  : _GalleryCategoryPreview(
+                      media: cover,
+                      isOwnProfile: isOwnProfile,
+                      canChooseCover:
+                          items
+                              .where(
+                                (item) =>
+                                    item.mediaType ==
+                                    ProfileVehicleGalleryMediaType.image,
+                              )
+                              .length >
+                          1,
+                      onOpen: () => onOpen(resolvedCoverIndex),
+                      onChooseCover: () => _chooseCover(context),
+                      onDelete: () => onDelete(cover),
                     ),
             ),
-          ),
-          if (media.isMain)
-            const Positioned(left: 6, top: 6, child: _MainBadge()),
-          if (isOwnProfile)
-            Positioned(
-              right: 2,
-              top: 2,
-              child: PopupMenuButton<String>(
-                tooltip: 'Medium verwalten',
-                color: CaRismaDesignTokens.controlSurface,
-                icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
-                onSelected: (value) =>
-                    value == 'main' ? onSetMain() : onDelete(),
-                itemBuilder: (context) => [
-                  if (!media.isMain &&
-                      media.mediaType == ProfileVehicleGalleryMediaType.image)
-                    const PopupMenuItem(
-                      value: 'main',
-                      child: Text('Als Hauptbild festlegen'),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(9, 7, 8, 8),
+              child: Row(
+                children: [
+                  Icon(icon, size: 16, color: CaRismaDesignTokens.blueBright),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Medium entfernen'),
+                  ),
+                  Text(
+                    '${items.length}',
+                    style: const TextStyle(
+                      color: CaRismaDesignTokens.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
             ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _chooseCover(BuildContext context) async {
+    final images = items
+        .where((item) => item.mediaType == ProfileVehicleGalleryMediaType.image)
+        .toList(growable: false);
+    if (images.isEmpty) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: CaRismaDesignTokens.background,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: 0.68,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Vorschaubild auswählen',
+                      style: Theme.of(sheetContext).textTheme.titleLarge
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Abbrechen',
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: GridView.builder(
+                  physics: const ClampingScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: images.length,
+                  itemBuilder: (context, index) {
+                    final image = images[index];
+                    return Material(
+                      color: CaRismaDesignTokens.controlSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
+                      child: Ink.image(
+                        image: _galleryImageProvider(image.mediaUrl),
+                        fit: BoxFit.cover,
+                        child: InkWell(
+                          onTap: () {
+                            onSetMain(image);
+                            Navigator.of(sheetContext).pop();
+                          },
+                          child: image.isMain
+                              ? const Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: _MainBadge(),
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryCategoryPreview extends StatelessWidget {
+  const _GalleryCategoryPreview({
+    required this.media,
+    required this.isOwnProfile,
+    required this.canChooseCover,
+    required this.onOpen,
+    required this.onChooseCover,
+    required this.onDelete,
+  });
+
+  final ProfileVehicleGalleryMedia media;
+  final bool isOwnProfile;
+  final bool canChooseCover;
+  final VoidCallback onOpen;
+  final VoidCallback onChooseCover;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (media.mediaType == ProfileVehicleGalleryMediaType.video)
+          Material(
+            color: const Color(0xFF121722),
+            child: InkWell(
+              onTap: onOpen,
+              child: const Icon(
+                Icons.play_circle_fill_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+          )
+        else
+          Image(
+            image: _galleryImageProvider(media.mediaUrl),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const ColoredBox(
+              color: Color(0xFF121722),
+              child: Icon(Icons.broken_image_outlined, color: Colors.white54),
+            ),
+          ),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(onTap: onOpen),
+        ),
+        if (media.isMain)
+          const Positioned(left: 5, top: 5, child: _MainBadge()),
+        if (isOwnProfile)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: PopupMenuButton<String>(
+              tooltip: 'Medium verwalten',
+              color: CaRismaDesignTokens.controlSurface,
+              padding: EdgeInsets.zero,
+              iconSize: 18,
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+              onSelected: (value) =>
+                  value == 'cover' ? onChooseCover() : onDelete(),
+              itemBuilder: (context) => [
+                if (canChooseCover)
+                  const PopupMenuItem(
+                    value: 'cover',
+                    child: Text('Vorschaubild auswählen'),
+                  ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Medium entfernen'),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

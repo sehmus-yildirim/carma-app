@@ -21,6 +21,16 @@ class SocialPostUpload {
   final SocialPostMediaType type;
 }
 
+class SocialPostPublicIdentity {
+  const SocialPostPublicIdentity({
+    required this.displayName,
+    required this.photoUrl,
+  });
+
+  final String displayName;
+  final String photoUrl;
+}
+
 class SocialPostRepository {
   SocialPostRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
     : _firestore = firestore ?? FirebaseFirestore.instance,
@@ -33,6 +43,74 @@ class SocialPostRepository {
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
+
+  Stream<SocialPostPublicIdentity> watchPublicIdentity({
+    required String userId,
+    required String fallbackDisplayName,
+    required String fallbackPhotoUrl,
+  }) {
+    final normalizedUserId = userId.trim();
+    final fallback = SocialPostPublicIdentity(
+      displayName: fallbackDisplayName.trim().isEmpty
+          ? 'plaqa Nutzer'
+          : fallbackDisplayName.trim(),
+      photoUrl: fallbackPhotoUrl.trim(),
+    );
+    if (normalizedUserId.isEmpty) return Stream.value(fallback);
+
+    return _firestore
+        .collection('public_profiles')
+        .doc(normalizedUserId)
+        .snapshots()
+        .map((snapshot) {
+          final data = snapshot.data();
+          if (data == null) return fallback;
+          final displayName = (data['displayName'] as String? ?? '').trim();
+          final photoUrl = (data['photoUrl'] as String? ?? '').trim();
+          return SocialPostPublicIdentity(
+            displayName: displayName.isEmpty
+                ? fallback.displayName
+                : displayName,
+            photoUrl: photoUrl,
+          );
+        });
+  }
+
+  Future<({String displayName, String photoUrl})> _publicIdentity({
+    required String userId,
+    required String fallbackDisplayName,
+    required String fallbackPhotoUrl,
+  }) async {
+    final normalizedFallbackName = fallbackDisplayName.trim().isEmpty
+        ? 'plaqa Nutzer'
+        : fallbackDisplayName.trim();
+    try {
+      final snapshot = await _firestore
+          .collection('public_profiles')
+          .doc(userId)
+          .get();
+      final data = snapshot.data();
+      if (data == null) {
+        return (
+          displayName: normalizedFallbackName,
+          photoUrl: fallbackPhotoUrl.trim(),
+        );
+      }
+      final publicDisplayName = (data['displayName'] as String? ?? '').trim();
+      final publicPhotoUrl = (data['photoUrl'] as String? ?? '').trim();
+      return (
+        displayName: publicDisplayName.isEmpty
+            ? normalizedFallbackName
+            : publicDisplayName,
+        photoUrl: publicPhotoUrl,
+      );
+    } catch (_) {
+      return (
+        displayName: normalizedFallbackName,
+        photoUrl: fallbackPhotoUrl.trim(),
+      );
+    }
+  }
 
   CollectionReference<Map<String, dynamic>> _postsCollection(String userId) {
     return _firestore.collection('users/$userId/social_posts');
@@ -305,6 +383,11 @@ class SocialPostRepository {
   }) async {
     final trimmedUserId = userId.trim();
     if (trimmedUserId.isEmpty) return;
+    final identity = await _publicIdentity(
+      userId: trimmedUserId,
+      fallbackDisplayName: displayName,
+      fallbackPhotoUrl: photoUrl,
+    );
     final likeReference = _postReference(
       post.ownerUserId,
       post.id,
@@ -316,10 +399,8 @@ class SocialPostRepository {
       await likeReference.set(<String, dynamic>{
         'userId': trimmedUserId,
         'postOwnerUserId': post.ownerUserId,
-        'displayName': displayName.trim().isEmpty
-            ? 'plaqa Nutzer'
-            : displayName.trim(),
-        'photoUrl': photoUrl.trim(),
+        'displayName': identity.displayName,
+        'photoUrl': identity.photoUrl,
         'createdAt': FieldValue.serverTimestamp(),
       });
     }
@@ -353,6 +434,12 @@ class SocialPostRepository {
         'Ein Kommentar darf höchstens 500 Zeichen enthalten.',
       );
     }
+    final normalizedAuthorUserId = authorUserId.trim();
+    final identity = await _publicIdentity(
+      userId: normalizedAuthorUserId,
+      fallbackDisplayName: authorDisplayName,
+      fallbackPhotoUrl: authorPhotoUrl,
+    );
     final reference = _postReference(
       post.ownerUserId,
       post.id,
@@ -361,11 +448,9 @@ class SocialPostRepository {
       'commentId': reference.id,
       'postId': post.id,
       'postOwnerUserId': post.ownerUserId,
-      'authorUserId': authorUserId.trim(),
-      'authorDisplayName': authorDisplayName.trim().isEmpty
-          ? 'Nutzer'
-          : authorDisplayName.trim(),
-      'authorPhotoUrl': authorPhotoUrl.trim(),
+      'authorUserId': normalizedAuthorUserId,
+      'authorDisplayName': identity.displayName,
+      'authorPhotoUrl': identity.photoUrl,
       'text': trimmedText,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),

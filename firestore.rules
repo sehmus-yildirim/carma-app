@@ -807,7 +807,10 @@ service cloud.firestore {
         && isNullableStringWithMax(request.resource.data.description, 600)
         && (
           request.resource.data.modifiedAt == null
-          || request.resource.data.modifiedAt is timestamp
+          || (
+            request.resource.data.modifiedAt is timestamp
+            && request.resource.data.modifiedAt <= request.time
+          )
         )
         && (
           request.resource.data.powerChangeHp == null
@@ -956,6 +959,7 @@ service cloud.firestore {
         && request.resource.data.title.size() <= 120
         && isNullableStringWithMax(request.resource.data.description, 600)
         && request.resource.data.eventDate is timestamp
+        && request.resource.data.eventDate <= request.time
         && request.resource.data.mediaUrls is list
         && request.resource.data.mediaUrls.size() <= 10
         && isNullableStringWithMax(request.resource.data.linkedPostId, 160)

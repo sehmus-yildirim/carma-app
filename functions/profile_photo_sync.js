@@ -9,7 +9,18 @@ function photoValue(value) {
   return normalized.length === 0 ? null : normalized;
 }
 
-function profilePhotoUpdateFor({collection, data, userId, photoUrl}) {
+function displayNameValue(value) {
+  const normalized = safeString(value);
+  return normalized.length === 0 ? "plaqa Nutzer" : normalized;
+}
+
+function profilePhotoUpdateFor({
+  collection,
+  data,
+  userId,
+  photoUrl,
+  displayName,
+}) {
   const update = {updatedAt: FieldValue.serverTimestamp()};
 
   if (collection === "chats") {
@@ -44,12 +55,27 @@ function profilePhotoUpdateFor({collection, data, userId, photoUrl}) {
     }
   } else if (collection === "plates") {
     update.profilePhotoUrl = photoUrl;
+  } else if (collection === "social_post_likes" &&
+      safeString(data.userId) === userId &&
+      safeString(data.postOwnerUserId).length > 0) {
+    update.photoUrl = photoUrl ?? "";
+    update.displayName = displayNameValue(displayName);
+  } else if (collection === "social_post_comments" &&
+      safeString(data.authorUserId) === userId &&
+      safeString(data.postOwnerUserId).length > 0) {
+    update.authorPhotoUrl = photoUrl ?? "";
+    update.authorDisplayName = displayNameValue(displayName);
   }
 
   return Object.keys(update).length === 1 ? null : update;
 }
 
-async function syncProfilePhotoReferences({firestore, userId, photoUrl}) {
+async function syncProfilePhotoReferences({
+  firestore,
+  userId,
+  photoUrl,
+  displayName,
+}) {
   const normalizedUserId = safeString(userId);
   if (normalizedUserId.length === 0) {
     throw new TypeError("userId is required");
@@ -96,6 +122,16 @@ async function syncProfilePhotoReferences({firestore, userId, photoUrl}) {
       query: firestore.collection("plates")
         .where("ownerUserId", "==", normalizedUserId),
     },
+    {
+      collection: "social_post_likes",
+      query: firestore.collectionGroup("likes")
+        .where("userId", "==", normalizedUserId),
+    },
+    {
+      collection: "social_post_comments",
+      query: firestore.collectionGroup("comments")
+        .where("authorUserId", "==", normalizedUserId),
+    },
   ];
   const snapshots = await Promise.all(
     querySpecs.map(({query}) => query.get()),
@@ -111,6 +147,7 @@ async function syncProfilePhotoReferences({firestore, userId, photoUrl}) {
         data: document.data() ?? {},
         userId: normalizedUserId,
         photoUrl: normalizedPhotoUrl,
+        displayName,
       });
       if (update == null) continue;
       writtenPaths.add(document.ref.path);
@@ -123,6 +160,7 @@ async function syncProfilePhotoReferences({firestore, userId, photoUrl}) {
 }
 
 module.exports = {
+  displayNameValue,
   photoValue,
   profilePhotoUpdateFor,
   syncProfilePhotoReferences,

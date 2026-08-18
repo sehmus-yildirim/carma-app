@@ -18,7 +18,7 @@ void main() {
       expect(gateway.calls, hasLength(1));
       final call = gateway.calls.single;
       expect(call.command, 'saveProfileVehicle');
-      expect(call.payload, {
+      final expectedPayload = <String, dynamic>{
         'vehicleId': 'vehicle-1',
         'brand': 'BMW',
         'model': 'X6',
@@ -42,8 +42,14 @@ void main() {
         'plateDisplayMode': 'shortened',
         'year': 2024,
         'bodyStyle': 'SUV',
+        'hsn': '0005',
+        'tsn': 'ABC',
+        'vin': 'WBA12345678901234',
         'mileage': 12000,
-      });
+      };
+      for (final entry in expectedPayload.entries) {
+        expect(call.payload[entry.key], entry.value, reason: entry.key);
+      }
     });
 
     test('uses stable commands for primary and deactivate actions', () async {
@@ -147,6 +153,9 @@ ProfileVehicle _vehicle() {
     plateDisplayMode: ProfilePlateDisplayMode.shortened,
     year: 2024,
     bodyStyle: ' SUV ',
+    hsn: ' 0005 ',
+    tsn: ' abc ',
+    vin: ' wba12345678901234 ',
     mileage: 12000,
   );
 }

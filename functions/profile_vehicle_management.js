@@ -61,6 +61,11 @@ function nullableString(value, maxLength) {
   return normalized;
 }
 
+function nullableUppercaseString(value, maxLength) {
+  const normalized = nullableString(value, maxLength);
+  return normalized == null ? null : normalized.toUpperCase();
+}
+
 function normalizePlatePart(value) {
   return safeString(value)
     .toUpperCase()
@@ -105,18 +110,40 @@ function normalizeOptionalDate(value, label) {
   if (!Number.isFinite(milliseconds) || Number.isNaN(date.getTime())) {
     throw new HttpsError("invalid-argument", `${label} ist ungültig.`);
   }
+  if (date.getUTCFullYear() < 1886 || date.getTime() > Date.now()) {
+    throw new HttpsError("invalid-argument", `${label} ist ungültig.`);
+  }
   return date;
 }
 
-function normalizeStringList(value, {allowed, maximum = 40}) {
+function normalizeStringList(value, {
+  allowed,
+  maximum = 40,
+  caseInsensitive = false,
+  rejectExcess = false,
+  label = "Einträge",
+}) {
   if (!Array.isArray(value)) return [];
   const result = [];
+  const seen = new Set();
   for (const item of value) {
     const normalized = safeString(item);
     if (normalized.length === 0 || normalized.length > 120) continue;
     if (allowed != null && !allowed.has(normalized)) continue;
-    if (!result.includes(normalized)) result.push(normalized);
-    if (result.length >= maximum) break;
+    const key = caseInsensitive ? normalized.toLocaleLowerCase("de-DE") :
+      normalized;
+    if (seen.has(key)) continue;
+    if (result.length >= maximum) {
+      if (rejectExcess) {
+        throw new HttpsError(
+          "invalid-argument",
+          `Maximal ${maximum} ${label} sind möglich.`,
+        );
+      }
+      break;
+    }
+    seen.add(key);
+    result.push(normalized);
   }
   return result;
 }
@@ -363,12 +390,28 @@ function normalizeVehicleInput(userId, input) {
     fuelType: nullableString(input?.fuelType, 80),
     transmission: nullableString(input?.transmission, 80),
     drivetrain: nullableString(input?.drivetrain, 80),
-    equipment: normalizeStringList(input?.equipment, {maximum: 40}),
+    equipment: normalizeStringList(input?.equipment, {
+      maximum: 40,
+      caseInsensitive: true,
+      rejectExcess: true,
+      label: "Ausstattungen",
+    }),
+    hsn: nullableUppercaseString(input?.hsn, 8),
+    tsn: nullableUppercaseString(input?.tsn, 8),
+    vin: nullableUppercaseString(input?.vin, 40),
     ownedSince: normalizeOptionalDate(input?.ownedSince, "Besitz seit"),
     mileage,
     profileHighlights: profileHighlights.length === 0 ?
       ["plate", "color", "mileage", "ownedSince"] : profileHighlights,
   };
+  if (vehicle.firstRegistration != null &&
+      vehicle.ownedSince != null &&
+      vehicle.ownedSince.getTime() < vehicle.firstRegistration.getTime()) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Besitz seit darf nicht vor der Erstzulassung liegen.",
+    );
+  }
   vehicle.displayPlate = formatDisplayPlate(vehicle);
   vehicle.plateKey = [
     vehicle.plateRegion,
@@ -417,12 +460,25 @@ const verificationCoreFields = [
   "seasonStartMonth",
   "seasonEndMonth",
   "year",
+  "firstRegistration",
+  "hsn",
+  "tsn",
+  "vin",
 ];
+
+function comparableVerificationValue(value) {
+  if (value instanceof Date) return value.getTime();
+  if (value != null && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+  return value ?? null;
+}
 
 function verificationCoreChanged(previous, next) {
   if (previous == null) return false;
   return verificationCoreFields.some((field) =>
-    (previous[field] ?? null) !== (next[field] ?? null));
+    comparableVerificationValue(previous[field]) !==
+      comparableVerificationValue(next[field]));
 }
 
 function profileDisplayName(profile) {

@@ -43,7 +43,6 @@ import 'widgets/profile_vehicle_timeline_sheet.dart';
 import 'widgets/profile_photo_crop_screen.dart';
 import 'widgets/profile_post_details_sheet.dart';
 import 'widgets/profile_post_gallery_screen.dart';
-import 'widgets/profile_section_add_button.dart';
 
 const String _debugProfileContentPrefix = 'plaqa-debug-';
 
@@ -128,8 +127,8 @@ const List<ProfileVehicleGalleryMedia> _debugVehicleGallery =
         vehicleId: debugProfileVehicleId,
         mediaUrl: 'asset://assets/images/debug_bmw_x6_m50d.png',
         mediaPath: '',
-        category: ProfileVehicleGalleryCategory.details,
-        caption: 'Seitendetails und schwarze Ausstattung.',
+        category: ProfileVehicleGalleryCategory.interior,
+        caption: 'Innenraum und schwarze Lederausstattung.',
         visibility: ProfileVehicleVisibility.contacts,
       ),
       ProfileVehicleGalleryMedia(
@@ -620,7 +619,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                               ? () => _showProfileIdentityActions(profile)
                               : null,
                           onAddStory: _canManageOwnProfile
-                              ? () => _createProfileStory()
+                              ? () => _showProfileCreateActions(profile)
                               : null,
                           onFollow: () => _handleFollowAction(profile, summary),
                           onMessage: () => _openExistingChat(profile),
@@ -733,12 +732,6 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                                 selectedIndex: _selectedTab,
                                 onChanged: (index) =>
                                     setState(() => _selectedTab = index),
-                                onCreatePost: _canManageOwnProfile
-                                    ? () => _showProfilePostActions(profile)
-                                    : null,
-                                onAddVehicle: _canManageOwnProfile
-                                    ? () => _openVehicleEditor(profile)
-                                    : null,
                               ),
                               SizedBox(height: gap),
                               Expanded(
@@ -880,6 +873,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       onAdd: () => _openVehicleEditor(profile),
       onEdit: (vehicle) => _openVehicleEditor(profile, vehicle: vehicle),
       onEditDetails: _openVehicleDetails,
+      onEditEquipment: _openVehicleEquipment,
       onSetPrimary: _setPrimaryVehicle,
       onArchive: _archiveVehicle,
       onGenerateHero: _handleProfileHeroGeneration,
@@ -933,7 +927,6 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       onEditTimelineEntry: (vehicle, entry) =>
           _openVehicleTimelineEditor(vehicle, entry: entry),
       onDeleteTimelineEntry: _deleteVehicleTimelineEntry,
-      onSaveVehicle: _profileVehicleRepository.saveVehicle,
       profileViewCount: _profileRepository.watchProfileViewCount(_userId),
       totalLikeCount: _socialPostRepository.watchTotalLikeCount(_userId),
     );
@@ -1071,6 +1064,20 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     ).showSnackBar(const SnackBar(content: Text('Fahrzeugdaten gespeichert.')));
   }
 
+  Future<void> _openVehicleEquipment(ProfileVehicle vehicle) async {
+    if (!_isOwnProfile) return;
+    final saved = await showProfileVehicleDetailsSheet(
+      context,
+      vehicle: vehicle,
+      section: ProfileVehicleDetailsSection.equipment,
+      onSave: _profileVehicleRepository.saveVehicle,
+    );
+    if (!mounted || !saved) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Ausstattung gespeichert.')));
+  }
+
   Future<void> _openVehicleModificationEditor(
     ProfileVehicle vehicle, {
     ProfileVehicleModification? modification,
@@ -1200,6 +1207,12 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
   }
 
   Future<ProfileVehicleGalleryCategory?> _chooseVehicleGalleryCategory() {
+    const selectableCategories = <ProfileVehicleGalleryCategory>[
+      ProfileVehicleGalleryCategory.exterior,
+      ProfileVehicleGalleryCategory.interior,
+      ProfileVehicleGalleryCategory.details,
+      ProfileVehicleGalleryCategory.modifications,
+    ];
     return showModalBottomSheet<ProfileVehicleGalleryCategory>(
       context: context,
       isScrollControlled: true,
@@ -1209,15 +1222,27 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
           children: [
-            Text(
-              'Kategorie wählen',
-              style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Kategorie auswählen',
+                    style: Theme.of(sheetContext).textTheme.titleLarge
+                        ?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Abbrechen',
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
-            for (final category in ProfileVehicleGalleryCategory.values)
+            for (final category in selectableCategories)
               ListTile(
                 leading: const Icon(Icons.image_outlined),
                 title: Text(_vehicleGalleryCategoryLabel(category)),
@@ -1503,6 +1528,61 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
         await _createProfileStory();
       case _ProfileIdentityAction.changePhoto:
         await _showProfilePhotoSheet(profile);
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _showProfileCreateActions(
+    profile_data.UserProfile? profile,
+  ) async {
+    if (!_canManageOwnProfile) return;
+
+    final action = await showModalBottomSheet<_ProfileCreateAction>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SheetHeader(
+                  icon: Icons.photo_camera_rounded,
+                  title: 'Inhalt hinzufügen',
+                  onClose: () => Navigator.of(sheetContext).pop(),
+                ),
+                const SizedBox(height: 12),
+                _ProfilePhotoActionTile(
+                  icon: Icons.auto_stories_outlined,
+                  title: 'Story hinzufügen',
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_ProfileCreateAction.story),
+                ),
+                const SizedBox(height: 10),
+                _ProfilePhotoActionTile(
+                  icon: Icons.add_photo_alternate_outlined,
+                  title: 'Beitrag erstellen',
+                  onTap: () => Navigator.of(
+                    sheetContext,
+                  ).pop(_ProfileCreateAction.post),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    switch (action) {
+      case _ProfileCreateAction.story:
+        await _createProfileStory();
+      case _ProfileCreateAction.post:
+        await _showCreatePostSheet(profile);
       case null:
         break;
     }
@@ -1859,6 +1939,8 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     regionController.dispose();
   }
 
+  // Retained for the profile-management entry that is finalized separately.
+  // ignore: unused_element
   Future<void> _showProfilePostActions(
     profile_data.UserProfile? profile,
   ) async {
@@ -2841,10 +2923,7 @@ class _ProfileHeroCard extends StatelessWidget {
                   statsWidth -
                   (horizontalPadding * 2) -
                   11;
-              final vehicleCardWidth = math.min(
-                availableVehicleWidth,
-                compact ? 136.0 : 144.0,
-              );
+              final vehicleCardWidth = math.min(availableVehicleWidth, 132.0);
               return Stack(
                 fit: StackFit.expand,
                 children: [
@@ -2898,9 +2977,7 @@ class _ProfileHeroCard extends StatelessWidget {
                           size: avatarSize,
                           hasActiveStory: activeStory != null,
                           showStoryBadge: isOwnProfile,
-                          storyBadgeIcon: activeStory == null
-                              ? Icons.photo_camera_rounded
-                              : Icons.add_rounded,
+                          storyBadgeIcon: Icons.photo_camera_rounded,
                           isStoryActionBusy: isCreatingStory,
                           onTap: onAvatarTap,
                           onLongPress: onAvatarLongPress,
@@ -2968,11 +3045,11 @@ class _ProfileHeroCard extends StatelessWidget {
                   ),
                   Positioned(
                     left: horizontalPadding,
-                    top: compact ? 82 : 91,
+                    top: compact ? 75 : 86,
                     width: logoWidth,
                     child: Image.asset(
                       'assets/images/plaqa_logo_transparent.png',
-                      height: compact ? 38 : 43,
+                      height: compact ? 39 : 47,
                       fit: BoxFit.contain,
                       alignment: Alignment.centerLeft,
                       errorBuilder: (_, _, _) => const Text(
@@ -3438,7 +3515,7 @@ class _ProfileMainVehicleCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: SizedBox(
-                height: 26,
+                height: 30,
                 width: 116,
                 child: FittedBox(
                   fit: BoxFit.contain,
@@ -4056,6 +4133,8 @@ class _SocialAvatar extends StatelessWidget {
 
 enum _ProfileIdentityAction { addStory, changePhoto }
 
+enum _ProfileCreateAction { story, post }
+
 enum _ProfilePhotoAction { gallery, camera, remove }
 
 enum _VehicleGalleryPickerAction {
@@ -4143,14 +4222,10 @@ class _ProfileTabs extends StatelessWidget {
   const _ProfileTabs({
     required this.selectedIndex,
     required this.onChanged,
-    this.onCreatePost,
-    this.onAddVehicle,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onChanged;
-  final VoidCallback? onCreatePost;
-  final VoidCallback? onAddVehicle;
 
   @override
   Widget build(BuildContext context) {
@@ -4164,12 +4239,6 @@ class _ProfileTabs extends StatelessWidget {
               icon: Icons.grid_view_rounded,
               isSelected: selectedIndex == 0,
               onTap: () => onChanged(0),
-              trailing: onCreatePost == null
-                  ? null
-                  : _ProfileTabActionButton(
-                      tooltip: 'Beitrag erstellen',
-                      onPressed: onCreatePost!,
-                    ),
             ),
           ),
           const SizedBox(width: 6),
@@ -4179,12 +4248,6 @@ class _ProfileTabs extends StatelessWidget {
               icon: Icons.directions_car_rounded,
               isSelected: selectedIndex == 1,
               onTap: () => onChanged(1),
-              trailing: onAddVehicle == null
-                  ? null
-                  : _ProfileTabActionButton(
-                      tooltip: 'Fahrzeug hinzufügen',
-                      onPressed: onAddVehicle!,
-                    ),
             ),
           ),
         ],
@@ -4199,17 +4262,19 @@ class _ProfileTabButton extends StatelessWidget {
     required this.icon,
     required this.isSelected,
     required this.onTap,
-    this.trailing,
   });
 
   final String label;
   final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: isSelected ? Colors.white : CaRismaDesignTokens.textMuted,
+      fontWeight: FontWeight.w900,
+    );
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(18),
@@ -4247,35 +4312,14 @@ class _ProfileTabButton extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isSelected
-                        ? Colors.white
-                        : CaRismaDesignTokens.textMuted,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: labelStyle,
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 4), trailing!],
             ],
           ),
         ),
       ),
     );
-  }
-}
-
-class _ProfileTabActionButton extends StatelessWidget {
-  const _ProfileTabActionButton({
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return ProfileSectionAddButton(tooltip: tooltip, onPressed: onPressed);
   }
 }
 
@@ -4519,16 +4563,6 @@ class _ProfilePostGrid extends StatelessWidget {
                           Icons.push_pin_rounded,
                           color: CaRismaDesignTokens.blueBright,
                           size: 16,
-                        ),
-                      ),
-                    if ((post.caption?.trim().isNotEmpty ?? false))
-                      Positioned(
-                        right: 7,
-                        bottom: 7,
-                        child: Icon(
-                          Icons.notes_rounded,
-                          color: Colors.white.withValues(alpha: 0.9),
-                          size: 15,
                         ),
                       ),
                   ],

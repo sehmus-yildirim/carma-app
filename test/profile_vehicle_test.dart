@@ -69,6 +69,36 @@ void main() {
     expect(archived.isPubliclyVisible, isFalse);
   });
 
+  test('optionale Fahrzeugdaten können gezielt entfernt werden', () {
+    final vehicle = baseVehicle.copyWith(
+      year: 2015,
+      engineDescription: '3.0 Diesel',
+      horsepower: 381,
+      mileage: 123111,
+      hsn: '0005',
+      tsn: 'ABC',
+      vin: 'WBA12345678901234',
+    );
+
+    final cleared = vehicle.copyWith(
+      clearYear: true,
+      clearEngineDescription: true,
+      clearHorsepower: true,
+      clearMileage: true,
+      clearHsn: true,
+      clearTsn: true,
+      clearVin: true,
+    );
+
+    expect(cleared.year, isNull);
+    expect(cleared.engineDescription, isNull);
+    expect(cleared.horsepower, isNull);
+    expect(cleared.mileage, isNull);
+    expect(cleared.hsn, isNull);
+    expect(cleared.tsn, isNull);
+    expect(cleared.vin, isNull);
+  });
+
   test('übernimmt bestehendes Profil als primäres Legacy-Fahrzeug', () {
     const profile = UserProfile(
       uid: 'user-1',

@@ -82,16 +82,24 @@ exports.syncProfilePhotoReferences = onDocumentUpdated(
   async (event) => {
     const beforePhotoUrl = safeString(event.data?.before.data()?.photoUrl);
     const afterPhotoUrl = safeString(event.data?.after.data()?.photoUrl);
-    if (beforePhotoUrl === afterPhotoUrl) return;
+    const beforeDisplayName = safeString(
+      event.data?.before.data()?.displayName,
+    );
+    const afterDisplayName = safeString(
+      event.data?.after.data()?.displayName,
+    );
+    if (beforePhotoUrl === afterPhotoUrl &&
+        beforeDisplayName === afterDisplayName) return;
 
     try {
       await syncProfilePhotoReferences({
         firestore: db,
         userId: event.params.userId,
         photoUrl: afterPhotoUrl,
+        displayName: afterDisplayName,
       });
     } catch (error) {
-      logger.error("Profile photo reference sync failed", {
+      logger.error("Public profile reference sync failed", {
         errorType: errorType(error),
       });
       throw error;

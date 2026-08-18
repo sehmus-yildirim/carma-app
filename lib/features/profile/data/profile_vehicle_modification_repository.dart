@@ -131,49 +131,49 @@ class ProfileVehicleModificationRepository {
     } else {
       batch.delete(publicReference);
     }
-    if (!existing.exists) {
-      final timelineEntry = ProfileVehicleTimelineEntry(
-        id: 'modification_$modificationId',
-        ownerUserId: userId,
-        vehicleId: vehicleId,
-        type: ProfileVehicleTimelineType.modificationAdded,
-        title: modification.title.trim(),
-        description: modification.description,
-        eventDate: modification.modifiedAt ?? DateTime.now(),
-        linkedModificationId: modificationId,
-        isAutomaticallyCreated: true,
-        visibility: modification.visibility,
-      );
-      batch.set(
-        _firestore.doc(
-          CaRismaFirestorePaths.userVehicleTimelineEntry(
-            userId,
-            vehicleId,
-            timelineEntry.id,
-          ),
-        ),
-        {
-          ...timelineEntry.toPrivateFirestore(),
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      );
-      final publicTimelineReference = _firestore.doc(
-        CaRismaFirestorePaths.publicVehicleTimelineEntry(
+    final timelineEntry = ProfileVehicleTimelineEntry(
+      id: 'modification_$modificationId',
+      ownerUserId: userId,
+      vehicleId: vehicleId,
+      type: ProfileVehicleTimelineType.modificationAdded,
+      title: modification.title.trim(),
+      description: modification.description,
+      eventDate: modification.modifiedAt ?? DateTime.now(),
+      linkedModificationId: modificationId,
+      isAutomaticallyCreated: true,
+      visibility: modification.visibility,
+    );
+    final timelineCreatedAt = createdAt ?? FieldValue.serverTimestamp();
+    batch.set(
+      _firestore.doc(
+        CaRismaFirestorePaths.userVehicleTimelineEntry(
           userId,
           vehicleId,
           timelineEntry.id,
         ),
-      );
-      if (timelineEntry.isPubliclyVisible && vehicleCanBePublic) {
-        batch.set(publicTimelineReference, {
-          ...timelineEntry.toPublicFirestore(),
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      } else {
-        batch.delete(publicTimelineReference);
-      }
+      ),
+      {
+        ...timelineEntry.toPrivateFirestore(),
+        'createdAt': timelineCreatedAt,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    final publicTimelineReference = _firestore.doc(
+      CaRismaFirestorePaths.publicVehicleTimelineEntry(
+        userId,
+        vehicleId,
+        timelineEntry.id,
+      ),
+    );
+    if (timelineEntry.isPubliclyVisible && vehicleCanBePublic) {
+      batch.set(publicTimelineReference, {
+        ...timelineEntry.toPublicFirestore(),
+        'createdAt': timelineCreatedAt,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else {
+      batch.delete(publicTimelineReference);
     }
     await batch.commit();
   }
@@ -182,6 +182,15 @@ class ProfileVehicleModificationRepository {
     ProfileVehicleModification modification,
   ) async {
     final batch = _firestore.batch();
+    final timelineId = 'modification_${modification.id}';
+    final timelineReference = _firestore.doc(
+      CaRismaFirestorePaths.userVehicleTimelineEntry(
+        modification.ownerUserId,
+        modification.vehicleId,
+        timelineId,
+      ),
+    );
+    final timelineSnapshot = await timelineReference.get();
     batch.update(
       _privateDocument(
         modification.ownerUserId,
@@ -195,6 +204,21 @@ class ProfileVehicleModificationRepository {
         modification.ownerUserId,
         modification.vehicleId,
         modification.id,
+      ),
+    );
+    if (timelineSnapshot.exists) {
+      batch.update(timelineReference, {
+        'isDeleted': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    batch.delete(
+      _firestore.doc(
+        CaRismaFirestorePaths.publicVehicleTimelineEntry(
+          modification.ownerUserId,
+          modification.vehicleId,
+          timelineId,
+        ),
       ),
     );
     await batch.commit();

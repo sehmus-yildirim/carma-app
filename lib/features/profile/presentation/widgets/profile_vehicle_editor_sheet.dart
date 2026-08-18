@@ -106,6 +106,15 @@ Future<bool> showProfileVehicleEditorSheet(
   final mileageController = TextEditingController(
     text: vehicle?.mileage?.toString() ?? '',
   );
+  final horsepowerController = TextEditingController(
+    text: vehicle?.horsepower?.toString() ?? '',
+  );
+  final firstRegistrationController = TextEditingController(
+    text: _formatVehicleDate(vehicle?.firstRegistration),
+  );
+  final ownedSinceController = TextEditingController(
+    text: _formatVehicleDate(vehicle?.ownedSince),
+  );
   final yearController = TextEditingController(
     text: vehicle?.year?.toString() ?? '',
   );
@@ -121,6 +130,9 @@ Future<bool> showProfileVehicleEditorSheet(
     lettersController,
     numbersController,
     mileageController,
+    horsepowerController,
+    firstRegistrationController,
+    ownedSinceController,
     yearController,
     customBrandController,
     customModelController,
@@ -210,6 +222,12 @@ Future<bool> showProfileVehicleEditorSheet(
               }
               final yearText = yearController.text.trim();
               final year = int.tryParse(yearText);
+              final horsepowerText = horsepowerController.text.trim();
+              final horsepower = int.tryParse(horsepowerText);
+              final firstRegistration = _parseVehicleDate(
+                firstRegistrationController.text,
+              );
+              final ownedSince = _parseVehicleDate(ownedSinceController.text);
               if (brand.isEmpty || model.isEmpty) {
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
                   const SnackBar(
@@ -239,6 +257,49 @@ Future<bool> showProfileVehicleEditorSheet(
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
                   const SnackBar(
                     content: Text('Bitte gib ein gültiges Baujahr ein.'),
+                  ),
+                );
+                return;
+              }
+              if (horsepowerText.isNotEmpty &&
+                  (horsepower == null || horsepower < 1 || horsepower > 5000)) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Bitte gib eine gültige Leistung in PS ein.'),
+                  ),
+                );
+                return;
+              }
+              if (firstRegistrationController.text.trim().isNotEmpty &&
+                  firstRegistration == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Bitte gib eine gültige Erstzulassung ein.',
+                    ),
+                  ),
+                );
+                return;
+              }
+              if (ownedSinceController.text.trim().isNotEmpty &&
+                  ownedSince == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Bitte gib für „Besitzer seit“ ein gültiges Datum ein.',
+                    ),
+                  ),
+                );
+                return;
+              }
+              if (firstRegistration != null &&
+                  ownedSince != null &&
+                  ownedSince.isBefore(firstRegistration)) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      '„Besitzer seit“ darf nicht vor der Erstzulassung liegen.',
+                    ),
                   ),
                 );
                 return;
@@ -283,11 +344,11 @@ Future<bool> showProfileVehicleEditorSheet(
                     allowContactRequests: allowContactRequests,
                     plateDisplayMode: plateDisplayMode,
                     year: year,
-                    firstRegistration: vehicle?.firstRegistration,
+                    firstRegistration: firstRegistration,
                     bodyStyle: vehicleKind.bodyStyle,
                     engineDescription: vehicle?.engineDescription,
                     displacementCcm: vehicle?.displacementCcm,
-                    horsepower: vehicle?.horsepower,
+                    horsepower: horsepower,
                     kilowatts: vehicle?.kilowatts,
                     fuelType: vehicle?.fuelType,
                     transmission: vehicle?.transmission,
@@ -296,7 +357,7 @@ Future<bool> showProfileVehicleEditorSheet(
                     hsn: vehicle?.hsn,
                     tsn: vehicle?.tsn,
                     vin: vehicle?.vin,
-                    ownedSince: vehicle?.ownedSince,
+                    ownedSince: ownedSince,
                     mileage: int.tryParse(mileageController.text.trim()),
                     heroImageUrl: vehicle?.heroImageUrl,
                     heroImagePath: vehicle?.heroImagePath,
@@ -676,11 +737,44 @@ Future<bool> showProfileVehicleEditorSheet(
                         ],
                       ),
                       const SizedBox(height: 10),
-                      _VehicleTextField(
-                        controller: mileageController,
-                        label: 'Kilometerstand (optional)',
-                        maxLength: 8,
-                        numbersOnly: true,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _VehicleTextField(
+                              controller: horsepowerController,
+                              label: 'Leistung (PS)',
+                              maxLength: 4,
+                              numbersOnly: true,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _VehicleDateTextField(
+                              controller: firstRegistrationController,
+                              label: 'Erstzulassung',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _VehicleTextField(
+                              controller: mileageController,
+                              label: 'Kilometerstand',
+                              maxLength: 8,
+                              numbersOnly: true,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _VehicleDateTextField(
+                              controller: ownedSinceController,
+                              label: 'Besitzer seit',
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       _VehicleDropdown<ProfileVehicleUseRelationship>(
@@ -802,6 +896,9 @@ Future<bool> showProfileVehicleEditorSheet(
       lettersController.dispose();
       numbersController.dispose();
       mileageController.dispose();
+      horsepowerController.dispose();
+      firstRegistrationController.dispose();
+      ownedSinceController.dispose();
       yearController.dispose();
       customBrandController.dispose();
       customModelController.dispose();
@@ -914,6 +1011,58 @@ class _VehicleTextField extends StatelessWidget {
             ? null
             : TextStyle(fontSize: labelFontSize),
       ),
+    );
+  }
+}
+
+class _VehicleDateTextField extends StatelessWidget {
+  const _VehicleDateTextField({
+    required this.controller,
+    required this.label,
+  });
+
+  final TextEditingController controller;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        return TextField(
+          controller: controller,
+          keyboardType: TextInputType.datetime,
+          inputFormatters: const [_VehicleDateInputFormatter()],
+          decoration: _inputDecoration(label).copyWith(
+            hintText: 'TT.MM.JJJJ',
+            errorText: _vehicleDateInputError(value.text),
+            errorMaxLines: 2,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _VehicleDateInputFormatter extends TextInputFormatter {
+  const _VehicleDateInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final limited = digits.length > 8 ? digits.substring(0, 8) : digits;
+    final buffer = StringBuffer();
+    for (var index = 0; index < limited.length; index++) {
+      if (index == 2 || index == 4) buffer.write('.');
+      buffer.write(limited[index]);
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }
@@ -1204,6 +1353,52 @@ InputDecoration _inputDecoration(String label) {
       borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
     ),
   );
+}
+
+String _formatVehicleDate(DateTime? value) {
+  if (value == null) return '';
+  return '${value.day.toString().padLeft(2, '0')}.'
+      '${value.month.toString().padLeft(2, '0')}.${value.year}';
+}
+
+DateTime? _parseVehicleDate(String source) {
+  final parts = source.trim().split('.');
+  if (parts.length != 3) return null;
+  final day = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final year = int.tryParse(parts[2]);
+  if (day == null || month == null || year == null || year < 1886) {
+    return null;
+  }
+  final value = DateTime(year, month, day);
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  if (value.year != year ||
+      value.month != month ||
+      value.day != day ||
+      value.isAfter(today)) {
+    return null;
+  }
+  return value;
+}
+
+String? _vehicleDateInputError(String source) {
+  final text = source.trim();
+  if (text.isEmpty) return null;
+
+  final parts = text.split('.');
+  final day = int.tryParse(parts.first);
+  if (parts.first.length == 2 && (day == null || day < 1 || day > 31)) {
+    return 'Tag: 01 bis 31';
+  }
+  if (parts.length > 1 && parts[1].length == 2) {
+    final month = int.tryParse(parts[1]);
+    if (month == null || month < 1 || month > 12) {
+      return 'Monat: 01 bis 12';
+    }
+  }
+  if (parts.length < 3 || parts[2].length < 4) return null;
+  return _parseVehicleDate(text) == null ? 'Ungültiges Datum' : null;
 }
 
 bool _usesMotorcycleCatalog(_VehicleKind kind) =>

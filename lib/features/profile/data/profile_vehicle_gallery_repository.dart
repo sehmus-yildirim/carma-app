@@ -134,7 +134,14 @@ class ProfileVehicleGalleryRepository {
     final mediaUrl = await storageReference.getDownloadURL();
 
     try {
-      final existing = await privateCollection.limit(1).get();
+      final existing = await privateCollection.get();
+      final hasCategoryMedia = existing.docs.any((document) {
+        final existingMedia = ProfileVehicleGalleryMedia.fromMap(
+          id: document.id,
+          data: document.data(),
+        );
+        return !existingMedia.isDeleted && existingMedia.category == category;
+      });
       final media = ProfileVehicleGalleryMedia(
         id: mediaId,
         ownerUserId: trimmedUserId,
@@ -144,7 +151,7 @@ class ProfileVehicleGalleryRepository {
         mediaType: mediaType,
         category: category,
         caption: caption,
-        isMain: existing.docs.isEmpty,
+        isMain: !hasCategoryMedia,
         visibility: vehicle.isPubliclyVisible
             ? ProfileVehicleVisibility.contacts
             : ProfileVehicleVisibility.onlyMe,
@@ -180,7 +187,7 @@ class ProfileVehicleGalleryRepository {
         id: document.id,
         data: document.data(),
       );
-      if (media.isDeleted) continue;
+      if (media.isDeleted || media.category != selected.category) continue;
       final isMain = media.id == selected.id;
       batch.update(document.reference, {
         'isMain': isMain,

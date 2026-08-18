@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  displayNameValue,
   photoValue,
   profilePhotoUpdateFor,
 } = require("./profile_photo_sync");
@@ -10,6 +11,11 @@ test("normalizes empty profile photos to null", () => {
   assert.equal(photoValue("  "), null);
   assert.equal(photoValue(" https://plaqa.de/profile.jpg "),
     "https://plaqa.de/profile.jpg");
+});
+
+test("normalizes empty public display names", () => {
+  assert.equal(displayNameValue("  "), "plaqa Nutzer");
+  assert.equal(displayNameValue(" Sehmus Y. "), "Sehmus Y.");
 });
 
 test("updates the correct chat participant photo", () => {
@@ -55,4 +61,30 @@ test("ignores unrelated denormalized records", () => {
   });
 
   assert.equal(update, null);
+});
+
+test("updates social post like identity references", () => {
+  const update = profilePhotoUpdateFor({
+    collection: "social_post_likes",
+    data: {userId: "user-a", postOwnerUserId: "post-owner"},
+    userId: "user-a",
+    photoUrl: "photo-a",
+    displayName: "Sehmus Y.",
+  });
+
+  assert.equal(update.photoUrl, "photo-a");
+  assert.equal(update.displayName, "Sehmus Y.");
+});
+
+test("updates social post comment identity references", () => {
+  const update = profilePhotoUpdateFor({
+    collection: "social_post_comments",
+    data: {authorUserId: "user-a", postOwnerUserId: "post-owner"},
+    userId: "user-a",
+    photoUrl: null,
+    displayName: "Sehmus Y.",
+  });
+
+  assert.equal(update.authorPhotoUrl, "");
+  assert.equal(update.authorDisplayName, "Sehmus Y.");
 });

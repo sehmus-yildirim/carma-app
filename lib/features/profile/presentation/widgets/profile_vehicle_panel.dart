@@ -42,7 +42,7 @@ const ProfileVehicle debugProfileVehicle = ProfileVehicle(
   plateDisplayMode: ProfilePlateDisplayMode.full,
   year: 2015,
   bodyStyle: 'SUV',
-  engineDescription: '3,0 l M Performance Diesel',
+  engineDescription: '3.0 Diesel',
   horsepower: 381,
   kilowatts: 280,
   fuelType: 'Diesel',
@@ -58,6 +58,8 @@ const ProfileVehicle debugProfileVehicle = ProfileVehicle(
   ],
 );
 
+const double _vehicleSectionContentHeight = 176;
+
 class ProfileVehiclePanel extends StatefulWidget {
   const ProfileVehiclePanel({
     super.key,
@@ -70,6 +72,7 @@ class ProfileVehiclePanel extends StatefulWidget {
     required this.onAdd,
     required this.onEdit,
     required this.onEditDetails,
+    required this.onEditEquipment,
     required this.onSetPrimary,
     required this.onArchive,
     required this.onGenerateHero,
@@ -86,7 +89,6 @@ class ProfileVehiclePanel extends StatefulWidget {
     required this.onAddTimelineEntry,
     required this.onEditTimelineEntry,
     required this.onDeleteTimelineEntry,
-    required this.onSaveVehicle,
     required this.profileViewCount,
     required this.totalLikeCount,
   });
@@ -100,6 +102,7 @@ class ProfileVehiclePanel extends StatefulWidget {
   final VoidCallback onAdd;
   final ValueChanged<ProfileVehicle> onEdit;
   final ValueChanged<ProfileVehicle> onEditDetails;
+  final ValueChanged<ProfileVehicle> onEditEquipment;
   final ValueChanged<ProfileVehicle> onSetPrimary;
   final ValueChanged<ProfileVehicle> onArchive;
   final ValueChanged<ProfileVehicle> onGenerateHero;
@@ -125,7 +128,6 @@ class ProfileVehiclePanel extends StatefulWidget {
   final void Function(ProfileVehicle vehicle, ProfileVehicleTimelineEntry entry)
   onEditTimelineEntry;
   final ValueChanged<ProfileVehicleTimelineEntry> onDeleteTimelineEntry;
-  final Future<void> Function(ProfileVehicle vehicle) onSaveVehicle;
   final Stream<int> profileViewCount;
   final Stream<int> totalLikeCount;
 
@@ -181,9 +183,7 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
                 showGenerationControl: widget.isOwnProfile,
                 isGenerationBusy: widget.isHeroRequestBusy(selectedVehicle.id),
                 onGenerate: () => widget.onGenerateHero(selectedVehicle),
-                onEditHighlights: canManageSelected
-                    ? () => _editHighlights(selectedVehicle)
-                    : null,
+                onAddVehicle: widget.isOwnProfile ? widget.onAdd : null,
               ),
             ),
           ),
@@ -217,11 +217,10 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
           _VehicleEquipmentCard(
             vehicle: selectedVehicle,
             isOwnProfile: canManageSelected,
-            onEdit: () => widget.onEditDetails(selectedVehicle),
+            onEdit: () => widget.onEditEquipment(selectedVehicle),
           ),
           const SizedBox(height: 12),
           _VehicleModificationsCard(
-            vehicle: selectedVehicle,
             modifications: widget.modificationsForVehicle(selectedVehicle.id),
             isOwnProfile: canManageSelected,
             onAdd: () => widget.onAddModification(selectedVehicle),
@@ -231,7 +230,6 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
           ),
           const SizedBox(height: 12),
           ProfileVehicleTimelineCard(
-            vehicle: selectedVehicle,
             entries: widget.timelineEntriesForVehicle(selectedVehicle.id),
             isOwnProfile: canManageSelected,
             onAdd: () => widget.onAddTimelineEntry(selectedVehicle),
@@ -239,11 +237,13 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
                 widget.onEditTimelineEntry(selectedVehicle, entry),
             onDelete: widget.onDeleteTimelineEntry,
           ),
-          const SizedBox(height: 12),
-          ProfileVehicleStatisticsCard(
-            profileViews: widget.profileViewCount,
-            totalLikes: widget.totalLikeCount,
-          ),
+          if (widget.isOwnProfile) ...[
+            const SizedBox(height: 12),
+            ProfileVehicleStatisticsCard(
+              profileViews: widget.profileViewCount,
+              totalLikes: widget.totalLikeCount,
+            ),
+          ],
           if (widget.isOwnProfile && !isDebugVehicle) ...[
             const SizedBox(height: 18),
             Text(
@@ -319,77 +319,6 @@ class _ProfileVehiclePanelState extends State<ProfileVehiclePanel> {
     if (nextIndex < 0 || nextIndex >= vehicles.length) return;
     setState(() => _selectedVehicleId = vehicles[nextIndex].id);
   }
-
-  Future<void> _editHighlights(ProfileVehicle vehicle) async {
-    final selected = <ProfileVehicleHighlight>{...vehicle.profileHighlights};
-    final result = await showModalBottomSheet<List<ProfileVehicleHighlight>>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: CaRismaDesignTokens.background,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          top: false,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.78,
-            ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Fahrzeuginformationen',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Wähle bis zu fünf Angaben für deine Fahrzeugkarte.',
-                    style: TextStyle(color: CaRismaDesignTokens.textSecondary),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final highlight in ProfileVehicleHighlight.values)
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: selected.contains(highlight),
-                      title: Text(_highlightLabel(highlight)),
-                      secondary: Icon(_highlightIcon(highlight)),
-                      onChanged: (enabled) {
-                        setSheetState(() {
-                          if (enabled == true && selected.length < 5) {
-                            selected.add(highlight);
-                          } else if (enabled == false && selected.length > 1) {
-                            selected.remove(highlight);
-                          }
-                        });
-                      },
-                    ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.of(
-                        sheetContext,
-                      ).pop(selected.toList(growable: false)),
-                      icon: const Icon(Icons.check_rounded),
-                      label: const Text('Auswahl übernehmen'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    if (result == null || !mounted) return;
-    await widget.onSaveVehicle(vehicle.copyWith(profileHighlights: result));
-  }
 }
 
 class _VehicleHeroCard extends StatelessWidget {
@@ -399,14 +328,14 @@ class _VehicleHeroCard extends StatelessWidget {
     required this.showGenerationControl,
     required this.isGenerationBusy,
     required this.onGenerate,
-    required this.onEditHighlights,
+    required this.onAddVehicle,
   });
 
   final ProfileVehicle vehicle;
   final bool showGenerationControl;
   final bool isGenerationBusy;
   final VoidCallback onGenerate;
-  final VoidCallback? onEditHighlights;
+  final VoidCallback? onAddVehicle;
 
   @override
   Widget build(BuildContext context) {
@@ -467,11 +396,20 @@ class _VehicleHeroCard extends StatelessWidget {
                   if (showGenerationControl)
                     Positioned(
                       top: 12,
-                      right: 12,
+                      left: 12,
                       child: _VehicleHeroGenerationControl(
                         status: vehicle.heroImageStatus,
                         isBusy: isGenerationBusy,
                         onPressed: onGenerate,
+                      ),
+                    ),
+                  if (onAddVehicle != null)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: ProfileSectionAddButton(
+                        tooltip: 'Fahrzeug hinzufügen',
+                        onPressed: onAddVehicle!,
                       ),
                     ),
                   Positioned(
@@ -507,36 +445,27 @@ class _VehicleHeroCard extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(15, 12, 15, 15),
-              child: Column(
-                children: [
-                  if (onEditHighlights != null)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: IconButton(
-                        tooltip: 'Fahrzeuginformationen auswählen',
-                        onPressed: onEditHighlights,
-                        icon: const Icon(Icons.tune_rounded),
-                        iconSize: 19,
-                      ),
-                    ),
-                  SizedBox(
-                    height: 68,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: vehicle.profileHighlights.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final highlight = vehicle.profileHighlights[index];
-                        return _VehicleHighlightTile(
-                          icon: _highlightIcon(highlight),
-                          title: _highlightLabel(highlight),
-                          value: _highlightValue(vehicle, highlight),
-                        );
-                      },
-                    ),
+              child: SizedBox(
+                height: 120,
+                child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    mainAxisExtent: 56,
                   ),
-                ],
+                  itemCount: 4,
+                  itemBuilder: (context, index) {
+                    final item = _fixedVehicleHighlights(vehicle)[index];
+                    return _VehicleHighlightTile(
+                      icon: item.icon,
+                      title: item.title,
+                      value: item.value,
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -640,10 +569,8 @@ class _VehicleHeroGenerationControl extends StatelessWidget {
                   ),
                 )
               else
-                Icon(
-                  status == VehicleHeroImageStatus.notGenerated
-                      ? Icons.auto_awesome_rounded
-                      : Icons.refresh_rounded,
+                const Icon(
+                  Icons.refresh_rounded,
                   size: 16,
                   color: CaRismaDesignTokens.blueBright,
                 ),
@@ -744,18 +671,24 @@ class _VehicleDataCard extends StatelessWidget {
       if (vehicle.firstRegistration != null)
         MapEntry(
           'Erstzulassung',
-          '${vehicle.firstRegistration!.month.toString().padLeft(2, '0')}/${vehicle.firstRegistration!.year}',
+          _compactVehicleDate(vehicle.firstRegistration),
         ),
+      if (vehicle.ownedSince != null)
+        MapEntry('Besitzer seit', _compactVehicleDate(vehicle.ownedSince)),
       if ((vehicle.bodyStyle ?? '').trim().isNotEmpty)
         MapEntry('Karosserie', vehicle.bodyStyle!.trim()),
       if ((vehicle.engineDescription ?? '').trim().isNotEmpty)
         MapEntry('Motor', vehicle.engineDescription!.trim()),
       if (vehicle.displacementCcm != null)
         MapEntry('Hubraum', '${vehicle.displacementCcm} cm³'),
-      if (vehicle.horsepower != null)
-        MapEntry('Leistung', '${vehicle.horsepower} PS'),
-      if (vehicle.kilowatts != null)
-        MapEntry('Leistung', '${vehicle.kilowatts} kW'),
+      if (vehicle.horsepower != null || vehicle.kilowatts != null)
+        MapEntry(
+          'Leistung',
+          [
+            if (vehicle.horsepower != null) '${vehicle.horsepower} PS',
+            if (vehicle.kilowatts != null) '${vehicle.kilowatts} kW',
+          ].join(' / '),
+        ),
       if ((vehicle.fuelType ?? '').trim().isNotEmpty)
         MapEntry('Kraftstoff', vehicle.fuelType!.trim()),
       if ((vehicle.transmission ?? '').trim().isNotEmpty)
@@ -764,7 +697,7 @@ class _VehicleDataCard extends StatelessWidget {
         MapEntry('Antrieb', vehicle.drivetrain!.trim()),
       MapEntry('Farbe', vehicle.color),
       if (vehicle.mileage != null)
-        MapEntry('Kilometer', '${vehicle.mileage} km'),
+        MapEntry('Kilometer', '${_formatNumber(vehicle.mileage!)} km'),
     ];
 
     return GlassCard(
@@ -778,25 +711,23 @@ class _VehicleDataCard extends StatelessWidget {
             onEdit: isOwnProfile ? onEdit : null,
           ),
           const SizedBox(height: 13),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = (constraints.maxWidth - 12) / 2;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 14,
-                children: values
-                    .map(
-                      (entry) => SizedBox(
-                        width: itemWidth,
-                        child: _VehicleDataValue(
-                          label: entry.key,
-                          value: entry.value,
-                        ),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
+          SizedBox(
+            height: _vehicleSectionContentHeight,
+            child: GridView.builder(
+              physics: const ClampingScrollPhysics(),
+              padding: EdgeInsets.zero,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 8,
+                mainAxisExtent: 38,
+              ),
+              itemCount: values.length,
+              itemBuilder: (context, index) => _VehicleDataValue(
+                label: values[index].key,
+                value: values[index].value,
+              ),
+            ),
           ),
         ],
       ),
@@ -817,7 +748,6 @@ class _VehicleEquipmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preview = vehicle.equipment.take(8).toList();
     return GlassCard(
       padding: const EdgeInsets.all(15),
       child: Column(
@@ -829,76 +759,36 @@ class _VehicleEquipmentCard extends StatelessWidget {
             onEdit: isOwnProfile ? onEdit : null,
           ),
           const SizedBox(height: 12),
-          if (preview.isEmpty)
-            Text(
-              isOwnProfile
-                  ? 'Noch keine Ausstattung hinterlegt.'
-                  : 'Keine Ausstattung freigegeben.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: CaRismaDesignTokens.textSecondary,
-              ),
-            )
-          else ...[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: preview
-                  .map(
-                    (item) =>
-                        _VehicleChip(icon: Icons.check_rounded, label: item),
+          SizedBox(
+            height: _vehicleSectionContentHeight,
+            child: vehicle.equipment.isEmpty
+                ? Align(
+                    alignment: Alignment.topLeft,
+                    child: Text(
+                      isOwnProfile
+                          ? 'Noch keine Ausstattung hinterlegt.'
+                          : 'Keine Ausstattung freigegeben.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: CaRismaDesignTokens.textSecondary,
+                      ),
+                    ),
                   )
-                  .toList(),
-            ),
-            if (vehicle.equipment.length > preview.length) ...[
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => _showAllEquipment(context),
-                child: Text('Alle ${vehicle.equipment.length} anzeigen'),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _showAllEquipment(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      backgroundColor: CaRismaDesignTokens.background,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ausstattung',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: vehicle.equipment
-                      .map(
-                        (item) => _VehicleChip(
-                          icon: Icons.check_rounded,
-                          label: item,
+                : GridView.builder(
+                    physics: const ClampingScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          mainAxisExtent: 48,
                         ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ),
-          ],
-        ),
+                    itemCount: vehicle.equipment.length,
+                    itemBuilder: (context, index) =>
+                        _EquipmentTile(label: vehicle.equipment[index]),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -942,7 +832,6 @@ class _VehicleSectionHeader extends StatelessWidget {
 
 class _VehicleModificationsCard extends StatelessWidget {
   const _VehicleModificationsCard({
-    required this.vehicle,
     required this.modifications,
     required this.isOwnProfile,
     required this.onAdd,
@@ -950,7 +839,6 @@ class _VehicleModificationsCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  final ProfileVehicle vehicle;
   final Stream<List<ProfileVehicleModification>> modifications;
   final bool isOwnProfile;
   final VoidCallback onAdd;
@@ -963,7 +851,6 @@ class _VehicleModificationsCard extends StatelessWidget {
       stream: modifications,
       builder: (context, snapshot) {
         final items = snapshot.data ?? const <ProfileVehicleModification>[];
-        final preview = items.take(3).toList();
         return GlassCard(
           padding: const EdgeInsets.all(15),
           child: Column(
@@ -975,103 +862,56 @@ class _VehicleModificationsCard extends StatelessWidget {
                 onEdit: isOwnProfile ? onAdd : null,
               ),
               const SizedBox(height: 10),
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(14),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (snapshot.hasError)
-                Text(
-                  'Umbauten konnten nicht geladen werden.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: CaRismaDesignTokens.textSecondary,
-                  ),
-                )
-              else if (preview.isEmpty)
-                Text(
-                  isOwnProfile
-                      ? 'Noch keine Umbauten hinterlegt.'
-                      : 'Keine Umbauten freigegeben.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: CaRismaDesignTokens.textSecondary,
-                  ),
-                )
-              else ...[
-                for (var index = 0; index < preview.length; index++) ...[
-                  _ModificationRow(
-                    modification: preview[index],
-                    isOwnProfile: isOwnProfile,
-                    onEdit: () => onEdit(preview[index]),
-                    onDelete: () => onDelete(preview[index]),
-                  ),
-                  if (index < preview.length - 1)
-                    Divider(color: Colors.white.withValues(alpha: 0.07)),
-                ],
-                if (items.length > preview.length)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: () => _showAll(context, items),
-                      child: Text('Alle ${items.length} anzeigen'),
-                    ),
-                  ),
-              ],
+              SizedBox(
+                height: _vehicleSectionContentHeight,
+                child:
+                    snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData
+                    ? const Center(child: CircularProgressIndicator())
+                    : snapshot.hasError
+                    ? Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          'Umbauten konnten nicht geladen werden.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: CaRismaDesignTokens.textSecondary,
+                              ),
+                        ),
+                      )
+                    : items.isEmpty
+                    ? Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          isOwnProfile
+                              ? 'Noch keine Umbauten hinterlegt.'
+                              : 'Keine Umbauten freigegeben.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: CaRismaDesignTokens.textSecondary,
+                              ),
+                        ),
+                      )
+                    : ListView.separated(
+                        physics: const ClampingScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => Divider(
+                          height: 1,
+                          color: Colors.white.withValues(alpha: 0.07),
+                        ),
+                        itemBuilder: (context, index) => _ModificationRow(
+                          modification: items[index],
+                          isOwnProfile: isOwnProfile,
+                          onEdit: () => onEdit(items[index]),
+                          onDelete: () => onDelete(items[index]),
+                        ),
+                      ),
+              ),
             ],
           ),
         );
       },
-    );
-  }
-
-  void _showAll(BuildContext context, List<ProfileVehicleModification> items) {
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: CaRismaDesignTokens.background,
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.7,
-        minChildSize: 0.4,
-        maxChildSize: 0.92,
-        builder: (context, controller) => ListView.separated(
-          controller: controller,
-          padding: const EdgeInsets.all(20),
-          itemCount: items.length + 1,
-          separatorBuilder: (context, index) =>
-              Divider(color: Colors.white.withValues(alpha: 0.07)),
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  'Umbauten · ${vehicle.displayName}',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              );
-            }
-            final modification = items[index - 1];
-            return _ModificationRow(
-              modification: modification,
-              isOwnProfile: isOwnProfile,
-              onEdit: () {
-                Navigator.of(context).pop();
-                onEdit(modification);
-              },
-              onDelete: () {
-                Navigator.of(context).pop();
-                onDelete(modification);
-              },
-            );
-          },
-        ),
-      ),
     );
   }
 }
@@ -1209,7 +1049,7 @@ class _VehicleDataValue extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          maxLines: 2,
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Colors.white,
@@ -1217,6 +1057,46 @@ class _VehicleDataValue extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EquipmentTile extends StatelessWidget {
+  const _EquipmentTile({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.check_rounded,
+            size: 15,
+            color: CaRismaDesignTokens.blueBright,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                height: 1.05,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1384,8 +1264,7 @@ class _VehicleHighlightTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 142,
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(14),
@@ -1514,43 +1393,54 @@ String _statusLabel(ProfileVehicleStatus status) {
   };
 }
 
-String _highlightLabel(ProfileVehicleHighlight highlight) {
-  return switch (highlight) {
-    ProfileVehicleHighlight.plate => 'Kennzeichen',
-    ProfileVehicleHighlight.color => 'Farbe',
-    ProfileVehicleHighlight.mileage => 'Kilometerstand',
-    ProfileVehicleHighlight.status => 'Status',
-    ProfileVehicleHighlight.ownedSince => 'Besitzer seit',
-  };
-}
-
-IconData _highlightIcon(ProfileVehicleHighlight highlight) {
-  return switch (highlight) {
-    ProfileVehicleHighlight.plate => Icons.pin_outlined,
-    ProfileVehicleHighlight.color => Icons.palette_outlined,
-    ProfileVehicleHighlight.mileage => Icons.speed_rounded,
-    ProfileVehicleHighlight.status => Icons.info_outline_rounded,
-    ProfileVehicleHighlight.ownedSince => Icons.calendar_month_outlined,
-  };
-}
-
-String _highlightValue(
-  ProfileVehicle vehicle,
-  ProfileVehicleHighlight highlight,
-) {
-  return switch (highlight) {
-    ProfileVehicleHighlight.plate =>
-      vehicle.displayPlate.trim().isEmpty ? '-' : vehicle.displayPlate,
-    ProfileVehicleHighlight.color =>
-      vehicle.color.trim().isEmpty ? '-' : vehicle.color.trim(),
-    ProfileVehicleHighlight.mileage =>
-      vehicle.mileage == null ? '-' : '${_formatNumber(vehicle.mileage!)} km',
-    ProfileVehicleHighlight.status => _statusLabel(vehicle.status),
-    ProfileVehicleHighlight.ownedSince =>
-      vehicle.ownedSince == null
+List<_FixedVehicleHighlight> _fixedVehicleHighlights(ProfileVehicle vehicle) {
+  final power = vehicle.horsepower != null
+      ? '${vehicle.horsepower} PS'
+      : vehicle.kilowatts != null
+      ? '${vehicle.kilowatts} kW'
+      : '-';
+  return [
+    _FixedVehicleHighlight(
+      icon: Icons.bolt_rounded,
+      title: 'Leistung',
+      value: power,
+    ),
+    _FixedVehicleHighlight(
+      icon: Icons.speed_rounded,
+      title: 'Kilometerstand',
+      value: vehicle.mileage == null
           ? '-'
-          : '${vehicle.ownedSince!.month.toString().padLeft(2, '0')}.${vehicle.ownedSince!.year}',
-  };
+          : '${_formatNumber(vehicle.mileage!)} km',
+    ),
+    _FixedVehicleHighlight(
+      icon: Icons.event_available_outlined,
+      title: 'Erstzulassung',
+      value: _compactVehicleDate(vehicle.firstRegistration),
+    ),
+    _FixedVehicleHighlight(
+      icon: Icons.calendar_month_outlined,
+      title: 'Besitzer seit',
+      value: _compactVehicleDate(vehicle.ownedSince),
+    ),
+  ];
+}
+
+String _compactVehicleDate(DateTime? value) {
+  if (value == null) return '-';
+  return '${value.day.toString().padLeft(2, '0')}.'
+      '${value.month.toString().padLeft(2, '0')}.${value.year}';
+}
+
+class _FixedVehicleHighlight {
+  const _FixedVehicleHighlight({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
 }
 
 String _formatNumber(int value) {

@@ -8,6 +8,7 @@ const {
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
 const {
+  Timestamp,
   collection,
   doc,
   getDoc,
@@ -52,6 +53,14 @@ async function seedVehicleData({
       model: 'X6',
       status: 'active',
       isPrimary: true,
+    });
+    await setDoc(doc(database, 'users', ownerUserId, 'vehicles', 'vehicle-2'), {
+      ownerUserId,
+      vehicleId: 'vehicle-2',
+      brand: 'Mercedes-Benz',
+      model: 'GLS',
+      status: 'active',
+      isPrimary: false,
     });
     await setDoc(doc(database, 'public_profiles', ownerUserId), {
       uid: ownerUserId,
@@ -176,5 +185,126 @@ describe('profile vehicle Firestore rules', () => {
     await assertFails(getDoc(doc(outsider, 'plates', plateId)));
     await assertFails(getDocs(collection(owner, 'plates')));
     await assertFails(updateDoc(doc(owner, 'plates', plateId), {isActive: false}));
+  });
+
+  test('modifications stay assigned to their vehicle', async () => {
+    await seedVehicleData();
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const now = Timestamp.now();
+    const modification = {
+      modificationId: 'modification-1',
+      ownerUserId,
+      vehicleId,
+      title: 'Sportfahrwerk',
+      category: 'suspension',
+      manufacturer: null,
+      product: null,
+      description: null,
+      modifiedAt: now,
+      workshop: null,
+      costCents: null,
+      powerChangeHp: null,
+      isRegistered: false,
+      documentPaths: [],
+      visibility: 'onlyMe',
+      isDeleted: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await assertSucceeds(setDoc(doc(
+      owner,
+      'users', ownerUserId, 'vehicles', vehicleId,
+      'modifications', 'modification-1',
+    ), modification));
+    await assertFails(setDoc(doc(
+      owner,
+      'users', ownerUserId, 'vehicles', 'vehicle-2',
+      'modifications', 'modification-1',
+    ), modification));
+  });
+
+  test('public modifications omit private workshop and cost data', async () => {
+    await seedVehicleData({withConnection: true});
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderUserId).firestore();
+    const now = Timestamp.now();
+    const reference = doc(
+      owner,
+      'public_profiles', ownerUserId, 'vehicles', vehicleId,
+      'modifications', 'modification-1',
+    );
+    const publicData = {
+      modificationId: 'modification-1',
+      ownerUserId,
+      vehicleId,
+      title: 'Sportfahrwerk',
+      category: 'suspension',
+      manufacturer: null,
+      product: null,
+      description: null,
+      modifiedAt: now,
+      powerChangeHp: null,
+      isRegistered: false,
+      visibility: 'contacts',
+      isDeleted: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await assertSucceeds(setDoc(reference, publicData));
+    await assertSucceeds(getDoc(doc(
+      outsider,
+      'public_profiles', ownerUserId, 'vehicles', vehicleId,
+      'modifications', 'modification-1',
+    )));
+    await assertFails(setDoc(reference, {
+      ...publicData,
+      workshop: 'Private Werkstatt',
+      costCents: 250000,
+    }));
+  });
+
+  test('timeline entries stay assigned to their vehicle and reject future dates', async () => {
+    await seedVehicleData();
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const now = Timestamp.now();
+    const timeline = {
+      entryId: 'entry-1',
+      ownerUserId,
+      vehicleId,
+      type: 'maintenance',
+      title: 'Ölwechsel',
+      description: null,
+      eventDate: now,
+      mediaUrls: [],
+      linkedPostId: null,
+      linkedModificationId: null,
+      isAutomaticallyCreated: false,
+      visibility: 'onlyMe',
+      isDeleted: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await assertSucceeds(setDoc(doc(
+      owner,
+      'users', ownerUserId, 'vehicles', vehicleId,
+      'timeline', 'entry-1',
+    ), timeline));
+    await assertFails(setDoc(doc(
+      owner,
+      'users', ownerUserId, 'vehicles', 'vehicle-2',
+      'timeline', 'entry-1',
+    ), timeline));
+    await assertFails(setDoc(doc(
+      owner,
+      'users', ownerUserId, 'vehicles', vehicleId,
+      'timeline', 'entry-future',
+    ), {
+      ...timeline,
+      entryId: 'entry-future',
+      eventDate: Timestamp.fromMillis(Date.now() + 86400000),
+    }));
   });
 });

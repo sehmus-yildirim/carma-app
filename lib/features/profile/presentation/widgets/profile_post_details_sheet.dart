@@ -246,137 +246,136 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
       260.0,
       math.min(mediaQuery.size.height * 0.92, availableHeight),
     );
+    final dialogWidth = math.max(240.0, mediaQuery.size.width - 28);
+    final targetHeight = _engagementView != null || keyboardInset > 0
+        ? maxHeight
+        : math.min(maxHeight, dialogWidth + 170);
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       padding: EdgeInsets.fromLTRB(14, 12, 14, 14 + keyboardInset),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SizedBox(
+        height: targetHeight,
         child: GlassCard(
           padding: const EdgeInsets.all(14),
           child: SafeArea(
             top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AspectRatio(
-                          aspectRatio: 1,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(18),
-                                child: PageView.builder(
-                                  itemCount: media.length,
-                                  onPageChanged: (index) =>
-                                      setState(() => _mediaIndex = index),
-                                  itemBuilder: (context, index) {
-                                    final item = media[index];
-                                    if (widget.isDemo) {
-                                      return widget.demoMediaBuilder(
-                                        post,
-                                        item,
-                                      );
-                                    }
-                                    return _PostMediaView(media: item);
-                                  },
-                                ),
-                              ),
-                              Positioned(
-                                left: 9,
-                                right: 9,
-                                top: 9,
-                                child: _PostHeader(
-                                  name: widget.ownerDisplayName,
-                                  photoUrl: widget.ownerPhotoUrl,
-                                  onClose: () => Navigator.of(context).pop(),
-                                ),
-                              ),
-                            ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final mediaHeight = math.min(
+                  constraints.maxWidth,
+                  math.max(
+                    150.0,
+                    constraints.maxHeight *
+                        (_engagementView == null ? 0.64 : 0.46),
+                  ),
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: mediaHeight,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: PageView.builder(
+                              itemCount: media.length,
+                              onPageChanged: (index) =>
+                                  setState(() => _mediaIndex = index),
+                              itemBuilder: (context, index) {
+                                final item = media[index];
+                                if (widget.isDemo) {
+                                  return widget.demoMediaBuilder(post, item);
+                                }
+                                return _PostMediaView(media: item);
+                              },
+                            ),
                           ),
-                        ),
-                        if (media.length > 1) ...[
-                          const SizedBox(height: 8),
-                          Center(
-                            child: Text(
-                              '${_mediaIndex + 1} / ${media.length}',
-                              style: const TextStyle(
-                                color: CaRismaDesignTokens.textSecondary,
-                                fontWeight: FontWeight.w800,
-                              ),
+                          Positioned(
+                            left: 9,
+                            right: 9,
+                            top: 9,
+                            child: _PostHeader(
+                              name: widget.ownerDisplayName,
+                              photoUrl: widget.ownerPhotoUrl,
+                              onClose: () => Navigator.of(context).pop(),
                             ),
                           ),
                         ],
-                        if (post.caption?.trim().isNotEmpty ?? false) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            post.caption!.trim(),
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.35,
-                                ),
+                      ),
+                    ),
+                    if (media.length > 1) ...[
+                      const SizedBox(height: 6),
+                      Center(
+                        child: Text(
+                          '${_mediaIndex + 1} / ${media.length}',
+                          style: const TextStyle(
+                            color: CaRismaDesignTokens.textSecondary,
+                            fontWeight: FontWeight.w800,
                           ),
-                        ],
-                        const SizedBox(height: 12),
-                        _PostInteractionRow(
+                        ),
+                      ),
+                    ],
+                    if (post.caption?.trim().isNotEmpty ?? false) ...[
+                      const SizedBox(height: 9),
+                      Text(
+                        post.caption!.trim(),
+                        maxLines: _engagementView == null ? 4 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 9),
+                    _PostInteractionRow(
+                      repository: widget.repository,
+                      post: post,
+                      userId: widget.viewerUserId,
+                      isDemo: widget.isDemo,
+                      likesVisible:
+                          _engagementView == _PostEngagementView.likes,
+                      commentsVisible:
+                          _engagementView == _PostEngagementView.comments,
+                      onLike: _toggleLike,
+                      onLikes: () => _showEngagement(_PostEngagementView.likes),
+                      onComments: () =>
+                          _showEngagement(_PostEngagementView.comments),
+                      onShare: widget.onShare,
+                      isOwner: widget.isOwner && !widget.isDemo,
+                      isPinned: post.isPinned,
+                      onEdit: widget.onEdit,
+                      onTogglePin: widget.onTogglePin,
+                      onArchive: widget.onArchive,
+                      onDelete: widget.onDelete,
+                      locationLabel: post.locationLabel,
+                    ),
+                    if (_engagementView != null) ...[
+                      const SizedBox(height: 9),
+                      Expanded(
+                        child: _CommentsPanel(
                           repository: widget.repository,
                           post: post,
-                          userId: widget.viewerUserId,
                           isDemo: widget.isDemo,
-                          likesVisible:
-                              _engagementView == _PostEngagementView.likes,
-                          commentsVisible:
-                              _engagementView == _PostEngagementView.comments,
-                          onLike: _toggleLike,
-                          onLikes: () =>
-                              _showEngagement(_PostEngagementView.likes),
-                          onComments: () =>
-                              _showEngagement(_PostEngagementView.comments),
-                          onShare: widget.onShare,
-                          isOwner: widget.isOwner && !widget.isDemo,
-                          isPinned: post.isPinned,
-                          onEdit: widget.onEdit,
-                          onTogglePin: widget.onTogglePin,
-                          onArchive: widget.onArchive,
-                          onDelete: widget.onDelete,
+                          isPostOwner: widget.isOwner,
+                          viewerUserId: widget.viewerUserId,
+                          controller: _commentController,
+                          demoComments: _demoComments,
+                          isSending: _isSendingComment,
+                          view: _engagementView!,
+                          onSend: _sendComment,
+                          onDelete: _deleteComment,
+                          onReport: _reportComment,
                         ),
-                        if (_engagementView != null) ...[
-                          const SizedBox(height: 12),
-                          _CommentsPanel(
-                            repository: widget.repository,
-                            post: post,
-                            isDemo: widget.isDemo,
-                            isPostOwner: widget.isOwner,
-                            viewerUserId: widget.viewerUserId,
-                            controller: _commentController,
-                            demoComments: _demoComments,
-                            isSending: _isSendingComment,
-                            view: _engagementView!,
-                            onSend: _sendComment,
-                            onDelete: _deleteComment,
-                            onReport: _reportComment,
-                          ),
-                        ],
-                        if (post.locationLabel?.trim().isNotEmpty ?? false) ...[
-                          const SizedBox(height: 10),
-                          _PostInfoTile(
-                            icon: Icons.location_on_outlined,
-                            label: post.locationLabel!.trim(),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -678,6 +677,7 @@ class _PostInteractionRow extends StatelessWidget {
     required this.onTogglePin,
     required this.onArchive,
     required this.onDelete,
+    required this.locationLabel,
   });
 
   final SocialPostRepository repository;
@@ -696,6 +696,7 @@ class _PostInteractionRow extends StatelessWidget {
   final VoidCallback onTogglePin;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
+  final String? locationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -716,6 +717,7 @@ class _PostInteractionRow extends StatelessWidget {
         onTogglePin: onTogglePin,
         onArchive: onArchive,
         onDelete: onDelete,
+        locationLabel: locationLabel,
       );
     }
     return StreamBuilder<int>(
@@ -745,6 +747,7 @@ class _PostInteractionRow extends StatelessWidget {
                 onTogglePin: onTogglePin,
                 onArchive: onArchive,
                 onDelete: onDelete,
+                locationLabel: locationLabel,
               ),
             );
           },
@@ -771,6 +774,7 @@ class _InteractionButtons extends StatelessWidget {
     required this.onTogglePin,
     required this.onArchive,
     required this.onDelete,
+    required this.locationLabel,
   });
 
   final int likeCount;
@@ -788,6 +792,7 @@ class _InteractionButtons extends StatelessWidget {
   final VoidCallback onTogglePin;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
+  final String? locationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -811,7 +816,6 @@ class _InteractionButtons extends StatelessWidget {
           tooltip: 'Kommentare',
           onTap: onComments,
         ),
-        const Spacer(),
         if (isOwner)
           _PostOwnerMenu(
             isPinned: isPinned,
@@ -820,6 +824,11 @@ class _InteractionButtons extends StatelessWidget {
             onArchive: onArchive,
             onDelete: onDelete,
           ),
+        if (locationLabel?.trim().isNotEmpty ?? false) ...[
+          const SizedBox(width: 8),
+          Expanded(child: _PostLocationChip(label: locationLabel!.trim())),
+        ] else
+          const Spacer(),
         IconButton(
           tooltip: 'Beitrag teilen',
           onPressed: onShare,
@@ -828,6 +837,53 @@ class _InteractionButtons extends StatelessWidget {
           icon: const Icon(Icons.share_outlined, color: Colors.white),
         ),
       ],
+    );
+  }
+}
+
+class _PostLocationChip extends StatelessWidget {
+  const _PostLocationChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(
+        minWidth: 104,
+        maxWidth: 190,
+        minHeight: 40,
+      ),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.location_on_outlined,
+            color: CaRismaDesignTokens.blueBright,
+            size: 17,
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -859,7 +915,7 @@ class _CountAction extends StatelessWidget {
         splashFactory: NoSplash.splashFactory,
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: CaRismaDesignTokens.controlSurface,
             borderRadius: BorderRadius.circular(15),
@@ -874,18 +930,20 @@ class _CountAction extends StatelessWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onIconTap,
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Icon(
-                    icon,
-                    size: 19,
-                    color: active
-                        ? CaRismaDesignTokens.blueBright
-                        : Colors.white,
+                child: SizedBox.square(
+                  dimension: 36,
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      size: 19,
+                      color: active
+                          ? CaRismaDesignTokens.blueBright
+                          : Colors.white,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 2),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Text(
@@ -935,7 +993,6 @@ class _CommentsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final commentsStream = isDemo ? null : repository.watchComments(post);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -946,74 +1003,10 @@ class _CommentsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (view == _PostEngagementView.likes)
-            if (isDemo)
-              _LikesList(likes: _demoLikes)
-            else
-              StreamBuilder<List<SocialPostLike>>(
-                stream: repository.watchLikes(post),
-                initialData: const <SocialPostLike>[],
-                builder: (context, snapshot) => _LikesList(
-                  likes: snapshot.data ?? const <SocialPostLike>[],
-                ),
-              )
-          else ...[
-            if (isDemo)
-              Column(
-                children: demoComments
-                    .map(
-                      (comment) => _CommentTile(
-                        repository: repository,
-                        post: post,
-                        comment: comment,
-                        viewerUserId: viewerUserId,
-                        isDemo: true,
-                        canDelete:
-                            isPostOwner || comment.authorUserId == viewerUserId,
-                        onDelete: () => onDelete(comment),
-                        onReport: () => onReport(comment),
-                      ),
-                    )
-                    .toList(growable: false),
-              )
-            else
-              StreamBuilder<List<SocialPostComment>>(
-                stream: commentsStream,
-                initialData: const <SocialPostComment>[],
-                builder: (context, snapshot) {
-                  final comments = snapshot.data ?? const <SocialPostComment>[];
-                  if (comments.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Text(
-                        'Noch keine Kommentare.',
-                        style: TextStyle(
-                          color: CaRismaDesignTokens.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    );
-                  }
-                  return Column(
-                    children: comments
-                        .map(
-                          (comment) => _CommentTile(
-                            repository: repository,
-                            post: post,
-                            comment: comment,
-                            viewerUserId: viewerUserId,
-                            isDemo: false,
-                            canDelete:
-                                isPostOwner ||
-                                comment.authorUserId == viewerUserId,
-                            onDelete: () => onDelete(comment),
-                            onReport: () => onReport(comment),
-                          ),
-                        )
-                        .toList(growable: false),
-                  );
-                },
-              ),
+          Expanded(child: _buildScrollableContent()),
+          if (view == _PostEngagementView.comments) ...[
+            const SizedBox(height: 8),
+            Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -1054,6 +1047,103 @@ class _CommentsPanel extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildScrollableContent() {
+    if (view == _PostEngagementView.likes) {
+      if (isDemo) {
+        return _LikesList(repository: repository, likes: _demoLikes);
+      }
+      return StreamBuilder<List<SocialPostLike>>(
+        stream: repository.watchLikes(post),
+        initialData: const <SocialPostLike>[],
+        builder: (context, snapshot) => _LikesList(
+          repository: repository,
+          likes: snapshot.data ?? const <SocialPostLike>[],
+        ),
+      );
+    }
+    if (isDemo) {
+      return _CommentsList(
+        repository: repository,
+        post: post,
+        comments: demoComments,
+        viewerUserId: viewerUserId,
+        isDemo: true,
+        isPostOwner: isPostOwner,
+        onDelete: onDelete,
+        onReport: onReport,
+      );
+    }
+    return StreamBuilder<List<SocialPostComment>>(
+      stream: repository.watchComments(post),
+      initialData: const <SocialPostComment>[],
+      builder: (context, snapshot) => _CommentsList(
+        repository: repository,
+        post: post,
+        comments: snapshot.data ?? const <SocialPostComment>[],
+        viewerUserId: viewerUserId,
+        isDemo: false,
+        isPostOwner: isPostOwner,
+        onDelete: onDelete,
+        onReport: onReport,
+      ),
+    );
+  }
+}
+
+class _CommentsList extends StatelessWidget {
+  const _CommentsList({
+    required this.repository,
+    required this.post,
+    required this.comments,
+    required this.viewerUserId,
+    required this.isDemo,
+    required this.isPostOwner,
+    required this.onDelete,
+    required this.onReport,
+  });
+
+  final SocialPostRepository repository;
+  final SocialPost post;
+  final List<SocialPostComment> comments;
+  final String viewerUserId;
+  final bool isDemo;
+  final bool isPostOwner;
+  final ValueChanged<SocialPostComment> onDelete;
+  final ValueChanged<SocialPostComment> onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    if (comments.isEmpty) {
+      return const Center(
+        child: Text(
+          'Noch keine Kommentare.',
+          style: TextStyle(
+            color: CaRismaDesignTokens.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+    return ListView.builder(
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: comments.length,
+      itemBuilder: (context, index) {
+        final comment = comments[index];
+        return _CommentTile(
+          repository: repository,
+          post: post,
+          comment: comment,
+          viewerUserId: viewerUserId,
+          isDemo: isDemo,
+          canDelete: isPostOwner || comment.authorUserId == viewerUserId,
+          onDelete: () => onDelete(comment),
+          onReport: () => onReport(comment),
+        );
+      },
     );
   }
 }
@@ -1128,14 +1218,26 @@ class _CommentTileState extends State<_CommentTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: Row(
+    return StreamBuilder<SocialPostPublicIdentity>(
+      stream: widget.repository.watchPublicIdentity(
+        userId: widget.comment.authorUserId,
+        fallbackDisplayName: widget.comment.authorDisplayName,
+        fallbackPhotoUrl: widget.comment.authorPhotoUrl,
+      ),
+      initialData: SocialPostPublicIdentity(
+        displayName: widget.comment.authorDisplayName,
+        photoUrl: widget.comment.authorPhotoUrl,
+      ),
+      builder: (context, identitySnapshot) {
+        final identity = identitySnapshot.data!;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 9),
+          child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _PostAvatar(
-            name: widget.comment.authorDisplayName,
-            photoUrl: widget.comment.authorPhotoUrl,
+            name: identity.displayName,
+            photoUrl: identity.photoUrl,
             radius: 18,
           ),
           const SizedBox(width: 9),
@@ -1144,7 +1246,7 @@ class _CommentTileState extends State<_CommentTile> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.comment.authorDisplayName,
+                  identity.displayName,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -1218,7 +1320,9 @@ class _CommentTileState extends State<_CommentTile> {
             ],
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1317,15 +1421,15 @@ class _CommentReactionButton extends StatelessWidget {
 }
 
 class _LikesList extends StatelessWidget {
-  const _LikesList({required this.likes});
+  const _LikesList({required this.repository, required this.likes});
 
+  final SocialPostRepository repository;
   final List<SocialPostLike> likes;
 
   @override
   Widget build(BuildContext context) {
     if (likes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
+      return const Center(
         child: Text(
           'Noch keine Likes.',
           style: TextStyle(
@@ -1335,81 +1439,58 @@ class _LikesList extends StatelessWidget {
         ),
       );
     }
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 360),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const ClampingScrollPhysics(),
-        itemCount: likes.length,
-        separatorBuilder: (_, _) =>
-            Divider(height: 1, color: Colors.white.withValues(alpha: 0.07)),
-        itemBuilder: (context, index) {
-          final like = likes[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            child: Row(
-              children: [
-                _PostAvatar(
-                  name: like.displayName,
-                  photoUrl: like.photoUrl,
-                  radius: 19,
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: Text(
-                    like.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
+    return ListView.separated(
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: likes.length,
+      separatorBuilder: (_, _) =>
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.07)),
+      itemBuilder: (context, index) {
+        final like = likes[index];
+        return StreamBuilder<SocialPostPublicIdentity>(
+          stream: repository.watchPublicIdentity(
+            userId: like.userId,
+            fallbackDisplayName: like.displayName,
+            fallbackPhotoUrl: like.photoUrl,
+          ),
+          initialData: SocialPostPublicIdentity(
+            displayName: like.displayName,
+            photoUrl: like.photoUrl,
+          ),
+          builder: (context, identitySnapshot) {
+            final identity = identitySnapshot.data!;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              child: Row(
+                children: [
+                  _PostAvatar(
+                    name: identity.displayName,
+                    photoUrl: identity.photoUrl,
+                    radius: 19,
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Text(
+                      identity.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
-                ),
-                const Icon(
-                  Icons.favorite_rounded,
-                  color: CaRismaDesignTokens.blueBright,
-                  size: 18,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _PostInfoTile extends StatelessWidget {
-  const _PostInfoTile({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: CaRismaDesignTokens.controlSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: CaRismaDesignTokens.blueBright, size: 21),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+                  const Icon(
+                    Icons.favorite_rounded,
+                    color: CaRismaDesignTokens.blueBright,
+                    size: 18,
+                  ),
+                ],
               ),
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }

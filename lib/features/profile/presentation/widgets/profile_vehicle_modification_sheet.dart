@@ -33,34 +33,72 @@ Future<bool> showProfileVehicleModificationSheet(
   final powerController = TextEditingController(
     text: modification?.powerChangeHp?.toString(),
   );
+  final modifiedAtController = TextEditingController(
+    text: _formatModificationDate(modification?.modifiedAt),
+  );
 
   var category =
       modification?.category ?? ProfileVehicleModificationCategory.other;
-  var modifiedAt = modification?.modifiedAt;
   var isRegistered = modification?.isRegistered ?? false;
-  var isPublic =
-      modification?.visibility == ProfileVehicleVisibility.contacts &&
-      vehicle.isPubliclyVisible;
   var isSaving = false;
+  var isDirty = false;
+  final trackedControllers = <TextEditingController>[
+    titleController,
+    manufacturerController,
+    productController,
+    descriptionController,
+    workshopController,
+    costController,
+    powerController,
+    modifiedAtController,
+  ];
+  void markDirty() => isDirty = true;
+  for (final controller in trackedControllers) {
+    controller.addListener(markDirty);
+  }
 
   try {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       useSafeArea: true,
       backgroundColor: CaRismaDesignTokens.background,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            Future<void> chooseDate() async {
-              final selected = await showDatePicker(
-                context: context,
-                initialDate: modifiedAt ?? DateTime.now(),
-                firstDate: DateTime(1950),
-                lastDate: DateTime.now(),
+            Future<void> closeEditor() async {
+              if (isSaving) return;
+              if (!isDirty) {
+                Navigator.of(sheetContext).pop(false);
+                return;
+              }
+              final discard = await showDialog<bool>(
+                context: sheetContext,
+                builder: (dialogContext) => AlertDialog(
+                  backgroundColor: CaRismaDesignTokens.card,
+                  title: const Text('Änderungen verwerfen?'),
+                  content: const Text(
+                    'Der Umbau wurde noch nicht gespeichert.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Weiter bearbeiten'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      child: const Text(
+                        'Verwerfen',
+                        style: TextStyle(color: CaRismaDesignTokens.danger),
+                      ),
+                    ),
+                  ],
+                ),
               );
-              if (selected != null) {
-                setSheetState(() => modifiedAt = selected);
+              if (discard == true && sheetContext.mounted) {
+                Navigator.of(sheetContext).pop(false);
               }
             }
 
@@ -80,6 +118,30 @@ Future<bool> showProfileVehicleModificationSheet(
                 );
                 return;
               }
+              final modifiedAt = _parseModificationDate(
+                modifiedAtController.text,
+              );
+              if (modifiedAtController.text.trim().isNotEmpty &&
+                  modifiedAt == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Bitte gib das Datum als gültiges TT.MM.JJJJ ein.',
+                    ),
+                  ),
+                );
+                return;
+              }
+              final powerText = powerController.text.trim();
+              final powerChange = int.tryParse(powerText);
+              if (powerText.isNotEmpty && powerChange == null) {
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Bitte prüfe die Leistungsänderung.'),
+                  ),
+                );
+                return;
+              }
 
               setSheetState(() => isSaving = true);
               try {
@@ -96,10 +158,10 @@ Future<bool> showProfileVehicleModificationSheet(
                     modifiedAt: modifiedAt,
                     workshop: workshopController.text,
                     costCents: cost == null ? null : (cost * 100).round(),
-                    powerChangeHp: int.tryParse(powerController.text.trim()),
+                    powerChangeHp: powerChange,
                     isRegistered: isRegistered,
                     documentPaths: modification?.documentPaths ?? const [],
-                    visibility: isPublic
+                    visibility: vehicle.isPubliclyVisible
                         ? ProfileVehicleVisibility.contacts
                         : ProfileVehicleVisibility.onlyMe,
                     isDeleted: false,
@@ -123,197 +185,211 @@ Future<bool> showProfileVehicleModificationSheet(
               }
             }
 
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                14,
-                20,
-                20 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.24),
-                          borderRadius: BorderRadius.circular(4),
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) async {
+                if (!didPop) await closeEditor();
+              },
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  14,
+                  20,
+                  20 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      modification == null
+                                          ? 'Umbau hinzufügen'
+                                          : 'Umbau bearbeiten',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Schließen',
+                                    onPressed: closeEditor,
+                                    icon: const Icon(Icons.close_rounded),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                vehicle.displayName,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: CaRismaDesignTokens.textSecondary,
+                                    ),
+                              ),
+                              const SizedBox(height: 18),
+                              _ModificationTextField(
+                                controller: titleController,
+                                label: 'Titel',
+                                maxLength: 120,
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<
+                                ProfileVehicleModificationCategory
+                              >(
+                                key: ValueKey(category),
+                                initialValue: category,
+                                isExpanded: true,
+                                dropdownColor:
+                                    CaRismaDesignTokens.controlSurface,
+                                decoration: _inputDecoration('Kategorie'),
+                                items: ProfileVehicleModificationCategory.values
+                                    .map(
+                                      (value) => DropdownMenuItem(
+                                        value: value,
+                                        child: Text(_categoryLabel(value)),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setSheetState(() {
+                                      category = value;
+                                      isDirty = true;
+                                    });
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _ModificationTextField(
+                                      controller: manufacturerController,
+                                      label: 'Hersteller',
+                                      maxLength: 120,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _ModificationTextField(
+                                      controller: productController,
+                                      label: 'Produkt',
+                                      maxLength: 120,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              _ModificationTextField(
+                                controller: descriptionController,
+                                label: 'Beschreibung',
+                                maxLength: 600,
+                                maxLines: 3,
+                              ),
+                              const SizedBox(height: 10),
+                              _ModificationDateField(
+                                controller: modifiedAtController,
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _ModificationTextField(
+                                      controller: powerController,
+                                      label: 'Leistungsänderung',
+                                      maxLength: 5,
+                                      signedNumbersOnly: true,
+                                      suffixText: 'PS',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: SwitchListTile.adaptive(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: const Text('Eingetragen'),
+                                      value: isRegistered,
+                                      onChanged: (value) => setSheetState(() {
+                                        isRegistered = value;
+                                        isDirty = true;
+                                      }),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+                              Text(
+                                'Private Angaben',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Werkstatt, Kosten und spätere Belege werden nicht öffentlich angezeigt.',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: CaRismaDesignTokens.textSecondary,
+                                    ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _ModificationTextField(
+                                      controller: workshopController,
+                                      label: 'Werkstatt',
+                                      maxLength: 160,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _ModificationTextField(
+                                      controller: costController,
+                                      label: 'Kosten in €',
+                                      maxLength: 12,
+                                      decimalNumbersOnly: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      modification == null
-                          ? 'Umbau hinzufügen'
-                          : 'Umbau bearbeiten',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      vehicle.displayName,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: CaRismaDesignTokens.textSecondary,
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: isSaving ? null : submit,
+                          icon: isSaving
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.check_rounded),
+                          label: Text(isSaving ? 'Speichern...' : 'Speichern'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    _ModificationTextField(
-                      controller: titleController,
-                      label: 'Titel',
-                      maxLength: 120,
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<ProfileVehicleModificationCategory>(
-                      key: ValueKey(category),
-                      initialValue: category,
-                      isExpanded: true,
-                      dropdownColor: CaRismaDesignTokens.controlSurface,
-                      decoration: _inputDecoration('Kategorie'),
-                      items: ProfileVehicleModificationCategory.values
-                          .map(
-                            (value) => DropdownMenuItem(
-                              value: value,
-                              child: Text(_categoryLabel(value)),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setSheetState(() => category = value);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ModificationTextField(
-                            controller: manufacturerController,
-                            label: 'Hersteller',
-                            maxLength: 120,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _ModificationTextField(
-                            controller: productController,
-                            label: 'Produkt',
-                            maxLength: 120,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _ModificationTextField(
-                      controller: descriptionController,
-                      label: 'Beschreibung',
-                      maxLength: 600,
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 10),
-                    _ModificationDateField(
-                      value: modifiedAt,
-                      onTap: chooseDate,
-                      onClear: () => setSheetState(() => modifiedAt = null),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ModificationTextField(
-                            controller: powerController,
-                            label: 'Leistungsänderung',
-                            maxLength: 5,
-                            signedNumbersOnly: true,
-                            suffixText: 'PS',
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SwitchListTile.adaptive(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Eingetragen'),
-                            value: isRegistered,
-                            onChanged: (value) =>
-                                setSheetState(() => isRegistered = value),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Private Angaben',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Werkstatt, Kosten und spätere Belege werden nicht öffentlich angezeigt.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: CaRismaDesignTokens.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ModificationTextField(
-                            controller: workshopController,
-                            label: 'Werkstatt',
-                            maxLength: 160,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _ModificationTextField(
-                            controller: costController,
-                            label: 'Kosten in €',
-                            maxLength: 12,
-                            decimalNumbersOnly: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Für Kontakte sichtbar'),
-                      subtitle: vehicle.isPubliclyVisible
-                          ? null
-                          : const Text(
-                              'Aktiviere zuerst die Sichtbarkeit des Fahrzeugs.',
-                            ),
-                      value: isPublic,
-                      onChanged: vehicle.isPubliclyVisible
-                          ? (value) => setSheetState(() => isPublic = value)
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: isSaving ? null : submit,
-                        icon: isSaving
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.check_rounded),
-                        label: Text(isSaving ? 'Speichern...' : 'Speichern'),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -323,13 +399,19 @@ Future<bool> showProfileVehicleModificationSheet(
     );
     return result == true;
   } finally {
-    titleController.dispose();
-    manufacturerController.dispose();
-    productController.dispose();
-    descriptionController.dispose();
-    workshopController.dispose();
-    costController.dispose();
-    powerController.dispose();
+    for (final controller in trackedControllers) {
+      controller.removeListener(markDirty);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      titleController.dispose();
+      manufacturerController.dispose();
+      productController.dispose();
+      descriptionController.dispose();
+      workshopController.dispose();
+      costController.dispose();
+      powerController.dispose();
+      modifiedAtController.dispose();
+    });
   }
 }
 
@@ -373,44 +455,120 @@ class _ModificationTextField extends StatelessWidget {
 }
 
 class _ModificationDateField extends StatelessWidget {
-  const _ModificationDateField({
-    required this.value,
-    required this.onTap,
-    required this.onClear,
-  });
+  const _ModificationDateField({required this.controller});
 
-  final DateTime? value;
-  final VoidCallback onTap;
-  final VoidCallback onClear;
+  final TextEditingController controller;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: InputDecorator(
-        decoration: _inputDecoration('Datum').copyWith(
-          suffixIcon: value == null
-              ? const Icon(Icons.calendar_month_outlined)
-              : IconButton(
-                  tooltip: 'Datum entfernen',
-                  onPressed: onClear,
-                  icon: const Icon(Icons.close_rounded),
-                ),
-        ),
-        child: Text(
-          value == null
-              ? 'Nicht angegeben'
-              : '${value!.day.toString().padLeft(2, '0')}.${value!.month.toString().padLeft(2, '0')}.${value!.year}',
-        ),
-      ),
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, child) {
+        final errorText = _modificationDateInputError(value.text);
+        return TextField(
+          controller: controller,
+          keyboardType: TextInputType.datetime,
+          inputFormatters: const [_ModificationDateInputFormatter()],
+          decoration: _inputDecoration('Datum').copyWith(
+            hintText: 'TT.MM.JJJJ',
+            errorText: errorText,
+            errorMaxLines: 2,
+          ),
+        );
+      },
     );
   }
+}
+
+class _ModificationDateInputFormatter extends TextInputFormatter {
+  const _ModificationDateInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    final limited = digits.length > 8 ? digits.substring(0, 8) : digits;
+    final buffer = StringBuffer();
+    for (var index = 0; index < limited.length; index++) {
+      if (index == 2 || index == 4) buffer.write('.');
+      buffer.write(limited[index]);
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
+
+String _formatModificationDate(DateTime? value) {
+  if (value == null) return '';
+  return '${value.day.toString().padLeft(2, '0')}.'
+      '${value.month.toString().padLeft(2, '0')}.${value.year}';
+}
+
+DateTime? _parseModificationDate(String source) {
+  final parts = source.trim().split('.');
+  if (parts.length != 3) return null;
+  final day = int.tryParse(parts[0]);
+  final month = int.tryParse(parts[1]);
+  final year = int.tryParse(parts[2]);
+  if (day == null || month == null || year == null || year < 1950) return null;
+  final value = DateTime(year, month, day);
+  final today = DateTime.now();
+  final todayOnly = DateTime(today.year, today.month, today.day);
+  if (value.year != year ||
+      value.month != month ||
+      value.day != day ||
+      value.isAfter(todayOnly)) {
+    return null;
+  }
+  return value;
+}
+
+String? _modificationDateInputError(String source) {
+  final text = source.trim();
+  if (text.isEmpty) return null;
+
+  final parts = text.split('.');
+  final day = int.tryParse(parts.first);
+  if (parts.first.length == 2 && (day == null || day < 1 || day > 31)) {
+    return 'Der Tag muss zwischen 01 und 31 liegen.';
+  }
+
+  if (parts.length > 1 && parts[1].length == 2) {
+    final month = int.tryParse(parts[1]);
+    if (month == null || month < 1 || month > 12) {
+      return 'Der Monat muss zwischen 01 und 12 liegen.';
+    }
+  }
+
+  if (parts.length < 3 || parts[2].length < 4) return null;
+  final month = int.tryParse(parts[1]);
+  final year = int.tryParse(parts[2]);
+  final currentYear = DateTime.now().year;
+  if (year == null || year < 1950 || year > currentYear) {
+    return 'Das Jahr muss zwischen 1950 und $currentYear liegen.';
+  }
+  if (day == null || month == null) return 'Das Datum ist ungültig.';
+
+  final date = DateTime(year, month, day);
+  if (date.year != year || date.month != month || date.day != day) {
+    return 'Dieses Kalenderdatum gibt es nicht.';
+  }
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  if (date.isAfter(today)) return 'Das Datum darf nicht in der Zukunft liegen.';
+  return null;
 }
 
 InputDecoration _inputDecoration(String label) {
   return InputDecoration(
     labelText: label,
+    floatingLabelBehavior: FloatingLabelBehavior.always,
     filled: true,
     fillColor: CaRismaDesignTokens.controlSurface,
     border: OutlineInputBorder(
