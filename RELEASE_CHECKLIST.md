@@ -1,6 +1,6 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-18 20:39 CEST
+Stand: 2026-08-19 01:33 CEST
 
 ## Statuslegende
 
@@ -21,7 +21,7 @@ Stand: 2026-08-18 20:39 CEST
 - [ ] 76 markierte Legal-Platzhalter (`ANGABE ERGÄNZEN` / `RECHTLICH PRÜFEN`) vor Veröffentlichung fachlich und rechtlich abschließen.
 - [x] Öffentliche/private Datenmodelle, Fehlertexte, Ladezustände und Debug-Gates statisch geprüft; gefundene rohe technische UI-Fehler und sichtbare UID entfernt.
 - [x] `HH-CR 2026` und Profil-Demo-Inhalte sind statisch auf Debug-/Demo-Pfade begrenzt.
-- [ ] `firestore-debug.log` bleibt ignoriert; keine Logs stagen.
+- [x] `firestore-debug.log` bleibt ignoriert; der vollständige Emulatorlauf hat keine Logs für das Repository erzeugt.
 - [x] `android/key.properties` und `android/upload-keystore.jks` sind lokal vorhanden und von Git ausgeschlossen.
 - [ ] Release-Keystore und Passwörter außerhalb des Repositories zusätzlich sicher sichern.
 
@@ -47,19 +47,19 @@ Stand: 2026-08-18 20:39 CEST
 ## Rules-Emulatoren
 
 - [x] 11 lokale Rules-Testdateien inventarisiert.
-- [ ] JDK 21 für Firebase Emulatoren setzen.
-- [ ] Vollständige Firestore-/Storage-Emulatortests seriell ausführen.
-- [ ] Eigentümer-, Teilnehmer-, Außenstehender- und Admin-Zugriffe prüfen.
-- [ ] Profil-, Fahrzeug-, Chat-, Anfrage-, Report-, Settings-, Social-Post- und Verifizierungsregeln prüfen.
-- [ ] Keine Rules deployen, bevor alle Emulatorprüfungen bestanden sind.
+- [x] JDK 21.0.10 aus Android Studio für die Firebase Emulatoren verwendet.
+- [x] Vollständige Firestore-/Storage-Emulatortests seriell ausgeführt: 11 Testdateien, 14 Suites, 97 Tests, 97 bestanden, 0 fehlgeschlagen.
+- [x] Eigentümer-, Teilnehmer-, Außenstehender- und Admin-Zugriffe durch die Rules-Tests geprüft.
+- [x] Profil-, Fahrzeug-, Chat-, Anfrage-, Report-, Settings-, Social-Post- und Verifizierungsregeln geprüft.
+- [x] Vor Abschluss der Emulatorprüfungen keine Rules deployed; vollständiger Emulatorlauf bestanden.
 
 ## Debug- und Release-Build
 
-- [ ] Debug-APK ohne Gerät kompilieren.
-- [ ] Release-App-Bundle ohne Gerät kompilieren.
-- [ ] Release-Signing-Konfiguration prüfen, ohne Schlüssel oder Passwörter auszugeben.
-- [ ] App-Name, Icon, Splashscreen und Paketname im Build prüfen.
-- [ ] Build-Artefakte nicht in Git aufnehmen.
+- [x] Debug-APK ohne Gerät erfolgreich kompiliert (`app-debug.apk`).
+- [x] Release-App-Bundle ohne Gerät erfolgreich kompiliert (`app-release.aab`, ca. 69,6 MB).
+- [x] Release-Signing geprüft: `jarsigner` Exit-Code 0; AAB-Zertifikat stimmt per SHA-256 mit `android/upload-keystore.jks` überein.
+- [x] Build-Metadaten geprüft: App-Name `plaqa`, Paket `com.carma.app`, Launcher-Icons und Splash-Ressourcen vorhanden.
+- [x] Build-Artefakte nicht in Git aufgenommen; `git status --short` blieb nach Debug- und Release-Build leer.
 
 ## Firebase und Blaze
 
@@ -139,7 +139,8 @@ Stand: 2026-08-18 20:39 CEST
 ## Play Console
 
 - [ ] endgültigen technischen Paketnamen `com.carma.app` bewusst bestätigen.
-- [ ] signiertes Android App Bundle erzeugen und intern testen.
+- [x] Signiertes Android App Bundle lokal erzeugt und Upload-Key verifiziert.
+- [ ] Android App Bundle später in einer internen Play-Testspur testen.
 - [ ] Store-Name, Kurz-/Langbeschreibung, Screenshots, Icon und Feature-Grafik erstellen.
 - [ ] Datenschutzerklärung, Datensicherheit, Altersfreigabe und Inhaltsangaben ausfüllen.
 - [ ] interne/geschlossene Testspur durchführen.
@@ -149,8 +150,8 @@ Stand: 2026-08-18 20:39 CEST
 ## Git und Sicherung
 
 - [x] Aktueller Branch ist `main`.
-- [ ] Lokaler Branch ist drei Commits vor `origin/main`; später kontrolliert pushen.
-- [ ] Vorhandene uncommitted Domain-/Hosting-/Settings-Änderungen nach allen statischen Prüfungen committen.
-- [ ] Die beiden Abschlussdokumente zusammen mit den beabsichtigten Änderungen stagen.
+- [x] Ausgangsstand vor dem lokalen Abschluss war mit `origin/main` synchron.
+- [x] Frühere Domain-/Hosting-/Settings-Änderungen sind im aktuellen `main` gespeichert und mit `origin/main` synchronisiert.
+- [ ] Aktualisierte Abschlussdokumente als beabsichtigte Änderungen dieses Abschluss-Schritts stagen.
 - [ ] Keine Logs, Secrets, Keystores, Build-Ausgaben oder Emulator-Daten stagen.
-- [ ] Abschluss-Commit erstellen und ohne Force-Push nach `origin/main` pushen.
+- [ ] Aktualisierten lokalen Abschlussstand committen und ohne Force-Push nach `origin/main` pushen.

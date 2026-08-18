@@ -1,13 +1,13 @@
 # plaqa Firebase Deploy Plan
 
-Stand: 2026-08-18 20:39 CEST  
+Stand: 2026-08-19 01:33 CEST
 Zielprojekt: `carma-a84e4`  
 Functions-Region: `europe-west3`  
 Functions-Runtime: Node.js 22, Cloud Functions 2nd Gen
 
 ## Statische Abschlusspruefung
 
-Am 2026-08-18 wurde der lokale Codebestand ohne Emulatoren, Builds oder
+Am 2026-08-18 wurde der lokale Codebestand zunächst ohne Emulatoren, Builds oder
 Deploys geprueft:
 
 - 31 Flutter-Testdateien mit insgesamt 169 Tests: bestanden.
@@ -23,6 +23,21 @@ Deploys geprueft:
 - App Check wird in den Functions noch nicht erzwungen und bleibt ein
   ausdruecklicher Releasepunkt.
 
+
+## Emulator- und Build-Abschluss
+
+Am 2026-08-19 wurde der lokale Abschluss aus Punkt 3 vollständig durchgeführt. Es wurde dabei nichts deployed und es wurden keine Live-Daten verändert.
+
+- OpenJDK 21.0.10 aus Android Studio verwendet.
+- Alle 11 Firestore-/Storage-Rules-Testdateien seriell ausgeführt.
+- 14 Test-Suites mit insgesamt 97 Rules-Tests: 97 bestanden, 0 fehlgeschlagen.
+- Debug-APK erfolgreich erzeugt.
+- Release-AAB erfolgreich erzeugt (pp-release.aab, ca. 69,6 MB).
+- Release-Signatur erfolgreich verifiziert; jarsigner Exit-Code 0.
+- SHA-256 des AAB-Signaturzertifikats stimmt mit ndroid/upload-keystore.jks überein:
+  77:A1:A1:05:35:61:8B:1F:C6:81:E5:AF:97:82:31:7A:00:1C:7B:C2:29:DE:E7:20:F3:1A:03:76:33:63:C7:BC.
+- Build-Metadaten geprüft: App-Name plaqa, Paket com.carma.app, Launcher-Icons und Splash-Ressourcen vorhanden.
+- Build-Artefakte blieben außerhalb von Git.
 ## Statusregeln
 
 - **Bereits veröffentlicht**: Name, Region und Runtime wurden mit `firebase functions:list` oder der Hosting-Site read-only bestätigt. Die inhaltliche Versionsgleichheit mit dem lokalen Code ist damit nicht bewiesen.
@@ -81,10 +96,10 @@ Die Versionsgleichheit veröffentlichter Functions mit dem lokalen Quellstand is
 
 | Ressource | Kategorie | Nachweis / nächster Schritt |
 |---|---|---|
-| Firestore Rules | Rules-Deploy erforderlich | lokaler Stand vorhanden; 11 Rules-Testdateien insgesamt; laut Handoff sind neue Verifizierungsregeln noch nicht veröffentlicht |
-| Storage Rules | Rules-Deploy erforderlich | lokaler sechsseitiger Dokumenten-Upload laut Handoff noch nicht veröffentlicht; erst Firestore-/Storage-Emulatoren ausführen |
-| Firestore Indexes | Status noch nicht sicher feststellbar | vier lokale Indexes; Produktionsgleichheit read-only nicht bestätigt; erst Query-Anforderungen und Emulator-/Build-Ergebnis prüfen |
-| Firebase Hosting | Bereits veröffentlicht | Site `carma-a84e4`; `/auth/action` liefert über Standarddomain und `auth.plaqa.de` HTTP 200; lokale Git-Dateien sind noch uncommitted |
+| Firestore Rules | Rules-Deploy erforderlich | vollständiger Firestore-/Storage-Emulatorlauf bestanden; 97/97 Rules-Tests erfolgreich; lokaler Stand ist noch nicht gezielt veröffentlicht |
+| Storage Rules | Rules-Deploy erforderlich | vollständiger Firestore-/Storage-Emulatorlauf bestanden; lokaler sechsseitiger Dokumenten-Upload ist noch nicht gezielt veröffentlicht |
+| Firestore Indexes | Status noch nicht sicher feststellbar | vier lokale Indexes; Emulator- und Build-Prüfung erfolgreich, Produktionsgleichheit und tatsächlicher Query-Bedarf bleiben vor einem Deploy zu bestätigen |
+| Firebase Hosting | Bereits veröffentlicht | Site `carma-a84e4`; `/auth/action` liefert über Standarddomain und `auth.plaqa.de` HTTP 200; lokaler Hosting-Stand ist im aktuellen `main` gespeichert |
 
 ## Empfohlene Deploy-Reihenfolge
 
