@@ -1,6 +1,6 @@
 # plaqa Firebase Deploy Plan
 
-Stand: 2026-08-19 01:33 CEST
+Stand: 2026-08-19 01:41 CEST
 Zielprojekt: `carma-a84e4`  
 Functions-Region: `europe-west3`  
 Functions-Runtime: Node.js 22, Cloud Functions 2nd Gen
@@ -32,9 +32,9 @@ Am 2026-08-19 wurde der lokale Abschluss aus Punkt 3 vollständig durchgeführt.
 - Alle 11 Firestore-/Storage-Rules-Testdateien seriell ausgeführt.
 - 14 Test-Suites mit insgesamt 97 Rules-Tests: 97 bestanden, 0 fehlgeschlagen.
 - Debug-APK erfolgreich erzeugt.
-- Release-AAB erfolgreich erzeugt (pp-release.aab, ca. 69,6 MB).
+- Release-AAB erfolgreich erzeugt (`app-release.aab`, ca. 69,6 MB).
 - Release-Signatur erfolgreich verifiziert; jarsigner Exit-Code 0.
-- SHA-256 des AAB-Signaturzertifikats stimmt mit ndroid/upload-keystore.jks überein:
+- SHA-256 des AAB-Signaturzertifikats stimmt mit `android/upload-keystore.jks` überein:
   77:A1:A1:05:35:61:8B:1F:C6:81:E5:AF:97:82:31:7A:00:1C:7B:C2:29:DE:E7:20:F3:1A:03:76:33:63:C7:BC.
 - Build-Metadaten geprüft: App-Name plaqa, Paket com.carma.app, Launcher-Icons und Splash-Ressourcen vorhanden.
 - Build-Artefakte blieben außerhalb von Git.

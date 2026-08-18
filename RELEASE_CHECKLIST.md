@@ -1,6 +1,6 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-19 01:33 CEST
+Stand: 2026-08-19 01:41 CEST
 
 ## Statuslegende
 
@@ -152,6 +152,6 @@ Stand: 2026-08-19 01:33 CEST
 - [x] Aktueller Branch ist `main`.
 - [x] Ausgangsstand vor dem lokalen Abschluss war mit `origin/main` synchron.
 - [x] Frühere Domain-/Hosting-/Settings-Änderungen sind im aktuellen `main` gespeichert und mit `origin/main` synchronisiert.
-- [ ] Aktualisierte Abschlussdokumente als beabsichtigte Änderungen dieses Abschluss-Schritts stagen.
-- [ ] Keine Logs, Secrets, Keystores, Build-Ausgaben oder Emulator-Daten stagen.
-- [ ] Aktualisierten lokalen Abschlussstand committen und ohne Force-Push nach `origin/main` pushen.
+- [x] Aktualisierte Abschlussdokumente als beabsichtigte Änderungen dieses Abschluss-Schritts gestaged.
+- [x] Keine Logs, Secrets, Keystores, Build-Ausgaben oder Emulator-Daten gestaged oder committed.
+- [x] Aktualisierten lokalen Abschlussstand ohne Force-Push nach `origin/main` gepusht; `HEAD` und `origin/main` anschließend identisch.
