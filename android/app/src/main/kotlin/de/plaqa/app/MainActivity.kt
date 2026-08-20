@@ -1,4 +1,4 @@
-package com.carma.app
+package de.plaqa.app
 
 import android.Manifest
 import android.app.Activity

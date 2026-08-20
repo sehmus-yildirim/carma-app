@@ -1,4 +1,4 @@
 storePassword=REPLACE_WITH_STORE_PASSWORD
 keyPassword=REPLACE_WITH_KEY_PASSWORD
-keyAlias=carisma
+keyAlias=REPLACE_WITH_KEY_ALIAS
 storeFile=upload-keystore.jks

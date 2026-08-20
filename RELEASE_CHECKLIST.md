@@ -15,7 +15,7 @@ Stand: 2026-08-20 CEST
 ## Lokaler Code-Abschluss
 
 - [x] Firebase-Zielprojekt lokal einheitlich `carma-a84e4`.
-- [x] Android-Anzeigename ist `plaqa`; technischer Paketname bleibt `com.carma.app`.
+- [x] Android-Anzeigename ist `plaqa`; technischer Paketname ist `de.plaqa.app`.
 - [x] Hosting-Konfiguration und Auth-Action-Handler sind lokal vorhanden.
 - [x] Sichtbaren alten Medien-Dateinamen korrigiert; neue Dateien verwenden `plaqa_<timestamp>.png`.
 - [x] Interne `CaRisma*`-Klassen und technische Firebase-/Paket-IDs bewusst als interne Bezeichner beibehalten.
@@ -76,7 +76,7 @@ Stand: 2026-08-20 CEST
 - [x] Debug-APK ohne Gerät erfolgreich kompiliert (`app-debug.apk`).
 - [x] Release-App-Bundle ohne Gerät erfolgreich kompiliert (`app-release.aab`, ca. 69,6 MB).
 - [x] Release-Signing geprüft: `jarsigner` Exit-Code 0; AAB-Zertifikat stimmt per SHA-256 mit `android/upload-keystore.jks` überein.
-- [x] Build-Metadaten geprüft: App-Name `plaqa`, Paket `com.carma.app`, Launcher-Icons und Splash-Ressourcen vorhanden.
+- [x] Build-Metadaten geprüft: App-Name `plaqa`, Paket `de.plaqa.app`, Launcher-Icons und Splash-Ressourcen vorhanden.
 - [x] Build-Artefakte nicht in Git aufgenommen; `git status --short` blieb nach Debug- und Release-Build leer.
 
 ## Firebase und Blaze
@@ -102,7 +102,7 @@ Stand: 2026-08-20 CEST
 - [x] Branding auf `plaqa`, App-Icon, `support@plaqa.de` und `info@plaqa.de` eingestellt.
 - [x] Zielgruppe extern und in Produktion.
 - [x] Keine zusätzlichen vertraulichen oder eingeschränkten OAuth-Scopes eingetragen.
-- [x] Zwei Android-Clients für `com.carma.app` und ein Web-Client vorhanden.
+- [x] Neuer Android-Client `de.plaqa.app` mit Debug-/Release-SHA-1 und SHA-256 vorhanden; alte Android-Clients bleiben vorerst erhalten.
 - [ ] Alte `com.example.carma`-Clients erst nach abschließender Plattformprüfung entfernen.
 - [WEB] Startseiten-, Datenschutz- und AGB-URL ergänzen.
 - [WEB] Branding-Verifizierung erst nach Veröffentlichung der Website einreichen.
@@ -156,7 +156,7 @@ Stand: 2026-08-20 CEST
 
 ## Play Console
 
-- [ ] endgültigen technischen Paketnamen `com.carma.app` bewusst bestätigen.
+- [x] endgültigen technischen Paketnamen `de.plaqa.app` bestätigt.
 - [x] Signiertes Android App Bundle lokal erzeugt und Upload-Key verifiziert.
 - [ ] Android App Bundle später in einer internen Play-Testspur testen.
 - [ ] Store-Name, Kurz-/Langbeschreibung, Screenshots, Icon und Feature-Grafik erstellen.

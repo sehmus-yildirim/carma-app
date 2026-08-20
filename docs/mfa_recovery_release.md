@@ -22,7 +22,7 @@ App Check ist aktuell absichtlich **nicht erzwungen**. Im Flutter-Client ist
 das Paket noch nicht initialisiert. Vor einer Erzwingung sind diese Schritte
 notwendig:
 
-1. Android-App `com.carma.app` in Firebase App Check registrieren.
+1. Android-App `de.plaqa.app` in Firebase App Check registrieren.
 2. Release-App mit Play Integrity konfigurieren und die korrekte SHA-256 in
    Firebase hinterlegen.
 3. `firebase_app_check` im Flutter-Client ergänzen.

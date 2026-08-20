@@ -6,7 +6,7 @@ Stand: 2026-07-03
 
 - App Bundle: `build/app/outputs/bundle/release/app-release.aab`
 - APK für Gerätetest: `build/app/outputs/flutter-apk/app-release.apk`
-- Package ID: `com.carma.app`
+- Package ID: `de.plaqa.app`
 - Version: `1.0.0+1`
 
 ## Release Notes für Tester

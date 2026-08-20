@@ -5,7 +5,7 @@ Stand: 2026-07-03
 ## App-Identität
 
 - App-Name: noch final entscheiden
-- Package ID: `com.carma.app`
+- Package ID: `de.plaqa.app`
 - Version: `1.0.0+1`
 - Build-Datei: `build/app/outputs/bundle/release/app-release.aab`
 - Kategorie-Vorschlag: Social oder Lifestyle
@@ -91,7 +91,7 @@ Später prüfen:
 ## Manuelle Play Console Schritte
 
 1. Neue App in Play Console anlegen.
-2. Package ID `com.carma.app` prüfen.
+2. Package ID `de.plaqa.app` prüfen.
 3. App Bundle `app-release.aab` hochladen.
 4. Store Listing ausfüllen.
 5. App Icon, Screenshots und Feature Graphic hochladen.

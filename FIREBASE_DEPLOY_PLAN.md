@@ -61,7 +61,7 @@ Am 2026-08-19 wurde der lokale Abschluss aus Punkt 3 vollständig durchgeführt.
 - Release-Signatur erfolgreich verifiziert; jarsigner Exit-Code 0.
 - SHA-256 des AAB-Signaturzertifikats stimmt mit `android/upload-keystore.jks` überein:
   77:A1:A1:05:35:61:8B:1F:C6:81:E5:AF:97:82:31:7A:00:1C:7B:C2:29:DE:E7:20:F3:1A:03:76:33:63:C7:BC.
-- Build-Metadaten geprüft: App-Name plaqa, Paket com.carma.app, Launcher-Icons und Splash-Ressourcen vorhanden.
+- Build-Metadaten geprüft: App-Name plaqa, Paket de.plaqa.app, Launcher-Icons und Splash-Ressourcen vorhanden.
 - Build-Artefakte blieben außerhalb von Git.
 ## Statusregeln
 
@@ -75,7 +75,7 @@ Am 2026-08-19 wurde der lokale Abschluss aus Punkt 3 vollständig durchgeführt.
 | Bereich | Lokaler Wert | Bewertung |
 |---|---|---|
 | `.firebaserc` | `carma-a84e4` | korrekt |
-| Android Firebase App | `carma-a84e4`, Paket `com.carma.app` | korrekt; technische ID beibehalten |
+| Android Firebase App | `carma-a84e4`, Paket `de.plaqa.app` | neue Release-App registriert; Legacy-Apps bleiben erhalten |
 | Dart Firebase Options | `carma-a84e4` | korrekt |
 | Functions | `functions`, Node.js 22 | korrekt |
 | Firestore Rules | `firestore.rules` | lokal vorhanden |
