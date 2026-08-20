@@ -694,7 +694,6 @@ async function syncProfileVisibilityReferences({
       const projection = profileVehicleProjection(
         normalizedPrimary,
         effectiveProfile,
-        primaryData.isVerified === true,
       );
       batch.set(publicProfileReference, {
         ...projection.public,
@@ -732,7 +731,7 @@ async function syncProfileVisibilityReferences({
   return {updated: true, updatedVehicleCount};
 }
 
-function profileVehicleProjection(vehicle, profile, isVerified) {
+function profileVehicleProjection(vehicle, profile) {
   const showVehicle = profile?.showVehicleOnPublicProfile === true &&
     vehicle.showOnPublicProfile;
   const showPlate = profile?.showPlateOnPublicProfile === true &&
@@ -759,9 +758,40 @@ function profileVehicleProjection(vehicle, profile, isVerified) {
       plateNumbers: showPlate ? vehicle.plateNumbers : null,
       plateDisplayLabel: profile?.showPlateOnPublicProfile === true ?
         vehicle.plateDisplayLabel : null,
-      verificationStatus: isVerified ? "verified" :
+      // Public identity verification is independent from the selected
+      // vehicle's verification state.
+      verificationStatus:
         safeString(profile?.verificationStatus) || "unverified",
+      isVerified: safeString(profile?.verificationStatus) === "verified",
     },
+  };
+}
+
+function vehicleVerificationResetPatch(request, now, reason) {
+  const documentStatuses = {...(request?.documentStatuses ?? {})};
+  const documentRejectionReasons = {
+    ...(request?.documentRejectionReasons ?? {}),
+  };
+  for (const key of ["vehicleFront", "vehicleBack"]) {
+    documentStatuses[key] = "expired";
+    documentRejectionReasons[key] = reason;
+  }
+  const submittedDocumentGroups = Array.isArray(
+      request?.submittedDocumentGroups,
+  ) ? request.submittedDocumentGroups.filter(
+      (group) => group !== "vehicle",
+  ) : [];
+  const currentStatus = safeString(request?.status);
+  return {
+    status: currentStatus === "verified" ? "draft" : currentStatus || "draft",
+    documentStatuses,
+    documentRejectionReasons,
+    submittedDocumentGroups,
+    rejectionReason: null,
+    recheckReason: reason,
+    documentsLocked: currentStatus === "pending" &&
+      submittedDocumentGroups.includes("identity"),
+    updatedAt: now,
   };
 }
 
@@ -799,6 +829,8 @@ function plateProjection({vehicle, profile, isPrimary, isVerified, now}) {
       profile?.allowAnonymousReports !== false,
     verificationStatus: isVerified ? "verified" : "unverified",
     isVerified,
+    ownerIdentityVerified:
+      safeString(profile?.verificationStatus) === "verified",
     isActive: operationallyActive,
     isDeleted: false,
     updatedAt: now,
@@ -998,31 +1030,27 @@ async function saveProfileVehicle({
       }
     }
 
-    let profileVerificationReset = false;
+    const verificationRequest = verificationSnapshot.exists ?
+      verificationSnapshot.data() ?? {} : {};
+    const vehicleRequestReset = resetVerification &&
+      safeString(verificationRequest.vehicleId) === vehicle.vehicleId;
     if (becomesPrimary) {
-      profileVerificationReset = coreChanged &&
-        ["pending", "verified"].includes(
-          safeString(profile.verificationStatus),
-        );
       const projection = profileVehicleProjection(
         vehicle,
         profile,
-        isVerified && !profileVerificationReset,
       );
       transaction.set(profileReference, {
         ...projection.private,
-        ...(profileVerificationReset ? {
-          verificationStatus: "unverified",
-          verificationLocked: false,
-          verificationRecheckReason: "Fahrzeugdaten geändert",
+        ...(vehicleRequestReset ? {
+          verificationStages: {
+            ...(profile.verificationStages ?? {}),
+            vehicle: false,
+          },
         } : {}),
         updatedAt: now,
       }, {merge: true});
       transaction.set(publicProfileReference, {
         ...projection.public,
-        ...(profileVerificationReset ? {
-          verificationStatus: "unverified",
-        } : {}),
         updatedAt: now,
       }, {merge: true});
     }
@@ -1044,7 +1072,7 @@ async function saveProfileVehicle({
           vehicle,
           profile,
           isPrimary: becomesPrimary,
-          isVerified: isVerified && !profileVerificationReset,
+          isVerified,
           now,
         }),
         createdAt: targetPlateSnapshot.exists ?
@@ -1078,24 +1106,22 @@ async function saveProfileVehicle({
       }
     }
 
-    if (profileVerificationReset && verificationSnapshot.exists) {
-      const request = verificationSnapshot.data() ?? {};
-      if (safeString(request.vehicleId) === vehicle.vehicleId &&
-          ["pending", "verified"].includes(safeString(request.status))) {
-        transaction.set(verificationReference, {
-          status: "expired",
-          rejectionReason: null,
-          recheckReason: "Fahrzeugdaten geändert",
-          documentsLocked: false,
-          updatedAt: now,
-        }, {merge: true});
-      }
+    if (vehicleRequestReset) {
+      transaction.set(
+        verificationReference,
+        vehicleVerificationResetPatch(
+            verificationRequest,
+            now,
+            "Fahrzeugdaten geändert. Bitte reiche den Fahrzeugnachweis erneut ein.",
+        ),
+        {merge: true},
+      );
     }
 
     return {
       vehicleId: vehicle.vehicleId,
       isPrimary: becomesPrimary,
-      verificationReset: resetVerification || profileVerificationReset,
+      verificationReset: resetVerification,
     };
   });
 }
@@ -1113,14 +1139,10 @@ async function setPrimaryProfileVehicle({
   const vehicleReference = firestore.doc(
     `users/${userId}/vehicles/${vehicleId}`,
   );
-  const verificationReference = firestore.doc(
-    `verification_requests/${userId}`,
-  );
 
   return firestore.runTransaction(async (transaction) => {
     const profileSnapshot = await transaction.get(profileReference);
     const vehicleSnapshot = await transaction.get(vehicleReference);
-    const verificationSnapshot = await transaction.get(verificationReference);
     if (!profileSnapshot.exists || !vehicleSnapshot.exists) {
       throw new HttpsError("not-found", "Das Fahrzeug wurde nicht gefunden.");
     }
@@ -1186,13 +1208,9 @@ async function setPrimaryProfileVehicle({
       selectableInStories: currentVehicle.selectableInStories !== false,
       allowContactRequests: currentVehicle.allowContactRequests !== false,
     });
-    const resetVerification = ["pending", "verified"].includes(
-      safeString(profile.verificationStatus),
-    );
     const projection = profileVehicleProjection(
       normalized,
       profile,
-      currentVehicle.isVerified === true && !resetVerification,
     );
 
     transaction.set(vehicleReference, {
@@ -1229,16 +1247,10 @@ async function setPrimaryProfileVehicle({
     }
     transaction.set(profileReference, {
       ...projection.private,
-      ...(resetVerification ? {
-        verificationStatus: "unverified",
-        verificationLocked: false,
-        verificationRecheckReason: "Hauptfahrzeug geändert",
-      } : {}),
       updatedAt: now,
     }, {merge: true});
     transaction.set(publicProfileReference, {
       ...projection.public,
-      ...(resetVerification ? {verificationStatus: "unverified"} : {}),
       updatedAt: now,
     }, {merge: true});
     transaction.set(targetPlateReference, {
@@ -1246,7 +1258,7 @@ async function setPrimaryProfileVehicle({
         vehicle: normalized,
         profile,
         isPrimary: true,
-        isVerified: currentVehicle.isVerified === true && !resetVerification,
+        isVerified: currentVehicle.isVerified === true,
         now,
       }),
       createdAt: targetPlateSnapshot.exists ?
@@ -1261,18 +1273,10 @@ async function setPrimaryProfileVehicle({
       }, {merge: true});
     }
 
-    if (resetVerification && verificationSnapshot.exists) {
-      transaction.set(verificationReference, {
-        status: "expired",
-        recheckReason: "Hauptfahrzeug geändert",
-        documentsLocked: false,
-        updatedAt: now,
-      }, {merge: true});
-    }
     return {
       vehicleId,
       alreadyPrimary: false,
-      verificationReset: resetVerification,
+      verificationReset: false,
     };
   });
 }

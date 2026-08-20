@@ -373,22 +373,31 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   bool get _hasPlate =>
       _selectedVehicle?.displayPlate.trim().isNotEmpty == true;
   bool get _isLocked => _request?.isLocked == true;
-  bool get _allDocumentsReady => _request?.hasAllRequiredDocuments == true;
-  bool get _allExpirationsReady =>
-      ProfileVerificationDocumentKeys.requiredExpirationKeys.every(
-        (key) => _parseExpiration(_expirationControllers[key]?.text) != null,
-      );
+  List<String> get _submittableGroups =>
+      _request?.submittableGroups ?? const <String>[];
+  bool get _submitsIdentity => _submittableGroups.contains(
+    ProfileVerificationDocumentKeys.identityGroup,
+  );
+  bool get _submitsVehicle =>
+      _submittableGroups.contains(ProfileVerificationDocumentKeys.vehicleGroup);
+  bool get _requiredExpirationsReady =>
+      !_submitsIdentity ||
+      _parseExpiration(
+            _expirationControllers[ProfileVerificationDocumentKeys
+                    .identityExpiration]
+                ?.text,
+          ) !=
+          null;
   bool get _canSubmit =>
       !_isLocked &&
       !_isSubmitting &&
       _busyDocuments.isEmpty &&
       _hasCompleteName &&
-      _hasVehicle &&
-      _hasPlate &&
-      _allDocumentsReady &&
-      _allExpirationsReady &&
+      _submittableGroups.isNotEmpty &&
+      (!_submitsVehicle || (_hasVehicle && _hasPlate)) &&
+      _requiredExpirationsReady &&
       _consentAccepted &&
-      _vehicleAssignmentConfirmed;
+      (!_submitsVehicle || _vehicleAssignmentConfirmed);
 
   static String _formatDate(DateTime date) {
     String twoDigits(int value) => value.toString().padLeft(2, '0');
@@ -464,8 +473,11 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   }
 
   Future<bool> _persistAllExpirations() async {
-    for (final key in ProfileVerificationDocumentKeys.requiredExpirationKeys) {
-      if (!await _persistExpiration(key)) return false;
+    if (_submitsIdentity &&
+        !await _persistExpiration(
+          ProfileVerificationDocumentKeys.identityExpiration,
+        )) {
+      return false;
     }
     return true;
   }
@@ -868,8 +880,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _showError(_submissionBlockReason());
       return;
     }
+    final groups = _submittableGroups;
     final vehicleId = _selectedVehicleId;
-    if (vehicleId == null) return;
+    if (_submitsVehicle && vehicleId == null) return;
     if (!await _ensureIdentityDocumentTypeSaved()) return;
     if (!await _persistAllExpirations()) return;
     setState(() {
@@ -884,10 +897,15 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         authorizationConfirmed: _consentAccepted,
         vehicleAssignmentConfirmed: _vehicleAssignmentConfirmed,
         identityDocumentType: _identityDocumentType,
+        documentGroups: groups,
       );
       if (!mounted) return;
       setState(() {
-        _successMessage = 'Deine Nachweise wurden zur Prüfung eingereicht.';
+        _successMessage = groups.length == 2
+            ? 'Identität und Fahrzeug wurden zur Prüfung eingereicht.'
+            : groups.contains(ProfileVerificationDocumentKeys.identityGroup)
+            ? 'Dein Identitätsnachweis wurde zur Prüfung eingereicht.'
+            : 'Dein Fahrzeugnachweis wurde zur Prüfung eingereicht.';
       });
     } catch (error) {
       _showError(_errorText(error));
@@ -900,19 +918,19 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     if (!_hasCompleteName) {
       return 'Bitte speichere zuerst Vorname, Nachname und Geburtsdatum.';
     }
-    if (!_hasVehicle || !_hasPlate) {
+    if (_submitsVehicle && (!_hasVehicle || !_hasPlate)) {
       return 'Bitte hinterlege zuerst ein vollständiges Fahrzeug mit Kennzeichen.';
     }
-    if (!_allDocumentsReady) {
-      return 'Bitte lade für alle Nachweise Vorder- und Rückseite vollständig hoch.';
+    if (_submittableGroups.isEmpty) {
+      return 'Bitte vervollständige den Identitätsnachweis oder den Fahrzeugnachweis.';
     }
-    if (!_allExpirationsReady) {
-      return 'Bitte gib für Ausweis und Führerschein ein gültiges Ablaufdatum ein.';
+    if (!_requiredExpirationsReady) {
+      return 'Bitte gib für den Identitätsnachweis ein gültiges Ablaufdatum ein.';
     }
     if (!_consentAccepted) {
       return 'Bitte bestätige deine Berechtigung und die Datenschutzhinweise.';
     }
-    if (!_vehicleAssignmentConfirmed) {
+    if (_submitsVehicle && !_vehicleAssignmentConfirmed) {
       return 'Bitte bestätige, welches Fahrzeug geprüft werden soll.';
     }
     return 'Die Verifizierung kann gerade nicht eingereicht werden.';
@@ -958,7 +976,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               children: [
                 TextSpan(
                   text:
-                      'Deine Dokumente werden ausschließlich zur Identitäts- und Fahrzeugverifizierung verwendet. Sie erscheinen niemals öffentlich und sind nur für dich und autorisierte Prüfer zugänglich. Nach Abschluss der Prüfung werden sie innerhalb der angegebenen Speicherfrist gelöscht. Mit deiner Bestätigung erklärst du, dass du Halter bist oder das Fahrzeug nachweislich berechtigt nutzt. Falsche oder manipulierte Nachweise können zur Ablehnung, Kontoeinschränkung und ',
+                      'Deine Dokumente werden ausschließlich zur freiwilligen Identitätsprüfung oder zur Prüfung deines Fahrzeugbezugs verwendet. Sie erscheinen niemals öffentlich und sind nur für dich und autorisierte Prüfer zugänglich. Nach Abschluss der Prüfung werden sie innerhalb der angegebenen Speicherfrist gelöscht. Beim Fahrzeugnachweis bestätigst du, dass du Halter bist oder das Fahrzeug nachweislich berechtigt nutzt. Falsche oder manipulierte Nachweise können zur Ablehnung, Kontoeinschränkung und ',
                 ),
                 TextSpan(
                   text: 'rechtlichen Prüfung',
@@ -1173,7 +1191,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     final status = request?.status ?? ProfileVerificationStatus.draft;
     final statusLabel = switch (status) {
       ProfileVerificationStatus.pending => 'In Prüfung',
-      ProfileVerificationStatus.verified => 'Verifiziert',
+      ProfileVerificationStatus.verified => 'Vollständig',
       ProfileVerificationStatus.rejected => 'Abgelehnt',
       ProfileVerificationStatus.expired => 'Abgelaufen',
       ProfileVerificationStatus.draft =>
@@ -1236,6 +1254,28 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                 CaRismaDesignTokens.bluePrimary,
               ),
             ),
+          ),
+          const SizedBox(height: 14),
+          _VerificationStageRow(
+            title: 'Basis-Konto',
+            description: 'E-Mail, Profil und eigenes Kennzeichen',
+            complete: _hasCompleteName && _hasVehicle && _hasPlate,
+          ),
+          _VerificationStageRow(
+            title: 'Fahrzeug bestätigt',
+            description: 'Fahrzeugschein wurde geprüft',
+            complete: request?.isVehicleVerified == true,
+          ),
+          _VerificationStageRow(
+            title: 'Identität bestätigt',
+            description: 'Freiwilliger Identitätsnachweis wurde geprüft',
+            complete: request?.isIdentityVerified == true,
+          ),
+          _VerificationStageRow(
+            title: 'Vollständig verifiziert',
+            description: 'Fahrzeug und Identität sind bestätigt',
+            complete: request?.isFullyVerified == true,
+            isLast: true,
           ),
           if (request?.rejectionReason?.trim().isNotEmpty == true) ...[
             const SizedBox(height: 11),
@@ -1418,10 +1458,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   }
 
   Widget _buildExpirationField(String expirationKey) {
-    final label =
-        expirationKey == ProfileVerificationDocumentKeys.identityExpiration
-        ? 'Ablaufdatum des Ausweises'
-        : 'Ablaufdatum des Führerscheins';
+    const label = 'Ablaufdatum des Identitätsnachweises';
     final controller = _expirationControllers[expirationKey]!;
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -1533,7 +1570,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
             value: _consentAccepted,
             enabled: !_isLocked,
             text:
-                'Ich bestätige, dass ich Halter bin oder dieses Fahrzeug berechtigt nutze und der Verarbeitung meiner Nachweise zur Verifizierung zustimme.',
+                'Ich bestätige, dass meine Angaben richtig sind, und stimme der Verarbeitung der ausgewählten Nachweise zur Verifizierung zu.',
             onChanged: _toggleConsent,
           ),
         ],
@@ -1566,13 +1603,13 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
             icon: Icons.lock_outline_rounded,
             title: 'Speicherung',
             text:
-                'Dokumente werden geschützt und ausschließlich für die Identitäts-, Führerschein- und Fahrzeugprüfung gespeichert.',
+                'Dokumente werden geschützt und ausschließlich für die Identitäts- oder Fahrzeugprüfung gespeichert. Nicht benötigte Angaben wie Dokumentnummer, Zugangsnummer oder maschinenlesbare Zone dürfen geschwärzt werden, soweit die Prüfung möglich bleibt.',
           ),
           const _PrivacyOverviewRow(
             icon: Icons.visibility_off_outlined,
             title: 'Öffentliche Daten',
             text:
-                'Dokumentbilder und persönliche Dokumentangaben bleiben privat. Öffentlich erscheint nur der freigegebene Verifizierungsstatus.',
+                'Dokumentbilder und persönliche Angaben bleiben privat. Öffentlich erscheint nur ein einfacher Identitätsstatus; die Fahrzeugprüfung wird getrennt geführt.',
           ),
           const _PrivacyOverviewRow(
             icon: Icons.find_replace_outlined,
@@ -1656,15 +1693,77 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     if (_isLocked) return true;
     final request = _request;
     if (request == null) return false;
-    final groupKey =
-        expirationKey == ProfileVerificationDocumentKeys.identityExpiration
-        ? ProfileVerificationDocumentKeys.identityGroup
-        : ProfileVerificationDocumentKeys.driverLicenseGroup;
-    return request.isGroupVerified(groupKey);
+    return request.isGroupVerified(
+      ProfileVerificationDocumentKeys.identityGroup,
+    );
   }
 
   bool _isGroupProtected(String groupKey) {
     return _request?.isGroupProtected(groupKey) ?? false;
+  }
+}
+
+class _VerificationStageRow extends StatelessWidget {
+  const _VerificationStageRow({
+    required this.title,
+    required this.description,
+    required this.complete,
+    this.isLast = false,
+  });
+
+  final String title;
+  final String description;
+  final bool complete;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = complete
+        ? CaRismaDesignTokens.success
+        : CaRismaDesignTokens.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            complete ? Icons.check_circle_rounded : Icons.circle_outlined,
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: CaRismaDesignTokens.textMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

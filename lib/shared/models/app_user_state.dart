@@ -1,4 +1,5 @@
 import 'account_status.dart';
+import '../config/carisma_app_config.dart';
 import 'legal_consent.dart';
 import 'moderation_action.dart';
 import 'search_credit.dart';
@@ -25,7 +26,8 @@ class AppUserState {
   bool get canSearchPlates {
     return canUseApp &&
         accountStatus.canSearchPlates &&
-        searchCredit.hasRemaining &&
+        (!CaRismaAppConfig.enforceMonthlyContactRequestLimit ||
+            searchCredit.hasRemaining) &&
         !_hasActiveFeatureRestriction;
   }
 

@@ -181,6 +181,11 @@ service cloud.firestore {
         && settingsId == 'contact_filters'
         && request.resource.data.userId == userId
         && request.resource.data.requireVerifiedRequester is bool
+        && request.resource.data.get('requesterVerificationLevel', 'all') in [
+          'all',
+          'vehicleVerified',
+          'identityVerified'
+        ]
         && request.resource.data.allowedContactReasons is list
         && request.resource.data.allowedContactReasons.size() <= 8
         && request.resource.data.autoRejectUnverified is bool
@@ -192,6 +197,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'userId',
           'requireVerifiedRequester',
+          'requesterVerificationLevel',
           'allowedContactReasons',
           'autoRejectUnverified',
           'contactRequestQuietModeUntil',
@@ -1473,6 +1479,7 @@ service cloud.firestore {
         && plate.plateKey == request.resource.data.plateKey
         && plate.isActive == true
         && plate.isDeleted == false
+        && plate.isVerified == true
         && plate.allowContactRequests == true
         && contactRequestPlateProjectionMatches(
           request.resource.data.get('displayPlate', null),
@@ -1515,6 +1522,18 @@ service cloud.firestore {
         ).data.isVerified == true;
     }
 
+    function requesterHasVerifiedVehicle(vehicleId) {
+      return vehicleId is string
+        && vehicleId.size() >= 1
+        && vehicleId.size() <= 160
+        && exists(
+          /databases/$(database)/documents/public_profiles/$(request.auth.uid)/vehicles/$(vehicleId)
+        )
+        && get(
+          /databases/$(database)/documents/public_profiles/$(request.auth.uid)/vehicles/$(vehicleId)
+        ).data.isVerified == true;
+    }
+
     function contactRequestFiltersAllowCreate() {
       let receiverUserId = request.resource.data.receiverUserId;
       return !exists(
@@ -1532,13 +1551,15 @@ service cloud.firestore {
           && (
             get(
               /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
-            ).data.requireVerifiedRequester != true
-            || requesterIsVerifiedForContactFilter()
-          )
-          && (
-            get(
-              /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
-            ).data.autoRejectUnverified != true
+            ).data.get('requesterVerificationLevel',
+              get(
+                /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+              ).data.requireVerifiedRequester == true
+                || get(
+                  /databases/$(database)/documents/users/$(receiverUserId)/settings/contact_filters
+                ).data.autoRejectUnverified == true
+                ? 'identityVerified'
+                : 'all') != 'identityVerified'
             || requesterIsVerifiedForContactFilter()
           )
           && (
@@ -1563,6 +1584,9 @@ service cloud.firestore {
         && request.resource.data.vehicleId is string
         && request.resource.data.vehicleId.size() >= 1
         && request.resource.data.vehicleId.size() <= 160
+        && requesterHasVerifiedVehicle(
+          request.resource.data.get('senderVehicleId', null)
+        )
         && request.resource.data.plateKey is string
         && request.resource.data.plateKey.matches('^[A-ZÄÖÜ0-9]{2,20}$')
         && request.resource.data.status == 'pending'
@@ -1710,6 +1734,13 @@ service cloud.firestore {
 
     function isProtectedVerificationStatus(status) {
       return status in ['inReview', 'verified'];
+    }
+
+    function hasProtectedVerificationData() {
+      return resource.data.get('documentStatuses', {}).values().hasAny([
+        'inReview',
+        'verified'
+      ]);
     }
 
     function keepsProtectedVerificationData() {
@@ -1945,6 +1976,21 @@ service cloud.firestore {
     function isValidVerificationDraftCreate(requestId) {
       return isSignedIn()
         && isValidVerificationDraftMap(request.auth.uid, requestId)
+        && !request.resource.data.documentStoragePaths.keys().hasAny([
+          'driverLicenseFront',
+          'driverLicenseBack'
+        ])
+        && !request.resource.data.documentStatuses.keys().hasAny([
+          'driverLicenseFront',
+          'driverLicenseBack'
+        ])
+        && !request.resource.data.documentRejectionReasons.keys().hasAny([
+          'driverLicenseFront',
+          'driverLicenseBack'
+        ])
+        && !request.resource.data.documentExpiresAt.keys().hasAny([
+          'driverLicense'
+        ])
         && request.resource.data.documentRejectionReasons.size() == 0
         && request.resource.data.documentStatuses.values().hasOnly([
           'missing',
@@ -2029,7 +2075,27 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.documentRejectionReasons
           == resource.data.get('documentRejectionReasons', {})
-        && keepsProtectedVerificationData();
+        && request.resource.data.documentStoragePaths
+            .get('driverLicenseFront', null)
+          == resource.data.get('documentStoragePaths', {})
+            .get('driverLicenseFront', null)
+        && request.resource.data.documentStoragePaths
+            .get('driverLicenseBack', null)
+          == resource.data.get('documentStoragePaths', {})
+            .get('driverLicenseBack', null)
+        && request.resource.data.documentStatuses
+            .get('driverLicenseFront', null)
+          == resource.data.get('documentStatuses', {})
+            .get('driverLicenseFront', null)
+        && request.resource.data.documentStatuses
+            .get('driverLicenseBack', null)
+          == resource.data.get('documentStatuses', {})
+            .get('driverLicenseBack', null)
+        && request.resource.data.documentExpiresAt.get('driverLicense', null)
+          == resource.data.get('documentExpiresAt', {})
+            .get('driverLicense', null)
+        && (!hasProtectedVerificationData()
+          || keepsProtectedVerificationData());
     }
 
     function hasValidOwnerProfileCreateVerificationFields() {
@@ -4100,6 +4166,109 @@ service cloud.firestore {
             && request.resource.data.isDeleted == true
             && request.resource.data.updatedAt is timestamp;
           allow delete: if false;
+
+          match /replies/{replyId} {
+            allow read: if isOwner(userId)
+              || (
+                hasActiveProfileConnection(userId)
+                && profileAllowsAccess(userId)
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.visibility in ['public', 'contacts']
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.isDeleted == false
+                && get(
+                  /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                ).data.get('isArchived', false) == false
+              );
+            allow create: if isSignedIn()
+              && (
+                isOwner(userId)
+                || (
+                  hasActiveProfileConnection(userId)
+                  && profileAllowsAccess(userId)
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.visibility in ['public', 'contacts']
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.isDeleted == false
+                  && get(
+                    /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                  ).data.get('isArchived', false) == false
+                )
+              )
+              && request.resource.data.replyId == replyId
+              && request.resource.data.commentId == commentId
+              && request.resource.data.postId == postId
+              && request.resource.data.postOwnerUserId == userId
+              && request.resource.data.authorUserId == request.auth.uid
+              && request.resource.data.authorDisplayName is string
+              && request.resource.data.authorDisplayName.size() <= 100
+              && request.resource.data.authorPhotoUrl is string
+              && request.resource.data.authorPhotoUrl.size() <= 1000
+              && request.resource.data.text is string
+              && request.resource.data.text.size() > 0
+              && request.resource.data.text.size() <= 500
+              && request.resource.data.createdAt is timestamp
+              && request.resource.data.updatedAt is timestamp
+              && request.resource.data.isDeleted == false
+              && request.resource.data.keys().hasOnly([
+                'replyId',
+                'commentId',
+                'postId',
+                'postOwnerUserId',
+                'authorUserId',
+                'authorDisplayName',
+                'authorPhotoUrl',
+                'text',
+                'createdAt',
+                'updatedAt',
+                'isDeleted'
+              ]);
+            allow update: if isSignedIn()
+              && (
+                request.auth.uid == resource.data.authorUserId
+                || request.auth.uid == userId
+              )
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'isDeleted',
+                'updatedAt'
+              ])
+              && request.resource.data.isDeleted == true
+              && request.resource.data.updatedAt is timestamp;
+            allow delete: if false;
+
+            match /reports/{reporterUserId} {
+              allow read: if false;
+              allow create: if isSignedIn()
+                && request.auth.uid == reporterUserId
+                && (
+                  isOwner(userId)
+                  || (
+                    hasActiveProfileConnection(userId)
+                    && profileAllowsAccess(userId)
+                    && get(
+                      /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                    ).data.visibility in ['public', 'contacts']
+                    && get(
+                      /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                    ).data.isDeleted == false
+                    && get(
+                      /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+                    ).data.get('isArchived', false) == false
+                  )
+                )
+                && request.resource.data.reporterUserId == reporterUserId
+                && request.resource.data.createdAt is timestamp
+                && request.resource.data.keys().hasOnly([
+                  'reporterUserId',
+                  'createdAt'
+                ]);
+              allow update, delete: if false;
+            }
+          }
 
           match /reports/{reporterUserId} {
             allow read: if false;

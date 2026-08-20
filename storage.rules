@@ -360,8 +360,6 @@ service firebase.storage {
       return documentType in [
           'identityFront',
           'identityBack',
-          'driverLicenseFront',
-          'driverLicenseBack',
           'vehicleFront',
           'vehicleBack'
         ]

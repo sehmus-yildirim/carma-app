@@ -191,8 +191,28 @@ class VisibilitySettings {
   }
 }
 
+enum ContactRequesterVerificationLevel {
+  all,
+  vehicleVerified,
+  identityVerified;
+
+  static ContactRequesterVerificationLevel fromValue(
+    Object? value, {
+    bool legacyRequireVerified = false,
+  }) {
+    final normalized = value?.toString().trim();
+    return values.firstWhere(
+      (level) => level.name == normalized,
+      orElse: () => legacyRequireVerified
+          ? ContactRequesterVerificationLevel.identityVerified
+          : ContactRequesterVerificationLevel.all,
+    );
+  }
+}
+
 class ContactFilterSettings {
   const ContactFilterSettings({
+    this.requesterVerificationLevel = ContactRequesterVerificationLevel.all,
     this.requireVerifiedRequester = false,
     this.allowedContactReasons = const <String>[
       'vehicle_question',
@@ -204,6 +224,8 @@ class ContactFilterSettings {
     this.contactRequestQuietModeUntil,
   });
 
+  final ContactRequesterVerificationLevel requesterVerificationLevel;
+  // Retained for older settings documents and older deployed clients.
   final bool requireVerifiedRequester;
   final List<String> allowedContactReasons;
   final bool autoRejectUnverified;
@@ -212,9 +234,16 @@ class ContactFilterSettings {
   factory ContactFilterSettings.fromMap(Map<String, dynamic>? data) {
     if (data == null) return const ContactFilterSettings();
     final until = data['contactRequestQuietModeUntil'];
+    final legacyRequireVerified =
+        data['requireVerifiedRequester'] as bool? ?? false;
     return ContactFilterSettings(
-      requireVerifiedRequester:
-          data['requireVerifiedRequester'] as bool? ?? false,
+      requesterVerificationLevel: ContactRequesterVerificationLevel.fromValue(
+        data['requesterVerificationLevel'],
+        legacyRequireVerified:
+            legacyRequireVerified ||
+            (data['autoRejectUnverified'] as bool? ?? false),
+      ),
+      requireVerifiedRequester: legacyRequireVerified,
       allowedContactReasons:
           (data['allowedContactReasons'] as List<dynamic>?)
               ?.whereType<String>()
@@ -233,9 +262,14 @@ class ContactFilterSettings {
   Map<String, dynamic> toFirestore({required String userId}) {
     return {
       'userId': userId,
-      'requireVerifiedRequester': requireVerifiedRequester,
+      'requesterVerificationLevel': requesterVerificationLevel.name,
+      'requireVerifiedRequester':
+          requesterVerificationLevel ==
+          ContactRequesterVerificationLevel.identityVerified,
       'allowedContactReasons': allowedContactReasons,
-      'autoRejectUnverified': autoRejectUnverified,
+      'autoRejectUnverified':
+          requesterVerificationLevel ==
+          ContactRequesterVerificationLevel.identityVerified,
       'contactRequestQuietModeUntil': contactRequestQuietModeUntil == null
           ? null
           : Timestamp.fromDate(contactRequestQuietModeUntil!),
@@ -244,6 +278,7 @@ class ContactFilterSettings {
   }
 
   ContactFilterSettings copyWith({
+    ContactRequesterVerificationLevel? requesterVerificationLevel,
     bool? requireVerifiedRequester,
     List<String>? allowedContactReasons,
     bool? autoRejectUnverified,
@@ -251,6 +286,8 @@ class ContactFilterSettings {
     bool clearQuietMode = false,
   }) {
     return ContactFilterSettings(
+      requesterVerificationLevel:
+          requesterVerificationLevel ?? this.requesterVerificationLevel,
       requireVerifiedRequester:
           requireVerifiedRequester ?? this.requireVerifiedRequester,
       allowedContactReasons:

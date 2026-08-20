@@ -235,6 +235,52 @@ class SocialPostComment {
   }
 }
 
+class SocialPostCommentReply {
+  const SocialPostCommentReply({
+    required this.id,
+    required this.commentId,
+    required this.postId,
+    required this.postOwnerUserId,
+    required this.authorUserId,
+    required this.authorDisplayName,
+    required this.authorPhotoUrl,
+    required this.text,
+    required this.createdAt,
+    required this.isDeleted,
+  });
+
+  final String id;
+  final String commentId;
+  final String postId;
+  final String postOwnerUserId;
+  final String authorUserId;
+  final String authorDisplayName;
+  final String authorPhotoUrl;
+  final String text;
+  final DateTime createdAt;
+  final bool isDeleted;
+
+  factory SocialPostCommentReply.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> document,
+  ) {
+    final data = document.data() ?? const <String, dynamic>{};
+    return SocialPostCommentReply(
+      id: data['replyId'] as String? ?? document.id,
+      commentId: data['commentId'] as String? ?? '',
+      postId: data['postId'] as String? ?? '',
+      postOwnerUserId: data['postOwnerUserId'] as String? ?? '',
+      authorUserId: data['authorUserId'] as String? ?? '',
+      authorDisplayName: data['authorDisplayName'] as String? ?? 'Nutzer',
+      authorPhotoUrl: data['authorPhotoUrl'] as String? ?? '',
+      text: data['text'] as String? ?? '',
+      createdAt:
+          SocialPost._dateTimeFromTimestamp(data['createdAt']) ??
+          DateTime.now(),
+      isDeleted: data['isDeleted'] == true,
+    );
+  }
+}
+
 class SocialPostLike {
   const SocialPostLike({
     required this.userId,

@@ -16,10 +16,33 @@ void main() {
     await tester.pump();
 
     expect(find.text('Fahrzeuge'), findsOneWidget);
+    expect(find.text('Verifizierungsstufen'), findsOneWidget);
+    expect(find.text('Basis-Konto'), findsOneWidget);
+    expect(find.text('Fahrzeug bestätigt'), findsOneWidget);
+    expect(find.text('Identität bestätigt'), findsOneWidget);
+    expect(find.text('Vollständig verifiziert'), findsOneWidget);
+    expect(
+      find.textContaining('Kontaktanfragen sind noch nicht möglich'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Fahrzeugschein prüfen lassen'), findsOneWidget);
+    expect(
+      find.textContaining('Identitätsnachweis freiwillig'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Führerschein'), findsNothing);
     expect(find.text('Fahrzeug hinzufügen'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Fahrzeug hinzufügen')).dy,
+      lessThan(tester.getTopLeft(find.text('Verifizierungsstufen')).dy),
+    );
     expect(
       find.textContaining('Noch kein Fahrzeug hinterlegt'),
       findsOneWidget,
+    );
+    expect(
+      find.textContaining('Das Hauptfahrzeug wird vorrangig'),
+      findsNothing,
     );
   });
 
@@ -49,6 +72,8 @@ void main() {
     await tester.pumpWidget(_app(repository));
     await tester.pump();
 
+    await tester.ensureVisible(find.byTooltip('Fahrzeug verwalten'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Fahrzeug verwalten'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fahrzeug entfernen'));

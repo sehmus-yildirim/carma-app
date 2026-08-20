@@ -6,13 +6,18 @@ class ProfileDocumentMapper {
   static const Map<String, VerificationDocumentType> documentTypeByTitle = {
     'Ausweis Vorderseite': VerificationDocumentType.idFront,
     'Ausweis Rückseite': VerificationDocumentType.idBack,
-    'Führerschein Vorderseite': VerificationDocumentType.driverLicenseFront,
-    'Führerschein Rückseite': VerificationDocumentType.driverLicenseBack,
     'Fahrzeugschein Vorderseite':
         VerificationDocumentType.vehicleRegistrationFront,
     'Fahrzeugschein Rückseite':
         VerificationDocumentType.vehicleRegistrationBack,
   };
+
+  static const activeDocumentTypes = <VerificationDocumentType>[
+    VerificationDocumentType.idFront,
+    VerificationDocumentType.idBack,
+    VerificationDocumentType.vehicleRegistrationFront,
+    VerificationDocumentType.vehicleRegistrationBack,
+  ];
 
   static VerificationDocumentType? typeForTitle(String title) {
     return documentTypeByTitle[title];
@@ -35,7 +40,7 @@ class ProfileDocumentMapper {
     Map<String, String?> documentPathsByTitle,
   ) {
     return {
-      for (final type in VerificationDocumentType.values)
+      for (final type in activeDocumentTypes)
         type: documentPathsByTitle[titleForType(type)],
     };
   }
@@ -47,7 +52,7 @@ class ProfileDocumentMapper {
   }) {
     final documentLocalPaths = toDocumentLocalPaths(documentPathsByTitle);
 
-    return VerificationDocumentType.values.map((type) {
+    return activeDocumentTypes.map((type) {
       final localPath = documentLocalPaths[type];
 
       return VerificationDocument(
@@ -68,7 +73,7 @@ class ProfileDocumentMapper {
   ) {
     final documentLocalPaths = toDocumentLocalPaths(documentPathsByTitle);
 
-    return VerificationDocumentType.values.every(
+    return activeDocumentTypes.every(
       (type) => documentLocalPaths[type]?.trim().isNotEmpty == true,
     );
   }

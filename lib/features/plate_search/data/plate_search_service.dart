@@ -427,8 +427,9 @@ class PlateSearchService {
     final isActive = data['isActive'] as bool? ?? false;
     final isDeleted = data['isDeleted'] as bool? ?? true;
     final allowContactRequests = data['allowContactRequests'] as bool? ?? false;
+    final isVehicleVerified = data['isVerified'] as bool? ?? false;
 
-    if (!isActive || isDeleted || !allowContactRequests) {
+    if (!isActive || isDeleted || !allowContactRequests || !isVehicleVerified) {
       return const PlateSearchResult(found: false);
     }
 
@@ -451,6 +452,9 @@ class PlateSearchService {
     }
 
     final visibilitySettings = await _loadVisibilitySettingsForUser(
+      ownerUserId,
+    );
+    final ownerIdentityVerified = await _loadPublicIdentityVerification(
       ownerUserId,
     );
     final settingsAllowContactRequests =
@@ -509,9 +513,7 @@ class PlateSearchService {
       displayName: displayName?.trim().isEmpty == true ? null : displayName,
       profilePhotoUrl:
           (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?),
-      isVerified:
-          data['verificationStatus'] == 'verified' ||
-          data['isVerified'] == true,
+      isVerified: ownerIdentityVerified,
       distanceKm: distanceKm,
       vehicleId: vehicleId,
       plateKey: storedPlateKey,
@@ -611,6 +613,14 @@ class PlateSearchService {
     }
 
     final senderSummary = await _loadCurrentUserContactSummary(senderUserId);
+    if (senderSummary.verifiedVehicleId == null) {
+      throw FirebaseException(
+        plugin: 'plaqa',
+        code: 'permission-denied',
+        message:
+            'Bestätige zuerst eines deiner Fahrzeuge, bevor du eine Kontaktanfrage sendest.',
+      );
+    }
     final normalizedDisplayPlate = displayPlate?.trim().isNotEmpty == true
         ? displayPlate!.trim()
         : normalizedPlateKey;
@@ -646,6 +656,11 @@ class PlateSearchService {
         contactFilters['requireVerifiedRequester'] as bool? ?? false;
     final autoRejectUnverified =
         contactFilters['autoRejectUnverified'] as bool? ?? false;
+    final requesterVerificationLevel =
+        contactFilters['requesterVerificationLevel'] as String? ??
+        ((requireVerifiedRequester || autoRejectUnverified)
+            ? 'identityVerified'
+            : 'all');
     final quietModeUntil = _dateTimeFromValue(
       contactFilters['contactRequestQuietModeUntil'],
     );
@@ -668,13 +683,13 @@ class PlateSearchService {
       );
     }
 
-    if ((requireVerifiedRequester || autoRejectUnverified) &&
-        !senderSummary.isVerified) {
+    if (requesterVerificationLevel == 'identityVerified' &&
+        !senderSummary.isIdentityVerified) {
       throw FirebaseException(
         plugin: 'plaqa',
         code: 'permission-denied',
         message:
-            'Dieser Nutzer erlaubt aktuell nur Anfragen von verifizierten Konten.',
+            'Dieser Nutzer erlaubt aktuell nur Anfragen von Nutzern mit bestätigter Identität.',
       );
     }
 
@@ -714,7 +729,9 @@ class PlateSearchService {
 
     final result = await _firestore.runTransaction((transaction) async {
       final requestSnapshot = await transaction.get(document);
-      final creditSnapshot = await transaction.get(creditDocument);
+      final creditSnapshot = CaRismaAppConfig.enforceMonthlyContactRequestLimit
+          ? await transaction.get(creditDocument)
+          : null;
       final chatSnapshot = await transaction.get(chatDocument);
 
       final existingRequestData = requestSnapshot.data();
@@ -779,27 +796,30 @@ class PlateSearchService {
         );
       }
 
-      final creditData = creditSnapshot.data();
-      if (creditData == null) {
-        throw FirebaseException(
-          plugin: 'plaqa',
-          code: 'failed-precondition',
-          message: 'Der Anfrage-Credit konnte nicht geladen werden.',
-        );
-      }
+      SearchCredit? nextCredit;
+      if (CaRismaAppConfig.enforceMonthlyContactRequestLimit) {
+        final creditData = creditSnapshot?.data();
+        if (creditData == null) {
+          throw FirebaseException(
+            plugin: 'plaqa',
+            code: 'failed-precondition',
+            message: 'Der Anfrage-Credit konnte nicht geladen werden.',
+          );
+        }
 
-      final currentCredit = SearchCredit.fromMap(
-        creditData,
-      ).normalizeForCurrentMonth();
-      if (!currentCredit.hasRemaining) {
-        throw FirebaseException(
-          plugin: 'plaqa',
-          code: 'resource-exhausted',
-          message: 'Du hast keine Anfragen mehr verfügbar.',
-        );
-      }
+        final currentCredit = SearchCredit.fromMap(
+          creditData,
+        ).normalizeForCurrentMonth();
+        if (!currentCredit.hasRemaining) {
+          throw FirebaseException(
+            plugin: 'plaqa',
+            code: 'resource-exhausted',
+            message: 'Du hast keine Anfragen mehr verfügbar.',
+          );
+        }
 
-      final nextCredit = currentCredit.consume();
+        nextCredit = currentCredit.consume();
+      }
 
       transaction.set(document, {
         'senderUserId': senderUserId,
@@ -807,6 +827,7 @@ class PlateSearchService {
         'targetUserId': receiverUserId,
         'countryCode': normalizedCountryCode,
         'vehicleId': normalizedVehicleId,
+        'senderVehicleId': senderSummary.verifiedVehicleId,
         'plateKey': normalizedPlateKey,
         'senderDisplayName': senderSummary.displayName,
         'senderPhotoUrl': senderSummary.photoUrl,
@@ -826,10 +847,12 @@ class PlateSearchService {
         'expiresAt': Timestamp.fromDate(expiresAt),
         'isDeleted': false,
       });
-      transaction.set(creditDocument, {
-        ...nextCredit.toMap(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      if (nextCredit != null) {
+        transaction.set(creditDocument, {
+          ...nextCredit.toMap(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
 
       if (!chatSnapshot.exists) {
         transaction.set(
@@ -1043,9 +1066,20 @@ class PlateSearchService {
     String userId,
   ) async {
     try {
-      final profile = await _firestore
-          .doc(CaRismaFirestorePaths.userProfile(userId))
-          .get();
+      final results = await Future.wait([
+        _firestore.doc(CaRismaFirestorePaths.userProfile(userId)).get(),
+        _firestore
+            .collection(
+              '${CaRismaFirestorePaths.publicProfile(userId)}/vehicles',
+            )
+            .where('isVerified', isEqualTo: true)
+            .limit(1)
+            .get(),
+      ]);
+      final profile = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+      final verifiedVehicles =
+          results[1] as QuerySnapshot<Map<String, dynamic>>;
+      final verifiedVehicleId = verifiedVehicles.docs.firstOrNull?.id;
 
       final data = profile.data();
 
@@ -1053,7 +1087,8 @@ class PlateSearchService {
         return _ContactUserSummary(
           displayName: _fallbackDisplayName(),
           photoUrl: _auth.currentUser?.photoURL,
-          isVerified: false,
+          isIdentityVerified: false,
+          verifiedVehicleId: verifiedVehicleId,
         );
       }
 
@@ -1062,7 +1097,7 @@ class PlateSearchService {
       final displayName = data['displayName'] as String? ?? '';
       final photoUrl =
           (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?);
-      final isVerified =
+      final isIdentityVerified =
           data['verificationStatus'] == 'verified' ||
           data['isVerified'] == true;
 
@@ -1072,7 +1107,8 @@ class PlateSearchService {
         return _ContactUserSummary(
           displayName: fullName,
           photoUrl: photoUrl,
-          isVerified: isVerified,
+          isIdentityVerified: isIdentityVerified,
+          verifiedVehicleId: verifiedVehicleId,
         );
       }
 
@@ -1080,20 +1116,23 @@ class PlateSearchService {
         return _ContactUserSummary(
           displayName: displayName.trim(),
           photoUrl: photoUrl,
-          isVerified: isVerified,
+          isIdentityVerified: isIdentityVerified,
+          verifiedVehicleId: verifiedVehicleId,
         );
       }
 
       return _ContactUserSummary(
         displayName: _fallbackDisplayName(),
         photoUrl: photoUrl,
-        isVerified: isVerified,
+        isIdentityVerified: isIdentityVerified,
+        verifiedVehicleId: verifiedVehicleId,
       );
     } catch (_) {
       return _ContactUserSummary(
         displayName: _fallbackDisplayName(),
         photoUrl: _auth.currentUser?.photoURL,
-        isVerified: false,
+        isIdentityVerified: false,
+        verifiedVehicleId: null,
       );
     }
   }
@@ -1111,6 +1150,19 @@ class PlateSearchService {
       return snapshot.data() ?? const <String, dynamic>{};
     } catch (_) {
       return const <String, dynamic>{};
+    }
+  }
+
+  Future<bool> _loadPublicIdentityVerification(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .doc(CaRismaFirestorePaths.publicProfile(userId))
+          .get();
+      final data = snapshot.data();
+      return data?['verificationStatus'] == 'verified' ||
+          data?['isVerified'] == true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1144,11 +1196,13 @@ class PlateSearchService {
 class _ContactUserSummary {
   const _ContactUserSummary({
     required this.displayName,
-    required this.isVerified,
+    required this.isIdentityVerified,
+    required this.verifiedVehicleId,
     this.photoUrl,
   });
 
   final String displayName;
   final String? photoUrl;
-  final bool isVerified;
+  final bool isIdentityVerified;
+  final String? verifiedVehicleId;
 }

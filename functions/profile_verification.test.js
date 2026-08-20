@@ -21,6 +21,7 @@ const {
   submitProfileVerification,
   validateDocumentExpirations,
   validateStoredDocuments,
+  verificationStagesFromStatuses,
 } = require('./profile_verification');
 
 test('accepts the confirmed vehicle and identity document contract', () => {
@@ -37,6 +38,7 @@ test('accepts the confirmed vehicle and identity document contract', () => {
     vehicleId: 'vehicle-1',
     vehicleRelationship: 'authorizedUser',
     identityDocumentType: 'identityCard',
+    requestedDocumentGroups: ['identity', 'vehicle'],
   });
   assert.throws(() => normalizeSubmissionInput('user-1', {
     requestId: 'user-2',
@@ -72,18 +74,17 @@ test('normalizes legacy vehicle relationships without weakening validation', () 
     vehicleId: 'vehicle-1',
     vehicleRelationship: 'leasingCompany',
     identityDocumentType: 'identityCard',
+    requestedDocumentGroups: ['identity', 'vehicle'],
   });
 });
 
 test('uses document-type-specific pages and rejects unknown identity types', () => {
   assert.deepEqual(requiredKeysForIdentityType('passport'), [
     'identityFront',
-    'driverLicenseFront',
-    'driverLicenseBack',
     'vehicleFront',
     'vehicleBack',
   ]);
-  assert.equal(requiredKeysForIdentityType('identityCard').length, 6);
+  assert.equal(requiredKeysForIdentityType('identityCard').length, 4);
   assert.throws(() => normalizeSubmissionInput('user-1', {
     requestId: 'user-1',
     vehicleId: 'vehicle-1',
@@ -100,8 +101,6 @@ test('submits only complete uploaded groups during targeted resubmission', () =>
     documentStatuses: {
       identityFront: 'uploaded',
       identityBack: 'uploaded',
-      driverLicenseFront: 'verified',
-      driverLicenseBack: 'verified',
       vehicleFront: 'rejected',
       vehicleBack: 'rejected',
     },
@@ -112,6 +111,27 @@ test('submits only complete uploaded groups during targeted resubmission', () =>
   );
   draft.documentStatuses.identityBack = 'missing';
   assert.deepEqual(submissionGroupsForDraft(draft, 'identityCard'), []);
+});
+
+test('keeps identity and vehicle verification stages independent', () => {
+  const vehicleOnly = verificationStagesFromStatuses({
+    vehicleFront: 'verified',
+    vehicleBack: 'verified',
+  }, 'identityCard');
+  assert.deepEqual(vehicleOnly, {identity: false, vehicle: true});
+
+  const identityOnly = verificationStagesFromStatuses({
+    identityFront: 'verified',
+    identityBack: 'verified',
+  }, 'identityCard');
+  assert.deepEqual(identityOnly, {identity: true, vehicle: false});
+
+  assert.deepEqual(verificationStagesFromStatuses({
+    identityFront: 'verified',
+    identityBack: 'verified',
+    vehicleFront: 'verified',
+    vehicleBack: 'verified',
+  }, 'identityCard'), {identity: true, vehicle: true});
 });
 
 test('maps expiry reminder windows to 30, 14 and 3 day milestones', () => {
@@ -407,7 +427,7 @@ function verificationDocuments(userId, relationship = 'authorizedUser') {
   };
 }
 
-test('requires current expiration dates for identity and driver license', () => {
+test('requires a current expiration date only for identity evidence', () => {
   const now = new Date('2026-08-14T08:00:00Z');
   const valid = Object.fromEntries(requiredExpirationKeys.map((key, index) => [
     key,
@@ -418,9 +438,10 @@ test('requires current expiration dates for identity and driver license', () => 
     ...valid,
     identity: new Date('2025-08-14T00:00:00Z'),
   }, now), /gültiges Ablaufdatum/);
-  assert.throws(() => validateDocumentExpirations({
-    identity: valid.identity,
-  }, now), /gültiges Ablaufdatum/);
+  assert.throws(
+    () => validateDocumentExpirations({}, now),
+    /gültiges Ablaufdatum/,
+  );
 });
 
 test('checks all stored pages, mime type, size and image content', async () => {
@@ -454,7 +475,7 @@ test('checks all stored pages, mime type, size and image content', async () => {
     bucket: fakeBucket({
       ...Object.fromEntries(requiredDocumentKeys
         .map((key) => [paths[key], validFile])),
-      [paths.driverLicenseBack]: {
+      [paths.vehicleBack]: {
         metadata: {contentType: 'image/png', size: '2048'},
         content: validPng({withExif: true}),
       },
@@ -639,7 +660,7 @@ test('continues reminder batches after an isolated transaction failure', async (
     )), true);
 });
 
-test('expires only elapsed document groups and revokes public verification', async () => {
+test('expired identity preserves a confirmed vehicle', async () => {
   const userId = 'user-expired';
   const now = new Date('2026-08-15T08:00:00Z');
   const requestPath = `verification_requests/${userId}`;
@@ -657,7 +678,6 @@ test('expires only elapsed document groups and revokes public verification', asy
       verificationExpiresAt: now,
       documentExpiresAt: {
         identity: now,
-        driverLicense: new Date('2030-01-01T00:00:00Z'),
       },
       documentStatuses: Object.fromEntries(
           requiredDocumentKeys.map((key) => [key, 'verified']),
@@ -686,14 +706,13 @@ test('expires only elapsed document groups and revokes public verification', asy
   assert.equal(request.status, 'expired');
   assert.equal(request.documentStatuses.identityFront, 'expired');
   assert.equal(request.documentStatuses.identityBack, 'expired');
-  assert.equal(request.documentStatuses.driverLicenseFront, 'verified');
   assert.equal(firestore.documents.get(
       `public_profiles/${userId}`,
   ).verificationStatus, 'expired');
   assert.equal(firestore.documents.get(
       `users/${userId}/vehicles/vehicle-1`,
-  ).verificationLocked, false);
+  ).verificationLocked, true);
   assert.equal(firestore.documents.get(
       'plates/DE_HHCR2026',
-  ).verificationStatus, 'expired');
+  ).verificationStatus, 'verified');
 });

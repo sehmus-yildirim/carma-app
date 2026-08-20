@@ -38,11 +38,12 @@ void main() {
     test('contact filter settings preserve quiet mode timestamp', () {
       final until = DateTime.utc(2026, 8, 11, 12);
       final data = ContactFilterSettings(
-        requireVerifiedRequester: true,
-        autoRejectUnverified: true,
+        requesterVerificationLevel:
+            ContactRequesterVerificationLevel.identityVerified,
         contactRequestQuietModeUntil: until,
       ).toFirestore(userId: 'user-1');
 
+      expect(data['requesterVerificationLevel'], 'identityVerified');
       expect(data['requireVerifiedRequester'], isTrue);
       expect(data['autoRejectUnverified'], isTrue);
       expect(data['contactRequestQuietModeUntil'], isA<Timestamp>());
@@ -51,6 +52,18 @@ void main() {
             .toDate()
             .isAtSameMomentAs(until),
         isTrue,
+      );
+    });
+
+    test('legacy verified filter remains identity protected', () {
+      final settings = ContactFilterSettings.fromMap(const {
+        'requireVerifiedRequester': true,
+        'autoRejectUnverified': true,
+      });
+
+      expect(
+        settings.requesterVerificationLevel,
+        ContactRequesterVerificationLevel.identityVerified,
       );
     });
 

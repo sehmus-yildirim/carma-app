@@ -9,11 +9,16 @@ const {
 } = require('@firebase/rules-unit-testing');
 const {
   Timestamp,
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  orderBy,
+  query,
   setDoc,
   updateDoc,
+  where,
 } = require('firebase/firestore');
 const {getBytes, ref, uploadBytes} = require('firebase/storage');
 
@@ -168,6 +173,27 @@ describe('social post Firestore and Storage rules', () => {
     )));
     await assertSucceeds(getBytes(ref(contact.storage(), mediaPath)));
     await assertFails(getBytes(ref(outsider.storage(), mediaPath)));
+
+    const feedConstraints = [
+      where('visibility', 'in', ['public', 'contacts']),
+      where('isDeleted', '==', false),
+      where('isArchived', '==', false),
+      orderBy('createdAt', 'desc'),
+    ];
+    await assertSucceeds(getDocs(query(
+      collection(
+        contact.firestore(),
+        'users', ownerUserId, 'social_posts',
+      ),
+      ...feedConstraints,
+    )));
+    await assertFails(getDocs(query(
+      collection(
+        outsider.firestore(),
+        'users', ownerUserId, 'social_posts',
+      ),
+      ...feedConstraints,
+    )));
   });
 
   test('a contact can manage only its own like and comment', async () => {
@@ -219,6 +245,42 @@ describe('social post Firestore and Storage rules', () => {
       isDeleted: true,
       updatedAt: Timestamp.now(),
     }));
+
+    const replyId = 'reply-1';
+    const replyPath = [
+      ...commentPath, 'replies', replyId,
+    ];
+    await assertSucceeds(setDoc(doc(contact.firestore(), ...replyPath), {
+      replyId,
+      commentId,
+      postId,
+      postOwnerUserId: ownerUserId,
+      authorUserId: contactUserId,
+      authorDisplayName: 'Kontakt N.',
+      authorPhotoUrl: '',
+      text: 'Danke für deine Rückmeldung.',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      isDeleted: false,
+    }));
+    await assertFails(setDoc(doc(outsider.firestore(), ...replyPath), {
+      replyId,
+      commentId,
+      postId,
+      postOwnerUserId: ownerUserId,
+      authorUserId: outsiderUserId,
+      authorDisplayName: 'Unbekannt',
+      authorPhotoUrl: '',
+      text: 'Unzulässige Antwort.',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      isDeleted: false,
+    }));
+    await assertSucceeds(updateDoc(doc(owner.firestore(), ...replyPath), {
+      isDeleted: true,
+      updatedAt: Timestamp.now(),
+    }));
+
     await assertSucceeds(updateDoc(doc(owner.firestore(), ...commentPath), {
       isDeleted: true,
       updatedAt: Timestamp.now(),

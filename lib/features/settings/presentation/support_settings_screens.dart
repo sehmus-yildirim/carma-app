@@ -31,8 +31,8 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
     _FaqEntry(
       question: 'Wie funktioniert die Verifizierung?',
       answer:
-          'Unter Profil & Verifizierung lädst du genau einen Identitätsnachweis und einen Nachweis zum Fahrzeugbezug hoch. Name, Fahrzeug und Kennzeichen müssen zu den Nachweisen passen. Während der Prüfung sind diese Angaben geschützt gesperrt.',
-      keywords: 'profil dokument ausweis führerschein fahrzeugschein',
+          'Du entscheidest selbst: Mit dem Fahrzeugschein bestätigst du dein Fahrzeug und schaltest Kontaktanfragen frei. Ein Ausweis, Reisepass oder Aufenthaltstitel bestätigt zusätzlich freiwillig deine Identität. Dokumentbilder bleiben privat.',
+      keywords: 'profil dokument ausweis fahrzeugschein stufen',
     ),
     _FaqEntry(
       question: 'Warum wird ein Kennzeichen nicht gefunden?',
@@ -85,8 +85,8 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
     _FaqEntry(
       question: 'Was passiert mit ablaufenden Dokumenten?',
       answer:
-          'Vor dem Ablauf eines Identitätsnachweises oder Führerscheins erinnert dich plaqa an die Erneuerung. Du reichst nur den betroffenen Nachweis erneut ein; weiterhin gültige und bestätigte Dokumente bleiben erhalten.',
-      keywords: 'dokument ausweis führerschein ablauf erneuern erinnerung',
+          'Vor dem Ablauf deines Identitätsnachweises erinnert dich plaqa an die Erneuerung. Du reichst nur diesen Nachweis erneut ein; ein weiterhin bestätigtes Fahrzeug bleibt erhalten.',
+      keywords: 'dokument ausweis ablauf erneuern erinnerung',
     ),
     _FaqEntry(
       question: 'Wie ändere ich meine Privatsphäre?',
@@ -254,9 +254,8 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
         'Anderes technisches Problem',
       ],
       SupportRequestType.verification => const [
-        'Ausweis',
-        'Führerschein',
-        'Fahrzeugschein',
+        'Identitätsnachweis',
+        'Fahrzeugnachweis',
         'Prüfstatus',
         'Abgelehnte Verifizierung',
         'Anderes Verifizierungsproblem',
@@ -291,9 +290,9 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
     final group = widget.technicalReference?.referenceGroup;
     if (widget.type == SupportRequestType.verification && group != null) {
       _category = switch (group) {
-        'identity' => 'Ausweis',
-        'driverLicense' => 'Führerschein',
-        'vehicle' => 'Fahrzeugschein',
+        'identity' => 'Identitätsnachweis',
+        'driverLicense' => 'Nicht mehr verwendeter Altnachweis',
+        'vehicle' => 'Fahrzeugnachweis',
         _ => _category,
       };
       _areaController.text = 'Dokumentenverifizierung';

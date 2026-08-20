@@ -522,6 +522,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _openPrivacyPreferencesStatusScreen() {
     String enabledLabel(bool value) => value ? 'Aktiv' : 'Deaktiviert';
+    String requesterFilterLabel(ContactRequesterVerificationLevel value) =>
+        switch (value) {
+          ContactRequesterVerificationLevel.all => 'Alle',
+          ContactRequesterVerificationLevel.vehicleVerified =>
+            'Fahrzeug bestätigt',
+          ContactRequesterVerificationLevel.identityVerified =>
+            'Identität bestätigt',
+        };
     String visibilityLabel(String value) => switch (value) {
       'public' => 'Öffentlich',
       'onlyMe' => 'Nur ich',
@@ -570,7 +578,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.person_add_alt_1_outlined,
           title: 'Kontaktanfrage',
           body:
-              'Anfragen ${enabledLabel(_visibilitySettings.allowContactRequests)} · Nur verifizierte Nutzer ${enabledLabel(_contactFilterSettings.requireVerifiedRequester)}',
+              'Anfragen ${enabledLabel(_visibilitySettings.allowContactRequests)} · Filter: ${requesterFilterLabel(_contactFilterSettings.requesterVerificationLevel)}',
           status: 'Serverseitig geprüft',
           statusColor: CaRismaDesignTokens.success,
         ),
@@ -701,8 +709,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Nur verifizierte Nutzer',
           icon: Icons.verified_user_outlined,
           body:
-              'Diese Option bereitet vor, dass nur verifizierte Nutzer dir Kontaktanfragen senden dürfen.\n\n'
-              'Für den Release muss diese Einstellung serverseitig verbindlich geprüft werden.',
+              'Du kannst Anfragen auf Nutzer mit bestätigtem Fahrzeug oder zusätzlich bestätigter Identität begrenzen. Die Auswahl wird beim Erstellen der Anfrage serverseitig geprüft.',
         );
         return;
       case 'Anfragegründe':
@@ -870,7 +877,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Häufige Fragen:\n\n'
               '1. Kontaktanfragen erscheinen im Chatbereich.\n'
               '2. Hinweise im Melden-Bereich sind anonym und sachlich gedacht.\n'
-              '3. Profil und Fahrzeug müssen für wichtige Funktionen verifiziert werden.\n'
+              '3. Ein bestätigtes Fahrzeug ist nur für Kontaktanfragen über die Kennzeichensuche erforderlich.\n'
               '4. Storys und Chats sind nur für angenommene Kontakte vorgesehen.',
         );
         return;
@@ -1431,7 +1438,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _SettingsDetailItem(
           icon: Icons.verified_user_outlined,
           title: 'Verifizierungsproblem',
-          description: 'Hilfe bei Ausweis, Führerschein oder Fahrzeugschein.',
+          description: 'Hilfe bei Identitäts- oder Fahrzeugnachweisen.',
         ),
         _SettingsDetailItem(
           icon: Icons.feedback_outlined,
@@ -4225,7 +4232,6 @@ Die Verifizierung kann sich insbesondere beziehen auf:
 * Identität,
 * E-Mail-Adresse,
 * Alter,
-* Führerschein,
 * Fahrzeugberechtigung,
 * Kennzeichenzuordnung.
 
@@ -5249,7 +5255,6 @@ Kennzeichen dürfen nicht dazu verwendet werden, Personen systematisch zu verfol
                 r'''plaqa kann eine freiwillige oder für bestimmte Funktionen erforderliche Verifizierung anbieten. Hierbei können Nutzer insbesondere folgende Dokumente oder Nachweise hochladen:
 
 * Identitätsnachweis,
-* Führerschein,
 * Zulassungsbescheinigung oder anderer Fahrzeugnachweis,
 * sonstige zur Verifizierung erforderliche Dokumente,
 * Selfie oder Vergleichsaufnahme, falls eine Identitätsprüfung vorgesehen wird.
@@ -6312,7 +6317,7 @@ Ohne ausreichende Rechtsgrundlage oder Zustimmung dürfen insbesondere nicht ver
 * E-Mail-Adressen,
 * exakte Aufenthaltsorte,
 * private Kennzeichen- oder Fahrzeugzuordnungen,
-* Ausweis- oder Führerscheindaten,
+* Ausweisdaten oder Fahrzeugdokumente,
 * Bank- oder Zahlungsdaten,
 * vertrauliche Dokumente,
 * private Chatverläufe.
@@ -6644,7 +6649,7 @@ Veröffentlichen oder versenden Sie ohne ausreichende Berechtigung keine:
 * Telefonnummern,
 * Anschriften,
 * E-Mail-Adressen,
-* Ausweis- oder Führerscheindaten,
+* Ausweisdaten oder Fahrzeugdokumente,
 * Fahrzeugdokumente,
 * Zahlungsdaten,
 * privaten Fotos oder Videos,
@@ -6695,7 +6700,7 @@ Verboten sind:
 * gefälschte Dokumente,
 * manipulierte Dokumente,
 * veränderte Namen oder Daten,
-* fremde Ausweise oder Führerscheine,
+* fremde Ausweise oder Fahrzeugdokumente,
 * falsche Fahrzeugnachweise,
 * Täuschung über die Fahrzeugberechtigung.
 

@@ -160,6 +160,8 @@ class _ProfileVerificationSettingsScreenState
               onPressed: () => _openVehicleEditor(),
             ),
             const SizedBox(height: 14),
+            const _VerificationLevelOverview(),
+            const SizedBox(height: 14),
             if (snapshot.hasError)
               const CaRismaMessageCard(
                 icon: Icons.error_outline_rounded,
@@ -276,12 +278,6 @@ class _ProfileVerificationSettingsScreenState
                   ),
                 ),
               ),
-            const SizedBox(height: 6),
-            const CaRismaMessageCard(
-              icon: Icons.info_outline_rounded,
-              message:
-                  'Das Hauptfahrzeug wird vorrangig in deinem Profil angezeigt. Jedes aktive Fahrzeug bleibt über sein freigegebenes Kennzeichen auffindbar. Änderungen können eine erneute Dokumentprüfung auslösen.',
-            ),
           ],
         );
       },
@@ -308,9 +304,136 @@ class _ProfileVerificationSettingsScreenState
       ProfileVehicleVerificationStatus.unverified => 'Entwurf',
       ProfileVehicleVerificationStatus.evidenceMissing => 'Nachweis fehlt',
       ProfileVehicleVerificationStatus.inReview => 'In Prüfung',
-      ProfileVehicleVerificationStatus.verified => 'Verifiziert',
+      ProfileVehicleVerificationStatus.verified => 'Fahrzeug bestätigt',
       ProfileVehicleVerificationStatus.rejected => 'Abgelehnt',
     };
+  }
+}
+
+class _VerificationLevelOverview extends StatelessWidget {
+  const _VerificationLevelOverview();
+
+  @override
+  Widget build(BuildContext context) {
+    return const GlassCard(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Verifizierungsstufen',
+            style: TextStyle(
+              color: CaRismaDesignTokens.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Du entscheidest selbst, welche Stufe du nutzen möchtest.',
+            style: TextStyle(
+              color: CaRismaDesignTokens.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 14),
+          _VerificationLevelRow(
+            icon: Icons.person_outline_rounded,
+            color: CaRismaDesignTokens.textMuted,
+            title: 'Basis-Konto',
+            description:
+                'Fahrzeug und Kennzeichen eintragen, Kennzeichen suchen und Fahrzeuge melden. Kontaktanfragen sind noch nicht möglich.',
+          ),
+          _VerificationLevelRow(
+            icon: Icons.directions_car_outlined,
+            color: CaRismaDesignTokens.bluePrimary,
+            title: 'Fahrzeug bestätigt',
+            description:
+                'Fahrzeugschein prüfen lassen. Danach kann dein Kennzeichen auffindbar werden und du kannst Kontaktanfragen senden.',
+          ),
+          _VerificationLevelRow(
+            icon: Icons.badge_outlined,
+            color: Color(0xFF38BDF8),
+            title: 'Identität bestätigt',
+            description:
+                'Identitätsnachweis freiwillig prüfen lassen. Dadurch erhältst du das öffentliche Verifiziert-Badge und erfüllst Identitätsfilter.',
+          ),
+          _VerificationLevelRow(
+            icon: Icons.verified_user_outlined,
+            color: CaRismaDesignTokens.success,
+            title: 'Vollständig verifiziert',
+            description:
+                'Fahrzeug und Identität sind bestätigt. Dokumentarten und Dokumentbilder bleiben weiterhin privat.',
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerificationLevelRow extends StatelessWidget {
+  const _VerificationLevelRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+    this.isLast = false,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String description;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: 0.9)),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: CaRismaDesignTokens.textSecondary,
+                    fontSize: 12.5,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

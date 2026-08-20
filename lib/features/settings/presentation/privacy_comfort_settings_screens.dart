@@ -275,32 +275,34 @@ class _ContactRequestSettingsScreenState
       icon: Icons.person_add_alt_1_outlined,
       title: 'Kontaktanfragen',
       children: [
-        GlassCard(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            children: [
-              CaRismaSwitchRow(
-                icon: Icons.verified_user_outlined,
-                title: 'Nur verifizierte Nutzer',
-                description: 'Anfragen nur von verifizierten Konten zulassen.',
-                value: _settings.requireVerifiedRequester,
-                enabled: true,
-                onChanged: (value) => _update(
-                  _settings.copyWith(requireVerifiedRequester: value),
-                ),
-              ),
-              const SizedBox(height: 10),
-              CaRismaSwitchRow(
-                icon: Icons.gpp_bad_outlined,
-                title: 'Automatisch ablehnen',
-                description:
-                    'Anfragen unverifizierter Nutzer direkt zurückweisen.',
-                value: _settings.autoRejectUnverified,
-                enabled: true,
-                onChanged: (value) =>
-                    _update(_settings.copyWith(autoRejectUnverified: value)),
-              ),
-            ],
+        _ChoiceSection(
+          title: 'Wer darf anfragen?',
+          icon: Icons.verified_user_outlined,
+          value: _settings.requesterVerificationLevel.name,
+          options: const [
+            _ChoiceOption(
+              value: 'all',
+              label: 'Alle freigeschalteten Nutzer',
+              description:
+                  'Alle Nutzer, die ihr Fahrzeug bestätigt haben, dürfen anfragen.',
+            ),
+            _ChoiceOption(
+              value: 'vehicleVerified',
+              label: 'Fahrzeug bestätigt',
+              description: 'Anfragen nur von Nutzern mit bestätigtem Fahrzeug.',
+            ),
+            _ChoiceOption(
+              value: 'identityVerified',
+              label: 'Identität bestätigt',
+              description:
+                  'Anfragen nur von Nutzern mit bestätigter Identität.',
+            ),
+          ],
+          onChanged: (value) => _update(
+            _settings.copyWith(
+              requesterVerificationLevel:
+                  ContactRequesterVerificationLevel.fromValue(value),
+            ),
           ),
         ),
         const SizedBox(height: 12),

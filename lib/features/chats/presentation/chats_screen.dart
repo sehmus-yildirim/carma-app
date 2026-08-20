@@ -61,6 +61,14 @@ const Color _myMessageBorder = CaRismaDesignTokens.bluePrimary;
 
 const Color _myMessageCheckBlue = CaRismaDesignTokens.blueBright;
 
+ImageProvider<Object> _storyImageProvider(String source) {
+  final normalizedSource = source.trim();
+  if (normalizedSource.startsWith('asset://')) {
+    return AssetImage(normalizedSource.substring('asset://'.length));
+  }
+  return NetworkImage(normalizedSource);
+}
+
 String _friendlyChatUiError(
   Object error, {
   String fallback = 'Die Chat-Aktion konnte nicht abgeschlossen werden.',
@@ -171,6 +179,7 @@ Future<void> showProfileStoryViewer({
   }
 
   final repository = ChatStoryRepository();
+  final chatRepository = FirestoreChatRepository();
 
   Future<void> markStoryVisible(ChatStoryRecord visibleStory) async {
     if (visibleStory.ownerUserId.trim() == trimmedUserId) {
@@ -188,6 +197,229 @@ Future<void> showProfileStoryViewer({
     );
   }
 
+  Future<void> showViewers(ChatStoryRecord visibleStory) async {
+    if (visibleStory.ownerUserId.trim() != trimmedUserId) return;
+    final currentStory =
+        await repository.getStoryById(visibleStory.id) ?? visibleStory;
+    final viewers =
+        currentStory.viewedAtBy.entries
+            .where((entry) => entry.key.trim() != trimmedUserId)
+            .toList(growable: false)
+          ..sort((left, right) => right.value.compareTo(left.value));
+    if (!context.mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(14),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Story-Aufrufe',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Schließen',
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (viewers.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Noch keine Aufrufe',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: CaRismaDesignTokens.textMuted),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: viewers.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(color: Colors.white.withValues(alpha: 0.08)),
+                    itemBuilder: (context, index) {
+                      final viewer = viewers[index];
+                      final name =
+                          currentStory.viewerNameBy[viewer.key]?.trim() ?? '';
+                      final photoUrl =
+                          currentStory.viewerPhotoUrlBy[viewer.key]?.trim() ??
+                          '';
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: CaRismaDesignTokens.controlSurface,
+                          backgroundImage: photoUrl.isEmpty
+                              ? null
+                              : NetworkImage(photoUrl),
+                          child: photoUrl.isEmpty
+                              ? const Icon(Icons.person_outline_rounded)
+                              : null,
+                        ),
+                        title: Text(
+                          name.isEmpty ? 'plaqa Nutzer' : name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> deleteStory(ChatStoryRecord visibleStory) async {
+    if (visibleStory.ownerUserId.trim() != trimmedUserId) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _StoryDeleteDialog(),
+    );
+    if (confirmed != true) return;
+    await repository.deleteOwnStory(
+      storyId: visibleStory.id,
+      ownerUserId: trimmedUserId,
+    );
+  }
+
+  Future<void> replyToStory(ChatStoryRecord visibleStory, String text) async {
+    final storyOwnerId = visibleStory.ownerUserId.trim();
+    final reply = text.trim();
+    if (storyOwnerId.isEmpty ||
+        storyOwnerId == trimmedUserId ||
+        !visibleStory.canReceiveReplyFrom(trimmedUserId) ||
+        reply.isEmpty) {
+      return;
+    }
+    final chats = <ChatRecord>[
+      ...await chatRepository.loadChats(userId: trimmedUserId),
+      ...await chatRepository.watchArchivedChats(userId: trimmedUserId).first,
+    ];
+    ChatRecord? matchingChat;
+    for (final chat in chats) {
+      final participantIds = chat.participants
+          .map((participant) => participant.trim())
+          .where((participant) => participant.isNotEmpty)
+          .toSet();
+      if ((chat.status == ChatStatus.active ||
+              chat.status == ChatStatus.archived) &&
+          participantIds.length == 2 &&
+          participantIds.contains(trimmedUserId) &&
+          participantIds.contains(storyOwnerId) &&
+          !chat.isDeletedFor(trimmedUserId) &&
+          !chat.isDeletedFor(storyOwnerId)) {
+        matchingChat = chat;
+        break;
+      }
+    }
+    if (matchingChat == null) {
+      throw StateError('No visible chat for story reply.');
+    }
+    if (matchingChat.isVisibleInArchivedListFor(trimmedUserId)) {
+      await chatRepository.unarchiveChat(
+        chatId: matchingChat.id,
+        userId: trimmedUserId,
+      );
+    }
+    final storyLabel = visibleStory.text.trim().isNotEmpty
+        ? visibleStory.text.trim()
+        : visibleStory.isVideo
+        ? 'Video-Story'
+        : 'Foto-Story';
+    await chatRepository.sendTextMessage(
+      chatId: matchingChat.id,
+      senderUserId: trimmedUserId,
+      text: reply,
+      replyToText: 'Story von ${visibleStory.ownerDisplayName}: $storyLabel',
+    );
+  }
+
+  Future<void> showSticker(ChatStoryRecord visibleStory) async {
+    final stickers = visibleStory.effectiveStickers;
+    if (stickers.isEmpty || !context.mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(14),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Story-Details',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Schließen',
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              for (final sticker in stickers)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.auto_awesome_outlined,
+                    color: CaRismaDesignTokens.blueBright,
+                  ),
+                  title: Text(
+                    sticker.label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  subtitle: sticker.payload.trim().isEmpty
+                      ? null
+                      : Text(
+                          sticker.payload.trim(),
+                          style: const TextStyle(
+                            color: CaRismaDesignTokens.textSecondary,
+                          ),
+                        ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   await showDialog<void>(
     context: context,
     builder: (context) => _StoryViewerDialog(
@@ -197,14 +429,15 @@ Future<void> showProfileStoryViewer({
       onStoryVisible: (visibleStory) {
         markStoryVisible(visibleStory).catchError((_) {});
       },
-      onShowViewers: (_) async {},
-      onDeleteStory: (_) async {},
-      onOpenSticker: (_) async {},
-      onReplyStory: (_, _) async {},
-      onVoteStoryPoll: (_, _) async => false,
-      allowReplies: false,
-      allowOwnerActions: false,
-      enableStickerAction: false,
+      onShowViewers: showViewers,
+      onDeleteStory: deleteStory,
+      onOpenSticker: showSticker,
+      onReplyStory: replyToStory,
+      onVoteStoryPoll: (visibleStory, optionIndex) => repository.voteStoryPoll(
+        storyId: visibleStory.id,
+        userId: trimmedUserId,
+        optionIndex: optionIndex,
+      ),
     ),
   );
 }

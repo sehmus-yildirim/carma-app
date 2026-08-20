@@ -188,7 +188,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _handleRuntimePreferencesChanged,
     );
 
-    _watchSearchCredit();
+    if (CaRismaAppConfig.enforceMonthlyContactRequestLimit) {
+      _watchSearchCredit();
+    } else {
+      _isLoadingSearchCredit = false;
+      _creditError = null;
+    }
     _loadCurrentUserFirstName();
     _loadLocation();
   }
@@ -692,7 +697,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
-      if (!isDemoTarget) {
+      if (!isDemoTarget && CaRismaAppConfig.enforceMonthlyContactRequestLimit) {
         await _searchCreditRepository.createSearchCreditIfMissing(
           userId: _effectiveUserId,
         );
@@ -725,7 +730,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       setState(() {
-        if (!isDemoTarget) {
+        if (!isDemoTarget &&
+            CaRismaAppConfig.enforceMonthlyContactRequestLimit) {
           _searchCredit = _searchCredit.consume();
         }
         _requestState = PlateContactRequestState(
@@ -931,10 +937,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SearchCreditCard(
-                      searchCredit: _searchCredit,
-                      isLoading: _isLoadingSearchCredit,
-                    ),
+                    if (CaRismaAppConfig.enforceMonthlyContactRequestLimit)
+                      _SearchCreditCard(
+                        searchCredit: _searchCredit,
+                        isLoading: _isLoadingSearchCredit,
+                      )
+                    else
+                      const _SearchBrandCard(),
                     if (_creditError != null) ...[
                       const SizedBox(height: 8),
                       CaRismaMessageCard(
@@ -1466,6 +1475,33 @@ class _SearchCreditCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SearchBrandCard extends StatelessWidget {
+  const _SearchBrandCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: CaRismaDesignTokens.card,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: SizedBox(
+        height: 46,
+        child: Image.asset(
+          'assets/images/plaqa_logo_transparent.png',
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.high,
+          semanticLabel: 'plaqa',
+        ),
       ),
     );
   }

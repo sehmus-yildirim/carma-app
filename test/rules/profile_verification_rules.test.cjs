@@ -39,7 +39,6 @@ function draftData(overrides = {}) {
     documentRejectionReasons: {},
     documentExpiresAt: {
       identity: Timestamp.fromDate(new Date('2030-08-14T00:00:00Z')),
-      driverLicense: Timestamp.fromDate(new Date('2031-08-14T00:00:00Z')),
     },
     vehicleId: 'vehicle-1',
     vehicleRelationship: 'owner',
@@ -121,7 +120,6 @@ describe('profile verification Firestore rules', () => {
     await assertFails(setDoc(request, draftData({
       documentExpiresAt: {
         identity: Timestamp.fromDate(new Date('2020-01-01T00:00:00Z')),
-        driverLicense: Timestamp.fromDate(new Date('2031-08-14T00:00:00Z')),
       },
     })));
   });
@@ -217,6 +215,20 @@ describe('profile verification Firestore rules', () => {
     await assertFails(setDoc(
       doc(owner, 'verification_requests', ownerUserId),
       draftData({documentStatuses: {identityFront: 'verified'}}),
+    ));
+  });
+
+  test('new drafts cannot add legacy driving-licence fields', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    await assertFails(setDoc(
+      doc(owner, 'verification_requests', ownerUserId),
+      draftData({
+        documentStoragePaths: {
+          driverLicenseFront:
+            `profile_documents/${ownerUserId}/driverLicenseFront/driverLicenseFront.png`,
+        },
+        documentStatuses: {driverLicenseFront: 'uploaded'},
+      }),
     ));
   });
 
@@ -401,6 +413,11 @@ describe('profile verification Storage rules', () => {
     const owner = testEnv.authenticatedContext(ownerUserId).storage();
     const outsider = testEnv.authenticatedContext(outsiderUserId).storage();
 
+    await assertFails(uploadBytes(
+      ref(owner, `profile_documents/${ownerUserId}/driverLicenseFront/driverLicenseFront.png`),
+      pngBytes,
+      {contentType: 'image/png'},
+    ));
     await assertFails(uploadBytes(
       ref(owner, `profile_documents/${ownerUserId}/identityEvidence/identityEvidence.jpg`),
       jpegBytes,

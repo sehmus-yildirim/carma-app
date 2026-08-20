@@ -259,12 +259,14 @@ class SocialProfileScreen extends StatefulWidget {
     this.profileUserId,
     this.isOwnProfile = true,
     this.readOnly = false,
+    this.bottomContentInset = 0,
   });
 
   final AppUserState? userState;
   final String? profileUserId;
   final bool isOwnProfile;
   final bool readOnly;
+  final double bottomContentInset;
 
   @override
   State<SocialProfileScreen> createState() => _SocialProfileScreenState();
@@ -706,11 +708,11 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                         final compact = constraints.maxHeight < 760;
                         final gap = compact ? 8.0 : 12.0;
                         return Padding(
-                          padding: const EdgeInsets.fromLTRB(
+                          padding: EdgeInsets.fromLTRB(
                             16,
                             CaRismaDesignTokens.mainScreenTopInset,
                             16,
-                            8,
+                            8 + widget.bottomContentInset,
                           ),
                           child: Column(
                             children: [

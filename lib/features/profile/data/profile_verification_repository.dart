@@ -458,18 +458,31 @@ class ProfileVerificationRepository {
 
   Future<void> submitVerification({
     required String userId,
-    required String vehicleId,
+    required String? vehicleId,
     required ProfileVehicleRelationship relationship,
     required bool authorizationConfirmed,
     required bool vehicleAssignmentConfirmed,
     required ProfileVerificationIdentityDocumentType identityDocumentType,
+    required List<String> documentGroups,
   }) async {
     if (!authorizationConfirmed) {
       throw const ProfileVerificationException(
         'Bitte bestätige zuerst deine Berechtigung und die Datenschutzhinweise.',
       );
     }
-    if (!vehicleAssignmentConfirmed) {
+    final normalizedGroups = documentGroups
+        .where(ProfileVerificationDocumentKeys.groupKeys.contains)
+        .toSet()
+        .toList(growable: false);
+    if (normalizedGroups.isEmpty) {
+      throw const ProfileVerificationException(
+        'Bitte vervollständige mindestens einen Nachweis.',
+      );
+    }
+    if (normalizedGroups.contains(
+          ProfileVerificationDocumentKeys.vehicleGroup,
+        ) &&
+        !vehicleAssignmentConfirmed) {
       throw const ProfileVerificationException(
         'Bitte bestätige, welches Fahrzeug geprüft werden soll.',
       );
@@ -477,11 +490,12 @@ class ProfileVerificationRepository {
     try {
       await _cloudFunctions.httpsCallable('submitProfileVerification').call({
         'requestId': userId.trim(),
-        'vehicleId': vehicleId.trim(),
+        'vehicleId': vehicleId?.trim(),
         'vehicleRelationship': relationship.name,
         'authorizationConfirmed': true,
         'vehicleAssignmentConfirmed': true,
         'identityDocumentType': identityDocumentType.name,
+        'documentGroups': normalizedGroups,
         'consentVersion': consentVersion,
       });
     } on FirebaseFunctionsException catch (error) {

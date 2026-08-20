@@ -20,6 +20,15 @@ function fakeFirestore(data, settings = null) {
               data: () => settings,
             };
           }
+          if (path.startsWith("public_profiles/")) {
+            return {
+              exists: true,
+              data: () => ({
+                verificationStatus: data?.ownerIdentityVerified === true ?
+                  "verified" : "unverified",
+              }),
+            };
+          }
           return {
             exists: data != null,
             data: () => data,
@@ -53,6 +62,8 @@ function validData(overrides = {}) {
     displayName: "Mara Beispiel",
     profilePhotoUrl: "https://example.test/profile.jpg",
     verificationStatus: "verified",
+    isVerified: true,
+    ownerIdentityVerified: true,
     vehicleBrand: "Mercedes-Benz",
     vehicleModel: "GLS",
     vehicleColor: "Weiß",
@@ -99,6 +110,7 @@ test("returns only the dynamic public hit fields", async () => {
   assert.deepEqual(firestore.paths, [
     "plates/DE_FDRT2918",
     "users/target-user/settings/visibility",
+    "public_profiles/target-user",
   ]);
   assert.deepEqual(result, {
     found: true,
@@ -127,7 +139,7 @@ test("keeps missing photo and unverified status private and neutral", async () =
     firestore: fakeFirestore(
       validData({
         profilePhotoUrl: null,
-        verificationStatus: "pending",
+        ownerIdentityVerified: false,
       }),
       visibleSettings(),
     ),

@@ -13,6 +13,7 @@ const projectId = 'carma-a84e4';
 const senderUserId = 'request-sender';
 const receiverUserId = 'request-receiver';
 const vehicleId = 'vehicle-bmw-x6';
+const senderVehicleId = 'vehicle-sender';
 const countryCode = 'DE';
 const plateKey = 'HHCR2026';
 const requestId = `${senderUserId}_${countryCode}_${vehicleId}`;
@@ -47,9 +48,52 @@ async function seedPlate(overrides = {}) {
       vehicleColor: 'Schwarz',
       vehicleLabel: 'BMW X6',
       allowContactRequests: true,
+      isVerified: true,
       isActive: true,
       isDeleted: false,
       ...overrides,
+    });
+    await setDoc(doc(
+      context.firestore(),
+      'public_profiles',
+      senderUserId,
+      'vehicles',
+      senderVehicleId,
+    ), {
+      ownerUserId: senderUserId,
+      vehicleId: senderVehicleId,
+      isVerified: true,
+      verificationStatus: 'verified',
+    });
+  });
+}
+
+async function seedContactFilter(level) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(
+      context.firestore(),
+      'users',
+      receiverUserId,
+      'settings',
+      'contact_filters',
+    ), {
+      userId: receiverUserId,
+      requireVerifiedRequester: level === 'identityVerified',
+      requesterVerificationLevel: level,
+      allowedContactReasons: ['vehicle_question'],
+      autoRejectUnverified: level === 'identityVerified',
+      contactRequestQuietModeUntil: null,
+      updatedAt: Timestamp.now(),
+    });
+  });
+}
+
+async function seedSenderIdentity({verified}) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'public_profiles', senderUserId), {
+      userId: senderUserId,
+      isVerified: verified,
+      verificationStatus: verified ? 'verified' : 'unverified',
     });
   });
 }
@@ -62,6 +106,7 @@ function requestData(overrides = {}) {
     targetUserId: receiverUserId,
     countryCode,
     vehicleId,
+    senderVehicleId,
     plateKey,
     displayPlate: 'HH-CR 2026',
     vehicleBrand: 'BMW',
@@ -156,6 +201,46 @@ describe('contact request stable vehicle identity rules', () => {
     await testEnv.clearFirestore();
     await seedPlate({allowContactRequests: false});
     await assertFails(
+      setDoc(doc(sender, 'contact_requests', requestId), requestData()),
+    );
+  });
+
+  test('requires a confirmed sender vehicle', async () => {
+    await seedPlate();
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(
+        context.firestore(),
+        'public_profiles',
+        senderUserId,
+        'vehicles',
+        senderVehicleId,
+      ), {isVerified: false}, {merge: true});
+    });
+    const sender = testEnv.authenticatedContext(senderUserId).firestore();
+    await assertFails(
+      setDoc(doc(sender, 'contact_requests', requestId), requestData()),
+    );
+  });
+
+  test('allows a vehicle-confirmed sender when that filter is selected', async () => {
+    await seedPlate();
+    await seedContactFilter('vehicleVerified');
+
+    await createValidRequest();
+  });
+
+  test('identity filter requires identity in addition to the confirmed vehicle', async () => {
+    await seedPlate();
+    await seedContactFilter('identityVerified');
+    await seedSenderIdentity({verified: false});
+    const sender = testEnv.authenticatedContext(senderUserId).firestore();
+
+    await assertFails(
+      setDoc(doc(sender, 'contact_requests', requestId), requestData()),
+    );
+
+    await seedSenderIdentity({verified: true});
+    await assertSucceeds(
       setDoc(doc(sender, 'contact_requests', requestId), requestData()),
     );
   });

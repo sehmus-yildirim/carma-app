@@ -114,8 +114,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final Map<String, XFile?> _documentFiles = {
     'Ausweis Vorderseite': null,
     'Ausweis Rückseite': null,
-    'Führerschein Vorderseite': null,
-    'Führerschein Rückseite': null,
     'Fahrzeugschein Vorderseite': null,
     'Fahrzeugschein Rückseite': null,
   };
@@ -123,8 +121,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final Map<String, String?> _documentRemoteUrlsByTitle = {
     'Ausweis Vorderseite': null,
     'Ausweis Rückseite': null,
-    'Führerschein Vorderseite': null,
-    'Führerschein Rückseite': null,
     'Fahrzeugschein Vorderseite': null,
     'Fahrzeugschein Rückseite': null,
   };
@@ -426,11 +422,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profilePhotoRemoved = false;
 
         for (final entry in documentFiles.entries) {
-          _documentFiles[entry.key] = entry.value;
+          if (_documentFiles.containsKey(entry.key)) {
+            _documentFiles[entry.key] = entry.value;
+          }
         }
 
         for (final entry in documentRemoteUrls.entries) {
-          _documentRemoteUrlsByTitle[entry.key] = entry.value;
+          if (_documentRemoteUrlsByTitle.containsKey(entry.key)) {
+            _documentRemoteUrlsByTitle[entry.key] = entry.value;
+          }
         }
 
         _isSubmittedForVerification =
@@ -2063,7 +2063,7 @@ class _ProfileNextStepCard extends StatelessWidget {
     }
 
     if (!allDocumentsUploaded) {
-      return 'Lade Ausweis, Führerschein und Fahrzeugschein hoch, damit du dein Profil einreichen kannst.';
+      return 'Lade Identitätsnachweis und Fahrzeugschein hoch, wenn du beide Verifizierungsstufen abschließen möchtest.';
     }
 
     return 'Alle Pflichtdaten sind vorhanden. Speichere dein Profil, um die Verifizierung einzureichen.';

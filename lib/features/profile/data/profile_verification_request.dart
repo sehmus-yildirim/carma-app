@@ -93,29 +93,27 @@ abstract final class ProfileVerificationDocumentKeys {
   static const identityExpiration = 'identity';
   static const driverLicenseExpiration = 'driverLicense';
 
-  static const requiredExpirationKeys = <String>[
-    identityExpiration,
-    driverLicenseExpiration,
-  ];
+  static const requiredExpirationKeys = <String>[identityExpiration];
 
   static const required = <String>[
     identityFront,
     identityBack,
-    driverLicenseFront,
-    driverLicenseBack,
     vehicleFront,
     vehicleBack,
+  ];
+
+  // Kept readable for existing verification requests. New flows never offer
+  // or submit driving-licence documents.
+  static const legacyDriverLicenseKeys = <String>[
+    driverLicenseFront,
+    driverLicenseBack,
   ];
 
   static const identityGroup = 'identity';
   static const driverLicenseGroup = 'driverLicense';
   static const vehicleGroup = 'vehicle';
 
-  static const groupKeys = <String>[
-    identityGroup,
-    driverLicenseGroup,
-    vehicleGroup,
-  ];
+  static const groupKeys = <String>[identityGroup, vehicleGroup];
 
   static const groups = <ProfileVerificationDocumentGroup>[
     ProfileVerificationDocumentGroup(
@@ -126,15 +124,6 @@ abstract final class ProfileVerificationDocumentKeys {
       frontKey: identityFront,
       backKey: identityBack,
       expirationKey: identityExpiration,
-    ),
-    ProfileVerificationDocumentGroup(
-      groupKey: driverLicenseGroup,
-      title: 'Führerschein',
-      subtitle: 'Gültiger Führerschein als zusätzlicher Identitätsnachweis.',
-      iconName: 'driverLicense',
-      frontKey: driverLicenseFront,
-      backKey: driverLicenseBack,
-      expirationKey: driverLicenseExpiration,
     ),
     ProfileVerificationDocumentGroup(
       groupKey: vehicleGroup,
@@ -153,8 +142,6 @@ abstract final class ProfileVerificationDocumentKeys {
     return <String>[
       identityFront,
       if (identityType.requiresBackSide) identityBack,
-      driverLicenseFront,
-      driverLicenseBack,
       vehicleFront,
       vehicleBack,
     ];
@@ -304,9 +291,7 @@ class ProfileVerificationRequest {
   // Read-only migration support. New requests never write download URLs.
   final Map<String, String?> legacyDocumentRemoteUrls;
 
-  bool get isLocked =>
-      status == ProfileVerificationStatus.pending ||
-      status == ProfileVerificationStatus.verified;
+  bool get isLocked => status == ProfileVerificationStatus.pending;
 
   List<String> get requiredDocumentKeys =>
       ProfileVerificationDocumentKeys.requiredFor(identityDocumentType);
@@ -321,6 +306,46 @@ class ProfileVerificationRequest {
 
   bool get hasAllRequiredDocuments =>
       completedDocumentCount == requiredDocumentKeys.length;
+
+  bool isGroupReady(String groupKey) {
+    final keys = ProfileVerificationDocumentKeys.keysForGroup(
+      groupKey,
+      identityDocumentType,
+    );
+    return keys.isNotEmpty &&
+        keys.every((key) {
+          final status = documentStatusFor(key);
+          return status == ProfileVerificationDocumentStatus.uploaded ||
+              status == ProfileVerificationDocumentStatus.verified;
+        });
+  }
+
+  List<String> get submittableGroups => ProfileVerificationDocumentKeys
+      .groupKeys
+      .where((groupKey) {
+        if (isGroupVerified(groupKey) || isGroupProtected(groupKey)) {
+          return false;
+        }
+        final keys = ProfileVerificationDocumentKeys.keysForGroup(
+          groupKey,
+          identityDocumentType,
+        );
+        return keys.isNotEmpty &&
+            keys.every(
+              (key) =>
+                  documentStatusFor(key) ==
+                  ProfileVerificationDocumentStatus.uploaded,
+            );
+      })
+      .toList(growable: false);
+
+  bool get isIdentityVerified =>
+      isGroupVerified(ProfileVerificationDocumentKeys.identityGroup);
+
+  bool get isVehicleVerified =>
+      isGroupVerified(ProfileVerificationDocumentKeys.vehicleGroup);
+
+  bool get isFullyVerified => isIdentityVerified && isVehicleVerified;
 
   bool canEditDocument(String key) {
     if (!requiredDocumentKeys.contains(key) &&

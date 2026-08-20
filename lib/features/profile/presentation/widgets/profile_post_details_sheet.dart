@@ -67,6 +67,8 @@ List<SocialPostComment> _buildDemoComments(SocialPost post) {
       .toList(growable: true);
 }
 
+enum ProfilePostEngagementView { likes, comments }
+
 class ProfilePostDetailsSheet extends StatefulWidget {
   const ProfilePostDetailsSheet({
     super.key,
@@ -85,6 +87,8 @@ class ProfilePostDetailsSheet extends StatefulWidget {
     required this.onArchive,
     required this.onDelete,
     required this.onShare,
+    this.initialEngagement,
+    this.engagementOnly = false,
   });
 
   final SocialPost post;
@@ -103,6 +107,8 @@ class ProfilePostDetailsSheet extends StatefulWidget {
   final VoidCallback onArchive;
   final VoidCallback onDelete;
   final VoidCallback onShare;
+  final ProfilePostEngagementView? initialEngagement;
+  final bool engagementOnly;
 
   @override
   State<ProfilePostDetailsSheet> createState() =>
@@ -113,13 +119,14 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
   final TextEditingController _commentController = TextEditingController();
   late final List<SocialPostComment> _demoComments;
   int _mediaIndex = 0;
-  _PostEngagementView? _engagementView;
+  ProfilePostEngagementView? _engagementView;
   bool _isSendingComment = false;
 
   @override
   void initState() {
     super.initState();
     _demoComments = _buildDemoComments(widget.post);
+    _engagementView = widget.initialEngagement;
   }
 
   @override
@@ -228,7 +235,7 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _showEngagement(_PostEngagementView view) {
+  void _showEngagement(ProfilePostEngagementView view) {
     setState(() {
       _engagementView = _engagementView == view ? null : view;
     });
@@ -250,6 +257,72 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
     final targetHeight = _engagementView != null || keyboardInset > 0
         ? maxHeight
         : math.min(maxHeight, dialogWidth + 170);
+    if (widget.engagementOnly && _engagementView != null) {
+      return AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.fromLTRB(14, 12, 14, 14 + keyboardInset),
+        child: SizedBox(
+          height: math.min(maxHeight, mediaQuery.size.height * 0.72),
+          child: GlassCard(
+            padding: const EdgeInsets.all(14),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _engagementView == ProfilePostEngagementView.likes
+                              ? 'Gefällt mir'
+                              : 'Kommentare',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Schließen',
+                        onPressed: () => Navigator.of(context).pop(),
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: _CommentsPanel(
+                      repository: widget.repository,
+                      post: post,
+                      isDemo: widget.isDemo,
+                      isPostOwner: widget.isOwner,
+                      viewerUserId: widget.viewerUserId,
+                      viewerDisplayName: widget.viewerDisplayName,
+                      viewerPhotoUrl: widget.viewerPhotoUrl,
+                      controller: _commentController,
+                      demoComments: _demoComments,
+                      isSending: _isSendingComment,
+                      view: _engagementView!,
+                      onSend: _sendComment,
+                      onDelete: _deleteComment,
+                      onReport: _reportComment,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
@@ -338,13 +411,14 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
                       userId: widget.viewerUserId,
                       isDemo: widget.isDemo,
                       likesVisible:
-                          _engagementView == _PostEngagementView.likes,
+                          _engagementView == ProfilePostEngagementView.likes,
                       commentsVisible:
-                          _engagementView == _PostEngagementView.comments,
+                          _engagementView == ProfilePostEngagementView.comments,
                       onLike: _toggleLike,
-                      onLikes: () => _showEngagement(_PostEngagementView.likes),
+                      onLikes: () =>
+                          _showEngagement(ProfilePostEngagementView.likes),
                       onComments: () =>
-                          _showEngagement(_PostEngagementView.comments),
+                          _showEngagement(ProfilePostEngagementView.comments),
                       onShare: widget.onShare,
                       isOwner: widget.isOwner && !widget.isDemo,
                       isPinned: post.isPinned,
@@ -363,6 +437,8 @@ class _ProfilePostDetailsSheetState extends State<ProfilePostDetailsSheet> {
                           isDemo: widget.isDemo,
                           isPostOwner: widget.isOwner,
                           viewerUserId: widget.viewerUserId,
+                          viewerDisplayName: widget.viewerDisplayName,
+                          viewerPhotoUrl: widget.viewerPhotoUrl,
                           controller: _commentController,
                           demoComments: _demoComments,
                           isSending: _isSendingComment,
@@ -423,8 +499,6 @@ class _PostHeader extends StatelessWidget {
     );
   }
 }
-
-enum _PostEngagementView { likes, comments }
 
 enum _PostOwnerAction { edit, pin, archive, delete }
 
@@ -702,7 +776,7 @@ class _PostInteractionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isDemo) {
       return _InteractionButtons(
-        likeCount: 18,
+        likeCount: 5,
         commentCount: 5,
         liked: false,
         likesVisible: likesVisible,
@@ -969,6 +1043,8 @@ class _CommentsPanel extends StatelessWidget {
     required this.isDemo,
     required this.isPostOwner,
     required this.viewerUserId,
+    required this.viewerDisplayName,
+    required this.viewerPhotoUrl,
     required this.controller,
     required this.demoComments,
     required this.isSending,
@@ -983,10 +1059,12 @@ class _CommentsPanel extends StatelessWidget {
   final bool isDemo;
   final bool isPostOwner;
   final String viewerUserId;
+  final String viewerDisplayName;
+  final String viewerPhotoUrl;
   final TextEditingController controller;
   final List<SocialPostComment> demoComments;
   final bool isSending;
-  final _PostEngagementView view;
+  final ProfilePostEngagementView view;
   final VoidCallback onSend;
   final ValueChanged<SocialPostComment> onDelete;
   final ValueChanged<SocialPostComment> onReport;
@@ -1004,7 +1082,7 @@ class _CommentsPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: _buildScrollableContent()),
-          if (view == _PostEngagementView.comments) ...[
+          if (view == ProfilePostEngagementView.comments) ...[
             const SizedBox(height: 8),
             Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
             const SizedBox(height: 8),
@@ -1051,7 +1129,7 @@ class _CommentsPanel extends StatelessWidget {
   }
 
   Widget _buildScrollableContent() {
-    if (view == _PostEngagementView.likes) {
+    if (view == ProfilePostEngagementView.likes) {
       if (isDemo) {
         return _LikesList(repository: repository, likes: _demoLikes);
       }
@@ -1070,6 +1148,8 @@ class _CommentsPanel extends StatelessWidget {
         post: post,
         comments: demoComments,
         viewerUserId: viewerUserId,
+        viewerDisplayName: viewerDisplayName,
+        viewerPhotoUrl: viewerPhotoUrl,
         isDemo: true,
         isPostOwner: isPostOwner,
         onDelete: onDelete,
@@ -1084,6 +1164,8 @@ class _CommentsPanel extends StatelessWidget {
         post: post,
         comments: snapshot.data ?? const <SocialPostComment>[],
         viewerUserId: viewerUserId,
+        viewerDisplayName: viewerDisplayName,
+        viewerPhotoUrl: viewerPhotoUrl,
         isDemo: false,
         isPostOwner: isPostOwner,
         onDelete: onDelete,
@@ -1099,6 +1181,8 @@ class _CommentsList extends StatelessWidget {
     required this.post,
     required this.comments,
     required this.viewerUserId,
+    required this.viewerDisplayName,
+    required this.viewerPhotoUrl,
     required this.isDemo,
     required this.isPostOwner,
     required this.onDelete,
@@ -1109,6 +1193,8 @@ class _CommentsList extends StatelessWidget {
   final SocialPost post;
   final List<SocialPostComment> comments;
   final String viewerUserId;
+  final String viewerDisplayName;
+  final String viewerPhotoUrl;
   final bool isDemo;
   final bool isPostOwner;
   final ValueChanged<SocialPostComment> onDelete;
@@ -1138,6 +1224,8 @@ class _CommentsList extends StatelessWidget {
           post: post,
           comment: comment,
           viewerUserId: viewerUserId,
+          viewerDisplayName: viewerDisplayName,
+          viewerPhotoUrl: viewerPhotoUrl,
           isDemo: isDemo,
           canDelete: isPostOwner || comment.authorUserId == viewerUserId,
           onDelete: () => onDelete(comment),
@@ -1154,6 +1242,8 @@ class _CommentTile extends StatefulWidget {
     required this.post,
     required this.comment,
     required this.viewerUserId,
+    required this.viewerDisplayName,
+    required this.viewerPhotoUrl,
     required this.isDemo,
     required this.canDelete,
     required this.onDelete,
@@ -1164,6 +1254,8 @@ class _CommentTile extends StatefulWidget {
   final SocialPost post;
   final SocialPostComment comment;
   final String viewerUserId;
+  final String viewerDisplayName;
+  final String viewerPhotoUrl;
   final bool isDemo;
   final bool canDelete;
   final VoidCallback onDelete;
@@ -1174,12 +1266,171 @@ class _CommentTile extends StatefulWidget {
 }
 
 class _CommentTileState extends State<_CommentTile> {
+  final TextEditingController _replyController = TextEditingController();
+  final FocusNode _replyFocusNode = FocusNode();
   SocialPostCommentReaction? _demoReaction;
+  late final List<SocialPostCommentReply> _demoReplies;
+  bool _showReplyComposer = false;
+  bool _showAllReplies = false;
+  bool _isSendingReply = false;
   final Map<SocialPostCommentReaction, int> _demoCounts = {
     SocialPostCommentReaction.like: 2,
     SocialPostCommentReaction.dislike: 0,
     SocialPostCommentReaction.heart: 1,
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _demoReplies = widget.comment.id == 'demo-comment-mila'
+        ? <SocialPostCommentReply>[
+            SocialPostCommentReply(
+              id: 'demo-reply-emre',
+              commentId: widget.comment.id,
+              postId: widget.post.id,
+              postOwnerUserId: widget.post.ownerUserId,
+              authorUserId: 'demo-like-emre',
+              authorDisplayName: 'Emre A.',
+              authorPhotoUrl: '',
+              text: 'Finde ich auch, besonders mit den Felgen.',
+              createdAt: DateTime(2026, 8, 17, 18, 45),
+              isDeleted: false,
+            ),
+            SocialPostCommentReply(
+              id: 'demo-reply-aylin',
+              commentId: widget.comment.id,
+              postId: widget.post.id,
+              postOwnerUserId: widget.post.ownerUserId,
+              authorUserId: 'demo-like-aylin',
+              authorDisplayName: 'Aylin D.',
+              authorPhotoUrl: '',
+              text: 'Die Farbe wirkt auf dem Bild richtig stark.',
+              createdAt: DateTime(2026, 8, 17, 18, 47),
+              isDeleted: false,
+            ),
+            SocialPostCommentReply(
+              id: 'demo-reply-jonas',
+              commentId: widget.comment.id,
+              postId: widget.post.id,
+              postOwnerUserId: widget.post.ownerUserId,
+              authorUserId: 'demo-like-jonas',
+              authorDisplayName: 'Jonas R.',
+              authorPhotoUrl: '',
+              text: 'Ein sehr sauberer Auftritt.',
+              createdAt: DateTime(2026, 8, 17, 18, 49),
+              isDeleted: false,
+            ),
+          ]
+        : <SocialPostCommentReply>[];
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    _replyFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _openReplyComposer() {
+    setState(() => _showReplyComposer = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _replyFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> _sendReply() async {
+    final text = _replyController.text.trim();
+    if (text.isEmpty || _isSendingReply) return;
+    if (widget.isDemo) {
+      setState(() {
+        _demoReplies.add(
+          SocialPostCommentReply(
+            id: 'demo-reply-${DateTime.now().microsecondsSinceEpoch}',
+            commentId: widget.comment.id,
+            postId: widget.post.id,
+            postOwnerUserId: widget.post.ownerUserId,
+            authorUserId: widget.viewerUserId,
+            authorDisplayName: widget.viewerDisplayName,
+            authorPhotoUrl: widget.viewerPhotoUrl,
+            text: text,
+            createdAt: DateTime.now(),
+            isDeleted: false,
+          ),
+        );
+        _showAllReplies = true;
+        _replyController.clear();
+      });
+      _replyFocusNode.unfocus();
+      return;
+    }
+    setState(() => _isSendingReply = true);
+    try {
+      await widget.repository.addCommentReply(
+        post: widget.post,
+        comment: widget.comment,
+        authorUserId: widget.viewerUserId,
+        authorDisplayName: widget.viewerDisplayName,
+        authorPhotoUrl: widget.viewerPhotoUrl,
+        text: text,
+      );
+      _replyController.clear();
+      _replyFocusNode.unfocus();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Antwort konnte gerade nicht gespeichert werden.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSendingReply = false);
+    }
+  }
+
+  Future<void> _deleteReply(SocialPostCommentReply reply) async {
+    if (widget.isDemo) {
+      setState(() => _demoReplies.removeWhere((item) => item.id == reply.id));
+      return;
+    }
+    try {
+      await widget.repository.deleteCommentReply(
+        post: widget.post,
+        comment: widget.comment,
+        reply: reply,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Antwort konnte nicht gelöscht werden.')),
+      );
+    }
+  }
+
+  Future<void> _reportReply(SocialPostCommentReply reply) async {
+    if (widget.isDemo) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Beispielantwort wurde gemeldet.')),
+      );
+      return;
+    }
+    try {
+      await widget.repository.reportCommentReply(
+        post: widget.post,
+        comment: widget.comment,
+        reply: reply,
+        reporterUserId: widget.viewerUserId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Antwort wurde gemeldet.')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Antwort konnte nicht gemeldet werden.')),
+      );
+    }
+  }
 
   Future<void> _react(SocialPostCommentReaction reaction) async {
     if (widget.isDemo) {
@@ -1216,6 +1467,92 @@ class _CommentTileState extends State<_CommentTile> {
     }
   }
 
+  Widget _buildReplies(List<SocialPostCommentReply> replies) {
+    if (replies.isEmpty) return const SizedBox.shrink();
+    final visibleReplies = _showAllReplies
+        ? replies
+        : replies.take(2).toList(growable: false);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: 12, right: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final reply in visibleReplies)
+            _CommentReplyTile(
+              repository: widget.repository,
+              reply: reply,
+              canDelete:
+                  widget.canDelete || reply.authorUserId == widget.viewerUserId,
+              onDelete: () => _deleteReply(reply),
+              onReport: () => _reportReply(reply),
+            ),
+          if (replies.length > 2)
+            TextButton(
+              onPressed: () =>
+                  setState(() => _showAllReplies = !_showAllReplies),
+              style: TextButton.styleFrom(
+                foregroundColor: CaRismaDesignTokens.textSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(0, 34),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                _showAllReplies
+                    ? 'Weniger Antworten anzeigen'
+                    : '${replies.length - 2} weitere Antworten anzeigen',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyComposer(String recipientName) {
+    if (!_showReplyComposer) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _replyController,
+              focusNode: _replyFocusNode,
+              maxLength: 500,
+              minLines: 1,
+              maxLines: 2,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendReply(),
+              decoration: InputDecoration(
+                hintText: 'Antwort an $recipientName',
+                counterText: '',
+                isDense: true,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton.outlined(
+            tooltip: 'Antwort senden',
+            onPressed: _isSendingReply ? null : _sendReply,
+            style: IconButton.styleFrom(
+              foregroundColor: CaRismaDesignTokens.blueBright,
+              side: const BorderSide(
+                color: CaRismaDesignTokens.bluePrimary,
+                width: 1.3,
+              ),
+            ),
+            icon: _isSendingReply
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send_rounded, size: 19),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<SocialPostPublicIdentity>(
@@ -1229,97 +1566,273 @@ class _CommentTileState extends State<_CommentTile> {
         photoUrl: widget.comment.authorPhotoUrl,
       ),
       builder: (context, identitySnapshot) {
-        final identity = identitySnapshot.data!;
+        final identity =
+            identitySnapshot.data ??
+            SocialPostPublicIdentity(
+              displayName: widget.comment.authorDisplayName.trim().isEmpty
+                  ? 'plaqa Nutzer'
+                  : widget.comment.authorDisplayName.trim(),
+              photoUrl: widget.comment.authorPhotoUrl.trim(),
+            );
         return Padding(
           padding: const EdgeInsets.only(bottom: 9),
-          child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _PostAvatar(
-            name: identity.displayName,
-            photoUrl: identity.photoUrl,
-            radius: 18,
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  identity.displayName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.comment.text,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textSecondary,
-                    fontWeight: FontWeight.w600,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                if (widget.isDemo)
-                  _CommentReactionBar(
-                    counts: _demoCounts,
-                    selected: _demoReaction,
-                    onSelected: _react,
-                  )
-                else
-                  StreamBuilder<Map<SocialPostCommentReaction, int>>(
-                    stream: widget.repository.watchCommentReactionCounts(
-                      post: widget.post,
-                      comment: widget.comment,
-                    ),
-                    initialData: const <SocialPostCommentReaction, int>{},
-                    builder: (context, countsSnapshot) =>
-                        StreamBuilder<SocialPostCommentReaction?>(
-                          stream: widget.repository
-                              .watchCommentReactionForViewer(
-                                post: widget.post,
-                                comment: widget.comment,
-                                viewerUserId: widget.viewerUserId,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Stack(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _PostAvatar(
+                        name: identity.displayName,
+                        photoUrl: identity.photoUrl,
+                        radius: 18,
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 34),
+                              child: Text(
+                                identity.displayName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
-                          builder: (context, viewerSnapshot) =>
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.comment.text,
+                              style: const TextStyle(
+                                color: CaRismaDesignTokens.textSecondary,
+                                fontWeight: FontWeight.w600,
+                                height: 1.3,
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            if (widget.isDemo)
                               _CommentReactionBar(
-                                counts:
-                                    countsSnapshot.data ??
-                                    const <SocialPostCommentReaction, int>{},
-                                selected: viewerSnapshot.data,
+                                counts: _demoCounts,
+                                selected: _demoReaction,
                                 onSelected: _react,
+                              )
+                            else
+                              StreamBuilder<
+                                Map<SocialPostCommentReaction, int>
+                              >(
+                                stream: widget.repository
+                                    .watchCommentReactionCounts(
+                                      post: widget.post,
+                                      comment: widget.comment,
+                                    ),
+                                initialData:
+                                    const <SocialPostCommentReaction, int>{},
+                                builder: (context, countsSnapshot) =>
+                                    StreamBuilder<SocialPostCommentReaction?>(
+                                      stream: widget.repository
+                                          .watchCommentReactionForViewer(
+                                            post: widget.post,
+                                            comment: widget.comment,
+                                            viewerUserId: widget.viewerUserId,
+                                          ),
+                                      builder: (context, viewerSnapshot) =>
+                                          _CommentReactionBar(
+                                            counts:
+                                                countsSnapshot.data ??
+                                                const <
+                                                  SocialPostCommentReaction,
+                                                  int
+                                                >{},
+                                            selected: viewerSnapshot.data,
+                                            onSelected: _react,
+                                          ),
+                                    ),
                               ),
+                            TextButton(
+                              onPressed: _openReplyComposer,
+                              style: TextButton.styleFrom(
+                                foregroundColor:
+                                    CaRismaDesignTokens.textSecondary,
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 32),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Text(
+                                'Antworten',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
                         ),
+                      ),
+                    ],
                   ),
-              ],
-            ),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'Kommentaroptionen',
-            color: CaRismaDesignTokens.surface1,
-            surfaceTintColor: Colors.transparent,
-            icon: const Icon(
-              Icons.more_vert_rounded,
-              color: CaRismaDesignTokens.textMuted,
-              size: 19,
-            ),
-            onSelected: (value) =>
-                value == 'delete' ? widget.onDelete() : widget.onReport(),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'report', child: Text('Melden')),
-              if (widget.canDelete)
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Text(
-                    'Löschen',
-                    style: TextStyle(color: Color(0xFFEF4444)),
+                  Positioned(
+                    top: -8,
+                    right: -4,
+                    child: PopupMenuButton<String>(
+                      tooltip: 'Kommentaroptionen',
+                      color: CaRismaDesignTokens.surface1,
+                      surfaceTintColor: Colors.transparent,
+                      padding: EdgeInsets.zero,
+                      child: const SizedBox.square(
+                        dimension: 34,
+                        child: Icon(
+                          Icons.more_vert_rounded,
+                          color: CaRismaDesignTokens.textMuted,
+                          size: 19,
+                        ),
+                      ),
+                      onSelected: (value) => value == 'delete'
+                          ? widget.onDelete()
+                          : widget.onReport(),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'report',
+                          child: Text('Melden'),
+                        ),
+                        if (widget.canDelete)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text(
+                              'Löschen',
+                              style: TextStyle(color: Color(0xFFEF4444)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (widget.isDemo)
+                _buildReplies(_demoReplies)
+              else
+                StreamBuilder<List<SocialPostCommentReply>>(
+                  stream: widget.repository.watchCommentReplies(
+                    post: widget.post,
+                    comment: widget.comment,
+                  ),
+                  initialData: const <SocialPostCommentReply>[],
+                  builder: (context, snapshot) => _buildReplies(
+                    snapshot.data ?? const <SocialPostCommentReply>[],
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.only(left: 45),
+                child: _buildReplyComposer(identity.displayName),
+              ),
             ],
           ),
-        ],
+        );
+      },
+    );
+  }
+}
+
+class _CommentReplyTile extends StatelessWidget {
+  const _CommentReplyTile({
+    required this.repository,
+    required this.reply,
+    required this.canDelete,
+    required this.onDelete,
+    required this.onReport,
+  });
+
+  final SocialPostRepository repository;
+  final SocialPostCommentReply reply;
+  final bool canDelete;
+  final VoidCallback onDelete;
+  final VoidCallback onReport;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SocialPostPublicIdentity>(
+      stream: repository.watchPublicIdentity(
+        userId: reply.authorUserId,
+        fallbackDisplayName: reply.authorDisplayName,
+        fallbackPhotoUrl: reply.authorPhotoUrl,
+      ),
+      initialData: SocialPostPublicIdentity(
+        displayName: reply.authorDisplayName,
+        photoUrl: reply.authorPhotoUrl,
+      ),
+      builder: (context, snapshot) {
+        final identity =
+            snapshot.data ??
+            SocialPostPublicIdentity(
+              displayName: reply.authorDisplayName,
+              photoUrl: reply.authorPhotoUrl,
+            );
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _PostAvatar(
+                name: identity.displayName,
+                photoUrl: identity.photoUrl,
+                radius: 12,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      identity.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      reply.text,
+                      style: const TextStyle(
+                        color: CaRismaDesignTokens.textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Antwortoptionen',
+                color: CaRismaDesignTokens.surface1,
+                surfaceTintColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                child: const SizedBox.square(
+                  dimension: 26,
+                  child: Icon(
+                    Icons.more_vert_rounded,
+                    color: CaRismaDesignTokens.textMuted,
+                    size: 17,
+                  ),
+                ),
+                onSelected: (value) =>
+                    value == 'delete' ? onDelete() : onReport(),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'report', child: Text('Melden')),
+                  if (canDelete)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text(
+                        'Löschen',
+                        style: TextStyle(color: Color(0xFFEF4444)),
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
         );
       },
@@ -1458,7 +1971,14 @@ class _LikesList extends StatelessWidget {
             photoUrl: like.photoUrl,
           ),
           builder: (context, identitySnapshot) {
-            final identity = identitySnapshot.data!;
+            final identity =
+                identitySnapshot.data ??
+                SocialPostPublicIdentity(
+                  displayName: like.displayName.trim().isEmpty
+                      ? 'plaqa Nutzer'
+                      : like.displayName.trim(),
+                  photoUrl: like.photoUrl.trim(),
+                );
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 9),
               child: Row(

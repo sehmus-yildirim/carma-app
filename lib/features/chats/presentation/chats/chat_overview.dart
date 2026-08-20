@@ -210,6 +210,7 @@ class _ChatsOverview extends StatelessWidget {
     required this.onOpenLocalChat,
     required this.onAddOwnStory,
     required this.onOpenStory,
+    required this.showStories,
   });
 
   final List<ChatRecord> chats;
@@ -235,6 +236,7 @@ class _ChatsOverview extends StatelessWidget {
   final ValueChanged<List<ChatRecord>> onAddOwnStory;
   final void Function(ChatStoryRecord story, List<ChatStoryRecord> stories)
   onOpenStory;
+  final bool showStories;
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +321,9 @@ class _ChatsOverview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!isKeyboardOpen && selectedListView == _ChatListView.messages) ...[
+        if (showStories &&
+            !isKeyboardOpen &&
+            selectedListView == _ChatListView.messages) ...[
           _ChatStoriesStrip(
             chats: [...visibleChats, ...visibleArchivedChats],
             stories: stories,
@@ -1092,6 +1096,155 @@ class _InlineTabCountBadge extends StatelessWidget {
   }
 }
 
+class ProfileStoryStrip extends StatelessWidget {
+  const ProfileStoryStrip({
+    super.key,
+    required this.stories,
+    required this.currentUserId,
+    required this.currentUserPhotoUrl,
+    required this.currentUserDisplayName,
+    required this.isAddingOwnStory,
+    required this.onAddOwnStory,
+    required this.onOpenStory,
+  });
+
+  final List<ChatStoryRecord> stories;
+  final String currentUserId;
+  final String currentUserPhotoUrl;
+  final String currentUserDisplayName;
+  final bool isAddingOwnStory;
+  final VoidCallback onAddOwnStory;
+  final void Function(ChatStoryRecord story, List<ChatStoryRecord> stories)
+  onOpenStory;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedUserId = currentUserId.trim();
+    final ownStories =
+        stories
+            .where(
+              (story) =>
+                  story.ownerUserId.trim() == normalizedUserId &&
+                  !story.isExpired &&
+                  story.hasRenderableMedia,
+            )
+            .toList(growable: true)
+          ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final ownStory = ownStories.isEmpty ? null : ownStories.last;
+    final storiesByOwner = <String, List<ChatStoryRecord>>{};
+    for (final story in stories) {
+      final ownerUserId = story.ownerUserId.trim();
+      if (ownerUserId.isEmpty ||
+          ownerUserId == normalizedUserId ||
+          story.isExpired ||
+          !story.hasRenderableMedia) {
+        continue;
+      }
+      storiesByOwner.putIfAbsent(ownerUserId, () => []).add(story);
+    }
+    for (final ownerStories in storiesByOwner.values) {
+      ownerStories.sort(
+        (left, right) => left.createdAt.compareTo(right.createdAt),
+      );
+    }
+    final visibleGroups = storiesByOwner.values.toList(growable: false)
+      ..sort((left, right) {
+        final leftHasNew = left.any(
+          (story) => !story.viewedAtBy.containsKey(normalizedUserId),
+        );
+        final rightHasNew = right.any(
+          (story) => !story.viewedAtBy.containsKey(normalizedUserId),
+        );
+        if (leftHasNew != rightHasNew) return leftHasNew ? -1 : 1;
+        return right.last.createdAt.compareTo(left.last.createdAt);
+      });
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          height: 124,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: CaRismaDesignTokens.card,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: visibleGroups.take(16).length + 1,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                final ownStoryViewCount = ownStories
+                    .expand((story) => story.viewedAtBy.keys)
+                    .where((viewerId) => viewerId.trim() != normalizedUserId)
+                    .toSet()
+                    .length;
+                return Align(
+                  alignment: Alignment.center,
+                  child: _StoryBubble(
+                    label: 'Deine Story',
+                    fallbackLabel: currentUserDisplayName,
+                    imageUrl: currentUserPhotoUrl.trim().isEmpty
+                        ? null
+                        : currentUserPhotoUrl.trim(),
+                    preferAvatarFallback: true,
+                    isVideo: ownStory?.isVideo ?? false,
+                    isOwnStory: true,
+                    hasStory: ownStory != null,
+                    isViewed: true,
+                    createdAt: ownStory?.createdAt,
+                    viewCount: ownStoryViewCount,
+                    isBusy: isAddingOwnStory,
+                    onTap: isAddingOwnStory
+                        ? () {}
+                        : ownStory == null
+                        ? onAddOwnStory
+                        : () => onOpenStory(ownStory, ownStories),
+                    onAddTap: isAddingOwnStory ? null : onAddOwnStory,
+                  ),
+                );
+              }
+
+              final ownerStories = visibleGroups[index - 1];
+              ChatStoryRecord? firstUnviewed;
+              for (final candidate in ownerStories) {
+                if (!candidate.viewedAtBy.containsKey(normalizedUserId)) {
+                  firstUnviewed = candidate;
+                  break;
+                }
+              }
+              final story = firstUnviewed ?? ownerStories.last;
+              final storyImageUrl =
+                  story.ownerPhotoUrl?.trim().isNotEmpty == true
+                  ? story.ownerPhotoUrl
+                  : null;
+              return Align(
+                alignment: Alignment.center,
+                child: _StoryBubble(
+                  label: story.ownerDisplayName,
+                  fallbackLabel: story.ownerDisplayName,
+                  imageUrl: storyImageUrl,
+                  preferAvatarFallback: true,
+                  isVideo: story.isVideo,
+                  hasStory: true,
+                  isViewed: ownerStories.every(
+                    (item) => item.viewedAtBy.containsKey(normalizedUserId),
+                  ),
+                  createdAt: story.createdAt,
+                  onTap: () => onOpenStory(story, ownerStories),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatStoriesStrip extends StatelessWidget {
   const _ChatStoriesStrip({
     required this.chats,
@@ -1258,12 +1411,14 @@ class _ChatStoriesStrip extends StatelessWidget {
               final storyImageUrl =
                   story.ownerPhotoUrl?.trim().isNotEmpty == true
                   ? story.ownerPhotoUrl
-                  : story.imageUrl;
+                  : null;
               return Align(
                 alignment: Alignment.center,
                 child: _StoryBubble(
                   label: story.ownerDisplayName,
+                  fallbackLabel: story.ownerDisplayName,
                   imageUrl: storyImageUrl,
+                  preferAvatarFallback: true,
                   isVideo: story.isVideo,
                   hasStory: true,
                   isViewed: ownerStories.every(
@@ -1318,6 +1473,13 @@ class _StoryBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final viewCountLabel = viewCount > 99 ? '99+' : '$viewCount';
     final isNewStory = hasStory && !isViewed && !isOwnStory;
+    final semanticsLabel = isOwnStory
+        ? hasStory
+              ? 'Deine Story öffnen'
+              : 'Deine Story hinzufügen'
+        : isViewed
+        ? 'Gesehene Story von $label'
+        : 'Neue Story von $label';
     final ringGradient = hasStory
         ? isNewStory || isOwnStory
               ? const LinearGradient(
@@ -1335,214 +1497,222 @@ class _StoryBubble extends StatelessWidget {
                 )
         : null;
 
-    return SizedBox(
-      width: 94,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        splashFactory: NoSplash.splashFactory,
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 78,
-                  height: 78,
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: ringGradient,
-                    color: hasStory
-                        ? null
-                        : Colors.white.withValues(alpha: 0.10),
-                    boxShadow: isNewStory
-                        ? [
-                            BoxShadow(
-                              color: _carismaBlueLight.withValues(alpha: 0.26),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ]
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.28),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                  ),
-                  child: ClipOval(
-                    child: isBusy
-                        ? Container(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            child: const Center(
-                              child: SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.4,
-                                  color: Colors.white,
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      child: SizedBox(
+        width: 94,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: Column(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 78,
+                    height: 78,
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: ringGradient,
+                      color: hasStory
+                          ? null
+                          : Colors.white.withValues(alpha: 0.10),
+                      boxShadow: isNewStory
+                          ? [
+                              BoxShadow(
+                                color: _carismaBlueLight.withValues(
+                                  alpha: 0.26,
+                                ),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ]
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.28),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                    ),
+                    child: ClipOval(
+                      child: isBusy
+                          ? Container(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.4,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
+                            )
+                          : hasStory && imageUrl?.trim().isNotEmpty == true
+                          ? Image(
+                              image: _storyImageProvider(imageUrl!.trim()),
+                              width: 72,
+                              height: 72,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  isVideo && !preferAvatarFallback
+                                  ? const _StoryVideoBubblePlaceholder()
+                                  : _AvatarCircle(
+                                      size: 72,
+                                      imageUrl: null,
+                                      iconSize: 38,
+                                      fallbackLabel: fallbackLabel ?? label,
+                                    ),
+                            )
+                          : hasStory && isVideo && !preferAvatarFallback
+                          ? const _StoryVideoBubblePlaceholder()
+                          : _AvatarCircle(
+                              size: 72,
+                              imageUrl: imageUrl,
+                              iconSize: 38,
+                              fallbackLabel: fallbackLabel ?? label,
                             ),
-                          )
-                        : hasStory && imageUrl?.trim().isNotEmpty == true
-                        ? Image.network(
-                            imageUrl!.trim(),
-                            width: 72,
-                            height: 72,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                isVideo && !preferAvatarFallback
-                                ? const _StoryVideoBubblePlaceholder()
-                                : _AvatarCircle(
-                                    size: 72,
-                                    imageUrl: null,
-                                    iconSize: 38,
-                                    fallbackLabel: fallbackLabel ?? label,
-                                  ),
-                          )
-                        : hasStory && isVideo && !preferAvatarFallback
-                        ? const _StoryVideoBubblePlaceholder()
-                        : _AvatarCircle(
-                            size: 72,
-                            imageUrl: imageUrl,
-                            iconSize: 38,
-                            fallbackLabel: fallbackLabel ?? label,
-                          ),
+                    ),
                   ),
-                ),
-                if (isOwnStory)
-                  Positioned(
-                    right: -12,
-                    bottom: -11,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onAddTap,
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: Center(
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _carismaBlue,
-                              border: Border.all(
-                                color: const Color(0xFF101827),
-                                width: 3,
+                  if (isOwnStory)
+                    Positioned(
+                      right: -12,
+                      bottom: -11,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onAddTap,
+                        child: SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Center(
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _carismaBlue,
+                                border: Border.all(
+                                  color: const Color(0xFF101827),
+                                  width: 3,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.add_rounded,
+                                color: Colors.white,
+                                size: 16,
                               ),
                             ),
-                            child: const Icon(
-                              Icons.add_rounded,
-                              color: Colors.white,
-                              size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (hasStory && !isViewed && !isOwnStory)
+                    Positioned(
+                      right: -7,
+                      top: -3,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: _carismaBlueLight,
+                          border: Border.all(color: const Color(0xFF101827)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _carismaBlueLight.withValues(alpha: 0.36),
+                              blurRadius: 8,
                             ),
-                          ),
+                          ],
                         ),
-                      ),
-                    ),
-                  ),
-                if (hasStory && !isViewed && !isOwnStory)
-                  Positioned(
-                    right: -7,
-                    top: -3,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: _carismaBlueLight,
-                        border: Border.all(color: const Color(0xFF101827)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _carismaBlueLight.withValues(alpha: 0.36),
-                            blurRadius: 8,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
                           ),
-                        ],
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        child: Text(
-                          'Neu',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (isOwnStory && hasStory && viewCount > 0)
-                  Positioned(
-                    left: -4,
-                    top: -2,
-                    child: Container(
-                      height: 22,
-                      constraints: const BoxConstraints(minWidth: 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 7),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: const Color(0xFF101827).withValues(alpha: 0.92),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.18),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.24),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.visibility_rounded,
-                            color: Colors.white.withValues(alpha: 0.82),
-                            size: 12,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            viewCountLabel,
-                            style: const TextStyle(
+                          child: Text(
+                            'Neu',
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: 9,
                               fontWeight: FontWeight.w900,
                               height: 1,
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 7),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: hasStory && (!isViewed || isOwnStory)
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.78),
-                fontWeight: hasStory && (!isViewed || isOwnStory)
-                    ? FontWeight.w900
-                    : FontWeight.w800,
-                fontSize: 12.2,
-                height: 1.05,
+                  if (isOwnStory && hasStory && viewCount > 0)
+                    Positioned(
+                      left: -4,
+                      top: -2,
+                      child: Container(
+                        height: 22,
+                        constraints: const BoxConstraints(minWidth: 30),
+                        padding: const EdgeInsets.symmetric(horizontal: 7),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: const Color(
+                            0xFF101827,
+                          ).withValues(alpha: 0.92),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.24),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.visibility_rounded,
+                              color: Colors.white.withValues(alpha: 0.82),
+                              size: 12,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              viewCountLabel,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                height: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 7),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: hasStory && (!isViewed || isOwnStory)
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.78),
+                  fontWeight: hasStory && (!isViewed || isOwnStory)
+                      ? FontWeight.w900
+                      : FontWeight.w800,
+                  fontSize: 12.2,
+                  height: 1.05,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

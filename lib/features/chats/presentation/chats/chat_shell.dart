@@ -2542,6 +2542,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
               onOpenLocalChat: _openLocalChat,
               onAddOwnStory: _addOwnStory,
               onOpenStory: _openStory,
+              showStories: false,
             );
           },
         );

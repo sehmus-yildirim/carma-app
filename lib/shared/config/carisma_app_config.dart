@@ -20,6 +20,10 @@ class CaRismaAppConfig {
   static const bool useMockPlateSearch = kDebugMode;
   static const int defaultSearchRadiusKm = 5;
 
+  // Launch setting: keep the quota implementation available, but do not
+  // restrict contact requests while the community is being established.
+  static const bool enforceMonthlyContactRequestLimit = false;
+
   static const String firebaseRegion = 'europe-west3';
 
   static String get appVersionLabel {

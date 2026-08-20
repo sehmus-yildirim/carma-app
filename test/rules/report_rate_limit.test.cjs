@@ -116,9 +116,18 @@ describe('server-side report limits', () => {
     );
   });
 
-  test('accepts the first report and writes all documents atomically', async () => {
+  test('basis account can report without verification documents', async () => {
     await seedPlate();
     const now = Timestamp.fromMillis(1_800_000_000_000);
+
+    assert.equal(
+      (await db.doc(`users/${senderUserId}/profiles/main`).get()).exists,
+      false,
+    );
+    assert.equal(
+      (await db.doc(`verification_requests/${senderUserId}`).get()).exists,
+      false,
+    );
 
     const result = await submit({ reportId: 'rate-first', now });
 

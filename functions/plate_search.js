@@ -137,6 +137,17 @@ async function loadVisibilitySettings(firestore, userId) {
   }
 }
 
+async function loadPublicIdentityStatus(firestore, userId) {
+  try {
+    const snapshot = await firestore.doc(`public_profiles/${userId}`).get();
+    const data = snapshot.exists ? snapshot.data() || {} : {};
+    return safeString(data.verificationStatus) === "verified" ||
+      data.isVerified === true;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function searchPlateDocument({
   firestore,
   requesterUserId,
@@ -181,15 +192,16 @@ async function searchPlateDocument({
   if (ownerUserId.length === 0 || vehicleId.length === 0 ||
       ownerUserId === userId ||
       data.isActive !== true || data.isDeleted !== false ||
+      data.isVerified !== true ||
       data.allowContactRequests !== true ||
       storedCountryCode !== countryCode || storedPlateKey !== plateKey) {
     return notFoundResult();
   }
 
-  const visibilitySettings = await loadVisibilitySettings(
-    firestore,
-    ownerUserId,
-  );
+  const [visibilitySettings, ownerIdentityVerified] = await Promise.all([
+    loadVisibilitySettings(firestore, ownerUserId),
+    loadPublicIdentityStatus(firestore, ownerUserId),
+  ]);
   const settingsAllowContactRequests =
     visibilitySettings.allowContactRequests !== false;
   const settingsPlateSearchVisibility =
@@ -236,8 +248,7 @@ async function searchPlateDocument({
     displayName: safeString(data.displayName) || null,
     profilePhotoUrl:
       safeString(data.profilePhotoUrl || data.photoUrl) || null,
-    isVerified: safeString(data.verificationStatus) === "verified" ||
-      data.isVerified === true,
+    isVerified: ownerIdentityVerified,
     distanceKm: Math.round(distanceKm * 100) / 100,
     vehicleId,
     plateKey,

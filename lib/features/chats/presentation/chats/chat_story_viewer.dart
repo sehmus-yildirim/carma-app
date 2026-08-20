@@ -11,9 +11,6 @@ class _StoryViewerDialog extends StatefulWidget {
     required this.onOpenSticker,
     required this.onReplyStory,
     required this.onVoteStoryPoll,
-    this.allowReplies = true,
-    this.allowOwnerActions = true,
-    this.enableStickerAction = true,
   });
 
   final List<ChatStoryRecord> stories;
@@ -26,9 +23,6 @@ class _StoryViewerDialog extends StatefulWidget {
   final Future<void> Function(ChatStoryRecord story, String text) onReplyStory;
   final Future<bool> Function(ChatStoryRecord story, int optionIndex)
   onVoteStoryPoll;
-  final bool allowReplies;
-  final bool allowOwnerActions;
-  final bool enableStickerAction;
 
   @override
   State<_StoryViewerDialog> createState() => _StoryViewerDialogState();
@@ -37,11 +31,8 @@ class _StoryViewerDialog extends StatefulWidget {
 class _StoryViewerDialogState extends State<_StoryViewerDialog>
     with SingleTickerProviderStateMixin {
   late final AnimationController _progressController;
-  final ProfileRepository _profileRepository = ProfileRepository();
   final TextEditingController _replyController = TextEditingController();
   final FocusNode _replyFocusNode = FocusNode();
-  final Map<String, String> _vehicleLabelByOwnerUserId = <String, String>{};
-  final Set<String> _loadingVehicleOwnerUserIds = <String>{};
   Timer? _expirationTimer;
   late final List<ChatStoryRecord> _stories;
   late int _storyIndex;
@@ -49,6 +40,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   bool _isStoryPaused = false;
   bool _isLocallyMuted = false;
   bool _isSendingReply = false;
+  bool _showQuickReactions = false;
   String? _localMuteStoryId;
   double _verticalDragOffset = 0;
 
@@ -92,9 +84,6 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
           ..addStatusListener(_handleProgressStatus)
           ..forward();
     _replyFocusNode.addListener(_handleReplyFocusChanged);
-    if (_stories.isNotEmpty) {
-      unawaited(_loadStoryOwnerVehicleLabel(_story));
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -227,51 +216,9 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     setState(() {
       _storyIndex = index;
     });
-    unawaited(_loadStoryOwnerVehicleLabel(_story));
     _replyController.clear();
     widget.onStoryVisible(_story);
     _restartProgress();
-  }
-
-  Future<void> _loadStoryOwnerVehicleLabel(ChatStoryRecord story) async {
-    final ownerUserId = story.ownerUserId.trim();
-
-    if (ownerUserId.isEmpty ||
-        _vehicleLabelByOwnerUserId.containsKey(ownerUserId) ||
-        !_loadingVehicleOwnerUserIds.add(ownerUserId)) {
-      return;
-    }
-
-    var vehicleLabel = 'Fahrzeug nicht angegeben';
-
-    try {
-      final profile = ownerUserId == _currentUserId
-          ? await _profileRepository.getProfile(ownerUserId)
-          : await _profileRepository.watchPublicProfile(ownerUserId).first;
-      final vehicleParts = <String>[
-        if ((profile?.vehicleBrand ?? '').trim().isNotEmpty)
-          profile!.vehicleBrand!.trim(),
-        if ((profile?.vehicleModel ?? '').trim().isNotEmpty)
-          profile!.vehicleModel!.trim(),
-      ];
-      final loadedLabel = vehicleParts.join(' ').trim();
-
-      if (loadedLabel.isNotEmpty) {
-        vehicleLabel = loadedLabel;
-      }
-    } catch (_) {
-      // Fehlende oder nicht freigegebene Fahrzeugdaten bleiben neutral.
-    } finally {
-      _loadingVehicleOwnerUserIds.remove(ownerUserId);
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _vehicleLabelByOwnerUserId[ownerUserId] = vehicleLabel;
-    });
   }
 
   void _showPreviousStory() {
@@ -396,9 +343,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
       return;
     }
 
-    if (widget.allowOwnerActions &&
-        _isOwnStory &&
-        (velocity < -260 || dragOffset < -56)) {
+    if (_isOwnStory && (velocity < -260 || dragOffset < -56)) {
       _pauseForAction(widget.onShowViewers);
     }
   }
@@ -444,6 +389,9 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
 
   Future<void> _sendStoryReaction(String reaction) async {
     await _sendStoryReplyText(reaction, clearComposer: false);
+    if (mounted) {
+      setState(() => _showQuickReactions = false);
+    }
   }
 
   Future<void> _sendStoryReplyText(
@@ -453,7 +401,9 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
   }) async {
     final trimmedText = text.trim();
 
-    if (_isOwnStory || trimmedText.isEmpty || _isSendingReply) {
+    if (!_story.canReceiveReplyFrom(_currentUserId) ||
+        trimmedText.isEmpty ||
+        _isSendingReply) {
       return;
     }
 
@@ -519,8 +469,6 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
     final seenCount = story.viewedAtBy.keys
         .where((viewerId) => viewerId != story.ownerUserId)
         .length;
-    final headerVehicleLabel =
-        _vehicleLabelByOwnerUserId[story.ownerUserId.trim()] ?? 'Fahrzeug';
     final textAlignment = Alignment(
       (story.textAlignmentX * 2) - 1,
       (story.textAlignmentY * 2) - 1,
@@ -555,7 +503,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                         onDurationReady: _updateStoryDuration,
                       )
                     : _StoryFilteredImage(
-                        image: NetworkImage(story.imageUrl),
+                        image: _storyImageProvider(story.imageUrl),
                         filterType: story.filterType,
                         fit: BoxFit.cover,
                         loadingBuilder: (context, child, loadingProgress) {
@@ -648,21 +596,14 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                             alignmentX * constraints.maxWidth * 0.43,
                             alignmentY * constraints.maxHeight * 0.42,
                           ),
-                          child: widget.enableStickerAction
-                              ? GestureDetector(
-                                  onTap: () =>
-                                      _pauseForAction(widget.onOpenSticker),
-                                  child: _StoryStickerChip(
-                                    type: sticker.type,
-                                    label: sticker.label,
-                                    payload: sticker.payload,
-                                  ),
-                                )
-                              : _StoryStickerChip(
-                                  type: sticker.type,
-                                  label: sticker.label,
-                                  payload: sticker.payload,
-                                ),
+                          child: GestureDetector(
+                            onTap: () => _pauseForAction(widget.onOpenSticker),
+                            child: _StoryStickerChip(
+                              type: sticker.type,
+                              label: sticker.label,
+                              payload: sticker.payload,
+                            ),
+                          ),
                         ),
                       );
                     },
@@ -671,78 +612,46 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 24, 12, 0),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        color: CaRismaDesignTokens.card,
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.14),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          _AvatarCircle(
-                            size: 40,
-                            imageUrl: story.ownerPhotoUrl,
-                            iconSize: 22,
-                          ),
-                          const SizedBox(width: 11),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  story.ownerDisplayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  headerVehicleLabel,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.72),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                child: Row(
+                  children: [
+                    _AvatarCircle(
+                      size: 40,
+                      imageUrl: story.ownerPhotoUrl,
+                      iconSize: 22,
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Text(
+                        story.ownerDisplayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              shadows: const <Shadow>[
+                                Shadow(color: Colors.black87, blurRadius: 8),
                               ],
                             ),
-                          ),
-                          if (_isOwnStory && widget.allowOwnerActions)
-                            _StoryViewerSeenMiniChip(
-                              count: seenCount,
-                              onTap: () =>
-                                  _pauseForAction(widget.onShowViewers),
-                            ),
-                          if (_isOwnStory && widget.allowOwnerActions)
-                            _StoryViewerActionButton(
-                              onPressed: () =>
-                                  _pauseForAction(widget.onDeleteStory),
-                              icon: Icons.delete_outline_rounded,
-                              tooltip: 'Story löschen',
-                            ),
-                          _StoryViewerActionButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: Icons.close_rounded,
-                            tooltip: 'Schließen',
-                          ),
-                        ],
                       ),
                     ),
-                  ),
+                    if (_isOwnStory)
+                      _StoryViewerSeenMiniChip(
+                        count: seenCount,
+                        onTap: () => _pauseForAction(widget.onShowViewers),
+                      ),
+                    if (_isOwnStory)
+                      _StoryViewerActionButton(
+                        onPressed: () => _pauseForAction(widget.onDeleteStory),
+                        icon: Icons.delete_outline_rounded,
+                        tooltip: 'Story löschen',
+                      ),
+                    _StoryViewerActionButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icons.close_rounded,
+                      tooltip: 'Schließen',
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -802,7 +711,7 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                   ),
                 ),
               ),
-            if (!_isOwnStory && widget.allowReplies)
+            if (story.canReceiveReplyFrom(_currentUserId))
               Positioned(
                 left: 16,
                 right: 16,
@@ -819,11 +728,27 @@ class _StoryViewerDialogState extends State<_StoryViewerDialog>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (!_replyFocusNode.hasFocus) ...[
-                          _StoryQuickReactions(
-                            isSending: _isSendingReply,
-                            onReaction: _sendStoryReaction,
+                          if (_showQuickReactions) ...[
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: _StoryQuickReactions(
+                                isSending: _isSendingReply,
+                                onReaction: _sendStoryReaction,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: _StoryReactionToggleButton(
+                              isExpanded: _showQuickReactions,
+                              onTap: () => setState(
+                                () =>
+                                    _showQuickReactions = !_showQuickReactions,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 6),
                         ],
                         _StoryReplyComposer(
                           controller: _replyController,
@@ -958,6 +883,38 @@ class _StoryReplyComposer extends StatelessWidget {
   }
 }
 
+class _StoryReactionToggleButton extends StatelessWidget {
+  const _StoryReactionToggleButton({
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.outlined(
+      tooltip: isExpanded ? 'Reaktionen schließen' : 'Schnell reagieren',
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        foregroundColor: isExpanded
+            ? CaRismaDesignTokens.blueBright
+            : Colors.white,
+        backgroundColor: Colors.black.withValues(alpha: 0.34),
+        side: BorderSide(
+          color: isExpanded
+              ? CaRismaDesignTokens.bluePrimary
+              : Colors.white.withValues(alpha: 0.28),
+          width: 1.3,
+        ),
+        shape: const CircleBorder(),
+      ),
+      icon: const Icon(Icons.emoji_emotions_outlined),
+    );
+  }
+}
+
 class _StoryQuickReactions extends StatelessWidget {
   const _StoryQuickReactions({
     required this.isSending,
@@ -982,7 +939,7 @@ class _StoryQuickReactions extends StatelessWidget {
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             color: const Color(0xFF101827).withValues(alpha: 0.58),
@@ -995,7 +952,7 @@ class _StoryQuickReactions extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final reaction in _reactions)
@@ -1128,46 +1085,38 @@ class _StoryViewerSeenMiniChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, right: 2),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(999),
-              splashFactory: NoSplash.splashFactory,
-              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              child: Container(
-                height: 40,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  color: CaRismaDesignTokens.controlSurface,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.16),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          child: SizedBox(
+            height: 40,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.visibility_rounded,
+                    color: Colors.white,
+                    size: 17,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.visibility_rounded,
+                  const SizedBox(width: 5),
+                  Text(
+                    '$count',
+                    style: const TextStyle(
                       color: Colors.white,
-                      size: 17,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      shadows: <Shadow>[
+                        Shadow(color: Colors.black87, blurRadius: 6),
+                      ],
                     ),
-                    const SizedBox(width: 5),
-                    Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1412,20 +1361,16 @@ class _StoryViewerActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
-      child: ClipOval(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: IconButton(
-            onPressed: onPressed,
-            icon: Icon(icon),
-            color: Colors.white,
-            tooltip: tooltip,
-            style: IconButton.styleFrom(
-              backgroundColor: CaRismaDesignTokens.controlSurface,
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-              shape: const CircleBorder(),
-            ),
-          ),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        color: Colors.white,
+        tooltip: tooltip,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        style: IconButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shape: const CircleBorder(),
         ),
       ),
     );

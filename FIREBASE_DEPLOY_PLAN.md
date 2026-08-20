@@ -1,6 +1,6 @@
 # plaqa Firebase Deploy Plan
 
-Stand: 2026-08-19 01:41 CEST
+Stand: 2026-08-20 CEST
 Zielprojekt: `carma-a84e4`  
 Functions-Region: `europe-west3`  
 Functions-Runtime: Node.js 22, Cloud Functions 2nd Gen
@@ -22,6 +22,31 @@ Deploys geprueft:
   getrennt und durch vorhandene Tests abgesichert.
 - App Check wird in den Functions noch nicht erzwungen und bleibt ein
   ausdruecklicher Releasepunkt.
+
+## Hauptseite und Social Feed
+
+- Die Hauptseite liest dieselben `social_posts`-Dokumente wie das Profil und
+  aktualisiert Beiträge, Likes, Kommentare und Antworten in Echtzeit.
+- Folgen und Entfolgen fügt die zugehörigen Beitragsstreams dynamisch hinzu
+  beziehungsweise entfernt sie wieder; Sortierung und Sichtbarkeitsfilter sind
+  gezielt getestet.
+- Kommentarantworten liegen unter
+  `users/{ownerId}/social_posts/{postId}/comments/{commentId}/replies` und sind
+  durch die lokalen Firestore-Regeln geschützt.
+- Die Story-Leiste zeigt ausschließlich das öffentliche Profilbild oder
+  Initialen. `viewedAtBy` steuert den blauen Ring für neue und den grauen Ring
+  für bereits gesehene Storys.
+- Die gezielten Social-Post-Rules-Tests einschließlich Feed-Abfrage und
+  Kommentarantworten sind lokal mit 3/3 Tests bestanden.
+- Vor dem Live-Test müssen der aktuelle Firestore-Rules-Stand und bei noch
+  fehlendem Produktionsindex der vorhandene `social_posts`-Index gezielt
+  veröffentlicht werden.
+- Der Produktionsstand wurde am 2026-08-20 read-only geprüft: Der bisherige
+  `social_posts`-Index ohne `isArchived` ist vorhanden, der neue Feed-Index mit
+  `isArchived` fehlt noch. Zwei kombinierte Deploy-Versuche und ein getrennter
+  Index-Deploy wurden vor der Veröffentlichung durch HTTP 503 des
+  Firebase-Rulesets-Dienstes abgebrochen. Die lokalen Definitionen bewahren
+  alle bereits veröffentlichten Indexe und ergänzen nur den neuen Feed-Index.
 
 
 ## Emulator- und Build-Abschluss
@@ -96,9 +121,9 @@ Die Versionsgleichheit veröffentlichter Functions mit dem lokalen Quellstand is
 
 | Ressource | Kategorie | Nachweis / nächster Schritt |
 |---|---|---|
-| Firestore Rules | Rules-Deploy erforderlich | vollständiger Firestore-/Storage-Emulatorlauf bestanden; 97/97 Rules-Tests erfolgreich; lokaler Stand ist noch nicht gezielt veröffentlicht |
+| Firestore Rules | Rules-Deploy erforderlich | vollständiger Firestore-/Storage-Emulatorlauf bestanden; zusätzlich aktueller Social-Feed-, Like-, Kommentar- und Antwortpfad gezielt getestet; lokaler Stand ist noch nicht gezielt veröffentlicht |
 | Storage Rules | Rules-Deploy erforderlich | vollständiger Firestore-/Storage-Emulatorlauf bestanden; lokaler sechsseitiger Dokumenten-Upload ist noch nicht gezielt veröffentlicht |
-| Firestore Indexes | Status noch nicht sicher feststellbar | vier lokale Indexes; Emulator- und Build-Prüfung erfolgreich, Produktionsgleichheit und tatsächlicher Query-Bedarf bleiben vor einem Deploy zu bestätigen |
+| Firestore Indexes | Deploy erforderlich | Produktionsstand read-only geprüft; der neue `social_posts`-Index mit `visibility`, `isDeleted`, `isArchived` und `createdAt` fehlt noch; Deploy am 2026-08-20 durch Firebase HTTP 503 blockiert |
 | Firebase Hosting | Bereits veröffentlicht | Site `carma-a84e4`; `/auth/action` liefert über Standarddomain und `auth.plaqa.de` HTTP 200; lokaler Hosting-Stand ist im aktuellen `main` gespeichert |
 
 ## Empfohlene Deploy-Reihenfolge

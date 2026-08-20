@@ -1,4 +1,5 @@
 import '../models/carisma_models.dart';
+import '../config/carisma_app_config.dart';
 
 enum AppFeature {
   appAccess,
@@ -72,7 +73,8 @@ class AppFeatureGate {
       );
     }
 
-    if (!userState.searchCredit.hasRemaining) {
+    if (CaRismaAppConfig.enforceMonthlyContactRequestLimit &&
+        !userState.searchCredit.hasRemaining) {
       return const AppFeatureDecision.blocked(
         reason: 'Du hast dein kostenloses Suchlimit erreicht.',
       );

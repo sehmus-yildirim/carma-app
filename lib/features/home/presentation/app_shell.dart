@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/models/carisma_models.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../chats/presentation/chats_screen.dart';
-import '../../profile/presentation/social_profile_screen.dart';
+import '../../profile/presentation/profile_hub_screen.dart';
 import '../../reports/data/report_repository.dart';
 import '../../reports/presentation/report_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
@@ -23,6 +23,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final ReportRepository _reportRepository = ReportRepository();
+  final ProfileHubController _profileHubController = ProfileHubController();
 
   late final Stream<int> _unreadReportCountStream;
 
@@ -32,6 +33,12 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _unreadReportCountStream = _watchUnreadReportCount();
+  }
+
+  @override
+  void dispose() {
+    _profileHubController.dispose();
+    super.dispose();
   }
 
   Stream<int> _watchUnreadReportCount() {
@@ -71,7 +78,10 @@ class _AppShellState extends State<AppShell> {
         userState: widget.userState,
         onOpenChats: () => _onTabSelected(2),
       ),
-      SocialProfileScreen(userState: widget.userState),
+      ProfileHubScreen(
+        userState: widget.userState,
+        controller: _profileHubController,
+      ),
       ChatsScreen(userState: widget.userState),
       ReportScreen(userState: widget.userState),
       SettingsScreen(userState: widget.userState, onLogout: widget.onLogout),
@@ -85,14 +95,28 @@ class _AppShellState extends State<AppShell> {
         stream: _unreadReportCountStream,
         initialData: 0,
         builder: (context, reportSnapshot) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: _GlassBottomNavigationBar(
-              selectedIndex: _selectedIndex,
-              onTabSelected: _onTabSelected,
-              bottomInset: bottomInset,
-              unreadReportCount: reportSnapshot.data ?? 0,
-            ),
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_selectedIndex == 1) ...[
+                AnimatedBuilder(
+                  animation: _profileHubController,
+                  builder: (context, _) => ProfileHubSwitcher(
+                    selectedIndex: _profileHubController.selectedIndex,
+                    onSelected: _profileHubController.select,
+                  ),
+                ),
+              ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _GlassBottomNavigationBar(
+                  selectedIndex: _selectedIndex,
+                  onTabSelected: _onTabSelected,
+                  bottomInset: bottomInset,
+                  unreadReportCount: reportSnapshot.data ?? 0,
+                ),
+              ),
+            ],
           );
         },
       ),

@@ -112,6 +112,17 @@ class ChatStoryRecord {
     return imageUrl.trim().isNotEmpty;
   }
 
+  bool canReceiveReplyFrom(String viewerUserId) {
+    final normalizedViewerUserId = viewerUserId.trim();
+    return repliesEnabled &&
+        normalizedViewerUserId.isNotEmpty &&
+        normalizedViewerUserId != ownerUserId.trim() &&
+        viewerUserIds.any(
+          (userId) => userId.trim() == normalizedViewerUserId,
+        ) &&
+        !isExpired;
+  }
+
   List<ChatStoryStickerRecord> get effectiveStickers {
     if (stickers.isNotEmpty) {
       return stickers;

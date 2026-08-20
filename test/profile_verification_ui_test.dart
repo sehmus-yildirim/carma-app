@@ -14,7 +14,7 @@ import 'package:plaqa/shared/theme/carisma_design_tokens.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('shows three evidence cards with front and back sides', (
+  testWidgets('shows staged identity and vehicle evidence without licence', (
     tester,
   ) async {
     await _pumpScreen(
@@ -25,16 +25,19 @@ void main() {
     );
 
     expect(find.text('Nicht begonnen'), findsOneWidget);
-    expect(find.text('0 von 6 Nachweisen vollständig'), findsOneWidget);
+    expect(find.text('0 von 4 Nachweisen vollständig'), findsOneWidget);
     expect(find.text('Persönliche Daten'), findsOneWidget);
     expect(find.text('Identität bestätigen'), findsOneWidget);
-    expect(find.text('Führerschein'), findsOneWidget);
+    expect(find.textContaining('Führerschein'), findsNothing);
     expect(find.text('Fahrzeugbezug bestätigen'), findsOneWidget);
-    expect(find.text('Vorderseite'), findsNWidgets(3));
-    expect(find.text('Rückseite'), findsNWidgets(3));
+    expect(find.text('Vorderseite'), findsNWidgets(2));
+    expect(find.text('Rückseite'), findsNWidgets(2));
     expect(find.text('Fahrzeugzuordnung'), findsOneWidget);
-    expect(find.text('Ablaufdatum des Ausweises'), findsOneWidget);
-    expect(find.text('Ablaufdatum des Führerscheins'), findsOneWidget);
+    expect(find.text('Ablaufdatum des Identitätsnachweises'), findsOneWidget);
+    expect(find.text('Basis-Konto'), findsOneWidget);
+    expect(find.text('Fahrzeug bestätigt'), findsOneWidget);
+    expect(find.text('Identität bestätigt'), findsOneWidget);
+    expect(find.text('Vollständig verifiziert'), findsOneWidget);
     expect(find.text('UNBEDINGT LESEN!'), findsOneWidget);
     expect(find.text('Datenschutzübersicht'), findsOneWidget);
     expect(
@@ -42,7 +45,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.textContaining('Dokumentbilder und persönliche Dokumentangaben'),
+      find.textContaining('Dokumentbilder und persönliche Angaben'),
       findsOneWidget,
     );
     expect(find.text('Löschstatus'), findsNothing);
@@ -64,7 +67,7 @@ void main() {
     );
 
     expect(find.text('In Prüfung'), findsWidgets);
-    expect(find.text('6 von 6 Nachweisen vollständig'), findsOneWidget);
+    expect(find.text('4 von 4 Nachweisen vollständig'), findsOneWidget);
     expect(find.text('Prüfung läuft'), findsOneWidget);
     expect(find.text('Ersetzen'), findsNothing);
     expect(find.text('Entfernen'), findsNothing);
@@ -89,7 +92,7 @@ void main() {
       find.text('Das Dokument ist nicht vollständig lesbar.'),
       findsWidgets,
     );
-    expect(find.text('Neu einreichen'), findsNWidgets(6));
+    expect(find.text('Neu einreichen'), findsNWidgets(4));
     expect(find.text('Verifizierungsproblem melden'), findsOneWidget);
   });
 
@@ -118,7 +121,7 @@ void main() {
     await tester.pump();
     final field = tester.widget<TextField>(expiration);
     expect(field.controller?.text, '31.12.2035');
-    expect(find.text('Muss aktuell gültig sein'), findsNWidgets(2));
+    expect(find.text('Muss aktuell gültig sein'), findsOneWidget);
     expect(find.text('Dokumente hochladen'), findsOneWidget);
     expect(tester.widget<Checkbox>(find.byType(Checkbox).last).value, isTrue);
     expect(tester.takeException(), isNull);
@@ -380,7 +383,7 @@ void main() {
           id: 'submitted',
           status: ProfileVerificationStatus.pending,
           eventType: 'submitted',
-          documentGroups: const ['identity', 'driverLicense', 'vehicle'],
+          documentGroups: const ['identity', 'vehicle'],
           createdAt: DateTime.utc(2026, 8, 10),
         ),
         ProfileVerificationHistoryEntry(

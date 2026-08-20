@@ -489,6 +489,107 @@ class SocialPostRepository {
         });
   }
 
+  Stream<List<SocialPostCommentReply>> watchCommentReplies({
+    required SocialPost post,
+    required SocialPostComment comment,
+  }) {
+    return _postReference(post.ownerUserId, post.id)
+        .collection('comments')
+        .doc(comment.id)
+        .collection('replies')
+        .orderBy('createdAt')
+        .limit(200)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(SocialPostCommentReply.fromFirestore)
+              .where((reply) => !reply.isDeleted)
+              .toList(growable: false),
+        );
+  }
+
+  Future<void> addCommentReply({
+    required SocialPost post,
+    required SocialPostComment comment,
+    required String authorUserId,
+    required String authorDisplayName,
+    required String authorPhotoUrl,
+    required String text,
+  }) async {
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty) return;
+    if (trimmedText.length > 500) {
+      throw const SocialPostRepositoryException(
+        'Eine Antwort darf höchstens 500 Zeichen enthalten.',
+      );
+    }
+    final normalizedAuthorUserId = authorUserId.trim();
+    if (normalizedAuthorUserId.isEmpty) {
+      throw const SocialPostRepositoryException(
+        'Die Antwort konnte nicht zugeordnet werden.',
+      );
+    }
+    final identity = await _publicIdentity(
+      userId: normalizedAuthorUserId,
+      fallbackDisplayName: authorDisplayName,
+      fallbackPhotoUrl: authorPhotoUrl,
+    );
+    final reference = _postReference(
+      post.ownerUserId,
+      post.id,
+    ).collection('comments').doc(comment.id).collection('replies').doc();
+    await reference.set(<String, dynamic>{
+      'replyId': reference.id,
+      'commentId': comment.id,
+      'postId': post.id,
+      'postOwnerUserId': post.ownerUserId,
+      'authorUserId': normalizedAuthorUserId,
+      'authorDisplayName': identity.displayName,
+      'authorPhotoUrl': identity.photoUrl,
+      'text': trimmedText,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      'isDeleted': false,
+    });
+  }
+
+  Future<void> deleteCommentReply({
+    required SocialPost post,
+    required SocialPostComment comment,
+    required SocialPostCommentReply reply,
+  }) {
+    return _postReference(post.ownerUserId, post.id)
+        .collection('comments')
+        .doc(comment.id)
+        .collection('replies')
+        .doc(reply.id)
+        .update(<String, dynamic>{
+          'isDeleted': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Future<void> reportCommentReply({
+    required SocialPost post,
+    required SocialPostComment comment,
+    required SocialPostCommentReply reply,
+    required String reporterUserId,
+  }) async {
+    final trimmedUserId = reporterUserId.trim();
+    if (trimmedUserId.isEmpty) return;
+    await _postReference(post.ownerUserId, post.id)
+        .collection('comments')
+        .doc(comment.id)
+        .collection('replies')
+        .doc(reply.id)
+        .collection('reports')
+        .doc(trimmedUserId)
+        .set(<String, dynamic>{
+          'reporterUserId': trimmedUserId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+  }
+
   Stream<Map<SocialPostCommentReaction, int>> watchCommentReactionCounts({
     required SocialPost post,
     required SocialPostComment comment,
@@ -527,9 +628,8 @@ class SocialPostRepository {
         .doc(trimmedUserId)
         .snapshots()
         .map(
-          (snapshot) => SocialPostCommentReaction.fromFirestore(
-            snapshot.data()?['type'],
-          ),
+          (snapshot) =>
+              SocialPostCommentReaction.fromFirestore(snapshot.data()?['type']),
         );
   }
 
@@ -547,7 +647,8 @@ class SocialPostRepository {
         .collection('reactions')
         .doc(trimmedUserId);
     final snapshot = await reference.get();
-    if (snapshot.exists && snapshot.data()?['type'] == reaction.firestoreValue) {
+    if (snapshot.exists &&
+        snapshot.data()?['type'] == reaction.firestoreValue) {
       await reference.delete();
       return;
     }

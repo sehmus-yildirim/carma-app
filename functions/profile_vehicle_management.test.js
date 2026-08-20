@@ -510,11 +510,19 @@ test("primary switch updates private, public and both plate projections", async 
     plateNumbers: "1234",
     isPrimary: false,
   });
+  nextVehicle.isVerified = true;
+  nextVehicle.verificationStatus = "verified";
   const firestore = fakeFirestore({
     [`users/${userId}/profiles/main`]: profileData(userId, {
       primaryVehicleId: "vehicle-old",
+      verificationStatus: "verified",
+      verificationStages: {identity: true, vehicle: true},
     }),
-    [`public_profiles/${userId}`]: {uid: userId},
+    [`public_profiles/${userId}`]: {
+      uid: userId,
+      verificationStatus: "verified",
+      isVerified: true,
+    },
     [`users/${userId}/vehicles/vehicle-old`]: oldVehicle,
     [`users/${userId}/vehicles/vehicle-next`]: nextVehicle,
     [`public_profiles/${userId}/vehicles/vehicle-old`]: oldVehicle,
@@ -523,7 +531,7 @@ test("primary switch updates private, public and both plate projections", async 
     "plates/DE_BPQ1234": plateData(userId, nextVehicle, {isPrimary: false}),
   });
 
-  await setPrimaryProfileVehicle({
+  const result = await setPrimaryProfileVehicle({
     firestore,
     authContext: {uid: userId},
     input: {vehicleId: "vehicle-next"},
@@ -541,6 +549,14 @@ test("primary switch updates private, public and both plate projections", async 
   ).isPrimary, true);
   assert.equal(firestore.documents.get("plates/DE_HHCR2026").isPrimary, false);
   assert.equal(firestore.documents.get("plates/DE_BPQ1234").isPrimary, true);
+  assert.equal(firestore.documents.get("plates/DE_BPQ1234").isVerified, true);
+  assert.equal(result.verificationReset, false);
+  assert.equal(firestore.documents.get(
+    `users/${userId}/profiles/main`,
+  ).verificationStatus, "verified");
+  assert.equal(firestore.documents.get(
+    `public_profiles/${userId}`,
+  ).isVerified, true);
 });
 
 test("inactive vehicles cannot become or remain primary", async () => {
@@ -575,7 +591,7 @@ test("inactive vehicles cannot become or remain primary", async () => {
   }), /anderes aktives Hauptfahrzeug/);
 });
 
-test("verified core changes expire verification atomically", async () => {
+test("verified core changes reset only the vehicle verification", async () => {
   const userId = "user-recheck";
   const existing = storedVehicle(userId, {
     isPrimary: true,
@@ -586,15 +602,32 @@ test("verified core changes expire verification atomically", async () => {
     [`users/${userId}/profiles/main`]: profileData(userId, {
       primaryVehicleId: "vehicle-1",
       verificationStatus: "verified",
+      verificationStages: {identity: true, vehicle: true},
     }),
-    [`public_profiles/${userId}`]: {uid: userId},
+    [`public_profiles/${userId}`]: {
+      uid: userId,
+      verificationStatus: "verified",
+      isVerified: true,
+    },
     [`users/${userId}/vehicles/vehicle-1`]: existing,
     [`public_profiles/${userId}/vehicles/vehicle-1`]: existing,
-    "plates/DE_FDRT2918": plateData(userId, existing),
+    "plates/DE_FDRT2918": plateData(userId, existing, {
+      verificationStatus: "verified",
+      isVerified: true,
+    }),
     [`verification_requests/${userId}`]: {
       userId,
       vehicleId: "vehicle-1",
       status: "verified",
+      documentStatuses: {
+        identityFront: "verified",
+        identityBack: "verified",
+        driverLicenseFront: "verified",
+        vehicleFront: "verified",
+        vehicleBack: "verified",
+      },
+      documentRejectionReasons: {},
+      submittedDocumentGroups: [],
     },
   });
 
@@ -611,10 +644,21 @@ test("verified core changes expire verification atomically", async () => {
   ).verificationStatus, "evidenceMissing");
   assert.equal(firestore.documents.get(
     `users/${userId}/profiles/main`,
-  ).verificationStatus, "unverified");
+  ).verificationStatus, "verified");
+  assert.deepEqual(firestore.documents.get(
+    `users/${userId}/profiles/main`,
+  ).verificationStages, {identity: true, vehicle: false});
   assert.equal(firestore.documents.get(
-    `verification_requests/${userId}`,
-  ).status, "expired");
+    `public_profiles/${userId}`,
+  ).isVerified, true);
+  assert.equal(firestore.documents.get("plates/DE_FDRT2918").isVerified, false);
+  const request = firestore.documents.get(`verification_requests/${userId}`);
+  assert.equal(request.status, "draft");
+  assert.equal(request.documentStatuses.identityFront, "verified");
+  assert.equal(request.documentStatuses.identityBack, "verified");
+  assert.equal(request.documentStatuses.driverLicenseFront, "verified");
+  assert.equal(request.documentStatuses.vehicleFront, "expired");
+  assert.equal(request.documentStatuses.vehicleBack, "expired");
 });
 
 test("visibility-only changes preserve vehicle verification", async () => {

@@ -153,5 +153,36 @@ void main() {
       expect(video.isVideo, isTrue);
       expect(video.hasRenderableMedia, isTrue);
     });
+
+    test('only allows enabled visible viewers to reply to a story', () {
+      final now = DateTime.now();
+      final enabledStory = ChatStoryRecord(
+        id: 'story-enabled',
+        ownerUserId: 'owner',
+        ownerDisplayName: 'Owner',
+        viewerUserIds: const ['owner', 'viewer'],
+        repliesEnabled: true,
+        imageUrl: 'https://example.test/story.jpg',
+        imagePath: 'chat_stories/owner/story.jpg',
+        createdAt: now,
+        expiresAt: now.add(const Duration(hours: 1)),
+      );
+      final disabledStory = ChatStoryRecord(
+        id: 'story-disabled',
+        ownerUserId: 'owner',
+        ownerDisplayName: 'Owner',
+        viewerUserIds: const ['owner', 'viewer'],
+        repliesEnabled: false,
+        imageUrl: 'https://example.test/story.jpg',
+        imagePath: 'chat_stories/owner/story.jpg',
+        createdAt: now,
+        expiresAt: now.add(const Duration(hours: 1)),
+      );
+
+      expect(enabledStory.canReceiveReplyFrom('viewer'), isTrue);
+      expect(enabledStory.canReceiveReplyFrom('outsider'), isFalse);
+      expect(enabledStory.canReceiveReplyFrom('owner'), isFalse);
+      expect(disabledStory.canReceiveReplyFrom('viewer'), isFalse);
+    });
   });
 }

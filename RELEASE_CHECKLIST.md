@@ -1,6 +1,6 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-19 01:41 CEST
+Stand: 2026-08-20 CEST
 
 ## Statuslegende
 
@@ -9,6 +9,7 @@ Stand: 2026-08-19 01:41 CEST
 - `[BLAZE]` durch Billing/Blaze blockiert
 - `[WEB]` wartet auf die öffentliche Website
 - `[SUPPORT]` wartet auf Firebase-Support
+- `[SERVICE]` vorübergehend durch einen Firebase-Dienstfehler blockiert
 - `[LIVE]` nur mit Gerät, Testkonto oder realem Backend prüfbar
 
 ## Lokaler Code-Abschluss
@@ -32,6 +33,23 @@ Stand: 2026-08-19 01:41 CEST
 - [x] Nur tatsächlich geänderte Dart-Dateien formatiert.
 - [x] `flutter analyze --no-pub`: keine Probleme gefunden.
 - [x] `git diff --check` im finalen Abschlusslauf bestanden; nur erwartete Zeilenende-Warnungen vorhanden.
+
+## Hauptseite und Social Feed
+
+- [x] Startseite und eigenes Profil sind per Icon und horizontaler Wischgeste erreichbar.
+- [x] Story-Leiste liegt auf der Startseite; Vorschau verwendet Profilbild oder Initialen statt Story-Medium.
+- [x] Neue Storys erhalten einen blauen, bereits gesehene Storys einen grauen Ring.
+- [x] Beiträge gefolgter Nutzer werden chronologisch aus denselben Dokumenten wie im Profil geladen.
+- [x] Folgen, Entfolgen, neue Beiträge und Feed-Entfernung sind auf Repository-Ebene getestet.
+- [x] Likes, Kommentare und Antworten verwenden auf Hauptseite und Profil dieselben Echtzeitdaten.
+- [x] Antworten zeigen zwei Vorschauen, lassen sich inline erweitern und sind auf schmaler Gerätebreite gegen gequetschtes Layout getestet.
+- [x] Fremde Profile werden von der Hauptseite nur lesend geöffnet; Debug-Profile öffnen kein falsches Firebase-Profil.
+- [x] Deaktivierte Story-Antworten werden auch im Sendeweg abgewiesen.
+- [SERVICE] Firestore Rules für Feed-Kommentare und Antworten deployen; lokale Kompilierung erfolgreich, Firebase-Rulesets-Dienst antwortete am 2026-08-20 wiederholt mit HTTP 503.
+- [SERVICE] Neuer `social_posts`-Index ist lokal vorbereitet und live nachweislich noch nicht vorhanden; auch der getrennte Index-Deploy wurde durch denselben HTTP-503-Dienstfehler abgebrochen.
+- [LIVE] Mit zwei Konten prüfen: Beitrag erscheint beim Follower, verschwindet nach Entfolgen und respektiert Öffentlich/Nur Kontakte/Nur ich.
+- [LIVE] Story neu/gesehen, Zielgruppe, Ausschlüsse und deaktivierte Antworten zwischen zwei Konten prüfen.
+- [WEB] Geteilte Beitragslinks später mit Website beziehungsweise App-Deep-Link verbinden.
 
 ## Functions-Tests
 
