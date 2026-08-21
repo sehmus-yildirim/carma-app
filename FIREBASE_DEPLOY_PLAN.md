@@ -1,6 +1,6 @@
 # plaqa Firebase Deploy Plan
 
-Stand: 2026-08-20 CEST
+Stand: 2026-08-21 CEST
 Zielprojekt: `carma-a84e4`  
 Functions-Region: `europe-west3`  
 Functions-Runtime: Node.js 22, Cloud Functions 2nd Gen
@@ -111,7 +111,7 @@ Alle Functions verwenden über `setGlobalOptions` die Region `europe-west3`, `ma
 | `requestVehicleHeroImage` | Callable | `index.js` / kein eigener Function-Test | Bereits veröffentlicht | AI-Kosten, Rate-Limit und Bildpfad live prüfen |
 | `maintainChatStories` | Scheduler, jede Minute UTC | `index.js` / kein eigener Function-Test | Bereits veröffentlicht | Scheduler-Kosten und Löschverhalten prüfen |
 | `maintainPlateHints` | Scheduler, alle 60 Minuten UTC | `report_cleanup.js` / kein eigener Function-Test | Benötigt Blaze | Cleanup zunächst mit gezieltem Test absichern |
-| `cleanupProfileVerificationDocuments` | Scheduler, täglich 04:30 Europe/Berlin | `profile_verification.js` / `profile_verification.test.js` | Benötigt Blaze | Aufbewahrung und Ablauf mit Testdaten prüfen |
+| `cleanupProfileVerificationDocuments` | Scheduler, täglich 04:30 Europe/Berlin | `profile_verification.js` / `profile_verification.test.js` | Benötigt Blaze | 21/21 gezielte Tests bestanden; Einzeldeploy am 21.08.2026 vor Erstellung durch fehlenden Blaze-Tarif blockiert |
 
 Bestätigt veröffentlicht: 12 von 23.  
 Nur lokal bestätigt: 11 von 23.  
@@ -124,7 +124,7 @@ Die Versionsgleichheit veröffentlichter Functions mit dem lokalen Quellstand is
 | Firestore Rules | Rules-Deploy erforderlich | vollständiger Firestore-/Storage-Emulatorlauf bestanden; zusätzlich aktueller Social-Feed-, Like-, Kommentar- und Antwortpfad gezielt getestet; lokaler Stand ist noch nicht gezielt veröffentlicht |
 | Storage Rules | Rules-Deploy erforderlich | vollständiger Firestore-/Storage-Emulatorlauf bestanden; lokaler sechsseitiger Dokumenten-Upload ist noch nicht gezielt veröffentlicht |
 | Firestore Indexes | Deploy erforderlich | Produktionsstand read-only geprüft; der neue `social_posts`-Index mit `visibility`, `isDeleted`, `isArchived` und `createdAt` fehlt noch; Deploy am 2026-08-20 durch Firebase HTTP 503 blockiert |
-| Firebase Hosting | Bereits veröffentlicht | Site `carma-a84e4`; `/auth/action` liefert über Standarddomain und `auth.plaqa.de` HTTP 200; lokaler Hosting-Stand ist im aktuellen `main` gespeichert |
+| Firebase Hosting | Bereits veröffentlicht | Site `carma-a84e4`; Hosting am 21.08.2026 gezielt aktualisiert; Impressum, Datenschutz, Kontolöschung und Community-Richtlinien liefern unter `plaqa.de` HTTP 200 |
 
 ## Empfohlene Deploy-Reihenfolge
 
@@ -182,6 +182,7 @@ firebase deploy --project carma-a84e4 --only hosting
 ## Offene Risiken
 
 - Blaze ist für neue oder aktualisierte Functions noch nicht aktiv.
+- `cleanupProfileVerificationDocuments` ist deshalb noch nicht veröffentlicht; der Deploy wurde nach der eindeutigen Billing-Meldung nicht wiederholt.
 - App Check ist im MFA-Recovery-Code bewusst noch nicht erzwungen.
 - Andere Callables erzwingen App Check ebenfalls noch nicht durchgaengig; erst
   nach erfolgreichem Provider- und Geraetetest schrittweise aktivieren.

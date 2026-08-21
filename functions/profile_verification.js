@@ -1120,6 +1120,9 @@ async function cleanupVerificationDocuments({firestore, bucket, now, limit = 100
         safeString(data.status),
       )) continue;
       if (data.documentsCleanedAt != null) continue;
+      const reviewedAtMillis = timestampMillis(data.reviewedAt);
+      if (!Number.isFinite(reviewedAtMillis) ||
+          reviewedAtMillis > timestampMillis(now)) continue;
       const userId = safeString(data.userId);
       if (userId.length === 0) continue;
       for (const key of [...requiredDocumentKeys, ...legacyDriverLicenseKeys]) {

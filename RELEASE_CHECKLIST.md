@@ -1,6 +1,6 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-20 CEST
+Stand: 2026-08-21 CEST
 
 ## Statuslegende
 
@@ -19,7 +19,7 @@ Stand: 2026-08-20 CEST
 - [x] Hosting-Konfiguration und Auth-Action-Handler sind lokal vorhanden.
 - [x] Sichtbaren alten Medien-Dateinamen korrigiert; neue Dateien verwenden `plaqa_<timestamp>.png`.
 - [x] Interne `CaRisma*`-Klassen und technische Firebase-/Paket-IDs bewusst als interne Bezeichner beibehalten.
-- [ ] 76 markierte Legal-Platzhalter (`ANGABE ERGÄNZEN` / `RECHTLICH PRÜFEN`) vor Veröffentlichung fachlich und rechtlich abschließen.
+- [ ] 74 markierte Legal-Platzhalter (`ANGABE ERGÄNZEN` / `RECHTLICH PRÜFEN`) vor Veröffentlichung fachlich und rechtlich abschließen.
 - [x] Öffentliche/private Datenmodelle, Fehlertexte, Ladezustände und Debug-Gates statisch geprüft; gefundene rohe technische UI-Fehler und sichtbare UID entfernt.
 - [x] `HH-CR 2026` und Profil-Demo-Inhalte sind statisch auf Debug-/Demo-Pfade begrenzt.
 - [x] `firestore-debug.log` bleibt ignoriert; der vollständige Emulatorlauf hat keine Logs für das Repository erzeugt.
@@ -57,7 +57,8 @@ Stand: 2026-08-20 CEST
 - [x] 12 veröffentlichte Function-Namen, Region und Runtime read-only bestätigt.
 - [x] `node --check functions/index.js` bestanden.
 - [x] Syntaxchecks aller 9 produktiven Functions-JavaScript-Dateien bestanden.
-- [x] Alle 6 Functions-Testdateien ausgeführt: 68 Tests bestanden.
+- [x] Alle 6 Functions-Testdateien ausgeführt: 71 Tests bestanden.
+- [x] Dokument-Cleanup zusätzlich gegen offene Entwürfe, fremde Dateipfade und wiederholte Ausführung abgesichert.
 - [ ] Eigene Tests für `recordProfileView`, `submitPlateHint`, `requestVehicleHeroImage`, `maintainChatStories` und `maintainPlateHints` prüfen/ergänzen.
 - [x] Lokale Modulinitialisierung kontrolliert: 23 Exports in rund 5,1 Sekunden, keine top-level Netzwerk-/KI-Anfrage gefunden.
 - [ ] Frueheren Deploy-Analyse-Timeout beim naechsten gezielten Functions-Deploy weiter beobachten.
@@ -83,6 +84,7 @@ Stand: 2026-08-20 CEST
 
 - [BLAZE] Blaze/Billing erst nach ausdrücklicher Freigabe aktivieren.
 - [BLAZE] 11 nur lokal vorhandene Functions nach Tests gruppiert deployen.
+- [BLAZE] Einzeldeploy von `cleanupProfileVerificationDocuments` am 21.08.2026 vor der Erstellung abgebrochen: Projekt ist weiterhin nicht auf Blaze; kein zweiter Versuch erfolgt.
 - [ ] Firestore Rules nach bestandenem Emulatorlauf gezielt deployen.
 - [ ] Storage Rules nach bestandenem Emulatorlauf gezielt deployen.
 - [ ] Vier lokale Firestore Indexes mit tatsächlichen Queries abgleichen und Deploybedarf bestätigen.
@@ -120,6 +122,9 @@ Stand: 2026-08-20 CEST
 ## Website und Rechtliches
 
 - [x] `auth.plaqa.de/auth/action` ist per HTTPS erreichbar.
+- [x] Datenschutz-, Kontolösch- und Community-/Jugendschutzseiten lokal in einheitlichem plaqa-Stil vorbereitet und ohne fehlende lokale Assets geprüft.
+- [x] Betreiberangaben lokal auf die belegte Privatperson korrigiert; keine nicht bestätigte Rechtsform wird mehr behauptet.
+- [x] Aktuelle Anschrift am 21.08.2026 ausdrücklich bestätigt und per Firebase Hosting veröffentlicht; nach dem angekündigten Umzug Impressum und Datenschutz gleichzeitig aktualisieren.
 - [WEB] Öffentliche Website `https://plaqa.de/` erstellen.
 - [WEB] HTML-Seiten für Datenschutz, AGB, Impressum, Support und FAQ veröffentlichen.
 - [WEB] Website-Domain in Google Auth vollständig hinterlegen.
@@ -161,6 +166,10 @@ Stand: 2026-08-20 CEST
 - [ ] Android App Bundle später in einer internen Play-Testspur testen.
 - [ ] Store-Name, Kurz-/Langbeschreibung, Screenshots, Icon und Feature-Grafik erstellen.
 - [ ] Datenschutzerklärung, Datensicherheit, Altersfreigabe und Inhaltsangaben ausfüllen.
+- [x] Datensicherheitsangaben vollständig als Entwurf erfasst; keine Einreichung vorgenommen.
+- [x] Werbung, Finanz-, Gesundheits- und Behördenangaben als nicht zutreffend vorbereitet beziehungsweise gespeichert.
+- [ ] App-Zugang mit einem wiederverwendbaren Testkonto eintragen; erst danach Zielgruppe `16–17` und `18+` als Entwurf speichern.
+- [ ] Altersfreigabe/IARC und Kinderschutz-Erklärung erfordern noch die persönliche Bestätigung der Erklärungen und Kontaktangaben.
 - [ ] interne/geschlossene Testspur durchführen.
 - [ ] Crash-/ANR-Berichte und Pre-Launch-Report prüfen.
 - [ ] finale Produktionsfreigabe erst nach Website, Legal-Abschluss, Deploys und Live-Tests.

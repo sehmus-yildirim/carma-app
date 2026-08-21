@@ -3806,13 +3806,11 @@ Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
 
 Anbieter der mobilen App „plaqa“ ist:
 
-plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
-
-Rechtsform: Einzelunternehmen
 
 E-Mail: info@plaqa.de
 Website: plaqa.de
@@ -3963,13 +3961,9 @@ Bestehen konkrete Anhaltspunkte für einen unbefugten Zugriff, kann das Konto vo
             title: '4. Mindestalter und Nutzungsvoraussetzungen',
             body: r'''4.1 Mindestalter
 
-Die Nutzung von plaqa ist nur Personen gestattet, die mindestens:
+Die Nutzung von plaqa ist nur Personen gestattet, die mindestens 16 Jahre alt sind.
 
-[ANGABE ERGÄNZEN: Mindestalter] Jahre
-
-alt sind.
-
-[RECHTLICH PRÜFEN: Aufgrund der Funktionen Kennzeichen-Suche, Standortbezug, Kommunikation mit fremden Personen, Storys, Dokumentenverifizierung und möglicher In-App-Käufe sollte geprüft werden, ob ein Mindestalter von 18 Jahren festgelegt wird.]
+[RECHTLICH PRÜFEN: Die festgelegte Altersgrenze und die konkreten Jugendschutzmaßnahmen müssen vor Veröffentlichung anhand aller aktivierten Funktionen geprüft werden.]
 
 4.2 Minderjährige Nutzer
 
@@ -5032,13 +5026,11 @@ Wichtig: plaqa ist keine Notruf-, Polizei-, Feuerwehr-, Rettungsdienst-, Abschle
             body:
                 r'''Verantwortlicher im Sinne der Datenschutz-Grundverordnung ist:
 
-plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
-
-Rechtsform: Einzelunternehmen
 
 E-Mail: info@plaqa.de
 Website: plaqa.de''',
@@ -5977,7 +5969,7 @@ Die Beschwerde kann unabhängig von anderen verwaltungsrechtlichen oder gerichtl
             body:
                 r'''plaqa darf nur von Personen genutzt werden, die das festgelegte Mindestalter erreicht haben.
 
-Mindestalter: [ANGABE ERGÄNZEN]
+Mindestalter: 16 Jahre
 
 [RECHTLICH PRÜFEN: Empfohlenes Mindestalter unter Berücksichtigung der Funktionen Kennzeichen-Suche, Standort, Chat, Storys, Verifizierung und In-App-Käufe.]
 
@@ -6949,8 +6941,8 @@ Soweit eine Änderung eine ausdrückliche Zustimmung zu geänderten Vertragsbedi
             title: '17. Kontakt und Verantwortlicher',
             body: r'''Anbieter und Betreiber:
 
-plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
@@ -6964,8 +6956,8 @@ Website: plaqa.de''',
                 r'''Vor Veröffentlichung müssen folgende Punkte abschließend festgelegt und rechtlich beziehungsweise technisch geprüft werden:
 
 1. Altersgrenze
-    [ANGABE ERGÄNZEN: Mindestalter]
-    [RECHTLICH PRÜFEN: Nutzung erst ab 16 oder 18 Jahren sowie erforderliche Jugendschutzmaßnahmen.]
+    Mindestalter: 16 Jahre.
+    [RECHTLICH PRÜFEN: Erforderliche Jugendschutzmaßnahmen für die aktivierten Community-Funktionen.]
 2. In-App-Meldeweg
     [ANGABE ERGÄNZEN: genaue Menüführung und erreichbare Funktionen.]
 3. Moderationsprozess
@@ -6996,13 +6988,12 @@ Diese Community-Richtlinien sind vor der Veröffentlichung durch einen Rechtsanw
           _LegalSection(
             title: '1. Angaben gemäß § 5 DDG',
             body: '''
-plaqa - Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
-
-Rechtsform: Einzelunternehmen''',
+''',
           ),
           _LegalSection(
             title: '2. Kontakt',
