@@ -25,6 +25,7 @@ void main() {
     test('support request types use stable server values', () {
       expect(SupportRequestType.problem.name, 'problem');
       expect(SupportRequestType.verification.name, 'verification');
+      expect(SupportRequestType.safety.name, 'safety');
       expect(SupportRequestType.feedback.name, 'feedback');
     });
   });

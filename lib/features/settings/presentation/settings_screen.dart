@@ -812,7 +812,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'Missbrauch melden':
-        _openSupportRequest(SupportRequestType.problem);
+        _openSupportRequest(SupportRequestType.safety);
         return;
       case 'Sicherheitsregeln':
         _showSettingsInfo(
@@ -1436,6 +1436,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           description: 'Melde technische Fehler oder Darstellungsprobleme.',
         ),
         _SettingsDetailItem(
+          icon: Icons.health_and_safety_outlined,
+          title: 'Sicherheitsproblem melden',
+          description: 'Missbrauch, Bedrohungen oder gefährdende Inhalte melden.',
+        ),
+        _SettingsDetailItem(
           icon: Icons.verified_user_outlined,
           title: 'Verifizierungsproblem',
           description: 'Hilfe bei Identitäts- oder Fahrzeugnachweisen.',
@@ -1451,6 +1456,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Hilfe & FAQ' => const SupportFaqScreen(),
           'Problem melden' => const SupportRequestScreen(
             type: SupportRequestType.problem,
+          ),
+          'Sicherheitsproblem melden' => const SupportRequestScreen(
+            type: SupportRequestType.safety,
           ),
           'Verifizierungsproblem' => const SupportRequestScreen(
             type: SupportRequestType.verification,
