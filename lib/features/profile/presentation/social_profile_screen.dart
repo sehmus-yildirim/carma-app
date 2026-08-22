@@ -675,6 +675,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
   Widget build(BuildContext context) {
     return CaRismaBackground(
       child: SafeArea(
+        bottom: false,
         child: StreamBuilder<profile_data.UserProfile?>(
           stream: _isOwnProfile
               ? _profileRepository.watchProfile(_userId)
@@ -735,7 +736,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                                 onChanged: (index) =>
                                     setState(() => _selectedTab = index),
                               ),
-                              SizedBox(height: gap),
+                              const SizedBox(height: 8),
                               Expanded(
                                 child: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 180),
@@ -743,6 +744,13 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                                       ? SingleChildScrollView(
                                           key: const ValueKey(
                                             'profile-vehicle-scroll',
+                                          ),
+                                          padding: EdgeInsets.only(
+                                            bottom:
+                                                MediaQuery.paddingOf(
+                                                  context,
+                                                ).bottom +
+                                                56,
                                           ),
                                           physics:
                                               const ClampingScrollPhysics(),
@@ -4213,8 +4221,16 @@ class _ProfileTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
+    return Container(
       padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: CaRismaDesignTokens.card,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+          width: 1,
+        ),
+      ),
       child: Row(
         children: [
           Expanded(

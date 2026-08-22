@@ -36,6 +36,39 @@ void main() {
     expect(find.text('Startseiteninhalt').hitTestable(), findsOneWidget);
   });
 
+  testWidgets('keeps the profile switcher directly above the bottom navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          extendBody: true,
+          body: const ProfileHubView(
+            homePage: Center(child: Text('Startseiteninhalt')),
+            profilePage: Center(child: Text('Profilinhalt')),
+          ),
+          bottomNavigationBar: const SizedBox(
+            key: ValueKey('test-bottom-navigation'),
+            height: 80,
+          ),
+        ),
+      ),
+    );
+
+    final switcherBottom = tester
+        .getBottomLeft(find.byTooltip('Startseite'))
+        .dy;
+    final navigationTop = tester
+        .getTopLeft(find.byKey(const ValueKey('test-bottom-navigation')))
+        .dy;
+
+    expect(navigationTop - switcherBottom, closeTo(4, 0.1));
+
+    await tester.tap(find.byTooltip('Profil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profilinhalt').hitTestable(), findsOneWidget);
+  });
+
   testWidgets('home story strip opens the current users story', (tester) async {
     var opened = false;
     final story = ChatStoryRecord(

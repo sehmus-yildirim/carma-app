@@ -153,9 +153,9 @@ class _ProfileHomeFeedScreenState extends State<ProfileHomeFeedScreen>
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(
                     14,
-                    CaRismaDesignTokens.mainScreenTopInset,
+                    CaRismaDesignTokens.mainScreenTopInset + 12,
                     14,
-                    12,
+                    10,
                   ),
                   sliver: SliverToBoxAdapter(
                     child: _HomeStoriesSection(

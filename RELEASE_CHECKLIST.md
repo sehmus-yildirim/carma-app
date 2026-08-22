@@ -1,188 +1,292 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-21 CEST
+Stand: 2026-08-22 CEST
+App: `plaqa`
+Android-Paket: `de.plaqa.app`
+Version: `1.0.0+1`
+Firebase-Projekt: `carma-a84e4`
 
 ## Statuslegende
 
-- `[x]` erledigt und in dieser Bestandsaufnahme nachgewiesen
+- `[x]` nachgewiesen oder vom Nutzer in der zugehoerigen Console bestaetigt
 - `[ ]` offen
-- `[BLAZE]` durch Billing/Blaze blockiert
-- `[WEB]` wartet auf die öffentliche Website
-- `[SUPPORT]` wartet auf Firebase-Support
-- `[SERVICE]` vorübergehend durch einen Firebase-Dienstfehler blockiert
-- `[LIVE]` nur mit Gerät, Testkonto oder realem Backend prüfbar
+- `[BLAZE]` benoetigt Billing/Blaze
+- `[CONSOLE]` benoetigt eine aktuelle Console-Pruefung oder Konfiguration
+- `[LIVE]` nur mit Testkonto, Geraet oder realem Backend pruefbar
+- `[LEGAL]` externe rechtliche Pruefung erforderlich
+- `[PERSON]` persoenliche Freigabe oder rechtlich bindende Bestaetigung
+- `[BLOCKER]` muss vor Produktionsfreigabe erledigt sein
 
-## Lokaler Code-Abschluss
+## Aktueller Arbeitsstand
 
-- [x] Firebase-Zielprojekt lokal einheitlich `carma-a84e4`.
-- [x] Android-Anzeigename ist `plaqa`; technischer Paketname ist `de.plaqa.app`.
-- [x] Hosting-Konfiguration und Auth-Action-Handler sind lokal vorhanden.
-- [x] Sichtbaren alten Medien-Dateinamen korrigiert; neue Dateien verwenden `plaqa_<timestamp>.png`.
-- [x] Interne `CaRisma*`-Klassen und technische Firebase-/Paket-IDs bewusst als interne Bezeichner beibehalten.
-- [x] 93 sichtbare Legal-Prüfmarker inventarisiert und aus den Nutzertexten entfernt; offene persönliche und rechtliche Entscheidungen stehen in `LEGAL_PLACEHOLDER_INVENTORY.md`.
-- [x] Öffentliche/private Datenmodelle, Fehlertexte, Ladezustände und Debug-Gates statisch geprüft; gefundene rohe technische UI-Fehler und sichtbare UID entfernt.
-- [x] `HH-CR 2026` und Profil-Demo-Inhalte sind statisch auf Debug-/Demo-Pfade begrenzt.
-- [x] `firestore-debug.log` bleibt ignoriert; der vollständige Emulatorlauf hat keine Logs für das Repository erzeugt.
-- [x] `android/key.properties` und `android/upload-keystore.jks` sind lokal vorhanden und von Git ausgeschlossen.
-- [ ] Release-Keystore und Passwörter außerhalb des Repositories zusätzlich sicher sichern.
+- [x] Aktueller Branch: `codex/android-package-de-plaqa-app`.
+- [x] Ausgangsstand vor dieser Dokumentaktualisierung war sauber.
+- [x] Letzter lokaler Commit: `3747951 chore: save release preparation progress`.
+- [ ] Der Branch liegt einen lokalen Commit vor
+  `origin/codex/android-package-de-plaqa-app`; Push bleibt offen.
+- [ ] Diese beiden aktualisierten Dokumente sind nach Abschluss dieses Schritts
+  noch nicht committed oder gepusht.
+- [x] Keine History wurde umgeschrieben; kein Force-Push.
 
-## Flutter-Tests und Analyse
+## Abgeschlossen
 
-- [x] Alle 31 Flutter-Testdateien ausgeführt: 169 Tests bestanden.
-- [x] Keine fehlgeschlagenen Flutter-Tests im statischen Abschlusslauf.
-- [x] Nur tatsächlich geänderte Dart-Dateien formatiert.
-- [x] `flutter analyze --no-pub`: keine Probleme gefunden.
-- [x] `git diff --check` im finalen Abschlusslauf bestanden; nur erwartete Zeilenende-Warnungen vorhanden.
+### App, Tests und Build
 
-## Hauptseite und Social Feed
+- [x] Anzeigename `plaqa`, Paket-ID/Namespace `de.plaqa.app` und Version
+  `1.0.0+1` lokal bestaetigt.
+- [x] Firebase Android-App fuer `de.plaqa.app` registriert; lokale
+  `google-services.json` und `firebase_options.dart` zeigen auf die passende
+  Android-App.
+- [x] Debug- und Release-Zertifikate sind bei der neuen Android-App registriert;
+  vollstaendige Fingerprints werden nicht dokumentiert.
+- [x] Letzter dokumentierter Flutter-Lauf: 31 Testdateien, 169 Tests bestanden.
+- [x] Letzter dokumentierter Analyze-Lauf: `flutter analyze --no-pub` ohne
+  Befund.
+- [x] Letzter dokumentierter Functions-Lauf: Syntaxchecks der 9 produktiven
+  JavaScript-Dateien und 6 Testdateien mit 71 Tests bestanden.
+- [x] Letzter dokumentierter Rules-Lauf: 11 Testdateien, 14 Suites, 97 Tests
+  bestanden.
+- [x] Debug-APK und signiertes Release-AAB erfolgreich erzeugt.
+- [x] AAB-Signatur und Upload-Keystore erfolgreich abgeglichen.
+- [x] Build-Artefakte, Keystore und `android/key.properties` sind nicht in Git.
 
-- [x] Startseite und eigenes Profil sind per Icon und horizontaler Wischgeste erreichbar.
-- [x] Story-Leiste liegt auf der Startseite; Vorschau verwendet Profilbild oder Initialen statt Story-Medium.
-- [x] Neue Storys erhalten einen blauen, bereits gesehene Storys einen grauen Ring.
-- [x] Beiträge gefolgter Nutzer werden chronologisch aus denselben Dokumenten wie im Profil geladen.
-- [x] Folgen, Entfolgen, neue Beiträge und Feed-Entfernung sind auf Repository-Ebene getestet.
-- [x] Likes, Kommentare und Antworten verwenden auf Hauptseite und Profil dieselben Echtzeitdaten.
-- [x] Antworten zeigen zwei Vorschauen, lassen sich inline erweitern und sind auf schmaler Gerätebreite gegen gequetschtes Layout getestet.
-- [x] Fremde Profile werden von der Hauptseite nur lesend geöffnet; Debug-Profile öffnen kein falsches Firebase-Profil.
-- [x] Deaktivierte Story-Antworten werden auch im Sendeweg abgewiesen.
-- [SERVICE] Firestore Rules für Feed-Kommentare und Antworten deployen; lokale Kompilierung erfolgreich, Firebase-Rulesets-Dienst antwortete am 2026-08-20 wiederholt mit HTTP 503.
-- [SERVICE] Neuer `social_posts`-Index ist lokal vorbereitet und live nachweislich noch nicht vorhanden; auch der getrennte Index-Deploy wurde durch denselben HTTP-503-Dienstfehler abgebrochen.
-- [LIVE] Mit zwei Konten prüfen: Beitrag erscheint beim Follower, verschwindet nach Entfolgen und respektiert Öffentlich/Nur Kontakte/Nur ich.
-- [LIVE] Story neu/gesehen, Zielgruppe, Ausschlüsse und deaktivierte Antworten zwischen zwei Konten prüfen.
-- [WEB] Geteilte Beitragslinks später mit Website beziehungsweise App-Deep-Link verbinden.
+### Lokale Signatursicherung
 
-## Functions-Tests
+- [x] Keystore-Kopie ausserhalb des Repositories im lokalen plaqa-Adminordner
+  vorhanden.
+- [x] Original- und lokale Backup-Datei haben denselben SHA-256-Dateihash.
+- [x] `KEYSTORE_RECOVERY.md` ist im lokalen Signing-Backup vorhanden.
+- [x] KeePassXC-Datenbank ist lokal eingerichtet; Signing-Eintraege wurden vom
+  Nutzer gespeichert.
+- [ ] Zweite, unabhaengige und verschluesselte Sicherung auf USB oder einem
+  getrennten sicheren Datentraeger erstellen.
 
-- [x] 23 lokale Function-Exports inventarisiert.
-- [x] 12 veröffentlichte Function-Namen, Region und Runtime read-only bestätigt.
-- [x] `node --check functions/index.js` bestanden.
-- [x] Syntaxchecks aller 9 produktiven Functions-JavaScript-Dateien bestanden.
-- [x] Alle 6 Functions-Testdateien ausgeführt: 71 Tests bestanden.
-- [x] Dokument-Cleanup zusätzlich gegen offene Entwürfe, fremde Dateipfade und wiederholte Ausführung abgesichert.
-- [ ] Eigene Tests für `recordProfileView`, `submitPlateHint`, `requestVehicleHeroImage`, `maintainChatStories` und `maintainPlateHints` prüfen/ergänzen.
-- [x] Lokale Modulinitialisierung kontrolliert: 23 Exports in rund 5,1 Sekunden, keine top-level Netzwerk-/KI-Anfrage gefunden.
-- [ ] Frueheren Deploy-Analyse-Timeout beim naechsten gezielten Functions-Deploy weiter beobachten.
+### Play Console
 
-## Rules-Emulatoren
+- [x] Privates Google-Play-Entwicklerkonto vorhanden und Identitaet bestaetigt.
+- [x] App-Eintrag `plaqa` mit Paket `de.plaqa.app` vorhanden.
+- [x] Testzugang `plaqa reviewer account` laut Nutzerangabe eingetragen.
+- [x] Zielgruppe 16-17 und 18+ als Entwurf festgelegt; App richtet sich nicht
+  speziell an Kinder.
+- [x] IARC-Altersfreigabe bearbeitet und vom Nutzer akzeptiert.
+- [x] Kinderschutzkontakt und Kinderschutz-Selbsterklaerungen vom Nutzer
+  bestaetigt; oeffentlicher Standard vorhanden.
+- [x] Datensicherheitsdeklaration als Entwurf gespeichert.
+- [x] Es wurde kein AAB hochgeladen, keine Testspur gestartet und nichts zur
+  Pruefung oder Produktion eingereicht.
 
-- [x] 11 lokale Rules-Testdateien inventarisiert.
-- [x] JDK 21.0.10 aus Android Studio für die Firebase Emulatoren verwendet.
-- [x] Vollständige Firestore-/Storage-Emulatortests seriell ausgeführt: 11 Testdateien, 14 Suites, 97 Tests, 97 bestanden, 0 fehlgeschlagen.
-- [x] Eigentümer-, Teilnehmer-, Außenstehender- und Admin-Zugriffe durch die Rules-Tests geprüft.
-- [x] Profil-, Fahrzeug-, Chat-, Anfrage-, Report-, Settings-, Social-Post- und Verifizierungsregeln geprüft.
-- [x] Vor Abschluss der Emulatorprüfungen keine Rules deployed; vollständiger Emulatorlauf bestanden.
+### Legal-Inventar
 
-## Debug- und Release-Build
+- [x] 93 sichtbare In-App-Pruefmarker und insgesamt 95 sichtbare/provisorische
+  Fundstellen fachlich bereinigt.
+- [x] Offene persoenliche und rechtliche Entscheidungen stehen getrennt in
+  `LEGAL_PLACEHOLDER_INVENTORY.md` und `docs/legal_release_inputs.md`.
+- [x] Ein kompaktes externes Rechtspruefungsbriefing wurde erstellt.
+- [x] Technische Firebase-Projekt-ID `carma-a84e4` und interner
+  Keystore-Alias `carma` sind als interne Kennungen erklaert, nicht als
+  sichtbare Produktnamen.
 
-- [x] Debug-APK ohne Gerät erfolgreich kompiliert (`app-debug.apk`).
-- [x] Release-App-Bundle ohne Gerät erfolgreich kompiliert (`app-release.aab`, ca. 69,6 MB).
-- [x] Release-Signing geprüft: `jarsigner` Exit-Code 0; AAB-Zertifikat stimmt per SHA-256 mit `android/upload-keystore.jks` überein.
-- [x] Build-Metadaten geprüft: App-Name `plaqa`, Paket `de.plaqa.app`, Launcher-Icons und Splash-Ressourcen vorhanden.
-- [x] Build-Artefakte nicht in Git aufgenommen; `git status --short` blieb nach Debug- und Release-Build leer.
+## Lokal fertig
 
-## Firebase und Blaze
+- [x] 23 Functions-Exports in `functions/index.js`, global
+  `europe-west3`, Node.js 22.
+- [x] Account-Security-Code fuer Kontoloeschung und Sitzungswiderruf.
+- [x] MFA-Enrollment, MFA-Login fuer E-Mail/Google, Entfernen und Recovery-Code.
+- [x] Profilbild- und Anzeigenamen-Synchronisierung einschliesslich Social-
+  Unterpfaden.
+- [x] Fahrzeugverwaltung, Hauptfahrzeug, Deaktivierung und Standortupdate.
+- [x] Dokumentenverifizierung mit Identitaets- und Fahrzeugscheinprozess.
+- [x] Ablauf-Erinnerungen bei 30, 14 und 3 Tagen, Ablaufstatus und gezielte
+  Nachreichung im Dokumenten-Cleanup vorbereitet.
+- [x] Social Feed, Story-Leiste, Likes, Kommentare und Antworten lokal
+  implementiert.
+- [x] Sicherheits-, Melde- und Kinderschutzpfade lokal in Rules/UI vorhanden.
+- [x] Firestore Rules, Storage Rules und sechs Composite Indexes lokal
+  definiert.
+- [x] App Check ist im Android-Code build-gesteuert vorbereitet; Release nutzt
+  Play Integrity, Debug einen expliziten Debug-Provider.
+- [x] Auth-Action-Handler unter `hosting/auth/action` lokal vorhanden.
 
-- [BLAZE] Blaze/Billing erst nach ausdrücklicher Freigabe aktivieren.
-- [BLAZE] 11 nur lokal vorhandene Functions nach Tests gruppiert deployen.
-- [BLAZE] Einzeldeploy von `cleanupProfileVerificationDocuments` am 21.08.2026 vor der Erstellung abgebrochen: Projekt ist weiterhin nicht auf Blaze; kein zweiter Versuch erfolgt.
-- [ ] Firestore Rules nach bestandenem Emulatorlauf gezielt deployen.
-- [ ] Storage Rules nach bestandenem Emulatorlauf gezielt deployen.
-- [ ] Vier lokale Firestore Indexes mit tatsächlichen Queries abgleichen und Deploybedarf bestätigen.
-- [ ] Keine bereits veröffentlichte Function ohne bestätigten lokalen Unterschied neu deployen.
-- [LIVE] Function-Logs nach jedem Deploy begrenzt und ohne sensible Inhalte prüfen.
+## Veröffentlicht
 
-## App Check
+### Functions
 
-- [x] Android-App-Check-Aktivierung ist im App-Code vorbereitet.
-- [ ] Debug- und Release-Provider in Firebase prüfen.
-- [LIVE] App-Check-Tokens im Gerätebetrieb prüfen.
-- [LIVE] App Check erst nach erfolgreichen Tests schrittweise erzwingen.
-- [ ] MFA-Recovery steht lokal weiterhin auf `enforceAppCheck: false`; Änderung erst nach Provider-Nachweis.
+Am 2026-08-22 mit `firebase functions:list` read-only nachgewiesen. Die
+Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
 
-## Google Auth
+- [x] `searchPlate`
+- [x] `requestAccountDeletion`
+- [x] `revokeAccountSessions`
+- [x] `requestMfaRecovery`
+- [x] `getMfaRecoveryStatus`
+- [x] `listMfaRecoveryCases`
+- [x] `openMfaRecoveryCase`
+- [x] `markMfaRecoveryIdentityVerified`
+- [x] `reviewMfaRecovery`
+- [x] `requestVehicleHeroImage`
+- [x] `maintainChatStories`
+- [x] `syncProfilePhotoReferences` als Live-Name; CLI meldet `https`, waehrend
+  lokal ein Firestore-Update-Trigger definiert ist. Diese Abweichung bleibt
+  offen.
 
-- [x] Branding auf `plaqa`, App-Icon, `support@plaqa.de` und `info@plaqa.de` eingestellt.
-- [x] Zielgruppe extern und in Produktion.
-- [x] Keine zusätzlichen vertraulichen oder eingeschränkten OAuth-Scopes eingetragen.
-- [x] Neuer Android-Client `de.plaqa.app` mit Debug-/Release-SHA-1 und SHA-256 vorhanden; alte Android-Clients bleiben vorerst erhalten.
-- [ ] Alte `com.example.carma`-Clients erst nach abschließender Plattformprüfung entfernen.
-- [WEB] Startseiten-, Datenschutz- und AGB-URL ergänzen.
-- [WEB] Branding-Verifizierung erst nach Veröffentlichung der Website einreichen.
-- [LIVE] Google-Login, Session-Neustart und MFA auf Android prüfen.
+### Indexes und Hosting
 
-## Auth-E-Mails und Custom SMTP
+- [x] Alle sechs lokalen Firestore-Composite-Indexes sind live, darunter beide
+  `social_posts`-Varianten und beide `follow_relationships`-Indexe.
+- [x] Firebase-Hosting-Site `carma-a84e4` ist live.
+- [x] `https://plaqa.de/`, Kontoloeschung, Impressum, Meldestelle, Support,
+  Partner und `https://auth.plaqa.de/auth/action` liefern HTTP 200 und stimmen
+  byteweise mit den lokalen HTML-Dateien ueberein.
+- [ ] Datenschutz, Kinderschutz, Community-Richtlinien und
+  Nutzungsbedingungen sind live erreichbar, aber lokal neuer als die aktuell
+  ausgelieferten HTML-Dateien.
+- [ ] Inhaltliche Gleichheit der live Firestore- und Storage-Rules mit lokalem
+  Stand erneut pruefen; die CLI bietet hier keinen sicheren Direktvergleich.
 
-- [x] IONOS-Postfächer `info`, `support`, `privacy`, `partners` und `no-reply` sind angelegt.
-- [x] SPF, DKIM und DMARC wurden mit PASS bestätigt.
-- [x] Direkter SMTP-Versand über IONOS Port 587/STARTTLS funktioniert.
-- [SUPPORT] Firebase Custom SMTP bleibt deaktiviert, bis Firebase die fehlende Zustellung klärt.
-- [SUPPORT] Firebase-Template-Sperre und Custom-Action-URL-Fehler sind beim Support gemeldet.
-- [LIVE] Bestätigung, Passwort-Reset, E-Mail-Änderung und MFA-Hinweise nach Supportlösung testen.
+## Benötigt Blaze
 
-## Website und Rechtliches
+- [BLAZE] Billing-Plan und Budgetwarnungen vor jedem neuen oder aktualisierten
+  Functions-Deploy bestaetigen.
+- [BLAZE] `syncProfileVisibilityReferences`.
+- [BLAZE] `recordProfileView`.
+- [BLAZE] `submitPlateHint`.
+- [BLAZE] `submitProfileVerification`.
+- [BLAZE] `reviewProfileVerification`.
+- [BLAZE] `saveProfileVehicle`.
+- [BLAZE] `setPrimaryProfileVehicle`.
+- [BLAZE] `deactivateProfileVehicle`.
+- [BLAZE] `updatePrimaryVehicleLocation`.
+- [BLAZE] `maintainPlateHints`.
+- [BLAZE] `cleanupProfileVerificationDocuments`.
+- [BLAZE] Auch Updates der 12 bereits vorhandenen Functions nur kontrolliert
+  und mit aktivem Billing ausfuehren.
 
-- [x] `auth.plaqa.de/auth/action` ist per HTTPS erreichbar.
-- [x] Datenschutz-, Kontolösch- und Community-/Jugendschutzseiten lokal in einheitlichem plaqa-Stil vorbereitet und ohne fehlende lokale Assets geprüft.
-- [x] Betreiberangaben lokal auf die belegte Privatperson korrigiert; keine nicht bestätigte Rechtsform wird mehr behauptet.
-- [x] Aktuelle Anschrift am 21.08.2026 ausdrücklich bestätigt und per Firebase Hosting veröffentlicht; nach dem angekündigten Umzug Impressum und Datenschutz gleichzeitig aktualisieren.
-- [WEB] Öffentliche Website `https://plaqa.de/` erstellen.
-- [WEB] HTML-Seiten für Datenschutz, AGB, Impressum, Support und FAQ veröffentlichen.
-- [WEB] Website-Domain in Google Auth vollständig hinterlegen.
-- [x] Sämtliche sichtbaren Legal-Platzhalter fachlich bereinigt; dies ersetzt nicht die weiterhin offene externe Rechtsprüfung.
-- [ ] AGB, Datenschutz, Impressum, DSA-/Moderationsangaben und Löschfristen rechtlich prüfen lassen.
-- [ ] Nach dem vor Release stattfindenden Umzug die neue ladungsfähige Anschrift gleichzeitig in App, Impressum und Datenschutz eintragen und kontrollieren.
-- [ ] Datenschutzbeauftragten/DPIA trotz geplantem Team unter 20 Personen extern prüfen lassen; nicht abschließend entschieden.
-- [ ] Verbraucherstreitbeilegung trotz geplantem Team unter zehn Personen extern prüfen lassen; nicht abschließend entschieden.
-- [x] Aktuellen Betreiberstatus erfasst: vorerst allein als Privatperson, ohne bestätigte Gesellschafts-, Register- oder Umsatzsteuerangaben.
-- [ ] Legal-Versionen und Aktualisierungsdatum festlegen.
+## Benötigt Console-Konfiguration
 
-## Ein-Gerät-Livetests
+- [CONSOLE] Blaze aktivieren und Google-Cloud-Budgetwarnungen setzen.
+- [CONSOLE] Cloud Functions, Cloud Build, Artifact Registry, Scheduler und bei
+  Bedarf Google-AI-/Vertex-AI-APIs und Quoten pruefen.
+- [CONSOLE] App-Check-Registrierung der finalen Android-App, Debug-Provider,
+  Play Integrity, Metriken und aktuellen Enforcement-Status pruefen.
+- [CONSOLE] App Check zunaechst nur ueberwachen; MFA-Recovery steht lokal
+  weiterhin auf `enforceAppCheck: false`.
+- [CONSOLE] E-Mail/Passwort- und Google-Provider, autorisierte Domains und
+  OAuth-Branding fuer `de.plaqa.app` erneut kontrollieren.
+- [CONSOLE] Identity Platform/SMS-MFA, SMS-Regionen, Kontingent, Billing und
+  Testnummern erneut kontrollieren.
+- [CONSOLE] Firebase-E-Mail-Vorlagen, Absender, Supportadresse, deutsche Texte,
+  Action-URL und Custom-SMTP-Status erneut kontrollieren.
+- [CONSOLE] `auth.plaqa.de` als Auth-/Action-Domain beibehalten und alle
+  E-Mail-Aktionsarten testen.
+- [CONSOLE] Store-Name, Kurzbeschreibung, Langbeschreibung, App-Icon,
+  Feature-Grafik und Smartphone-Screenshots fertigstellen.
+- [CONSOLE] Interne beziehungsweise fuer neue Privatkonten erforderliche
+  geschlossene Testspur erst nach Backend- und Legal-Freigabe anlegen.
 
-- [LIVE] Registrierung, E-Mail-Verifikation, Login, Logout und Session-Neustart.
-- [LIVE] Google Login und SMS-MFA aktivieren, anmelden und entfernen.
-- [LIVE] Profilbild, persönliche Datensperre und Profilreferenz-Synchronisierung.
-- [LIVE] Fahrzeug erstellen, aktualisieren, Primärfahrzeug setzen und deaktivieren.
-- [LIVE] Dokumente hochladen, einreichen, nachreichen und Ablauf prüfen.
-- [LIVE] Einstellungen speichern und Standardland unmittelbar übernehmen.
-- [LIVE] Kontoexport/-löschung ausschließlich mit freigegebenem Testkonto.
-- [LIVE] Zwei Konten nacheinander auf demselben Gerät für Anfragen, Sichtbarkeit und Profilzugriffe verwenden.
+## Benötigt Live-Test
 
-## Spätere Zwei-Geräte-Livetests
+- [LIVE] Registrierung, Verifikation, E-Mail-/Google-Login, Logout und
+  Session-Neustart.
+- [LIVE] Passwort-Reset, E-Mail-Aenderung und Wiederherstellung ueber
+  `auth.plaqa.de`.
+- [LIVE] SMS-MFA aktivieren, E-Mail-/Google-MFA-Login, Abmelden und Faktor
+  entfernen.
+- [LIVE] MFA-Recovery mit vertrauenswuerdigem Admin-Claim, Genehmigung,
+  Ablehnung, Audit und Token-Widerruf.
+- [LIVE] Kontoloeschung ausschliesslich mit freigegebenem Testkonto; Auth,
+  Profil, Fahrzeuge, Kennzeichen, Posts, Storys, Medien, Settings und
+  gemeinsame/pseudonymisierte Daten einzeln kontrollieren.
+- [LIVE] Profilbild, Anzeigename und Sichtbarkeit in Posts, Likes, Kommentaren,
+  Antworten, Chats, Anfragen, Storys und Fahrzeugprojektionen synchronisieren.
+- [LIVE] Zwei Fahrzeuge speichern, Hauptfahrzeug wechseln, deaktivieren und
+  jedes aktive Kennzeichen suchen.
+- [LIVE] Dokumente hochladen, einreichen, ablehnen, nachreichen, Ablauf und
+  30/14/3-Erinnerungen pruefen; Cleanup separat kontrollieren.
+- [LIVE] Social Feed mit mindestens zwei Konten: Follow/Unfollow,
+  Sichtbarkeit, Likes, Kommentare, Antworten, Meldungen und Blockierung.
+- [LIVE] Firestore-/Storage-Berechtigungen fuer Eigentuemer, Teilnehmer,
+  Aussenstehende und Admin nach jedem Rules-Deploy.
+- [LIVE] App Check im Debug- und signierten Release-Build beobachten, bevor
+  irgendein Produkt erzwungen wird.
+- [LIVE] KI-Fahrzeugbild auf Kosten, Rate-Limit, Bildpfad und Fehlerzustand.
+- [LIVE] Scheduler fuer Story-, Meldungs- und Dokument-Cleanup in Logs und
+  Datenwirkung pruefen.
+- [LIVE] AAB spaeter in einer Testspur, Pre-Launch-Report sowie Crash-/ANR-
+  Berichte pruefen.
 
-- [LIVE] Kennzeichensuche mit zwei gleichzeitig aktiven Standorten.
-- [LIVE] Kontaktanfrage in Echtzeit senden, annehmen, ablehnen und zurückziehen.
-- [LIVE] Chat-Echtzeitstream, Zustellung, Lesebestätigung und Anhänge.
-- [LIVE] Push-Benachrichtigungen für Chat, Anfragen, Hinweise und Verifizierung.
-- [LIVE] Story-Aufrufe, Antworten und Ausschlüsse zwischen zwei Nutzern.
+## Benötigt rechtliche Prüfung
 
-## Demo- und Testdaten
+- [LEGAL] Anbieterkennzeichnung und neue ladungsfaehige Anschrift nach dem
+  geplanten Umzug.
+- [LEGAL] AGB/Nutzungsbedingungen, insbesondere Haftung, Sperrung, Kuendigung,
+  Aenderungen und Gerichtsstand.
+- [LEGAL] Datenschutzerklaerung, Rechtsgrundlagen, Empfaenger, internationale
+  Transfers, Auftragsverarbeitung und feste Loesch-/Aufbewahrungsfristen.
+- [LEGAL] Verhaeltnismaessigkeit, Schwaerzung und Rechtsgrundlage fuer
+  Identitaets- und Fahrzeugscheinkopien.
+- [LEGAL] DSA-Einordnung, Moderation, Beschwerden, Behoerdenmeldungen und
+  Streitbeilegung.
+- [LEGAL] Datenschutz-Folgenabschaetzung und Erforderlichkeit eines
+  Datenschutzbeauftragten; nicht abschliessend entschieden.
+- [LEGAL] Verbraucherstreitbeilegung; bei geplant weniger als zehn Personen
+  dennoch nicht abschliessend entschieden.
+- [LEGAL] Marken- und Namenspruefung fuer `plaqa`.
+- [LEGAL] Legal-Versionen und Aktualisierungsdatum final festlegen.
 
-- [ ] Fünf Beispielbeiträge vor Release entfernen oder strikt auf Debug begrenzen.
-- [ ] Testfahrzeug BMW X6 M50d und Debug-Bild vor Release entfernen oder strikt auf Debug begrenzen.
-- [ ] Beispiel-Likes, Kommentare, Chats und Anfragen vor Release entfernen oder strikt auf Debug begrenzen.
-- [ ] Debug-Kennzeichen `HH-CR 2026` im Release nachweislich deaktiviert lassen.
-- [ ] Keine Produktionskonten für Bereinigungs- oder Löschtests verwenden.
+## Benötigt persönliche Bestätigung
 
-## Play Console
+- [PERSON] Neue Anschrift nach dem vor Release stattfindenden Umzug bestaetigen.
+- [PERSON] Betreiberstatus vor Release erneut bestaetigen und nur dann
+  Gesellschafts-, Register- oder Steuerangaben ergaenzen, wenn sie existieren.
+- [PERSON] Externe Rechtsfassung abnehmen; technische Bereinigung ist keine
+  anwaltliche Freigabe.
+- [PERSON] Blaze/Billing und Budgetgrenzen ausdruecklich freigeben.
+- [PERSON] Einsatz ausdruecklich freigegebener Testkonten und Testdokumente.
+- [PERSON] AAB-Upload, Start einer Testspur, Einreichung zur Pruefung und
+  Produktionsveroeffentlichung jeweils separat freigeben.
 
-- [x] endgültigen technischen Paketnamen `de.plaqa.app` bestätigt.
-- [x] Signiertes Android App Bundle lokal erzeugt und Upload-Key verifiziert.
-- [ ] Android App Bundle später in einer internen Play-Testspur testen.
-- [ ] Store-Name, Kurz-/Langbeschreibung, Screenshots, Icon und Feature-Grafik erstellen.
-- [ ] Datenschutzerklärung, Datensicherheit, Altersfreigabe und Inhaltsangaben ausfüllen.
-- [x] Datensicherheitsangaben vollständig als Entwurf erfasst; keine Einreichung vorgenommen.
-- [x] Werbung, Finanz-, Gesundheits- und Behördenangaben als nicht zutreffend vorbereitet beziehungsweise gespeichert.
-- [ ] App-Zugang mit einem wiederverwendbaren Testkonto eintragen; erst danach Zielgruppe `16–17` und `18+` als Entwurf speichern.
-- [ ] Altersfreigabe/IARC und Kinderschutz-Erklärung erfordern noch die persönliche Bestätigung der Erklärungen und Kontaktangaben.
-- [ ] interne/geschlossene Testspur durchführen.
-- [ ] Crash-/ANR-Berichte und Pre-Launch-Report prüfen.
-- [ ] finale Produktionsfreigabe erst nach Website, Legal-Abschluss, Deploys und Live-Tests.
+## Blockiert Release
 
-## Git und Sicherung
+- [BLOCKER] Vier lokal neuere Rechtsseiten fachlich/rechtlich freigeben und
+  danach Hosting gezielt deployen.
+- [BLOCKER] Firestore- und Storage-Rules gegen den Live-Stand pruefen,
+  erforderlichen Stand deployen und Berechtigungstests bestehen.
+- [BLOCKER] Blaze aktivieren und die benoetigten 11 Functions in kleinen
+  Gruppen deployen und live testen.
+- [BLOCKER] `cleanupProfileVerificationDocuments` deployen und pruefen, bevor
+  Dokumentenverifizierung produktiv freigegeben wird.
+- [BLOCKER] Live-Triggerabweichung von `syncProfilePhotoReferences` klaeren.
+- [BLOCKER] App Check fuer die finale Android-App konfigurieren und im
+  Monitoring erfolgreich nachweisen; Enforcement erst danach.
+- [BLOCKER] Store-Texte, Screenshots und Feature-Grafik fertigstellen.
+- [BLOCKER] Testspur und von Google geforderte Testphase abschliessen.
+- [BLOCKER] Geraete- und Mehrkonten-Livetests ohne kritische Fehler bestehen.
+- [BLOCKER] Externe Rechtspruefung und neue Anschrift abschliessen.
+- [BLOCKER] Demo-/Beispieldaten im Release entfernen oder nachweislich nur im
+  Debug-Modus belassen.
+- [BLOCKER] Eine lokale Firebase-Admin-Zugangsschluesseldatei liegt ausserhalb
+  des Repositories im Desktop-Adminordner. Vor Release in einen verschluesselten
+  Secretspeicher verschieben, Zugriff beschraenken und bei moeglicher
+  Offenlegung rotieren. Sie wurde nicht in Git oder der Git-Historie gefunden.
+- [BLOCKER] Release-Keystore und KeePass-Datenbank zusaetzlich unabhaengig und
+  verschluesselt ausserhalb dieses Laptops sichern.
+- [BLOCKER] Branch nach finaler Kontrolle in `main` uebernehmen und ohne
+  Force-Push auf GitHub sichern.
 
-- [x] Aktueller Branch ist `main`.
-- [x] Ausgangsstand vor dem lokalen Abschluss war mit `origin/main` synchron.
-- [x] Frühere Domain-/Hosting-/Settings-Änderungen sind im aktuellen `main` gespeichert und mit `origin/main` synchronisiert.
-- [x] Aktualisierte Abschlussdokumente als beabsichtigte Änderungen dieses Abschluss-Schritts gestaged.
-- [x] Keine Logs, Secrets, Keystores, Build-Ausgaben oder Emulator-Daten gestaged oder committed.
-- [x] Aktualisierten lokalen Abschlussstand ohne Force-Push nach `origin/main` gepusht; `HEAD` und `origin/main` anschließend identisch.
+## Nächste sichere Reihenfolge
+
+1. Store-Texte, Screenshot-Konzept und Feature-Grafik lokal fertigstellen.
+2. Externe Legal-Pruefung und neue Anschrift einarbeiten; vier abweichende
+   Rechtsseiten anschliessend gezielt hosten.
+3. Blaze/Budgetwarnungen und erforderliche APIs konfigurieren.
+4. Rules nach erneutem Emulatorlauf deployen; Indexes derzeit nicht erneut
+   deployen, da alle sechs live sind.
+5. Functions gemaess `FIREBASE_DEPLOY_PLAN.md` in kleinen Gruppen deployen und
+   je Gruppe live testen.
+6. App Check im Monitoring einrichten und erst nach Geraetetests schrittweise
+   erzwingen.
+7. Alle Flutter-, Functions-, Rules-, Analyze- und Release-Build-Pruefungen
+   wiederholen.
+8. Branch kontrolliert nach `main` uebernehmen und pushen.
+9. AAB/Testspur, Pre-Launch-Report und echte Live-Tests getrennt abschliessen.
+10. Produktion erst nach einer eigenen ausdruecklichen Freigabe einreichen.

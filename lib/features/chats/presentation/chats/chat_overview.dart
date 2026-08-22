@@ -1160,14 +1160,14 @@ class ProfileStoryStrip extends StatelessWidget {
       });
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          height: 124,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          height: 112,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
             color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),

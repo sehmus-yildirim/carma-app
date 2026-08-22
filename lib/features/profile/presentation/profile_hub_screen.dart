@@ -35,7 +35,6 @@ class ProfileHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProfileHubView(
       controller: controller,
-      showSwitcher: false,
       homePage: ProfileHomeFeedScreen(userState: userState),
       profilePage: SocialProfileScreen(
         userState: userState,
@@ -134,7 +133,7 @@ class _ProfileHubViewState extends State<ProfileHubView> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: MediaQuery.paddingOf(context).bottom + 72,
+            bottom: MediaQuery.paddingOf(context).bottom + 4,
             child: Center(
               child: ProfileHubSwitcher(
                 selectedIndex: _selectedPage,
