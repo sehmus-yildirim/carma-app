@@ -41,13 +41,7 @@ enum VehicleHeroImageStatus {
   regenerationRequired,
 }
 
-enum ProfileVehicleHighlight {
-  plate,
-  color,
-  mileage,
-  status,
-  ownedSince,
-}
+enum ProfileVehicleHighlight { plate, color, mileage, status, ownedSince }
 
 class ProfileVehicle {
   const ProfileVehicle({
@@ -385,7 +379,9 @@ class ProfileVehicle {
       'vin': _trimmedOrNull(vin)?.toUpperCase(),
       'ownedSince': ownedSince == null ? null : Timestamp.fromDate(ownedSince!),
       'mileage': mileage,
-      'profileHighlights': profileHighlights.map((value) => value.name).toList(),
+      'profileHighlights': profileHighlights
+          .map((value) => value.name)
+          .toList(),
       'deactivatedAt': deactivatedAt == null
           ? null
           : Timestamp.fromDate(deactivatedAt!),
@@ -440,7 +436,9 @@ class ProfileVehicle {
       'equipment': _normalizedStringList(equipment),
       'ownedSince': ownedSince == null ? null : Timestamp.fromDate(ownedSince!),
       'mileage': mileage,
-      'profileHighlights': profileHighlights.map((value) => value.name).toList(),
+      'profileHighlights': profileHighlights
+          .map((value) => value.name)
+          .toList(),
     };
   }
 
@@ -542,12 +540,10 @@ class ProfileVehicle {
       plateType: plateType ?? this.plateType,
       seasonStartMonth: seasonStartMonth ?? this.seasonStartMonth,
       seasonEndMonth: seasonEndMonth ?? this.seasonEndMonth,
-      showOnPublicProfile:
-          showOnPublicProfile ?? this.showOnPublicProfile,
+      showOnPublicProfile: showOnPublicProfile ?? this.showOnPublicProfile,
       discoverableByPlate: discoverableByPlate ?? this.discoverableByPlate,
       selectableInStories: selectableInStories ?? this.selectableInStories,
-      allowContactRequests:
-          allowContactRequests ?? this.allowContactRequests,
+      allowContactRequests: allowContactRequests ?? this.allowContactRequests,
       plateDisplayMode: plateDisplayMode ?? this.plateDisplayMode,
       publicPlateLabel: publicPlateLabel ?? this.publicPlateLabel,
       year: clearYear ? null : year ?? this.year,
@@ -561,9 +557,7 @@ class ProfileVehicle {
       displacementCcm: clearDisplacementCcm
           ? null
           : displacementCcm ?? this.displacementCcm,
-      horsepower: clearHorsepower
-          ? null
-          : horsepower ?? this.horsepower,
+      horsepower: clearHorsepower ? null : horsepower ?? this.horsepower,
       kilowatts: clearKilowatts ? null : kilowatts ?? this.kilowatts,
       fuelType: clearFuelType ? null : fuelType ?? this.fuelType,
       transmission: clearTransmission

@@ -1437,7 +1437,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _SettingsDetailItem(
           icon: Icons.health_and_safety_outlined,
           title: 'Sicherheitsproblem melden',
-          description: 'Missbrauch, Bedrohungen oder gefährdende Inhalte melden.',
+          description:
+              'Missbrauch, Bedrohungen oder gefährdende Inhalte melden.',
         ),
         _SettingsDetailItem(
           icon: Icons.verified_user_outlined,
@@ -5823,7 +5824,8 @@ Eine pauschale unbegrenzte Vorratsspeicherung findet nicht statt. Gleichzeitig k
           ),
           _LegalSection(
             title: '29. Kontolöschung',
-            body: r'''Nutzer können die Löschung ihres Kontos in der App unter Einstellungen > Konto > Konto & Sicherheit > Gefahrenbereich > Konto löschen oder per E-Mail an privacy@plaqa.de beantragen.
+            body:
+                r'''Nutzer können die Löschung ihres Kontos in der App unter Einstellungen > Konto > Konto & Sicherheit > Gefahrenbereich > Konto löschen oder per E-Mail an privacy@plaqa.de beantragen.
 
 Vor einer Löschung kann eine Identitäts- oder Kontobestätigung erforderlich sein, um unberechtigte Löschanträge zu verhindern.
 

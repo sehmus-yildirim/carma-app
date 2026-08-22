@@ -274,9 +274,7 @@ Future<bool> showProfileVehicleEditorSheet(
                   firstRegistration == null) {
                 ScaffoldMessenger.of(sheetContext).showSnackBar(
                   const SnackBar(
-                    content: Text(
-                      'Bitte gib eine gültige Erstzulassung ein.',
-                    ),
+                    content: Text('Bitte gib eine gültige Erstzulassung ein.'),
                   ),
                 );
                 return;
@@ -1016,10 +1014,7 @@ class _VehicleTextField extends StatelessWidget {
 }
 
 class _VehicleDateTextField extends StatelessWidget {
-  const _VehicleDateTextField({
-    required this.controller,
-    required this.label,
-  });
+  const _VehicleDateTextField({required this.controller, required this.label});
 
   final TextEditingController controller;
   final String label;

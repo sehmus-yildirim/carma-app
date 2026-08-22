@@ -17,10 +17,7 @@ class ProfilePostGallerySelection {
 }
 
 class ProfilePostGalleryScreen extends StatefulWidget {
-  const ProfilePostGalleryScreen({
-    super.key,
-    this.maxSelection = 10,
-  });
+  const ProfilePostGalleryScreen({super.key, this.maxSelection = 10});
 
   final int maxSelection;
 
@@ -183,7 +180,9 @@ class _ProfilePostGalleryScreenState extends State<ProfilePostGalleryScreen> {
       setState(() => _isResolving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Die ausgewählten Medien konnten nicht geöffnet werden.'),
+          content: Text(
+            'Die ausgewählten Medien konnten nicht geöffnet werden.',
+          ),
         ),
       );
     }

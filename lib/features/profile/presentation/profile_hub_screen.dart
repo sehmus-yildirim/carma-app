@@ -36,9 +36,7 @@ class ProfileHubScreen extends StatelessWidget {
     return ProfileHubView(
       controller: controller,
       homePage: ProfileHomeFeedScreen(userState: userState),
-      profilePage: SocialProfileScreen(
-        userState: userState,
-      ),
+      profilePage: SocialProfileScreen(userState: userState),
     );
   }
 }
@@ -110,9 +108,7 @@ class _ProfileHubViewState extends State<ProfileHubView> {
         PageView(
           key: const ValueKey('profile-hub-pages'),
           controller: _pageController,
-          physics: const PageScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
+          physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
           allowImplicitScrolling: true,
           onPageChanged: (page) {
             setState(() => _selectedPage = page);
@@ -163,9 +159,7 @@ class ProfileHubSwitcher extends StatelessWidget {
       children: [
         _ProfileHubSwitchButton(
           tooltip: 'Startseite',
-          icon: selectedIndex == 0
-              ? Icons.home_rounded
-              : Icons.home_outlined,
+          icon: selectedIndex == 0 ? Icons.home_rounded : Icons.home_outlined,
           isSelected: selectedIndex == 0,
           onTap: () => onSelected(0),
         ),
@@ -227,9 +221,7 @@ class _ProfileHubSwitchButton extends StatelessWidget {
               color: isSelected
                   ? CaRismaDesignTokens.blueBright
                   : CaRismaDesignTokens.textMuted,
-              shadows: const [
-                Shadow(color: Color(0x99000000), blurRadius: 8),
-              ],
+              shadows: const [Shadow(color: Color(0x99000000), blurRadius: 8)],
             ),
           ),
         ),
