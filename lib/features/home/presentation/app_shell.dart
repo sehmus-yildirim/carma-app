@@ -95,28 +95,34 @@ class _AppShellState extends State<AppShell> {
         stream: _unreadReportCountStream,
         initialData: 0,
         builder: (context, reportSnapshot) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_selectedIndex == 1) ...[
-                AnimatedBuilder(
-                  animation: _profileHubController,
-                  builder: (context, _) => ProfileHubSwitcher(
-                    selectedIndex: _profileHubController.selectedIndex,
-                    onSelected: _profileHubController.select,
+          return Material(
+            color: Colors.transparent,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _GlassBottomNavigationBar(
+                    selectedIndex: _selectedIndex,
+                    onTabSelected: _onTabSelected,
+                    bottomInset: bottomInset,
+                    unreadReportCount: reportSnapshot.data ?? 0,
                   ),
                 ),
+                if (_selectedIndex == 1)
+                  Positioned(
+                    top: -48,
+                    child: AnimatedBuilder(
+                      animation: _profileHubController,
+                      builder: (context, _) => ProfileHubSwitcher(
+                        selectedIndex: _profileHubController.selectedIndex,
+                        onSelected: _profileHubController.select,
+                      ),
+                    ),
+                  ),
               ],
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _GlassBottomNavigationBar(
-                  selectedIndex: _selectedIndex,
-                  onTabSelected: _onTabSelected,
-                  bottomInset: bottomInset,
-                  unreadReportCount: reportSnapshot.data ?? 0,
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),

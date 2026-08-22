@@ -1485,16 +1485,11 @@ class _SearchBrandCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: CaRismaDesignTokens.card,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: SizedBox(
-        height: 46,
+      height: 46,
+      child: Transform.scale(
+        scale: 1.18,
         child: Image.asset(
           'assets/images/plaqa_logo_transparent.png',
           fit: BoxFit.contain,

@@ -54,11 +54,13 @@ void main() {
     ).readAsStringSync();
     final brandCard = source.substring(
       source.indexOf('class _SearchBrandCard'),
+      source.indexOf('class _SearchUserAvatar'),
     );
 
-    expect(brandCard, contains('vertical: 2'));
     expect(brandCard, contains('height: 46'));
+    expect(brandCard, contains('scale: 1.18'));
     expect(brandCard, contains('fit: BoxFit.contain'));
     expect(brandCard, contains('alignment: Alignment.center'));
+    expect(brandCard, isNot(contains('decoration: BoxDecoration')));
   });
 }

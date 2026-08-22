@@ -19,7 +19,7 @@ Stand: 2026-08-21 CEST
 - [x] Hosting-Konfiguration und Auth-Action-Handler sind lokal vorhanden.
 - [x] Sichtbaren alten Medien-Dateinamen korrigiert; neue Dateien verwenden `plaqa_<timestamp>.png`.
 - [x] Interne `CaRisma*`-Klassen und technische Firebase-/Paket-IDs bewusst als interne Bezeichner beibehalten.
-- [ ] 74 markierte Legal-Platzhalter (`ANGABE ERGÄNZEN` / `RECHTLICH PRÜFEN`) vor Veröffentlichung fachlich und rechtlich abschließen.
+- [x] 93 sichtbare Legal-Prüfmarker inventarisiert und aus den Nutzertexten entfernt; offene persönliche und rechtliche Entscheidungen stehen in `LEGAL_PLACEHOLDER_INVENTORY.md`.
 - [x] Öffentliche/private Datenmodelle, Fehlertexte, Ladezustände und Debug-Gates statisch geprüft; gefundene rohe technische UI-Fehler und sichtbare UID entfernt.
 - [x] `HH-CR 2026` und Profil-Demo-Inhalte sind statisch auf Debug-/Demo-Pfade begrenzt.
 - [x] `firestore-debug.log` bleibt ignoriert; der vollständige Emulatorlauf hat keine Logs für das Repository erzeugt.
@@ -128,8 +128,12 @@ Stand: 2026-08-21 CEST
 - [WEB] Öffentliche Website `https://plaqa.de/` erstellen.
 - [WEB] HTML-Seiten für Datenschutz, AGB, Impressum, Support und FAQ veröffentlichen.
 - [WEB] Website-Domain in Google Auth vollständig hinterlegen.
-- [ ] Sämtliche Legal-Platzhalter mit fachlichen Releaseentscheidungen füllen.
+- [x] Sämtliche sichtbaren Legal-Platzhalter fachlich bereinigt; dies ersetzt nicht die weiterhin offene externe Rechtsprüfung.
 - [ ] AGB, Datenschutz, Impressum, DSA-/Moderationsangaben und Löschfristen rechtlich prüfen lassen.
+- [ ] Nach dem vor Release stattfindenden Umzug die neue ladungsfähige Anschrift gleichzeitig in App, Impressum und Datenschutz eintragen und kontrollieren.
+- [ ] Datenschutzbeauftragten/DPIA trotz geplantem Team unter 20 Personen extern prüfen lassen; nicht abschließend entschieden.
+- [ ] Verbraucherstreitbeilegung trotz geplantem Team unter zehn Personen extern prüfen lassen; nicht abschließend entschieden.
+- [x] Aktuellen Betreiberstatus erfasst: vorerst allein als Privatperson, ohne bestätigte Gesellschafts-, Register- oder Umsatzsteuerangaben.
 - [ ] Legal-Versionen und Aktualisierungsdatum festlegen.
 
 ## Ein-Gerät-Livetests
