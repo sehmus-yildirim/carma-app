@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/firebase/carisma_firestore_paths.dart';
 
-enum SupportRequestType { problem, verification, feedback }
+enum SupportRequestType { problem, verification, safety, feedback }
 
 class SupportTechnicalReference {
   const SupportTechnicalReference({

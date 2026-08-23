@@ -35,12 +35,8 @@ class ProfileHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProfileHubView(
       controller: controller,
-      showSwitcher: false,
       homePage: ProfileHomeFeedScreen(userState: userState),
-      profilePage: SocialProfileScreen(
-        userState: userState,
-        bottomContentInset: 58,
-      ),
+      profilePage: SocialProfileScreen(userState: userState),
     );
   }
 }
@@ -96,7 +92,7 @@ class _ProfileHubViewState extends State<ProfileHubView> {
     if (page == _selectedPage || !_pageController.hasClients) return;
     _pageController.animateToPage(
       page,
-      duration: const Duration(milliseconds: 280),
+      duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
     );
   }
@@ -112,7 +108,8 @@ class _ProfileHubViewState extends State<ProfileHubView> {
         PageView(
           key: const ValueKey('profile-hub-pages'),
           controller: _pageController,
-          physics: const ClampingScrollPhysics(),
+          physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
+          allowImplicitScrolling: true,
           onPageChanged: (page) {
             setState(() => _selectedPage = page);
             _hubController.select(page);
@@ -132,7 +129,7 @@ class _ProfileHubViewState extends State<ProfileHubView> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: MediaQuery.paddingOf(context).bottom + 72,
+            bottom: MediaQuery.paddingOf(context).bottom + 4,
             child: Center(
               child: ProfileHubSwitcher(
                 selectedIndex: _selectedPage,
@@ -157,44 +154,25 @@ class ProfileHubSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: CaRismaDesignTokens.card.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.34),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _ProfileHubSwitchButton(
-              tooltip: 'Startseite',
-              icon: selectedIndex == 0
-                  ? Icons.home_rounded
-                  : Icons.home_outlined,
-              isSelected: selectedIndex == 0,
-              onTap: () => onSelected(0),
-            ),
-            const SizedBox(width: 4),
-            _ProfileHubSwitchButton(
-              tooltip: 'Profil',
-              icon: selectedIndex == 1
-                  ? Icons.person_rounded
-                  : Icons.person_outline_rounded,
-              isSelected: selectedIndex == 1,
-              onTap: () => onSelected(1),
-            ),
-          ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ProfileHubSwitchButton(
+          tooltip: 'Startseite',
+          icon: selectedIndex == 0 ? Icons.home_rounded : Icons.home_outlined,
+          isSelected: selectedIndex == 0,
+          onTap: () => onSelected(0),
         ),
-      ),
+        const SizedBox(width: 12),
+        _ProfileHubSwitchButton(
+          tooltip: 'Profil',
+          icon: selectedIndex == 1
+              ? Icons.person_rounded
+              : Icons.person_outline_rounded,
+          isSelected: selectedIndex == 1,
+          onTap: () => onSelected(1),
+        ),
+      ],
     );
   }
 }
@@ -214,43 +192,36 @@ class _ProfileHubSwitchButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Semantics(
-        button: true,
-        selected: isSelected,
-        label: tooltip,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: 48,
-          height: 40,
-          decoration: BoxDecoration(
-            color: isSelected
-                ? CaRismaDesignTokens.controlSurface
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isSelected
-                  ? CaRismaDesignTokens.bluePrimary
-                  : Colors.transparent,
-              width: 1.3,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: tooltip,
+      child: SizedBox.square(
+        dimension: 44,
+        child: IconButton(
+          tooltip: tooltip,
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+          style: ButtonStyle(
+            backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+            overlayColor: WidgetStatePropertyAll(
+              CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.12),
             ),
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(6),
-              splashFactory: NoSplash.splashFactory,
-              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-              child: Icon(
-                icon,
-                size: 23,
-                color: isSelected
-                    ? CaRismaDesignTokens.blueBright
-                    : CaRismaDesignTokens.textMuted,
-              ),
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(scale: animation, child: child),
+            ),
+            child: Icon(
+              icon,
+              key: ValueKey(icon),
+              size: isSelected ? 25 : 23,
+              color: isSelected
+                  ? CaRismaDesignTokens.blueBright
+                  : CaRismaDesignTokens.textMuted,
+              shadows: const [Shadow(color: Color(0x99000000), blurRadius: 8)],
             ),
           ),
         ),

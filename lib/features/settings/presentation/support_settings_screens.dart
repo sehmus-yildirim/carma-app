@@ -260,6 +260,13 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
         'Abgelehnte Verifizierung',
         'Anderes Verifizierungsproblem',
       ],
+      SupportRequestType.safety => const [
+        'Schutz von Minderjährigen',
+        'Belästigung oder Bedrohung',
+        'Problematischer Inhalt',
+        'Verdächtiges Profil oder Verhalten',
+        'Anderes Sicherheitsproblem',
+      ],
       SupportRequestType.feedback => const [
         'Verbesserungsvorschlag',
         'Neue Idee',
@@ -273,12 +280,14 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
   String get _title => switch (widget.type) {
     SupportRequestType.problem => 'Problem melden',
     SupportRequestType.verification => 'Verifizierungsproblem',
+    SupportRequestType.safety => 'Sicherheitsproblem melden',
     SupportRequestType.feedback => 'Feedback senden',
   };
 
   IconData get _icon => switch (widget.type) {
     SupportRequestType.problem => Icons.bug_report_outlined,
     SupportRequestType.verification => Icons.verified_user_outlined,
+    SupportRequestType.safety => Icons.health_and_safety_outlined,
     SupportRequestType.feedback => Icons.feedback_outlined,
   };
 
@@ -381,9 +390,11 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
               CaRismaSubPageHeader(
                 icon: _icon,
                 title: _title,
-                titleFontSize: widget.type == SupportRequestType.verification
-                    ? 17.5
-                    : null,
+                titleFontSize: switch (widget.type) {
+                  SupportRequestType.verification => 17.5,
+                  SupportRequestType.safety => 16,
+                  _ => null,
+                },
                 onBack: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 18),
@@ -392,6 +403,14 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (widget.type == SupportRequestType.safety) ...[
+                      const CaRismaMessageCard(
+                        icon: Icons.shield_outlined,
+                        message:
+                            'Beschreibe den betroffenen Bereich. Sende keine mutmaßlich rechtswidrigen Bilder oder Videos über normale Supportwege. Bei unmittelbarer Gefahr wende dich direkt an Polizei oder Notruf.',
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     DropdownButtonFormField<String>(
                       initialValue: _category,
                       dropdownColor: CaRismaDesignTokens.card,
@@ -417,7 +436,7 @@ class _SupportRequestScreenState extends State<SupportRequestScreen> {
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: 'Betroffener Bereich',
-                        hintText: 'Zum Beispiel: Chat oder Profil',
+                        hintText: 'Zum Beispiel: Chat, Profil oder Beitrag',
                         prefixIcon: Icon(Icons.grid_view_rounded),
                       ),
                     ),

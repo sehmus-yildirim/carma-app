@@ -88,7 +88,10 @@ class ProfileVehicleGalleryCard extends StatelessWidget {
                 )
               else
                 GridView.builder(
+                  key: const ValueKey('profile-vehicle-gallery-grid'),
                   shrinkWrap: true,
+                  primary: false,
+                  padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,

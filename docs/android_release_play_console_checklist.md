@@ -4,7 +4,7 @@ Stand: 2026-07-03
 
 ## Technischer Stand
 
-- Package ID: `com.carma.app`
+- Package ID: `de.plaqa.app`
 - Firebase Android App: `plaqa Android`
 - Version: `1.0.0+1`
 - Release Bundle: `build/app/outputs/bundle/release/app-release.aab`

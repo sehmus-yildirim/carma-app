@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  cleanupVerificationDocuments,
   createVerificationExpiryReminders,
   expectedDocumentPath,
   expireVerifiedRequests,
@@ -251,7 +252,9 @@ function validPng({withExif = false} = {}) {
 }
 
 function fakeBucket(files) {
+  const deletedPaths = [];
   return {
+    deletedPaths,
     file(filePath) {
       const value = files[filePath];
       return {
@@ -263,6 +266,10 @@ function fakeBucket(files) {
         },
         async download() {
           return [value?.content ?? Buffer.alloc(0)];
+        },
+        async delete() {
+          deletedPaths.push(filePath);
+          delete files[filePath];
         },
       };
     },
@@ -426,6 +433,99 @@ function verificationDocuments(userId, relationship = 'authorizedUser') {
     },
   };
 }
+
+test('cleans only reviewed verification documents and remains idempotent', async () => {
+  const now = new Date('2026-08-21T04:30:00Z');
+  const identityPath = expectedDocumentPath('reviewed-user', 'identityFront');
+  const vehiclePath = expectedDocumentPath('reviewed-user', 'vehicleFront');
+  const historyPath =
+    'verification_requests/reviewed-user/history/review-entry';
+  const firestore = fakeFirestore({
+    'verification_requests/reviewed-user': {
+      userId: 'reviewed-user',
+      status: 'verified',
+      reviewedAt: new Date('2026-07-20T09:00:00Z'),
+      retentionUntil: new Date('2026-08-20T09:00:00Z'),
+      documentsCleanedAt: null,
+      documentStoragePaths: {
+        identityFront: identityPath,
+        vehicleFront: vehiclePath,
+        identityBack:
+          'profile_documents/another-user/identityBack/identityBack.png',
+      },
+    },
+    [historyPath]: {
+      type: 'review',
+      decision: 'verified',
+    },
+  });
+  const bucket = fakeBucket({
+    [identityPath]: {content: validPng()},
+    [vehiclePath]: {content: validPng()},
+  });
+
+  const first = await cleanupVerificationDocuments({
+    firestore,
+    bucket,
+    now,
+  });
+
+  assert.equal(first.cleaned, 1);
+  assert.deepEqual(
+      bucket.deletedPaths.sort(),
+      [identityPath, vehiclePath].sort(),
+  );
+  const request = firestore.documents.get(
+    'verification_requests/reviewed-user',
+  );
+  assert.deepEqual(request.documentStoragePaths, {});
+  assert.equal(request.documentsCleanedAt, now);
+  assert.equal(request.retentionUntil, null);
+  assert.deepEqual(firestore.documents.get(historyPath), {
+    type: 'review',
+    decision: 'verified',
+  });
+
+  const repeated = await cleanupVerificationDocuments({
+    firestore,
+    bucket,
+    now,
+  });
+  assert.equal(repeated.cleaned, 0);
+  assert.equal(bucket.deletedPaths.length, 2);
+});
+
+test('does not clean an open draft even with an invalid retention marker', async () => {
+  const now = new Date('2026-08-21T04:30:00Z');
+  const identityPath = expectedDocumentPath('open-user', 'identityFront');
+  const firestore = fakeFirestore({
+    'verification_requests/open-user': {
+      userId: 'open-user',
+      status: 'draft',
+      reviewedAt: null,
+      retentionUntil: new Date('2026-08-20T09:00:00Z'),
+      documentsCleanedAt: null,
+      documentStoragePaths: {identityFront: identityPath},
+    },
+  });
+  const bucket = fakeBucket({
+    [identityPath]: {content: validPng()},
+  });
+
+  const result = await cleanupVerificationDocuments({
+    firestore,
+    bucket,
+    now,
+  });
+
+  assert.equal(result.cleaned, 0);
+  assert.deepEqual(bucket.deletedPaths, []);
+  assert.deepEqual(
+    firestore.documents.get('verification_requests/open-user')
+        .documentStoragePaths,
+    {identityFront: identityPath},
+  );
+});
 
 test('requires a current expiration date only for identity evidence', () => {
   const now = new Date('2026-08-14T08:00:00Z');

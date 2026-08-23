@@ -9,16 +9,19 @@ class CaRismaRegionIdentityCard extends StatelessWidget {
     super.key,
     required this.region,
     this.onTap,
+    this.showOuterEffects = true,
   });
 
   final RegistrationRegionPresentationData region;
   final VoidCallback? onTap;
+  final bool showOuterEffects;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: EdgeInsets.zero,
       radius: 20,
+      showOuterEffects: showOuterEffects,
       child: Semantics(
         button: onTap != null,
         label: region.displayName,

@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:plaqa/features/profile/data/profile_vehicle.dart';
 import 'package:plaqa/features/profile/data/profile_vehicle_gallery_media.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:plaqa/features/profile/presentation/widgets/profile_vehicle_gallery_card.dart';
+import 'package:plaqa/features/profile/presentation/widgets/profile_vehicle_panel.dart';
 
 void main() {
   const media = ProfileVehicleGalleryMedia(
@@ -51,5 +54,47 @@ void main() {
 
     expect(video.toPublicFirestore()['mediaType'], 'video');
     expect(video.isPubliclyVisible, isTrue);
+  });
+
+  testWidgets('Galerieraster übernimmt keinen unteren Navigationsabstand', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    Widget buildGallery(double bottomPadding) {
+      return MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            size: const Size(400, 900),
+            padding: EdgeInsets.only(bottom: bottomPadding),
+          ),
+          child: Scaffold(
+            body: ProfileVehicleGalleryCard(
+              vehicle: debugProfileVehicle,
+              media: Stream.value(const <ProfileVehicleGalleryMedia>[]),
+              isOwnProfile: true,
+              onAdd: () {},
+              onSetMain: (_) {},
+              onDelete: (_) {},
+            ),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildGallery(0));
+    await tester.pumpAndSettle();
+    final heightWithoutNavigation = tester
+        .getSize(find.byKey(const ValueKey('profile-vehicle-gallery-grid')))
+        .height;
+
+    await tester.pumpWidget(buildGallery(120));
+    await tester.pumpAndSettle();
+    final heightWithNavigation = tester
+        .getSize(find.byKey(const ValueKey('profile-vehicle-gallery-grid')))
+        .height;
+
+    expect(heightWithNavigation, heightWithoutNavigation);
   });
 }

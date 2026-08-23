@@ -1,186 +1,178 @@
-# Rechtliches Release-Input
+# Rechtlicher Release-Stand
 
-Stand: 2026-07-03
+Stand: 2026-08-22
 
-Diese Datei sammelt die Angaben, die vor einem echten Release in Impressum,
-Datenschutzerklärung, AGB/Nutzungsbedingungen und Play Console übernommen
-werden müssen.
+Diese Datei fasst den fachlich belegten Stand der In-App-Rechtstexte und der
+oeffentlichen plaqa-Seiten zusammen. Offene Punkte sind keine sichtbaren
+Platzhalter mehr, sondern kontrollierte Release-Aufgaben. Eine externe
+Rechtspruefung bleibt vor der Produktionsveroeffentlichung erforderlich.
 
-Wichtig: Die aktuellen Texte in der App sind Entwürfe. Finale Texte sollten
-juristisch geprüft werden, bevor sie veröffentlicht werden.
+Das vollstaendige Fundstellen- und Freigabeinventar steht in
+`LEGAL_PLACEHOLDER_INVENTORY.md`.
 
-## 1. Impressum
+## 1. Anbieter und Kontakte
 
-Bitte bereitstellen:
+Aktuell verwendet:
 
-- Verantwortlicher Anbieter / Betreiber:
-- Rechtsform, falls vorhanden:
-- Vollständige ladungsfähige Anschrift:
-- E-Mail-Adresse:
-- Telefonnummer, falls veröffentlicht:
-- Support-E-Mail:
-- Vertretungsberechtigte Person, falls Firma:
-- Handelsregister / Registergericht / Registernummer, falls vorhanden:
-- Umsatzsteuer-ID, falls vorhanden:
-- Aufsichtsbehörde oder berufsrechtliche Angaben, falls relevant:
+- Produktname: plaqa
+- Website: https://plaqa.de
+- Allgemeiner Kontakt: info@plaqa.de
+- Support: support@plaqa.de
+- Datenschutz: privacy@plaqa.de
+- Automatischer Versand: no-reply@plaqa.de
+- Partnerschaften: partners@plaqa.de
+- Betreiber: Privatperson; keine nicht bestaetigte Rechtsform wird behauptet
+- Betreiberstatus am 22. August 2026 bestaetigt: vorerst allein und ohne
+  bestaetigte Gesellschafts-, Register- oder Umsatzsteuerangaben
 
-In der App zu befüllen:
+Vor Release erneut bestaetigen:
 
-- `lib/features/settings/presentation/settings_screen.dart`
-- Abschnitt `Rechtliches > Impressum`
+- Neue ladungsfaehige Anschrift nach dem vor Release stattfindenden Umzug; die
+  derzeit eingetragene Anschrift darf nicht ungeprueft in den Release uebergehen
+- Rechtsform, Register- und Steuerangaben, falls sich der Betreiberstatus aendert
+- Verpflichtung und Teilnahmebereitschaft zur Verbraucherstreitbeilegung; das
+  geplante Team bleibt zunaechst unter zehn Personen
+- Erforderlichkeit eines Datenschutzbeauftragten; geplant ist ein kleines Team
+  mit weniger als 20 Personen, eine moegliche Datenschutz-Folgenabschaetzung
+  muss dennoch extern bewertet werden
 
-## 2. Datenschutzerklärung
+Fuer die beiden letzten Punkte gilt:
+**Nicht abschliessend entschieden, externe Rechtspruefung erforderlich.**
 
-Bitte bereitstellen oder bestätigen:
+## 2. Tatsaechliche Datenverarbeitung
 
-- Verantwortlicher:
-- Kontakt für Datenschutzanfragen:
-- Datenschutzbeauftragter, falls vorhanden:
-- Hosting / Firebase-Projekt:
-- Ob Firebase nur in EU-Regionen oder auch außerhalb der EU verarbeitet:
-- Ob Google Analytics genutzt werden soll:
-- Ob Crashlytics genutzt werden soll:
-- Ob Push Notifications genutzt werden sollen:
-- Ob App Check genutzt werden soll:
-- Support-Kontakt für Auskunft, Löschung und Datenexport:
+Im Code und in der Konfiguration belegt:
 
-### Datenarten in plaqa
+- Firebase Authentication mit E-Mail/Passwort, Google und optional SMS-MFA
+- Firestore fuer Konten, Profile, Fahrzeuge, Kennzeichen, soziale Inhalte,
+  Einstellungen, Anfragen, Chats und Sicherheitsdaten
+- Cloud Storage fuer Profilbilder, Beitraege, Storys, Chatmedien und
+  Verifizierungsdokumente
+- Cloud Functions fuer geschuetzte serverseitige Ablaeufe
+- App Check ist technisch vorbereitet und vor Release final zu konfigurieren
+- Standort fuer Kennzeichensuche und standortbezogene App-Funktionen; keine
+  Berechtigung fuer Hintergrundstandort
+- Kamera, Mikrofon und Medienzugriff nur fuer vom Nutzer gestartete Funktionen
+- Kontaktfreigabe ueber System-Picker statt vollstaendigem Adressbuchzugriff
 
-Bitte prüfen/bestätigen:
+Derzeit nicht aktiv eingebunden:
 
-- Konto: E-Mail, UID, Auth-Daten
-- Profil: Anzeigename, Profilbild, Telefonnummer optional, Geburtsdatum optional
-- Fahrzeug: Marke, Modell, Farbe, Kennzeichen
-- Standort: Kennzeichen-Suche, Melden, Standortanhang im Chat
-- Chat: Nachrichten, Medien, Dokumente, Standort, Kontakte, Sprachnachrichten
-- Story: Medien, Text, Sticker, Aufrufe, Antworten
-- Hinweise/Melden: Kategorie, Kennzeichen, Adresse/Standort, optional Foto
-- Verifizierung: Profil-/Fahrzeug-/Dokumentnachweise
-- Sicherheit: Blockierungen, Meldungen, Missbrauchsschutz
+- Firebase Analytics
+- Firebase Crashlytics
+- Firebase Cloud Messaging / Push-Token-Verarbeitung
+- Werbung oder Tracking
+- In-App-Kaeufe, Abonnements oder Zahlungs-SDKs
+- Apple-Anmeldung
 
-### Speicherfristen
+## 3. Verifizierung und Dokumente
 
-Bitte entscheiden:
+Aktueller fachlicher Umfang:
 
-- Accountdaten:
-- Profildaten:
-- Kennzeichen-/Fahrzeugdaten:
-- Chatnachrichten:
-- Chat-Anhänge:
-- Storys:
-- Story-Aufrufe:
-- Meldehinweise:
-- Gesendete Hinweise:
-- Verifizierungsdokumente:
-- Gelöschte Konten:
-- Logs/technische Fehlerdaten:
+- Identitaetsnachweis: Personalausweis, Reisepass oder Aufenthaltstitel
+- Fahrzeugnachweis: Fahrzeugschein mit eindeutiger Fahrzeugzuordnung
+- Kein Fuehrerschein und kein Selfie im aktuellen Prozess
+- Einzelne beanstandete Nachweise koennen gezielt nachgereicht werden
+- Dokumente sind nicht oeffentlich sichtbar
+- Eine serverseitige Bereinigung nach 30 Tagen ist vorbereitet
 
-### Nutzerrechte
+Release-Bedingung:
 
-In der App bereits vorbereitet:
+- `cleanupProfileVerificationDocuments` deployen und live pruefen, bevor die
+  Dokumentenverifizierung produktiv freigegeben wird
+- Rechtsgrundlage, Schwaerzungsmoeglichkeiten und Verhaeltnismaessigkeit der
+  Dokumentkopien extern pruefen lassen
 
-- Datenexport anfordern
-- Konto löschen anfordern
-- Datenschutz-/Einwilligungsübersicht
+## 4. Suche, Standort und Community
 
-Noch final zu entscheiden:
+- Serverseitiger Suchradius: maximal 5 km
+- Fuer die Suche akzeptierte Standortaktualitaet: maximal 60 Minuten
+- Keine Nutzung der App fuer Notfaelle; Polizei, Feuerwehr und Rettungsdienste
+  werden nicht ersetzt
+- Mindestalter: 16 Jahre
+- plaqa richtet sich nicht speziell an Kinder
+- Melde-, Blockier-, Support- und Kinderschutzwege sind beschrieben
+- Sexualisierte Ausbeutung, Gefaehrdung Minderjaehriger, Belaestigung,
+  Falschmeldungen und rechtswidrige Inhalte sind untersagt
 
-- Wie wird Datenexport tatsächlich bearbeitet?
-- Innerhalb welcher Frist wird Datenexport geliefert?
-- Wie wird eine Löschung technisch durchgeführt?
-- Welche Daten dürfen/ müssen trotz Löschung aufbewahrt werden?
+## 5. Speicherung und Loeschung
 
-In der App zu befüllen:
+Technisch belegt:
 
-- `lib/features/legal/presentation/privacy_policy_screen.dart`
-- `lib/features/settings/presentation/settings_screen.dart`
-- Abschnitt `Rechtliches > Datenschutzerklärung`
+- Storys laufen regulaer nach 24 Stunden ab; ein Bereinigungsprozess ist
+  vorbereitet
+- Verifizierungsdokumente sollen nach Abschluss der Pruefung serverseitig nach
+  30 Tagen bereinigt werden
+- Kontoloeschung entfernt das Auth-Konto sowie nutzerbezogene private Profil-,
+  Fahrzeug-, Kennzeichen-, Medien-, Story-, Verifizierungs- und Einstellungsdaten
+- Gemeinsame Chat- oder Sicherheitskontexte koennen fuer andere Beteiligte
+  pseudonymisiert erhalten bleiben
+- Nutzer koennen einen geschuetzten Datenexportauftrag anlegen; eine vollstaendig
+  automatisierte Auslieferung ist noch nicht umgesetzt
 
-## 3. AGB / Nutzungsbedingungen
+Noch rechtlich und organisatorisch festzulegen:
 
-Bitte entscheiden:
+- Aufbewahrungsfristen fuer Chats, Kontaktanfragen, Support, Meldungen,
+  Sicherheitsereignisse, technische Protokolle und Backups
+- Bearbeitungsprozess und Ausgabeformat des Datenexports
+- Dokumentierte Behandlung gesetzlicher Aufbewahrungspflichten und
+  Beweissicherungsfaelle
 
-- Mindestalter:
-- Registrierungsvoraussetzungen:
-- Zulässige Nutzung:
-- Verbotene Nutzung:
-- Regeln für Kennzeichen-Suche:
-- Regeln für Kontaktanfragen:
-- Regeln für Chat und Story:
-- Regeln für anonyme Hinweise:
-- Notfall-Hinweis: plaqa ersetzt keine Polizei, Feuerwehr oder Rettungsdienste.
-- Umgang mit Missbrauch, Sperrung und Löschung:
-- Verifizierungspflichten:
-- Haftungsgrenzen:
-- Verfügbarkeit der App:
-- Änderung der Bedingungen:
-- Kündigung / Kontoauflösung:
+Es werden keine nicht belegten festen Fristen in der App versprochen.
 
-In der App zu befüllen:
+## 6. Firebase und internationale Verarbeitung
 
-- `lib/features/legal/presentation/terms_screen.dart`
-- `lib/features/settings/presentation/settings_screen.dart`
-- Abschnitt `Rechtliches > AGB`
+- Functions verwenden die Region `europe-west3`, soweit im Code so konfiguriert
+- Nicht jeder Firebase-Dienst ist regional identisch; Firebase Authentication
+  ist laut offizieller Firebase-Dokumentation ein global beziehungsweise in den
+  USA verarbeiteter Dienst
+- Google/Firebase ist als technischer Empfaenger beziehungsweise
+  Auftragsverarbeiter zu beschreiben, nicht als Verkauf personenbezogener Daten
+- Auftragsverarbeitung, Vertragspartei, internationale Transfers und eine
+  erforderliche Risikobewertung muessen vor Release organisatorisch geprueft
+  und dokumentiert sein
 
-## 4. Community-Regeln / Verantwortungsvolle Nutzung
+## 7. Rechtstexte und oeffentliche Seiten
 
-Bitte final bestätigen:
+Fachlich bereinigt:
 
-- Keine Belästigung
-- Keine Falschmeldungen
-- Keine Drohungen
-- Keine Veröffentlichung fremder personenbezogener Daten
-- Keine missbräuchliche Kontaktaufnahme über Kennzeichen
-- Keine Nutzung für Notfälle
-- Keine diskriminierenden oder rechtswidrigen Inhalte
-- Verstöße können zu Sperrung oder Löschung führen
+- In-App-Nutzungsbedingungen
+- In-App-Datenschutzerklaerung
+- In-App-Community-Richtlinien
+- In-App-Impressum und Kontaktangaben
+- https://plaqa.de/datenschutz/
+- https://plaqa.de/konto-loeschen/
+- https://plaqa.de/kinderschutz/
+- oeffentliche Nutzungsbedingungen im Hosting-Projekt
 
-Aktuell technisch vorbereitet:
+Vor Release extern pruefen:
 
-- Legal Consent `responsibleUse`
-- Legal Consent `noEmergencyUse`
+- Anbieterkennzeichnung nach DDG
+- AGB, insbesondere Haftung, Sperrung, Kuendigung und Gerichtsstand
+- Datenschutzerklaerung, Rechtsgrundlagen, Betroffenenrechte und Fristen
+- DSA-Einordnung, Moderation und Beschwerdeverfahren
+- Marken- und Namensrechte
 
-## 5. Account löschen und Datenexport
+## 8. Play-Console-Abgleich
 
-Aktueller Stand:
+Die Play-Console-Angaben muessen bei jeder rechtlichen Aenderung erneut mit App
+und Hosting abgeglichen werden:
 
-- Die Einstellungen enthalten bereits Funktionen zum Anfordern von Konto-Löschung
-  und Datenexport.
-- Der finale Backend-/Support-Prozess muss noch definiert werden.
+- Datensicherheit und Datenarten
+- Datenschutz- und Kontoloesch-URL
+- Zielgruppe ab 16 Jahren
+- nutzergenerierte Inhalte, Meldung und Moderation
+- Kinderschutzstandard
+- Verschluesselung bei der Uebertragung
+- Testzugang und zugriffsbeschraenkte Funktionen
 
-Bitte entscheiden:
+Keine rechtliche Endfreigabe aus dem technischen Pruefstatus ableiten.
 
-- Wird Konto-Löschung sofort technisch ausgeführt oder zuerst vom Support geprüft?
-- Welche Bestätigungs-E-Mail bekommt der Nutzer?
-- Welche Daten werden sofort gelöscht?
-- Welche Daten werden anonymisiert?
-- Welche Daten bleiben aus rechtlichen Gründen zeitweise erhalten?
-- In welchem Format wird der Datenexport geliefert?
+## Offizielle Referenzen
 
-## 6. Play Console Abgleich
-
-Die finalen Texte müssen mit folgenden Play-Console-Angaben übereinstimmen:
-
-- Datenarten
-- Datenzwecke
-- Datenweitergabe an Firebase/Google Cloud
-- Datenverschlüsselung
-- Konto-Löschung
-- Datenschutz-URL
-- Content Rating
-
-## 7. Quellen / Orientierung
-
-- DSGVO Art. 13: Informationspflichten bei Datenerhebung
-  https://gdpr-info.eu/art-13-gdpr/
-- DSGVO Art. 15: Auskunftsrecht
-  https://gdpr-info.eu/art-15-gdpr/
-- DSGVO Art. 17: Recht auf Löschung
-  https://gdpr-info.eu/art-17-gdpr/
-- DDG § 5 Anbieterkennzeichnung
-  https://www.gesetze-im-internet.de/ddg/__5.html
-
-## Nächster Arbeitsschritt
-
-Zuerst Impressum final befüllen. Dafür brauche ich von dir die Angaben aus
-Abschnitt 1.
+- DDG Paragraph 5: https://www.gesetze-im-internet.de/ddg/__5.html
+- Firebase Datenschutz und Sicherheit: https://firebase.google.com/support/privacy
+- Firebase Projektstandorte: https://firebase.google.com/docs/projects/locations
+- Google Play User Data Policy:
+  https://support.google.com/googleplay/android-developer/answer/10144311
+- Google Play Anforderungen zur Kontoloeschung:
+  https://support.google.com/googleplay/android-developer/answer/13327111

@@ -95,28 +95,17 @@ class _AppShellState extends State<AppShell> {
         stream: _unreadReportCountStream,
         initialData: 0,
         builder: (context, reportSnapshot) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_selectedIndex == 1) ...[
-                AnimatedBuilder(
-                  animation: _profileHubController,
-                  builder: (context, _) => ProfileHubSwitcher(
-                    selectedIndex: _profileHubController.selectedIndex,
-                    onSelected: _profileHubController.select,
-                  ),
-                ),
-              ],
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _GlassBottomNavigationBar(
-                  selectedIndex: _selectedIndex,
-                  onTabSelected: _onTabSelected,
-                  bottomInset: bottomInset,
-                  unreadReportCount: reportSnapshot.data ?? 0,
-                ),
+          return Material(
+            color: CaRismaDesignTokens.background,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: _GlassBottomNavigationBar(
+                selectedIndex: _selectedIndex,
+                onTabSelected: _onTabSelected,
+                bottomInset: bottomInset,
+                unreadReportCount: reportSnapshot.data ?? 0,
               ),
-            ],
+            ),
           );
         },
       ),

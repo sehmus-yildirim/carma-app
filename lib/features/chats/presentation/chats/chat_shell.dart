@@ -23,7 +23,7 @@ enum _ChatMenuAction {
 enum _LocalChatTestMode { empty, activeChat, activeChatWithMessages }
 
 const _LocalChatTestMode _localChatTestMode = _LocalChatTestMode.empty;
-const bool _showLocalContactRequestSamples = true;
+const bool _showLocalContactRequestSamples = kDebugMode;
 const String _localContactRequestPrefix = 'local-contact-request-';
 const int _maxStoryReplyPreviewLength = 280;
 

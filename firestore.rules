@@ -3804,6 +3804,7 @@ service cloud.firestore {
           && request.resource.data.type in [
             'problem',
             'verification',
+            'safety',
             'feedback'
           ]
           && request.resource.data.category is string

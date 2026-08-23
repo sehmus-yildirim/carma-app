@@ -717,8 +717,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'Anfragegründe',
           icon: Icons.chat_bubble_outline_rounded,
           body:
-              'Du kannst später festlegen, welche Anfragegründe du zulassen möchtest.\n\n'
-              'Aktuell sind die Gründe sichtbar vorbereitet. Eine serverseitige Filterung muss vor Veröffentlichung ergänzt werden, falls Nutzer Gründe deaktivieren können.',
+              'Aktuell stehen alle angebotenen Anfragegründe zur Verfügung. Eine individuelle Einschränkung einzelner Gründe ist noch nicht aktiv.',
         );
         return;
       case 'Automatisch ablehnen':
@@ -812,7 +811,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
         return;
       case 'Missbrauch melden':
-        _openSupportRequest(SupportRequestType.problem);
+        _openSupportRequest(SupportRequestType.safety);
         return;
       case 'Sicherheitsregeln':
         _showSettingsInfo(
@@ -1436,6 +1435,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           description: 'Melde technische Fehler oder Darstellungsprobleme.',
         ),
         _SettingsDetailItem(
+          icon: Icons.health_and_safety_outlined,
+          title: 'Sicherheitsproblem melden',
+          description:
+              'Missbrauch, Bedrohungen oder gefährdende Inhalte melden.',
+        ),
+        _SettingsDetailItem(
           icon: Icons.verified_user_outlined,
           title: 'Verifizierungsproblem',
           description: 'Hilfe bei Identitäts- oder Fahrzeugnachweisen.',
@@ -1451,6 +1456,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Hilfe & FAQ' => const SupportFaqScreen(),
           'Problem melden' => const SupportRequestScreen(
             type: SupportRequestType.problem,
+          ),
+          'Sicherheitsproblem melden' => const SupportRequestScreen(
+            type: SupportRequestType.safety,
           ),
           'Verifizierungsproblem' => const SupportRequestScreen(
             type: SupportRequestType.verification,
@@ -3797,8 +3805,8 @@ class _LegalContent {
             body:
                 r'''Allgemeine Geschäftsbedingungen und Nutzungsbedingungen für plaqa
 
-Stand: [ANGABE ERGÄNZEN: Datum]
-Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
+Stand: 22. August 2026
+Version: 1.0.0''',
           ),
           _LegalSection(
             title: '1. Anbieter und Geltungsbereich',
@@ -3806,13 +3814,11 @@ Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
 
 Anbieter der mobilen App „plaqa“ ist:
 
-plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
-
-Rechtsform: Einzelunternehmen
 
 E-Mail: info@plaqa.de
 Website: plaqa.de
@@ -3911,9 +3917,7 @@ Nutzer dürfen sich in dringenden Situationen nicht allein auf plaqa verlassen.'
 
 Für die Nutzung wesentlicher Funktionen ist ein persönliches Benutzerkonto erforderlich.
 
-Jede natürliche Person darf grundsätzlich nur die nach dem Nutzungskonzept zulässige Anzahl an Konten führen.
-
-[ANGABE ERGÄNZEN: Ist nur ein Konto pro Person zulässig?]
+Mehrere persönliche Konten sind nicht generell ausgeschlossen.
 
 Mehrfachkonten zur Umgehung von Sperren, Beschränkungen, Blockierungen, Anfragelimits oder Sicherheitsmaßnahmen sind unzulässig.
 
@@ -3963,13 +3967,9 @@ Bestehen konkrete Anhaltspunkte für einen unbefugten Zugriff, kann das Konto vo
             title: '4. Mindestalter und Nutzungsvoraussetzungen',
             body: r'''4.1 Mindestalter
 
-Die Nutzung von plaqa ist nur Personen gestattet, die mindestens:
+Die Nutzung von plaqa ist nur Personen gestattet, die mindestens 16 Jahre alt sind.
 
-[ANGABE ERGÄNZEN: Mindestalter] Jahre
-
-alt sind.
-
-[RECHTLICH PRÜFEN: Aufgrund der Funktionen Kennzeichen-Suche, Standortbezug, Kommunikation mit fremden Personen, Storys, Dokumentenverifizierung und möglicher In-App-Käufe sollte geprüft werden, ob ein Mindestalter von 18 Jahren festgelegt wird.]
+plaqa richtet sich nicht an Kinder. Die Altersgrenze gilt für alle Konten und Community-Funktionen.
 
 4.2 Minderjährige Nutzer
 
@@ -4119,7 +4119,7 @@ Vorgesehen sind derzeit ungefähr:
 * ein Suchradius von fünf Kilometern,
 * ein Standort- oder Aktivitätsfenster von einer Stunde.
 
-[TECHNISCH UND RECHTLICH PRÜFEN: Exakte Werte, Berechnung, serverseitige Durchsetzung und Kommunikation in der App.]
+Der Server begrenzt den angeforderten Suchradius auf höchstens fünf Kilometer und berücksichtigt nur Fahrzeugstandorte, die höchstens eine Stunde alt sind. Die Entfernung wird aus den übermittelten Koordinaten berechnet.
 
 Diese Werte stellen keine Garantie für eine genaue Position, Entfernung, Anwesenheit oder zeitliche Zuordnung dar.
 
@@ -4127,9 +4127,7 @@ Diese Werte stellen keine Garantie für eine genaue Position, Entfernung, Anwese
 
 Kontaktanfragen dürfen nur bei einem berechtigten, nachvollziehbaren und sachlichen Anlass versendet werden.
 
-Die App darf nicht genutzt werden, um andere Nutzer aus bloßer Neugier, zu Werbezwecken, zur Partnersuche außerhalb des vorgesehenen Nutzungskonzepts oder gegen ihren erkennbaren Willen zu kontaktieren.
-
-[RECHTLICH PRÜFEN: Ob und in welchem Umfang plaqa ausdrücklich auch soziale oder romantische Kontaktanbahnungen erlauben soll. Der zulässige Hauptzweck muss produktseitig und rechtlich einheitlich definiert werden.]
+Die App darf nicht genutzt werden, um andere Nutzer aus bloßer Neugier, zu Werbezwecken, zur Partnersuche oder gegen ihren erkennbaren Willen zu kontaktieren. plaqa ist keine Dating-App; Kontaktanfragen müssen einen sachlichen Fahrzeug- oder Community-Bezug haben.
 
 7.4 Keine wiederholten unerwünschten Anfragen
 
@@ -4197,7 +4195,7 @@ Nach der vorgesehenen Funktionsweise:
 * werden Storys grundsätzlich nur angenommenen Kontakten angezeigt,
 * können Story-Aufrufe gespeichert und dem Ersteller angezeigt werden.
 
-[TECHNISCH PRÜFEN: Tatsächliche Sichtbarkeit, Ablaufzeitpunkt, Löschung und Aufrufanzeige.]
+Storys erhalten beim Speichern einen Ablaufzeitpunkt nach 24 Stunden. Zugriffsregeln begrenzen die Sichtbarkeit auf die vorgesehene Zielgruppe; Aufrufe können dem Ersteller angezeigt werden. Screenshots werden nicht technisch verhindert.
 
 Die zeitlich begrenzte Sichtbarkeit bedeutet nicht, dass Empfänger Storys nicht durch Screenshots, Bildschirmaufnahmen oder andere Mittel speichern können.
 
@@ -4413,7 +4411,7 @@ Die Prüfung kann abhängig vom Einzelfall erfolgen durch:
 * automatisierte Erkennung auffälliger Nutzungsmuster,
 * Kombination technischer und menschlicher Verfahren.
 
-[ANGABE ERGÄNZEN: Welche automatisierten Moderationsverfahren beim Release tatsächlich eingesetzt werden.]
+Aktuell unterstützen Zugriffsregeln, Eingabeprüfungen, Rate-Limits und Sicherheitsprotokolle die Missbrauchserkennung. Eine ausschließlich automatisierte abschließende Moderationsentscheidung ist nicht vorgesehen.
 
 Eine technische Kennzeichnung oder automatische Einschränkung ist nicht zwingend eine abschließende rechtliche Bewertung.
 
@@ -4476,13 +4474,13 @@ Nutzer können gegen eine Moderations-, Einschränkungs- oder Sperrentscheidung 
 
 E-Mail: support@plaqa.de
 
-[ANGABE ERGÄNZEN: In-App-Beschwerdeweg und Bearbeitungsfrist.]
+In der App: Einstellungen > Hilfe & Rechtliches > Support > Problem melden.
+
+Beschwerden werden ohne zugesagte feste Bearbeitungsfrist so zeitnah wie möglich geprüft.
 
 Die Beschwerde muss den betroffenen Vorgang und die Gründe enthalten, aus denen die Entscheidung nach Ansicht des Nutzers fehlerhaft ist.
 
-plaqa prüft die Beschwerde sorgfältig und entscheidet unter Berücksichtigung der verfügbaren Informationen erneut.
-
-[RECHTLICH PRÜFEN: Anforderungen des Digital Services Act an Begründungen, internes Beschwerdemanagement und außergerichtliche Streitbeilegung.]
+plaqa prüft die Beschwerde sorgfältig und entscheidet unter Berücksichtigung der verfügbaren Informationen erneut. Gesetzlich vorgeschriebene Begründungs-, Beschwerde- und Rechtsschutzmöglichkeiten bleiben unberührt.
 
 12.7 Behörden und rechtliche Schritte
 
@@ -4559,7 +4557,7 @@ Gesetzliche Ansprüche und bereits wirksam erworbene Rechte bleiben unberührt.
 
 Die derzeit angebotenen Grundfunktionen sind nach dem gegenwärtigen Planungsstand kostenlos.
 
-[ANGABE ERGÄNZEN: Zum Veröffentlichungszeitpunkt bestätigen.]
+Die aktuelle App-Version enthält keine In-App-Käufe, Abonnements oder sonstigen kostenpflichtigen App-Funktionen.
 
 14.2 Zukünftige kostenpflichtige Leistungen
 
@@ -4596,7 +4594,7 @@ Der Nutzer wird über eine beabsichtigte Preisänderung rechtzeitig informiert, 
 
 Eine Preisänderung gilt nicht allein deshalb als angenommen, weil der Nutzer ihr nicht widerspricht, sofern eine solche Zustimmungswirkung nicht ausdrücklich gesetzlich zulässig und wirksam vereinbart ist.
 
-[RECHTLICH PRÜFEN: Vor Einführung von Abonnements gesonderte Preisänderungs-, Laufzeit-, Kündigungs- und Widerrufsbedingungen erstellen.]
+Vor einer späteren Einführung kostenpflichtiger Funktionen werden gesonderte Preis-, Laufzeit-, Kündigungs- und gegebenenfalls Widerrufsbedingungen bereitgestellt.
 
 15. Rechte an Inhalten und Nutzungsrechte
 
@@ -4758,20 +4756,14 @@ Der Nutzer kann den unentgeltlichen Nutzungsvertrag jederzeit ohne Einhaltung ei
 
 Die Kündigung erfolgt durch:
 
-* Löschung des Kontos innerhalb der App oder
+* Löschung des Kontos unter Einstellungen > Konto > Konto & Sicherheit > Gefahrenbereich > Konto löschen oder
 * eine eindeutige Erklärung an support@plaqa.de.
-
-[ANGABE ERGÄNZEN: Genauer In-App-Pfad zur Kontolöschung.]
 
 Die bloße Deinstallation der App beendet den Nutzungsvertrag nicht zwingend und löscht das Benutzerkonto nicht automatisch.
 
 19.2 Ordentliche Kündigung durch plaqa
 
-plaqa kann einen unentgeltlichen Nutzungsvertrag ordentlich mit angemessener Frist kündigen, soweit keine abweichenden gesetzlichen Vorgaben gelten.
-
-Die Kündigungsfrist beträgt:
-
-[ANGABE ERGÄNZEN: beispielsweise 14 oder 30 Tage]
+plaqa kann einen unentgeltlichen Nutzungsvertrag ordentlich mit einer den Umständen angemessenen Frist kündigen, soweit keine abweichenden gesetzlichen Vorgaben gelten. Eine feste vertragliche Kündigungsfrist wird für die kostenlose App derzeit nicht zugesagt.
 
 Eine ordentliche Kündigung darf nicht treuwidrig oder diskriminierend erfolgen.
 
@@ -4822,7 +4814,7 @@ Daten können befristet gespeichert bleiben, soweit dies erforderlich ist für:
 
 Nachrichten oder Inhalte, die bereits an andere Nutzer übermittelt wurden, können dort abhängig von der technischen und rechtlichen Ausgestaltung weiterhin sichtbar bleiben.
 
-[RECHTLICH UND TECHNISCH PRÜFEN: Konkrete Löschwirkung bei Chats, Storys, weitergeleiteten Inhalten und Kontolöschung.]
+Bei einer Kontolöschung werden eigene Konto-, Profil-, Fahrzeug-, Story- und Mediendaten entfernt. Gemeinsame Chats werden gesperrt und das gelöschte Konto pseudonymisiert; bereits übermittelte Textnachrichten können für den anderen Chatteilnehmer als Inhalt eines gelöschten Kontos erhalten bleiben, während zugehörige Medienverweise entfernt werden.
 
 19.6 Kostenpflichtige Leistungen
 
@@ -4918,9 +4910,7 @@ plaqa kann den Vertrag ordentlich kündigen, wenn eine Fortführung unter den bi
           _LegalSection(
             title: '22. Verbraucherstreitbeilegung',
             body:
-                r'''plaqa ist weder bereit noch verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.
-
-[RECHTLICH PRÜFEN: Beschäftigtenzahl am 31. Dezember des Vorjahres, mögliche gesetzliche Teilnahmeverpflichtungen sowie identische Formulierung in Impressum, Website und AGB.]
+                r'''Informationen zu einer gesetzlich erforderlichen Teilnahme an Verbraucherstreitbeilegungsverfahren werden in der jeweils aktuellen Fassung des Impressums bereitgestellt.
 
 Die frühere europäische Plattform zur Online-Streitbeilegung wird nicht als aktive Streitbeilegungsplattform angegeben.''',
           ),
@@ -4947,9 +4937,7 @@ Dasselbe gilt, soweit gesetzlich zulässig, wenn der Nutzer keinen allgemeinen G
 
 Vertragssprache ist Deutsch.
 
-[ANGABE ERGÄNZEN: Werden verbindliche Übersetzungen für Österreich, die Schweiz oder andere Sprachen angeboten?]
-
-Bei freiwilligen Übersetzungen ist festzulegen, welche Sprachfassung im Fall von Abweichungen maßgeblich sein soll. Zwingende Verbraucherrechte bleiben unberührt.
+Derzeit werden keine verbindlichen Übersetzungen angeboten. Falls später freiwillige Übersetzungen bereitgestellt werden, bleibt die deutsche Fassung maßgeblich, soweit zwingende Verbraucherrechte nichts anderes verlangen.
 
 24.3 Individualvereinbarungen
 
@@ -4964,32 +4952,11 @@ An die Stelle der unwirksamen oder undurchführbaren Bestimmung treten die geset
 Eine unwirksame Klausel wird nicht automatisch durch eine für plaqa wirtschaftlich möglichst günstige Regelung ersetzt.''',
           ),
           _LegalSection(
-            title: '25. Offene Punkte vor Veröffentlichung',
+            title: '25. Kontakt und aktuelle Fassung',
             body:
-                r'''Die folgenden Angaben und Prozesse müssen vor Veröffentlichung abschließend festgelegt und geprüft werden:
+                r'''Die jeweils aktuelle Fassung dieser Nutzungsbedingungen ist in der App und unter https://plaqa.de/nutzungsbedingungen/ verfügbar.
 
-1. Datum und Version dieser Nutzungsbedingungen;
-2. verbindliches Mindestalter;
-3. Zulässigkeit der Nutzung durch Minderjährige;
-4. zulässige Anzahl von Benutzerkonten;
-5. genauer Zweck erlaubter Kontaktanfragen;
-6. Frage, ob romantische oder soziale Kontaktaufnahme ausdrücklich vorgesehen ist;
-7. exakter Suchradius und exaktes Aktivitätsfenster;
-8. Umfang und Bedeutung der Verifizierung;
-9. tatsächlich eingesetzte automatisierte Moderations- und Sicherheitssysteme;
-10. In-App-Weg für Meldungen und Beschwerden;
-11. Beschwerdeverfahren gegen Moderationsentscheidungen;
-12. In-App-Pfad zur Kontolöschung;
-13. Löschwirkung bei Chats, Storys, Hinweisen und Kontolöschung;
-14. Kündigungsfrist für eine ordentliche Kündigung durch plaqa;
-15. aktueller kostenloser Funktionsumfang;
-16. spätere Bedingungen für In-App-Käufe und Abonnements;
-17. DSA-Einstufung und daraus folgende Plattformpflichten;
-18. Verbraucherstreitbeilegung;
-19. Übersetzungen und Länderfassungen für Österreich und die Schweiz;
-20. Abstimmung mit Datenschutzerklärung, Impressum, Community-Richtlinien und App-Store-Angaben.
-
-Diese Nutzungsbedingungen sind vor Veröffentlichung durch einen Rechtsanwalt mit Schwerpunkt IT-, Plattform- und Datenschutzrecht anhand der tatsächlich implementierten App-Funktionen zu prüfen.''',
+Fragen zu den Bedingungen können an info@plaqa.de, Sicherheits- und Supportanfragen an support@plaqa.de gerichtet werden. Wesentliche Änderungen werden den Nutzern in geeigneter Form mitgeteilt.''',
           ),
         ],
       ),
@@ -5002,8 +4969,8 @@ Diese Nutzungsbedingungen sind vor Veröffentlichung durch einen Rechtsanwalt mi
             title: 'Stand und Version',
             body: r'''Datenschutzerklärung für die mobile App „plaqa“
 
-Stand: [ANGABE ERGÄNZEN: Datum der letzten Aktualisierung]
-Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
+Stand: 22. August 2026
+Version: 1.0.0''',
           ),
           _LegalSection(
             title: '1. Geltungsbereich und Zweck dieser Datenschutzerklärung',
@@ -5032,13 +4999,11 @@ Wichtig: plaqa ist keine Notruf-, Polizei-, Feuerwehr-, Rettungsdienst-, Abschle
             body:
                 r'''Verantwortlicher im Sinne der Datenschutz-Grundverordnung ist:
 
-plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
-
-Rechtsform: Einzelunternehmen
 
 E-Mail: info@plaqa.de
 Website: plaqa.de''',
@@ -5050,7 +5015,7 @@ Website: plaqa.de''',
 
 E-Mail: privacy@plaqa.de
 
-[RECHTLICH PRÜFEN: Ob ein betrieblicher Datenschutzbeauftragter bestellt werden muss. Falls ein Datenschutzbeauftragter bestellt wird, sind dessen Kontaktdaten an dieser Stelle aufzunehmen.]''',
+Diese Adresse ist die zentrale Kontaktstelle für Datenschutzanfragen. Falls künftig ein Datenschutzbeauftragter benannt wird, werden dessen Kontaktdaten in dieser Erklärung ergänzt.''',
           ),
           _LegalSection(
             title: '4. Begriffsbestimmungen',
@@ -5161,7 +5126,7 @@ Dies begründet keine allgemeine Überwachungs-, Rettungs- oder Notfallpflicht v
 
 Soweit besondere Kategorien personenbezogener Daten betroffen sein sollten, kann eine Verarbeitung zusätzlich auf Art. 9 Abs. 2 DSGVO gestützt werden müssen, insbesondere bei ausdrücklicher Einwilligung oder zur Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen.
 
-[RECHTLICH PRÜFEN: Ob und in welchen Funktionen besondere Kategorien personenbezogener Daten nach Art. 9 DSGVO verarbeitet werden können und ob hierfür technische Sperren, besondere Einwilligungen oder zusätzliche Schutzmaßnahmen erforderlich sind.]''',
+plaqa fordert im regulären Funktionsumfang keine Angaben zu Gesundheit, Religion, politischer Meinung, sexueller Orientierung oder anderen besonderen Kategorien personenbezogener Daten an. Nutzer sollen solche Angaben nicht in freie Texte, Medien oder Nachrichten aufnehmen, sofern dies für die gewählte Funktion nicht zwingend erforderlich ist.''',
           ),
           _LegalSection(
             title: '7. Registrierung und Benutzerkonto',
@@ -5181,7 +5146,7 @@ Soweit besondere Kategorien personenbezogener Daten betroffen sein sollten, kann
 
 Passwörter werden über den eingesetzten Authentifizierungsdienst verarbeitet. Wir beabsichtigen nicht, Passwörter im Klartext einzusehen oder zu speichern.
 
-[TECHNISCH PRÜFEN: Tatsächliche Passwortverarbeitung, Hashing, Anbieter, Login-Methoden, E-Mail-Verifikation, Passwort-Reset, Mehrfaktor-Authentifizierung und Sitzungsverwaltung.]
+Die Anmeldung wird über Firebase Authentication bereitgestellt. Unterstützt werden E-Mail und Passwort sowie Google-Anmeldung. E-Mail-Bestätigung, Passwort-Zurücksetzung und optionaler SMS-Zwei-Faktor-Schutz werden über diesen Dienst abgewickelt. plaqa speichert Passwörter nicht im eigenen Firestore-Datenbestand.
 
 Die Verarbeitung erfolgt grundsätzlich zur Bereitstellung des Kontos und der App-Funktionen nach Art. 6 Abs. 1 lit. b DSGVO. Sicherheits- und Missbrauchsdaten können zusätzlich auf Art. 6 Abs. 1 lit. f DSGVO gestützt werden.
 
@@ -5190,9 +5155,9 @@ Nutzer müssen bei der Registrierung richtige und aktuelle Angaben machen. Die V
           _LegalSection(
             title: '8. Anmeldung über externe Anbieter',
             body:
-                r'''[ANGABE ERGÄNZEN: Wird ausschließlich E-Mail/Passwort verwendet oder zusätzlich Google Sign-In, Sign in with Apple oder ein anderer Anbieter?]
+                r'''Neben E-Mail und Passwort kann die Anmeldung über Google verwendet werden. Sign in with Apple und weitere externe Anmeldeanbieter sind in der aktuellen Android-App nicht aktiviert.
 
-Werden externe Anmeldedienste eingesetzt, können der jeweilige Anbieter und plaqa Informationen austauschen, zum Beispiel:
+Bei der Google-Anmeldung können Google und plaqa Informationen austauschen, zum Beispiel:
 
 * externe Nutzerkennung,
 * Name,
@@ -5202,7 +5167,7 @@ Werden externe Anmeldedienste eingesetzt, können der jeweilige Anbieter und pla
 * Login-Zeitpunkt,
 * technische Sicherheitsdaten.
 
-[RECHTLICH PRÜFEN: Für jeden tatsächlich aktivierten Login-Anbieter ist ein eigener Abschnitt einschließlich Anbieter, Anschrift, Datenarten, Zweck, Rechtsgrundlage, Drittlandübermittlung und Datenschutzhinweis erforderlich.]''',
+Die Anmeldung dient der Kontobereitstellung und Kontosicherheit. Ergänzend gelten die Datenschutzhinweise von Google unter https://policies.google.com/privacy. Eine Verarbeitung in den USA kann insbesondere bei Firebase Authentication stattfinden.''',
           ),
           _LegalSection(
             title: '9. Profildaten',
@@ -5254,10 +5219,8 @@ Kennzeichen dürfen nicht dazu verwendet werden, Personen systematisch zu verfol
             body:
                 r'''plaqa kann eine freiwillige oder für bestimmte Funktionen erforderliche Verifizierung anbieten. Hierbei können Nutzer insbesondere folgende Dokumente oder Nachweise hochladen:
 
-* Identitätsnachweis,
-* Zulassungsbescheinigung oder anderer Fahrzeugnachweis,
-* sonstige zur Verifizierung erforderliche Dokumente,
-* Selfie oder Vergleichsaufnahme, falls eine Identitätsprüfung vorgesehen wird.
+* Personalausweis, Reisepass oder Aufenthaltstitel als Identitätsnachweis,
+* Zulassungsbescheinigung beziehungsweise Fahrzeugschein als Fahrzeugnachweis.
 
 Solche Dokumente können besonders sensible Informationen enthalten, insbesondere:
 
@@ -5268,7 +5231,6 @@ Solche Dokumente können besonders sensible Informationen enthalten, insbesonder
 * Dokumentennummer,
 * Unterschrift,
 * Staatsangehörigkeit,
-* Fahrerlaubnisklassen,
 * Ausstellungs- und Gültigkeitsdaten,
 * Fahrzeug- und Halterdaten,
 * maschinenlesbare Bereiche,
@@ -5276,7 +5238,7 @@ Solche Dokumente können besonders sensible Informationen enthalten, insbesonder
 
 Nutzer sollen nur die ausdrücklich angeforderten Dokumente und Angaben übermitteln. Nicht benötigte Angaben sollten – soweit das Prüfverfahren dies zulässt – vor dem Upload abgedeckt oder geschwärzt werden.
 
-[RECHTLICH PRÜFEN: Welche Dokumente tatsächlich verlangt werden dürfen, welche Felder geschwärzt werden können oder müssen und ob vollständige Dokumentkopien erforderlich und verhältnismäßig sind.]
+Ein Führerschein oder Selfie wird im aktuellen Verfahren nicht verlangt. Welche Felder für die Prüfung erforderlich bleiben und welche geschwärzt werden dürfen, wird im Upload-Schritt erklärt.
 
 Die Dokumente können manuell durch berechtigte Mitarbeiter oder zukünftig durch einen technischen Verifizierungsdienst geprüft werden.
 
@@ -5294,10 +5256,7 @@ Eine erfolglose Verifizierung kann dokumentiert werden, soweit dies erforderlich
 
 Rechtsgrundlage ist – abhängig von der Ausgestaltung – Art. 6 Abs. 1 lit. b DSGVO, eine Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO oder unser berechtigtes Interesse nach Art. 6 Abs. 1 lit. f DSGVO.
 
-Speicherdauer für Verifizierungsdokumente:
-[ANGABE ERGÄNZEN: Konkrete Löschfrist für Originaldokumente.]
-[RECHTLICH PRÜFEN: Ob Originaldokumente unmittelbar nach Abschluss der Prüfung gelöscht werden und lediglich Verifizierungsstatus, Prüfdatum und minimierte Nachweisdaten gespeichert bleiben.]
-[RECHTLICH PRÜFEN: Rechtsgrundlage, Zugriffskonzept, Verschlüsselung, Protokollierung und Löschprozess.]
+Verifizierungsdateien werden nur für die laufende Prüfung und eine begrenzte Nachbearbeitungszeit vorgehalten. Eine automatische Bereinigung spätestens 30 Tage nach dem maßgeblichen Prüf- oder Entwurfszeitpunkt ist technisch vorbereitet. Bis dieser Prozess veröffentlicht und live geprüft ist, wird die Dokumentenprüfung nicht für Produktionskonten freigeschaltet. Prüfstatus, Prüfzeitpunkte und Verlauf können getrennt von den Dokumentbildern weiter gespeichert werden.
 
 Verifizierungsdokumente dürfen nicht allgemein im Profil angezeigt werden.''',
           ),
@@ -5317,7 +5276,7 @@ Verifizierungsdokumente dürfen nicht allgemein im Profil angezeigt werden.''',
 
 Nach der vorgesehenen Funktionsweise soll die Suche grundsätzlich auf einen Radius von ungefähr fünf Kilometern und ein Standort- oder Aktivitätsfenster von ungefähr einer Stunde begrenzt sein.
 
-[TECHNISCH PRÜFEN: Exakter Suchradius, exaktes Zeitfenster, Berechnungsmethode, Genauigkeitsgrenze, serverseitige Durchsetzung und Ausnahmen.]
+Der Server begrenzt den Suchradius auf höchstens fünf Kilometer und berücksichtigt nur gespeicherte Fahrzeugstandorte, die höchstens eine Stunde alt sind. Die Entfernung wird anhand der übermittelten Koordinaten berechnet; eine Anfrage außerhalb dieser Grenzen liefert kein Trefferprofil.
 
 Die Angaben „ungefähr fünf Kilometer“ und „ungefähr eine Stunde“ sind keine Garantie für eine exakte Entfernung, Position oder Anwesenheit. Standortdaten können technisch ungenau, verzögert, manipuliert oder nicht verfügbar sein. Suchergebnisse dürfen nicht als verlässlicher Beweis dafür verstanden werden, dass sich eine Person oder ein Fahrzeug zu einem bestimmten Zeitpunkt an einem bestimmten Ort befand.
 
@@ -5353,8 +5312,7 @@ Nutzer sind dafür verantwortlich, dass für ihre Anfrage ein berechtigter und s
 
 Zur Verhinderung von Missbrauch können abgelehnte, zurückgezogene, abgelaufene oder blockierte Anfragen für einen begrenzten Zeitraum gespeichert werden. Dies kann erforderlich sein, um Mehrfachanfragen, Sperrumgehungen, Belästigung oder andere Verstöße zu erkennen.
 
-[ANGABE ERGÄNZEN: Speicherdauer für Kontaktanfragen und Anfrageprotokolle.]
-[RECHTLICH PRÜFEN: Aufbewahrungsdauer nach Ablehnung, Sperrung und Kontolöschung.]''',
+Kontaktanfragen bleiben mit ihrem Status gespeichert, bis sie im Rahmen der jeweiligen Funktion oder bei der Kontolöschung entfernt werden. Eine darüber hinausgehende feste Aufbewahrungsfrist wird derzeit nicht zugesagt. Sicherheitsbezogene Vorgänge können nur so lange erhalten bleiben, wie dies für Missbrauchsabwehr, Beschwerden oder gesetzliche Pflichten erforderlich ist.''',
           ),
           _LegalSection(
             title: '14. Chat und Kommunikationsinhalte',
@@ -5405,9 +5363,9 @@ Bei einer Meldung, einem konkreten Missbrauchsverdacht, einer Sicherheitsprüfun
 
 Inhalte können gesperrt, ausgeblendet, gelöscht, gesichert oder rechtlich ausgewertet werden, wenn konkrete Anhaltspunkte für Verstöße bestehen.
 
-[ANGABE ERGÄNZEN: Reguläre Speicherdauer von Chats.]
-[ANGABE ERGÄNZEN: Verhalten bei einseitiger Löschung, beidseitiger Löschung und Kontolöschung.]
-[TECHNISCH PRÜFEN: Ende-zu-Ende-Verschlüsselung vorhanden oder nicht. Ohne tatsächlich implementierte Ende-zu-Ende-Verschlüsselung darf diese nicht behauptet werden.]''',
+Chats werden gespeichert, bis sie nach den angebotenen Löschfunktionen oder im Zuge einer Kontolöschung verarbeitet werden. Eine lokale oder einseitige Löschung entfernt Inhalte nicht automatisch aus dem Konto des anderen Teilnehmers. Bei einer Kontolöschung wird das gelöschte Konto in gemeinsamen Chats pseudonymisiert; zugehörige Medienverweise werden entfernt, Textnachrichten können als Inhalt eines gelöschten Kontos erhalten bleiben.
+
+Chats sind durch Anmeldung, Teilnehmerprüfung und serverseitige Zugriffsregeln geschützt, aber nicht Ende-zu-Ende verschlüsselt.''',
           ),
           _LegalSection(
             title: '15. Storys',
@@ -5425,7 +5383,7 @@ Inhalte können gesperrt, ausgeblendet, gelöscht, gesichert oder rechtlich ausg
 
 Nach der vorgesehenen Funktion sind Storys grundsätzlich für 24 Stunden sichtbar und nur für angenommene Kontakte zugänglich.
 
-[TECHNISCH PRÜFEN: Ob Storys tatsächlich ausschließlich angenommenen Kontakten angezeigt werden, ob Screenshots verhindert oder erkannt werden, wann die Datei technisch gelöscht wird und ob Backups länger bestehen.]
+Storys erhalten beim Speichern einen Ablaufzeitpunkt nach 24 Stunden. Firestore- und Storage-Regeln beschränken den Zugriff auf den Eigentümer und die gespeicherte Zielgruppe; eine geplante Wartungsfunktion entfernt abgelaufene Story-Dokumente und zugehörige Medien. Screenshots werden weder verhindert noch zuverlässig erkannt.
 
 Bei Storys können verarbeitet werden:
 
@@ -5534,12 +5492,9 @@ Abhängig von Gerät, Betriebssystem und Berechtigung können insbesondere verar
 * IP-basierte ungefähre Standortinformationen,
 * Metadaten einer aktiv geteilten Datei oder Aufnahme.
 
-plaqa beabsichtigt nicht, ohne Funktionsbezug dauerhafte Bewegungsprofile zu erstellen. Standortdaten können jedoch zeitweise gespeichert werden, wenn dies für die konkrete Funktion, Sicherheit, Missbrauchsabwehr, Nachweisführung oder Rechtsverteidigung erforderlich ist.
+plaqa beabsichtigt nicht, ohne Funktionsbezug dauerhafte Bewegungsprofile zu erstellen. Die Android-App fordert keine Berechtigung für Standortzugriff im Hintergrund an. Standort wird erst bei einer aktiv ausgelösten Funktion abgefragt. Für Kennzeichensuche, Fahrzeugstandort, Chatstandort oder Meldung können exakte Breiten- und Längengrade gespeichert werden; ein Geohash ist im aktuellen Ablauf nicht erforderlich.
 
-[TECHNISCH PRÜFEN: Ob Standortdaten im Hintergrund erhoben werden.]
-[TECHNISCH PRÜFEN: Ob exakte Koordinaten oder Geohashes gespeichert werden.]
-[ANGABE ERGÄNZEN: Konkrete reguläre Speicherfrist für Standortdaten.]
-[RECHTLICH PRÜFEN: Ob eine ausdrückliche Einwilligung erforderlich ist und wie diese protokolliert wird.]
+Der für die Kennzeichensuche gespeicherte Fahrzeugstandort wird nach einer Stunde nicht mehr als aktueller Treffer berücksichtigt. Andere aktiv geteilte Standortangaben bleiben Bestandteil des jeweiligen Chats oder Meldevorgangs, bis dieser gelöscht, anonymisiert oder aus einem berechtigten Sicherheits- oder Rechtsgrund nicht mehr benötigt wird.
 
 Standortangaben können ungenau, veraltet oder technisch manipuliert sein. Sie dürfen nicht als Garantie für den tatsächlichen Aufenthaltsort einer Person oder eines Fahrzeugs verstanden werden.
 
@@ -5573,7 +5528,7 @@ Für:
 
 Kontaktdaten sollen nur verarbeitet werden, wenn ein Nutzer aktiv einen Kontakt auswählt und im Chat teilt.
 
-[TECHNISCH PRÜFEN: Ob die App das gesamte Adressbuch ausliest oder lediglich einen systemseitigen Kontaktauswahldialog verwendet. Ein vollständiger Kontaktabgleich darf nicht beschrieben oder aktiviert werden, wenn er nicht erforderlich und rechtlich abgesichert ist.]
+Die Android-App verwendet dafür den systemseitigen Kontaktauswahldialog. Sie fordert keinen allgemeinen Zugriff auf das gesamte Adressbuch an und speichert nur den vom Nutzer ausgewählten Namen und die ausgewählte Telefonnummer in der Nachricht.
 
 18.4 Dateien und Dokumente
 
@@ -5592,7 +5547,9 @@ Berechtigungen können über das Betriebssystem entzogen werden. Bereits hochgel
           _LegalSection(
             title: '19. Push-Benachrichtigungen',
             body:
-                r'''Soweit Push-Benachrichtigungen aktiviert werden, können insbesondere folgende Daten verarbeitet werden:
+                r'''Push-Benachrichtigungen sind in der aktuellen App-Version nicht technisch aktiviert. Firebase Cloud Messaging ist nicht als App-Abhängigkeit eingebunden und es werden derzeit keine FCM-Registrierungstoken gespeichert.
+
+Falls Push-Benachrichtigungen später aktiviert werden, können insbesondere folgende Daten verarbeitet werden:
 
 * Push-Token beziehungsweise FCM-Registrierungstoken,
 * App-Instanz oder Installationskennung,
@@ -5605,10 +5562,7 @@ Berechtigungen können über das Betriebssystem entzogen werden. Bereits hochgel
 
 Push-Benachrichtigungen können unter anderem über neue Kontaktanfragen, Nachrichten, Story-Aktivitäten, Sicherheitshinweise oder Kontovorgänge informieren.
 
-Nutzer können Push-Benachrichtigungen in den App- oder Betriebssystemeinstellungen deaktivieren. Sicherheitsrelevante Mitteilungen können gegebenenfalls weiterhin per E-Mail oder innerhalb der App bereitgestellt werden.
-
-[ANGABE ERGÄNZEN: Ist Firebase Cloud Messaging beim Release aktiv?]
-[TECHNISCH PRÜFEN: Inhalt der Push-Nachrichten auf dem Sperrbildschirm, Token-Löschung bei Logout und Kontolöschung.]''',
+Nutzer können Push-Benachrichtigungen in den App- oder Betriebssystemeinstellungen deaktivieren. Vor einer späteren Aktivierung werden Vorschautexte auf dem Sperrbildschirm sowie Token-Löschung bei Abmeldung und Kontolöschung technisch festgelegt und diese Erklärung aktualisiert.''',
           ),
           _LegalSection(
             title: '20. Technische Betriebs-, Protokoll- und Sicherheitsdaten',
@@ -5644,8 +5598,7 @@ Diese Daten werden verarbeitet, um:
 
 Rechtsgrundlage ist regelmäßig Art. 6 Abs. 1 lit. b oder lit. f DSGVO.
 
-[ANGABE ERGÄNZEN: Konkrete Speicherfristen je Log-Kategorie.]
-[TECHNISCH PRÜFEN: Welche Logs Firebase, Google Cloud, Hosting, Backend, Firewall und App tatsächlich erzeugen.]''',
+Firebase und Google Cloud erzeugen für Authentifizierung, Functions, Hosting und Sicherheitsprüfungen technische Betriebsprotokolle nach den jeweiligen Diensteinstellungen. plaqa legt hierfür keine pauschale eigene Frist fest. Protokolle werden nur so lange verarbeitet, wie dies für Betrieb, Fehleranalyse, Sicherheit, Missbrauchsabwehr oder gesetzliche Nachweise erforderlich ist.''',
           ),
           _LegalSection(
             title:
@@ -5681,7 +5634,7 @@ Mögliche Maßnahmen sind:
 
 Eine Weitergabe an Behörden erfolgt nicht allein aufgrund einer beliebigen privaten Forderung. Sie setzt eine gesetzliche Grundlage, eine rechtmäßige Anordnung, eine erforderliche Rechtsverfolgung oder einen anderen zulässigen Übermittlungsgrund voraus.
 
-[RECHTLICH PRÜFEN: Moderationsrichtlinie, Meldeverfahren, Eskalationsstufen, Anhörungsmöglichkeiten, Beweissicherung und Anforderungen des Digital Services Act.]''',
+Meldungen können direkt am Inhalt oder unter Einstellungen > Hilfe & Rechtliches > Support > Problem melden eingereicht werden. Abhängig von Art und Schwere kommen Ausblendung, Entfernung, Funktionseinschränkung oder Kontosperre in Betracht. Beschwerden gegen eine Maßnahme können an support@plaqa.de gerichtet werden; gesetzliche Begründungs- und Rechtsschutzpflichten bleiben unberührt.''',
           ),
           _LegalSection(
             title: '22. Nutzerverantwortung',
@@ -5717,21 +5670,19 @@ Diese Nutzerverantwortung entbindet plaqa nicht von eigenen gesetzlichen Pflicht
             body:
                 r'''Für den Betrieb von plaqa werden Dienste der Google-Gruppe beziehungsweise Firebase eingesetzt.
 
-Zum vorgesehenen oder möglichen technischen Umfang gehören:
+Zum aktuellen technischen Umfang gehören:
 
 * Firebase Authentication,
 * Cloud Firestore,
-* Firebase Storage,
-* gegebenenfalls Firebase Cloud Messaging,
-* gegebenenfalls weitere Google-Cloud- oder Firebase-Infrastrukturdienste.
+* Cloud Storage for Firebase,
+* Cloud Functions for Firebase,
+* Firebase Hosting,
+* Firebase App Check,
+* Google Sign-In und für die optionale Fahrzeugbild-Erstellung Google Cloud Vertex AI/Gemini.
 
-Anbieter beziehungsweise Vertragspartner ist abhängig vom jeweils abgeschlossenen Vertrag und dem Unternehmenssitz:
+Die jeweils anwendbare Google-Vertragsgesellschaft und die Datenschutzbedingungen richten sich nach dem für das Firebase- beziehungsweise Google-Cloud-Projekt geführten Vertrag. Aktuelle Datenschutzinformationen stellt Google unter https://firebase.google.com/support/privacy und https://policies.google.com/privacy bereit.
 
-[ANGABE ERGÄNZEN: Exakte vertragliche Google-Gesellschaft laut Firebase-/Google-Cloud-Vertrag.]
-
-Google verarbeitet im Rahmen vieler Firebase-Dienste Daten als Auftragsverarbeiter nach unseren Weisungen. Bei einzelnen Diensten oder Verarbeitungsvorgängen kann Google Daten auch für eigene Zwecke und in eigener datenschutzrechtlicher Verantwortlichkeit verarbeiten.
-
-[RECHTLICH PRÜFEN: Rollenverteilung für jeden aktivierten Firebase-Dienst.]
+Google verarbeitet die vom Betreiber bereitgestellten Endnutzerdaten bei vielen Firebase-Diensten grundsätzlich als Auftragsverarbeiter. Bei Google Sign-In, App-Store-Diensten und bestimmten Sicherheits- oder Vertragsdaten kann Google zusätzlich in eigener Verantwortlichkeit handeln.
 
 Je nach Funktion können durch Google/Firebase insbesondere verarbeitet werden:
 
@@ -5746,11 +5697,7 @@ Je nach Funktion können durch Google/Firebase insbesondere verarbeitet werden:
 * technische Protokolle,
 * Nutzungs- und Sicherheitsdaten.
 
-Die Verarbeitung dient insbesondere der Authentifizierung, Speicherung, Datenbanksynchronisation, Dateibereitstellung, Nachrichtenübermittlung, Sicherheit und technischen Bereitstellung.
-
-[RECHTLICH PRÜFEN: Abschluss und Dokumentation des aktuellen Auftragsverarbeitungsvertrags beziehungsweise Data Processing Addendum mit Google.]
-[TECHNISCH PRÜFEN: Firebase-Projektregion für Firestore, Storage, Functions und sonstige Dienste.]
-[TECHNISCH PRÜFEN: Aktivierte Firebase-Produkte, Datenaufbewahrung, Unterauftragsverarbeiter und Telemetrie.]''',
+Die Verarbeitung dient insbesondere der Authentifizierung, Speicherung, Datenbanksynchronisation, Dateibereitstellung, Sicherheit und technischen Bereitstellung. Cloud Functions sind in europe-west3 konfiguriert. Firebase Authentication wird nach Angaben von Google in US-Rechenzentren betrieben; andere Firebase-Dienste verwenden ihre jeweils konfigurierte oder globale Infrastruktur. Google stellt hierfür Datenschutz- und Auftragsverarbeitungsbedingungen sowie Informationen zu Unterauftragsverarbeitern bereit.''',
           ),
           _LegalSection(
             title: '24. Empfänger und Kategorien von Empfängern',
@@ -5770,14 +5717,12 @@ Die Verarbeitung dient insbesondere der Authentifizierung, Speicherung, Datenban
 * andere Nutzer, soweit dies durch die jeweilige App-Funktion vorgesehen ist,
 * potenzielle Erwerber oder Rechtsnachfolger im Rahmen zulässiger Unternehmenstransaktionen.
 
-Dienstleister erhalten nur solche Daten, die für ihre jeweilige Aufgabe erforderlich sind. Soweit erforderlich, werden Verträge zur Auftragsverarbeitung geschlossen.
-
-[ANGABE ERGÄNZEN: Vollständige Dienstleisterliste vor Release.]''',
+Dienstleister erhalten nur solche Daten, die für ihre jeweilige Aufgabe erforderlich sind. Aktuell gehören dazu insbesondere Google/Firebase und Google Cloud für Authentifizierung, Datenbank, Dateien, Backend, App Check, Hosting und optionale Fahrzeugbilder sowie IONOS für die plaqa-E-Mail-Postfächer. Google Play verarbeitet Download- und Store-Daten in eigener Verantwortung. Soweit erforderlich, werden Verträge zur Auftragsverarbeitung geschlossen.''',
           ),
           _LegalSection(
             title: '25. App Stores und In-App-Käufe',
             body:
-                r'''Die App wird zunächst über Google Play und später möglicherweise über den Apple App Store angeboten.
+                r'''Die Android-App wird über Google Play angeboten. Eine spätere Veröffentlichung über den Apple App Store ist möglich, aber noch nicht Bestandteil der aktuellen Android-Version.
 
 Beim Download, bei Updates oder In-App-Käufen verarbeiten die jeweiligen Store-Anbieter Daten in eigener Verantwortung. Dazu können gehören:
 
@@ -5789,17 +5734,12 @@ Beim Download, bei Updates oder In-App-Käufen verarbeiten die jeweiligen Store-
 * Land und Währung,
 * technische Download- und Diagnosedaten.
 
-plaqa erhält regelmäßig nicht alle vollständigen Zahlungsdaten, sondern insbesondere Informationen, die zur Bestätigung und Verwaltung eines Kaufs erforderlich sind.
-
-[ANGABE ERGÄNZEN: Welche In-App-Käufe, Abonnements oder Zahlungsanbieter eingesetzt werden.]
-[RECHTLICH PRÜFEN: Eigener Abschnitt für Google Play Billing und später Apple In-App Purchase einschließlich Rollenverteilung.]''',
+plaqa erhält regelmäßig nicht alle vollständigen Zahlungsdaten. Die aktuelle App-Version bietet keine In-App-Käufe und keine Abonnements an und bindet kein Zahlungs-SDK ein. Vor einer späteren Aktivierung wird dieser Abschnitt um die konkret eingesetzten Store- und Zahlungsprozesse ergänzt.''',
           ),
           _LegalSection(
             title: '26. Optionale Analyse- und Crash-Dienste',
             body:
-                r'''Firebase Analytics, Google Analytics for Firebase und Firebase Crashlytics sind nach derzeitigem Planungsstand möglicherweise für eine spätere Nutzung vorgesehen.
-
-Solange diese Dienste nicht aktiviert sind, dürfen sie nicht als aktive Verarbeitung beschrieben werden.
+                r'''Firebase Analytics, Google Analytics for Firebase und Firebase Crashlytics sind in der aktuellen App-Version nicht eingebunden und nicht aktiv.
 
 Vor einer Aktivierung müssen insbesondere geprüft werden:
 
@@ -5812,9 +5752,7 @@ Vor einer Aktivierung müssen insbesondere geprüft werden:
 * welche Drittlandtransfers stattfinden,
 * ob die Datenschutzerklärung aktualisiert werden muss.
 
-[ANGABE ERGÄNZEN: Sind Firebase Analytics oder Crashlytics beim Release aktiv – ja oder nein?]
-[RECHTLICH PRÜFEN: Consent-Management vor Aktivierung.]
-[TECHNISCH PRÜFEN: Automatische Datenerhebung im Firebase SDK vollständig deaktiviert, solange keine Freigabe vorliegt.]''',
+Vor einer späteren Einbindung werden Einwilligung, Widerruf, automatische Initialisierung, Datenarten, Aufbewahrung und Drittlandverarbeitung technisch und datenschutzrechtlich neu bewertet.''',
           ),
           _LegalSection(
             title: '27. Drittlandübermittlungen',
@@ -5831,9 +5769,7 @@ Eine Übermittlung in ein Drittland erfolgt nur, soweit die datenschutzrechtlich
 
 Trotz vertraglicher und technischer Schutzmaßnahmen kann bei bestimmten Drittländern nicht ausgeschlossen werden, dass Behörden nach lokalem Recht Zugriff auf Daten verlangen und europäische Betroffenenrechte nur eingeschränkt durchsetzbar sind.
 
-[RECHTLICH PRÜFEN: Transfer Impact Assessment.]
-[RECHTLICH PRÜFEN: Aktuelle Google-Vertragsgesellschaft, Data Privacy Framework-Zertifizierung, Standardvertragsklauseln und zusätzliche Maßnahmen.]
-[TECHNISCH PRÜFEN: Tatsächliche Speicherorte und Supportzugriffe.]''',
+Google verweist für internationale Übermittlungen unter anderem auf das EU-US Data Privacy Framework und, soweit erforderlich, Standardvertragsklauseln. Firebase Authentication wird ausschließlich aus US-Rechenzentren bereitgestellt; andere Dienste können abhängig von ihrer Konfiguration und Funktion global oder in ausgewählten Regionen verarbeitet werden.''',
           ),
           _LegalSection(
             title: '28. Speicherdauer',
@@ -5853,25 +5789,25 @@ Die Speicherdauer richtet sich insbesondere nach:
 * Erforderlichkeit zur Durchsetzung von Sperren,
 * technischen Sicherungs- und Wiederherstellungszyklen.
 
-Vorgesehene oder noch festzulegende Fristen:
+Der aktuelle technische und organisatorische Stand ist:
 
 Datenkategorie	Vorgesehene Speicherdauer
 Kontodaten	Bis zur Kontolöschung, sofern keine Aufbewahrungsgründe bestehen
 Profildaten	Bis zur Löschung oder Änderung durch den Nutzer beziehungsweise Kontolöschung
 Fahrzeug- und Kennzeichendaten	Bis zur Entfernung oder Kontolöschung, vorbehaltlich Sicherheits- und Nachweisfristen
-Kontaktanfragen	[ANGABE ERGÄNZEN]
-Chatnachrichten	[ANGABE ERGÄNZEN]
-Story-Inhalte	Sichtbar grundsätzlich 24 Stunden; technische Löschung: [ANGABE ERGÄNZEN]
-Story-Aufrufdaten	[ANGABE ERGÄNZEN]
-Standortdaten	[ANGABE ERGÄNZEN]
-Verifizierungsdokumente	[ANGABE ERGÄNZEN]
-Verifizierungsstatus	[ANGABE ERGÄNZEN]
-Push-Token	Bis Logout, Deinstallation, Tokenwechsel oder Kontolöschung; technisch prüfen
-Sicherheits- und Missbrauchslogs	[ANGABE ERGÄNZEN]
-Supportanfragen	[ANGABE ERGÄNZEN]
-Kauf- und Abrechnungsdaten	Nach gesetzlichen Aufbewahrungsfristen
+Kontaktanfragen	Bis zur funktionsbezogenen Entfernung oder Kontolöschung; sicherheitsrelevante Vorgänge nur solange erforderlich
+Chatnachrichten	Bis zur angebotenen Löschung oder Kontolöschung; bei anderen Teilnehmern gegebenenfalls pseudonymisiert weiter sichtbar
+Story-Inhalte	Sichtbar grundsätzlich 24 Stunden; anschließend für die technische Bereinigung vorgesehen
+Story-Aufrufdaten	Zusammen mit der Story beziehungsweise solange für Meldungen oder Sicherheit erforderlich
+Standortdaten	Fahrzeugstandorte sind nach einer Stunde nicht mehr suchwirksam; aktiv geteilte Standorte folgen dem jeweiligen Inhalt
+Verifizierungsdokumente	Für die Prüfung und höchstens 30 Tage Nachbearbeitungszeit, sobald der Cleanup-Prozess produktiv freigegeben ist
+Verifizierungsstatus	Bis zur Änderung, Kontolöschung oder solange ein erforderlicher Prüf- beziehungsweise Sicherheitsnachweis besteht
+Push-Token	Derzeit nicht erhoben, da Push nicht aktiviert ist
+Sicherheits- und Missbrauchslogs	Nur solange für Sicherheit, Nachweis, Beschwerden oder gesetzliche Pflichten erforderlich
+Supportanfragen	Bis zum Abschluss und darüber hinaus nur solange ein berechtigter Nachweis- oder Rechtsgrund besteht
+Kauf- und Abrechnungsdaten	Derzeit nicht durch plaqa erhoben, da keine In-App-Käufe angeboten werden
 Einwilligungsnachweise	Für die Dauer der Verarbeitung und erforderliche Nachweiszeit
-Backups	[ANGABE ERGÄNZEN]
+Backups	Nach den technischen Sicherungs- und Wiederherstellungszyklen des jeweiligen Dienstes; keine unbegrenzte Aufbewahrung
 
 Eine Löschung kann vorübergehend eingeschränkt sein, wenn Daten:
 
@@ -5888,11 +5824,8 @@ Eine pauschale unbegrenzte Vorratsspeicherung findet nicht statt. Gleichzeitig k
           ),
           _LegalSection(
             title: '29. Kontolöschung',
-            body: r'''Nutzer können die Löschung ihres Kontos über:
-
-[ANGABE ERGÄNZEN: In-App-Pfad, zum Beispiel „Einstellungen > Konto > Konto löschen“]
-
-oder per E-Mail an privacy@plaqa.de beantragen.
+            body:
+                r'''Nutzer können die Löschung ihres Kontos in der App unter Einstellungen > Konto > Konto & Sicherheit > Gefahrenbereich > Konto löschen oder per E-Mail an privacy@plaqa.de beantragen.
 
 Vor einer Löschung kann eine Identitäts- oder Kontobestätigung erforderlich sein, um unberechtigte Löschanträge zu verhindern.
 
@@ -5907,20 +5840,16 @@ Die Kontolöschung kann insbesondere folgende Folgen haben:
 * Push-Token werden entfernt, soweit technisch möglich,
 * gesetzlich oder sicherheitsbedingt aufzubewahrende Daten bleiben gesperrt gespeichert.
 
-[TECHNISCH PRÜFEN: Vollständiger Löschworkflow über Firebase Auth, Firestore, Storage, Cloud Functions, FCM und Backups.]
-[RECHTLICH PRÜFEN: Auswirkungen der Kontolöschung auf Nachrichten in den Postfächern anderer Nutzer.]
-[ANGABE ERGÄNZEN: Bearbeitungsdauer und technische Nachlauffrist.]''',
+Der serverseitige Löschworkflow entfernt das Auth-Konto sowie private Profil-, Fahrzeug-, Kennzeichen-, Story-, Verifizierungs- und Mediendaten. Gemeinsame Chats werden gesperrt und das gelöschte Konto pseudonymisiert; Textnachrichten können im Postfach anderer Teilnehmer als Inhalt eines gelöschten Kontos erhalten bleiben, während Medienverweise des gelöschten Kontos entfernt werden. Sicherheits- und Meldevorgänge können gelöscht oder pseudonymisiert werden. Eine feste Bearbeitungs- oder Backup-Nachlauffrist wird nicht zugesagt.''',
           ),
           _LegalSection(
             title: '30. Datenexport und Auskunft',
             body:
                 r'''Nutzer können Auskunft über die zu ihrer Person verarbeiteten Daten verlangen. Soweit die Voraussetzungen vorliegen, kann außerdem ein Datenexport in einem strukturierten, gängigen und maschinenlesbaren Format verlangt werden.
 
-Anfragen können an privacy@plaqa.de gerichtet werden.
+Anfragen können in der App unter Einstellungen > Schutz & Daten > Datenschutz > Datenexport oder an privacy@plaqa.de gestellt werden.
 
-Zur Verhinderung unberechtigter Datenzugriffe kann eine angemessene Identitätsprüfung erforderlich sein.
-
-[TECHNISCH PRÜFEN: Export aller nutzerbezogenen Daten aus Firebase Auth, Firestore, Storage, Kontaktanfragen, Chats, Storys, Verifizierung, Meldungen und Logs.]
+Zur Verhinderung unberechtigter Datenzugriffe kann eine angemessene Identitätsprüfung erforderlich sein. Die App legt eine geschützte Exportanfrage an; die vollständige Zusammenstellung und Bereitstellung aller zuordenbaren Daten erfolgt derzeit nicht vollautomatisch.
 
 Daten anderer Personen, Geschäftsgeheimnisse sowie Sicherheitsinformationen können bei einer Auskunft oder einem Export geschwärzt, eingeschränkt oder zurückgehalten werden, soweit dies gesetzlich zulässig oder erforderlich ist.''',
           ),
@@ -5977,15 +5906,13 @@ Die Beschwerde kann unabhängig von anderen verwaltungsrechtlichen oder gerichtl
             body:
                 r'''plaqa darf nur von Personen genutzt werden, die das festgelegte Mindestalter erreicht haben.
 
-Mindestalter: [ANGABE ERGÄNZEN]
+Mindestalter: 16 Jahre
 
-[RECHTLICH PRÜFEN: Empfohlenes Mindestalter unter Berücksichtigung der Funktionen Kennzeichen-Suche, Standort, Chat, Storys, Verifizierung und In-App-Käufe.]
+Die App und ihre Community-Funktionen richten sich ausschließlich an Personen ab 16 Jahren.
 
 Soweit die Verarbeitung auf einer Einwilligung in Bezug auf Dienste der Informationsgesellschaft beruht und der Nutzer das gesetzlich maßgebliche Alter noch nicht erreicht hat, kann die Zustimmung der Erziehungsberechtigten erforderlich sein.
 
-plaqa richtet sich nicht gezielt an Kinder unter dem festgelegten Mindestalter. Werden konkrete Hinweise bekannt, dass ein unzulässig minderjähriger Nutzer ein Konto verwendet, kann das Konto eingeschränkt oder gelöscht werden.
-
-[TECHNISCH PRÜFEN: Altersabfrage, Altersnachweis, elterliche Zustimmung und Umgang mit offensichtlich falschen Altersangaben.]''',
+plaqa richtet sich nicht gezielt an Kinder unter dem festgelegten Mindestalter. Das Geburtsdatum wird bei den persönlichen Daten gegen die dynamische Altersgrenze von 16 Jahren geprüft und nach der Bestätigung gesperrt. Werden konkrete Hinweise auf ein unzulässig minderjähriges oder falsch angegebenes Konto bekannt, kann das Konto geprüft, eingeschränkt oder gelöscht werden.''',
           ),
           _LegalSection(
             title: '33. Sicherheit der Verarbeitung',
@@ -6007,8 +5934,7 @@ Dazu können insbesondere gehören:
 * Missbrauchserkennung,
 * Schulung berechtigter Personen.
 
-[TECHNISCH PRÜFEN: Tatsächlich implementierte Maßnahmen.]
-[RECHTLICH PRÜFEN: Technisch-organisatorische Maßnahmen dokumentieren.]
+Technisch umgesetzt sind insbesondere TLS-verschlüsselte Übertragung, Firebase Authentication, optionaler Zwei-Faktor-Schutz, App Check, Firestore- und Storage-Zugriffsregeln, serverseitige Eingabe- und Teilnehmerprüfungen, erneute Anmeldung für sensible Kontoaktionen sowie begrenzte Function-Instanzen und Sicherheitsprotokolle. Interne organisatorische Maßnahmen werden getrennt von dieser öffentlichen Erklärung dokumentiert.
 
 Keine elektronische Datenübertragung und kein Speichersystem kann absolute Sicherheit garantieren. Daher versprechen wir weder eine „100-prozentige Sicherheit“ noch einen vollständigen Ausschluss sämtlicher Sicherheitsrisiken.
 
@@ -6028,7 +5954,7 @@ Dies bedeutet nicht, dass jede technische Störung oder jeder Nutzerverstoß aut
             body:
                 r'''Derzeit sind keine ausschließlich automatisierten Entscheidungen vorgesehen, die gegenüber Nutzern rechtliche Wirkung entfalten oder sie in ähnlich erheblicher Weise beeinträchtigen.
 
-[RECHTLICH PRÜFEN: Ob automatische Sperren, Risikoscores, Betrugserkennung, Identitätsprüfung oder Moderationsentscheidungen eingesetzt werden.]
+Die aktuelle App verwendet technische Zugriffsregeln, Eingabeprüfungen und Rate-Limits, aber keine ausschließlich automatisierte endgültige Sperr-, Verifizierungs- oder Moderationsentscheidung mit rechtlicher oder ähnlich erheblicher Wirkung.
 
 Technische Filter, Spam-Erkennung, Sicherheitsregeln oder automatisierte Hinweise können eingesetzt werden, soweit sie keine unzulässige ausschließlich automatisierte Entscheidung im Sinne von Art. 22 DSGVO darstellen.
 
@@ -6069,29 +5995,15 @@ Bei wesentlichen Änderungen werden Nutzer in angemessener Weise informiert. Sow
             body: r'''Diese Datenschutzerklärung soll dauerhaft abrufbar sein:
 
 * in der App unter „Einstellungen > Datenschutz“,
-* auf der Website unter [ANGABE ERGÄNZEN: vollständige URL, zum Beispiel https://plaqa.de/datenschutz],
+* auf der Website unter https://plaqa.de/datenschutz/,
 * gegebenenfalls über die Datenschutzangaben in Google Play und im Apple App Store.''',
           ),
           _LegalSection(
-            title: '39. Abschließender Prüfungshinweis',
+            title: '39. Kontakt und aktuelle Fassung',
             body:
-                r'''Diese Datenschutzerklärung ist ein Entwurf auf Grundlage des derzeit beschriebenen Funktions- und Entwicklungsstands von plaqa.
+                r'''Die jeweils aktuelle Fassung ist unter https://plaqa.de/datenschutz/ und innerhalb der App verfügbar.
 
-Vor Veröffentlichung müssen insbesondere:
-
-* alle tatsächlichen Datenflüsse technisch dokumentiert,
-* alle eingesetzten SDKs und Dienstleister erfasst,
-* die Rechtsgrundlagen abschließend bewertet,
-* konkrete Löschfristen festgelegt,
-* Firebase-Verträge und Datenregionen geprüft,
-* Berechtigungs- und Zugriffskonzepte umgesetzt,
-* Minderjährigenregelungen festgelegt,
-* Verifizierungsprozesse datenschutzrechtlich geprüft,
-* eine Datenschutz-Folgenabschätzung geprüft und gegebenenfalls durchgeführt,
-* App-Store-Datenschutzangaben mit dieser Erklärung abgeglichen,
-* Nutzungsbedingungen und Moderationsprozesse abgestimmt werden.
-
-Der Entwurf sollte vor Veröffentlichung durch einen Rechtsanwalt mit Schwerpunkt IT- und Datenschutzrecht geprüft und an die tatsächliche technische Implementierung angepasst werden.''',
+Datenschutzanfragen, Auskunfts-, Berichtigungs-, Lösch- oder Widerspruchsanliegen können an privacy@plaqa.de gerichtet werden. Wesentliche Änderungen an Datenarten, Zwecken oder Dienstleistern werden in dieser Erklärung nachvollziehbar aktualisiert.''',
           ),
         ],
       ),
@@ -6104,8 +6016,8 @@ Der Entwurf sollte vor Veröffentlichung durch einen Rechtsanwalt mit Schwerpunk
             title: 'Stand und Version',
             body: r'''Community-Richtlinien und Verhaltensregeln für plaqa
 
-Stand: [ANGABE ERGÄNZEN: Datum]
-Version: [ANGABE ERGÄNZEN: Versionsnummer]''',
+Stand: 22. August 2026
+Version: 1.0.0''',
           ),
           _LegalSection(
             title: '1. Zweck der Community-Richtlinien',
@@ -6366,7 +6278,7 @@ Strikt verboten sind:
 
 Bilder oder Videos von Minderjährigen dürfen nur veröffentlicht werden, wenn dies rechtmäßig erfolgt und die erforderlichen Zustimmungen vorliegen.
 
-[RECHTLICH PRÜFEN: Mindestalter und konkrete Jugendschutzmaßnahmen.]
+plaqa ist ab 16 Jahren vorgesehen und richtet sich nicht an Kinder. Sexuelle Ausbeutung, Grooming, sexuelle Erpressung und jede Gefährdung Minderjähriger sind strikt untersagt. Der öffentliche Kinderschutzstandard ist unter https://plaqa.de/kinderschutz/ abrufbar.
 
 4.14 Rechtswidrige oder gefährliche Inhalte
 
@@ -6736,7 +6648,7 @@ Verstöße können gemeldet werden:
 * per E-Mail an support@plaqa.de.
 
 In-App-Meldeweg:
-[ANGABE ERGÄNZEN: genauer Menüpfad]
+Direkt am betroffenen Inhalt oder unter Einstellungen > Hilfe & Rechtliches > Support > Problem melden.
 
 11.2 Hilfreiche Angaben
 
@@ -6774,7 +6686,7 @@ plaqa kann Inhalte, Konten oder Vorgänge prüfen, wenn:
 
 Je nach technischer Ausgestaltung können Prüfungen durch berechtigte Personen, technische Filter oder eine Kombination aus beiden erfolgen.
 
-[ANGABE ERGÄNZEN: tatsächlich eingesetzte automatisierte Moderations- und Sicherheitssysteme.]
+Aktuell unterstützen Firestore- und Storage-Regeln, Eingabeprüfungen, Rate-Limits und Sicherheitsprotokolle die Missbrauchserkennung. Gemeldete Vorgänge werden durch berechtigte Prüfer bewertet; eine ausschließlich automatisierte endgültige Moderationsentscheidung ist nicht vorgesehen.
 
 12.2 Mögliche Maßnahmen
 
@@ -6837,7 +6749,7 @@ Kontakt:
 
 E-Mail: support@plaqa.de
 
-[ANGABE ERGÄNZEN: In-App-Beschwerdeweg]
+In der App: Einstellungen > Hilfe & Rechtliches > Support > Problem melden.
 
 13.2 Inhalt der Beschwerde
 
@@ -6866,9 +6778,7 @@ Nach Abschluss der Prüfung kann die Maßnahme:
 * verlängert oder
 * durch eine andere angemessene Maßnahme ersetzt werden.
 
-Ein Anspruch auf ein bestimmtes Ergebnis besteht nicht. Gesetzliche Rechte und Rechtsbehelfe bleiben unberührt.
-
-[RECHTLICH PRÜFEN: Konkrete Fristen, Entscheidungsbegründungen und Anforderungen an ein internes Beschwerdemanagement nach dem Digital Services Act.]''',
+Ein Anspruch auf ein bestimmtes Ergebnis besteht nicht. Beschwerden werden ohne zugesagte feste Bearbeitungsfrist so zeitnah wie möglich geprüft. Soweit gesetzlich erforderlich, werden wesentliche Entscheidungsgründe und verfügbare Rechtsbehelfe mitgeteilt. Gesetzliche Rechte bleiben unberührt.''',
           ),
           _LegalSection(
             title: '14. Wiederholte oder schwere Verstöße',
@@ -6949,8 +6859,8 @@ Soweit eine Änderung eine ausdrückliche Zustimmung zu geänderten Vertragsbedi
             title: '17. Kontakt und Verantwortlicher',
             body: r'''Anbieter und Betreiber:
 
-plaqa – Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
@@ -6959,33 +6869,11 @@ E-Mail: info@plaqa.de
 Website: plaqa.de''',
           ),
           _LegalSection(
-            title: '18. Offene Punkte vor Veröffentlichung',
+            title: '18. Sicherheit, Beschwerden und aktuelle Fassung',
             body:
-                r'''Vor Veröffentlichung müssen folgende Punkte abschließend festgelegt und rechtlich beziehungsweise technisch geprüft werden:
+                r'''Sicherheits- und Kinderschutzmeldungen können direkt am betroffenen Inhalt, unter Einstellungen > Hilfe & Rechtliches > Support > Problem melden oder per E-Mail an support@plaqa.de eingereicht werden.
 
-1. Altersgrenze
-    [ANGABE ERGÄNZEN: Mindestalter]
-    [RECHTLICH PRÜFEN: Nutzung erst ab 16 oder 18 Jahren sowie erforderliche Jugendschutzmaßnahmen.]
-2. In-App-Meldeweg
-    [ANGABE ERGÄNZEN: genaue Menüführung und erreichbare Funktionen.]
-3. Moderationsprozess
-    [ANGABE ERGÄNZEN: Wer prüft Meldungen, welche Prüfschritte gelten und wie Entscheidungen dokumentiert werden.]
-4. Automatisierte Moderation
-    [ANGABE ERGÄNZEN: Welche Filter, Erkennungssysteme oder automatisierten Einschränkungen tatsächlich eingesetzt werden.]
-5. Beschwerdeprozess
-    [ANGABE ERGÄNZEN: In-App-Weg, Bearbeitungsfrist, zuständige Stelle und Dokumentation.]
-6. DSA-Prüfung
-    [RECHTLICH PRÜFEN: Rechtliche Einordnung als Vermittlungsdienst, Hostingdienst oder Online-Plattform sowie anwendbare Ausnahmen und Pflichten.]
-7. Kontaktmöglichkeit
-    Support- und Beschwerde-E-Mail: support@plaqa.de
-8. Abstimmung mit AGB
-    Moderations-, Sperr-, Lösch-, Beschwerde- und Kündigungsregelungen müssen in beiden Dokumenten übereinstimmen.
-9. Abstimmung mit der Datenschutzerklärung
-    Die Prüfung gemeldeter Inhalte, Speicherung von Nachweisen, interne Zuordnung pseudonymer Hinweise und Weitergabe an Behörden müssen datenschutzrechtlich abgebildet sein.
-10. Technische Umsetzung
-    Die beschriebenen Blockier-, Melde-, Beschwerde-, Lösch- und Sicherheitsfunktionen müssen tatsächlich vorhanden sein.
-
-Diese Community-Richtlinien sind vor der Veröffentlichung durch einen Rechtsanwalt mit Schwerpunkt IT-, Plattform-, Datenschutz- und Medienrecht anhand der tatsächlich umgesetzten App-Funktionen zu prüfen.''',
+Die jeweils aktuelle Fassung dieser Richtlinien ist in der App und unter https://plaqa.de/community-richtlinien/ verfügbar. Der ergänzende Kinderschutzstandard steht unter https://plaqa.de/kinderschutz/.''',
           ),
         ],
       ),
@@ -6996,29 +6884,21 @@ Diese Community-Richtlinien sind vor der Veröffentlichung durch einen Rechtsanw
           _LegalSection(
             title: '1. Angaben gemäß § 5 DDG',
             body: '''
-plaqa - Inhaber Sehmus Yildirim
 Sehmus Yildirim
+Auftreten unter der Bezeichnung plaqa
 Bremer Straße 254e
 21077 Hamburg
 Deutschland
-
-Rechtsform: Einzelunternehmen''',
+''',
           ),
           _LegalSection(
             title: '2. Kontakt',
             body: '''
 E-Mail: info@plaqa.de
-Website: plaqa.de
-
-Vor Veröffentlichung noch zu ergänzen oder zu prüfen:
-
-Für eine schnelle und unmittelbare Kontaktaufnahme sollte zusätzlich mindestens eine weitere zuverlässige Kontaktmöglichkeit eingerichtet werden, zum Beispiel:
-
-Telefon: [TELEFONNUMMER EINFÜGEN]
-
-oder
-
-Kontaktformular: [DIREKTEN LINK ZUM KONTAKTFORMULAR EINFÜGEN]''',
+Website: https://plaqa.de/
+Support: support@plaqa.de
+Datenschutz: privacy@plaqa.de
+Kontaktseite: https://plaqa.de/support/''',
           ),
           _LegalSection(
             title: '3. Verantwortlich für den Inhalt',
@@ -7030,24 +6910,12 @@ Bremer Straße 254e
 21077 Hamburg
 Deutschland
 
-plaqa bietet derzeit keine eigenen journalistisch-redaktionellen Inhalte an. Eine gesonderte Benennung eines Verantwortlichen nach dem Medienstaatsvertrag erfolgt daher derzeit nicht.
-
-Zu prüfen:
-
-Sollte plaqa zukünftig eigene redaktionelle Nachrichten, Verkehrsmeldungen, Ratgeberartikel, Magazine oder vergleichbare journalistisch-redaktionelle Inhalte veröffentlichen, muss dieser Abschnitt rechtlich erneut geprüft und gegebenenfalls ergänzt werden.''',
+plaqa bietet derzeit keine eigenen journalistisch-redaktionellen Inhalte an. Eine gesonderte Benennung eines Verantwortlichen nach dem Medienstaatsvertrag erfolgt daher derzeit nicht. Sollte plaqa zukünftig eigene redaktionelle Inhalte anbieten, wird dieser Abschnitt entsprechend aktualisiert.''',
           ),
           _LegalSection(
             title: '4. Verbraucherstreitbeilegung',
             body: '''
-Der Anbieter ist nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.
-
-Vor Veröffentlichung noch zu prüfen:
-
-Diese Erklärung muss erneut geprüft werden, sobald feststeht:
-
-- wie viele Personen das Unternehmen am 31. Dezember des Vorjahres beschäftigt hat,
-- ob Allgemeine Geschäftsbedingungen verwendet werden,
-- ob eine gesetzliche oder vertragliche Verpflichtung zur Teilnahme an einer Verbraucherschlichtung besteht.''',
+Anliegen und Beschwerden können zunächst an info@plaqa.de oder support@plaqa.de gerichtet werden. Angaben zu einer Teilnahme an Verbraucherstreitbeilegungsverfahren werden ergänzt, soweit dies gesetzlich erforderlich oder verbindlich vereinbart ist.''',
           ),
           _LegalSection(
             title: '5. Haftung für eigene Inhalte',
@@ -7118,7 +6986,7 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
           _LegalSection(
             title: 'Pakete',
             body:
-                'Verwendete Pakete wie Firebase, Image Picker und weitere Abhängigkeiten werden vor Veröffentlichung geprüft und dokumentiert.',
+                'Die verwendeten Open-Source-Pakete und ihre Lizenztexte sind in der App-Lizenzübersicht dokumentiert.',
           ),
           _LegalSection(
             title: 'Lizenzübersicht',
@@ -7132,9 +7000,9 @@ Werden uns konkrete Rechtsverletzungen bekannt, werden rechtswidrige Links nach 
         icon: Icons.description_rounded,
         sections: const [
           _LegalSection(
-            title: 'Entwurf',
+            title: 'Rechtliche Informationen',
             body:
-                'Diese Seite wird vor Veröffentlichung mit finalen Inhalten und juristischer Prüfung ergänzt.',
+                'Die aktuellen rechtlichen Informationen sind unter Datenschutz, Nutzungsbedingungen, Community-Richtlinien und Impressum verfügbar.',
           ),
         ],
       ),

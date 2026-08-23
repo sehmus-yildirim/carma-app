@@ -59,6 +59,19 @@ describe('settings service request rules', () => {
     await assertSucceeds(getDoc(doc(owner, ...pathParts)));
     await assertFails(getDoc(doc(outsider, ...pathParts)));
     await assertFails(setDoc(doc(outsider, ...pathParts), payload));
+
+    await assertSucceeds(setDoc(
+        doc(owner, 'users', userId, 'support_requests', 'support-safety'),
+        {
+          ...payload,
+          requestId: 'support-safety',
+          type: 'safety',
+          category: 'Schutz von Minderjährigen',
+          affectedArea: 'Chat',
+          description:
+            'Ich möchte ein mögliches Sicherheitsproblem im Chat melden.',
+        },
+    ));
   });
 
   test('invalid support requests and later client edits fail', async () => {

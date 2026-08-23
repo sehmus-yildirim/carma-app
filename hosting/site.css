@@ -7631,6 +7631,623 @@ a .plaqa-word {
 }
 
 
+/* Kontolöschung */
+
+.deletion-body {
+  background:
+    linear-gradient(145deg, rgba(15, 52, 103, .12), transparent 34%),
+    #05080d;
+}
+
+.deletion-header {
+  min-height: 88px;
+  border-bottom: 1px solid rgba(104, 130, 164, .13);
+}
+
+.deletion-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.deletion-header__brand > span {
+  padding-left: 20px;
+  border-left: 1px solid rgba(123, 148, 181, .2);
+  color: #7f8c9e;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.deletion-header .subpage-logo {
+  display: inline-flex;
+  align-items: center;
+}
+
+.deletion-header .subpage-logo img {
+  width: 150px;
+  height: auto;
+  display: block;
+}
+
+.account-deletion-page {
+  width: min(calc(100% - 60px), 1080px);
+  margin-top: 48px;
+}
+
+.deletion-hero {
+  min-height: 310px;
+  padding: 48px 0 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 72px;
+  align-items: center;
+  border-bottom: 1px solid rgba(104, 130, 164, .16);
+}
+
+.deletion-hero__copy {
+  min-width: 0;
+}
+
+.deletion-hero .section-kicker,
+.deletion-section-heading .section-kicker,
+.deletion-help .section-kicker,
+.deletion-contact .section-kicker {
+  margin: 0 0 12px;
+  color: #2783ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.deletion-hero h1 {
+  max-width: 720px;
+  margin: 0;
+  font-size: clamp(42px, 5vw, 62px);
+  line-height: 1.06;
+  letter-spacing: 0;
+}
+
+.deletion-hero__copy > p:not(.section-kicker) {
+  max-width: 670px;
+  margin: 22px 0 0;
+  color: #9aa6b7;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.deletion-meta {
+  margin-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px 24px;
+}
+
+.deletion-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #c0c9d6;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.deletion-meta span::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2783ff;
+  box-shadow: 0 0 12px rgba(39, 131, 255, .65);
+}
+
+.deletion-hero__mark {
+  width: 164px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(39, 131, 255, .38);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(26, 104, 219, .16), rgba(8, 13, 21, .78));
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .24);
+}
+
+.deletion-hero__mark img {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  display: block;
+}
+
+
+.deletion-notice {
+  margin: 28px 0 68px;
+  padding: 20px 22px;
+
+  display: grid;
+  grid-template-columns: minmax(210px, .35fr) minmax(0, 1fr);
+  gap: 26px;
+  align-items: center;
+
+  border: 1px solid rgba(223, 73, 86, .38);
+  border-radius: 8px;
+
+  background: rgba(43, 12, 18, .2);
+}
+
+
+.deletion-notice strong {
+  color: #ff6b78;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+
+.deletion-notice span {
+  color: #9da8b8;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.deletion-content {
+  gap: 76px;
+}
+
+.deletion-content > section {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.deletion-section-heading {
+  margin-bottom: 25px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.deletion-section-heading h2,
+.deletion-help h2,
+.deletion-contact h2 {
+  margin: 0;
+  font-size: clamp(23px, 2.8vw, 32px);
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+
+.deletion-section-heading > span {
+  padding-bottom: 4px;
+  color: #778497;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+
+.deletion-steps {
+  margin: 0;
+  padding: 0;
+
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+
+  list-style: none;
+}
+
+
+.deletion-steps li {
+  min-width: 0;
+  min-height: 154px;
+  padding: 22px;
+
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 17px;
+
+  border: 1px solid rgba(104, 130, 164, .17);
+  border-radius: 8px;
+  background: rgba(12, 17, 25, .64);
+}
+
+
+.deletion-steps li:last-child {
+  border-bottom: 1px solid rgba(104, 130, 164, .17);
+}
+
+
+.deletion-steps li > span {
+  width: 38px;
+  height: 38px;
+
+  display: grid;
+  place-items: center;
+
+  border: 1px solid rgba(39, 131, 255, .48);
+  border-radius: 8px;
+
+  color: #2783ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+
+.deletion-steps strong,
+.deletion-data-list strong,
+.deletion-retention strong {
+  color: #f1f5fa;
+  font-size: 14px;
+}
+
+
+.deletion-steps p {
+  margin: 6px 0 0;
+}
+
+
+.deletion-path {
+  margin: 14px 0 0 !important;
+  max-width: none !important;
+  padding: 15px 18px;
+
+  border: 1px solid rgba(39, 131, 255, .24);
+  border-left: 3px solid #2783ff;
+  border-radius: 0 6px 6px 0;
+
+  background: rgba(17, 29, 46, .42);
+  color: #c8d2df !important;
+
+  font-size: 12px !important;
+  font-weight: 700;
+}
+
+
+.deletion-data-list {
+  margin: 0;
+  padding: 0;
+
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 36px;
+
+  list-style: none;
+}
+
+
+.deletion-data-list li {
+  min-width: 0;
+  min-height: 132px;
+  padding: 22px 0;
+
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+
+  border-top: 1px solid rgba(104, 130, 164, .16);
+}
+
+.deletion-data-list li > div {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.deletion-data-index {
+  color: #2783ff !important;
+  font-size: 10px !important;
+  font-weight: 800;
+  line-height: 1.5 !important;
+}
+
+.deletion-data-list li > div > span {
+  color: #8995a6;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+
+.deletion-retention {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+
+.deletion-retention > div {
+  min-width: 0;
+  padding: 24px;
+
+  border: 1px solid rgba(104, 130, 164, .17);
+  border-radius: 8px;
+  background: rgba(12, 17, 25, .64);
+}
+
+
+.deletion-retention p {
+  margin: 8px 0 0;
+}
+
+.deletion-retention-section > p {
+  max-width: 920px;
+  margin: 20px 0 0;
+}
+
+.deletion-help {
+  padding: 28px !important;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 32px;
+  align-items: center;
+  border: 1px solid rgba(39, 131, 255, .34) !important;
+  border-radius: 8px;
+  background: rgba(12, 23, 39, .58);
+}
+
+.deletion-help__copy {
+  min-width: 0;
+}
+
+.deletion-help p:not(.section-kicker) {
+  max-width: 720px;
+  margin: 12px 0 0;
+}
+
+.deletion-help .legal-primary-action {
+  flex: 0 0 auto;
+  min-width: 190px;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.deletion-contact {
+  padding: 24px 0 !important;
+  display: grid;
+  grid-template-columns: minmax(210px, .35fr) minmax(0, 1fr);
+  gap: 38px;
+  align-items: center;
+  border-top: 1px solid rgba(104, 130, 164, .16) !important;
+  border-bottom: 1px solid rgba(104, 130, 164, .16) !important;
+}
+
+.deletion-contact p:not(.section-kicker) {
+  margin: 0;
+}
+
+
+/* Datenschutzerklärung */
+
+.privacy-body {
+  background:
+    linear-gradient(145deg, rgba(15, 52, 103, .1), transparent 31%),
+    #05080d;
+}
+
+.privacy-page {
+  width: min(calc(100% - 60px), 1080px);
+  margin-top: 48px;
+}
+
+.privacy-hero {
+  min-height: 290px;
+  padding: 46px 0 50px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 72px;
+  align-items: center;
+  border-bottom: 1px solid rgba(104, 130, 164, .16);
+}
+
+.privacy-hero h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(42px, 5vw, 62px);
+  line-height: 1.06;
+  letter-spacing: 0;
+}
+
+.privacy-hero > div:first-child > p:not(.section-kicker) {
+  max-width: 710px;
+  margin: 22px 0 0;
+  color: #9aa6b7;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.privacy-hero .section-kicker {
+  margin-bottom: 12px;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.privacy-hero__mark {
+  width: 140px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(39, 131, 255, .35);
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(26, 104, 219, .14), rgba(8, 13, 21, .8));
+}
+
+.privacy-hero__mark img {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+}
+
+.privacy-meta {
+  margin-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+}
+
+.privacy-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #c0c9d6;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.privacy-meta span::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2783ff;
+}
+
+.privacy-jump {
+  margin: 26px 0 72px;
+  padding: 17px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 28px;
+  border-top: 1px solid rgba(104, 130, 164, .13);
+  border-bottom: 1px solid rgba(104, 130, 164, .13);
+}
+
+.privacy-jump a {
+  color: #8c98a9;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.privacy-jump a:hover {
+  color: #2783ff;
+}
+
+.privacy-content {
+  gap: 0;
+}
+
+.privacy-content > .privacy-section {
+  padding: 44px 0;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 22px;
+  border-top: 1px solid rgba(104, 130, 164, .16);
+}
+
+.privacy-section__number {
+  padding-top: 5px;
+  color: #2783ff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.privacy-section__body {
+  min-width: 0;
+}
+
+.privacy-section__body h2 {
+  margin: 0 0 18px;
+  font-size: clamp(23px, 2.8vw, 31px);
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+
+.privacy-section__body h3 {
+  margin: 0 0 9px;
+  color: #edf2f9;
+  font-size: 14px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.privacy-section__body > h3 {
+  margin-top: 28px;
+}
+
+.privacy-section__body p {
+  max-width: 900px;
+  margin: 12px 0 0;
+  color: #909cad;
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.privacy-address {
+  margin: 18px 0;
+  padding: 18px 20px;
+  border-left: 3px solid #2783ff;
+  background: rgba(17, 29, 46, .34);
+  color: #aab5c4;
+  font-size: 14px;
+  font-style: normal;
+  line-height: 1.7;
+}
+
+.privacy-address strong {
+  color: #eef3fa;
+}
+
+.privacy-data-grid,
+.privacy-provider-list {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 36px;
+}
+
+.privacy-data-grid article,
+.privacy-provider-list article {
+  min-width: 0;
+  padding: 22px 0;
+  border-top: 1px solid rgba(104, 130, 164, .16);
+}
+
+.privacy-data-grid article > span {
+  display: block;
+  margin-bottom: 10px;
+  color: #2783ff;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.privacy-data-grid p,
+.privacy-provider-list p {
+  margin-top: 0;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.privacy-list {
+  margin: 20px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  list-style: none;
+}
+
+.privacy-list li {
+  position: relative;
+  padding-left: 20px;
+  color: #909cad;
+  font-size: 14px;
+  line-height: 1.68;
+}
+
+.privacy-list li::before {
+  content: "";
+  position: absolute;
+  top: .72em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2783ff;
+}
+
+.privacy-deletion-link .legal-primary-action {
+  margin-top: 22px;
+  border-radius: 6px;
+}
+
+
 /* Unterseiten Footer */
 
 .subpage-footer {
@@ -7688,6 +8305,58 @@ a .plaqa-word {
     grid-template-columns: 1fr;
   }
 
+
+  .deletion-hero {
+    grid-template-columns: minmax(0, 1fr) 138px;
+    gap: 34px;
+  }
+
+
+  .deletion-hero__mark {
+    width: 132px;
+  }
+
+
+  .deletion-hero__mark img {
+    width: 88px;
+    height: 88px;
+  }
+
+
+  .deletion-notice,
+  .deletion-contact {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+
+  .deletion-help {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+
+
+  .deletion-help .legal-primary-action {
+    justify-self: start;
+  }
+
+
+  .privacy-hero {
+    grid-template-columns: minmax(0, 1fr) 116px;
+    gap: 34px;
+  }
+
+
+  .privacy-hero__mark {
+    width: 108px;
+  }
+
+
+  .privacy-hero__mark img {
+    width: 72px;
+    height: 72px;
+  }
+
 }
 
 
@@ -7725,6 +8394,193 @@ a .plaqa-word {
   .legal-page,
   .subpage-footer {
     width: calc(100% - 32px);
+  }
+
+
+  .account-deletion-page {
+    width: calc(100% - 32px);
+    margin-top: 28px;
+  }
+
+
+  .deletion-notice {
+    margin-top: 20px;
+    margin-bottom: 42px;
+    padding: 18px;
+  }
+
+
+  .deletion-data-list,
+  .deletion-retention,
+  .deletion-steps {
+    grid-template-columns: 1fr;
+  }
+
+
+  .deletion-steps li {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 13px;
+    min-height: 0;
+    padding: 19px;
+  }
+
+
+  .deletion-header {
+    min-height: 74px;
+  }
+
+
+  .deletion-header__brand > span {
+    display: none;
+  }
+
+
+  .deletion-header .subpage-logo img {
+    width: 124px;
+  }
+
+
+  .deletion-hero {
+    min-height: 0;
+    padding: 28px 0 36px;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+
+  .deletion-hero__mark {
+    width: 82px;
+    grid-row: 1;
+  }
+
+
+  .deletion-hero__mark img {
+    width: 56px;
+    height: 56px;
+  }
+
+
+  .deletion-hero h1 {
+    font-size: clamp(34px, 11vw, 46px);
+  }
+
+
+  .deletion-hero__copy > p:not(.section-kicker) {
+    font-size: 14px;
+  }
+
+
+  .deletion-meta {
+    display: grid;
+    gap: 10px;
+  }
+
+
+  .deletion-content {
+    gap: 56px;
+  }
+
+
+  .deletion-section-heading {
+    align-items: flex-start;
+  }
+
+
+  .deletion-section-heading > span {
+    padding-top: 7px;
+    white-space: nowrap;
+  }
+
+
+  .deletion-data-list li {
+    min-height: 0;
+  }
+
+
+  .deletion-path {
+    overflow-wrap: anywhere;
+  }
+
+
+  .deletion-help {
+    padding: 22px !important;
+  }
+
+
+  .deletion-help .legal-primary-action {
+    width: 100%;
+  }
+
+
+  .deletion-contact {
+    padding: 22px 0 !important;
+    gap: 16px;
+  }
+
+
+  .privacy-page {
+    width: calc(100% - 32px);
+    margin-top: 28px;
+  }
+
+
+  .privacy-hero {
+    min-height: 0;
+    padding: 28px 0 36px;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+
+  .privacy-hero__mark {
+    width: 82px;
+    grid-row: 1;
+  }
+
+
+  .privacy-hero__mark img {
+    width: 56px;
+    height: 56px;
+  }
+
+
+  .privacy-hero h1 {
+    font-size: clamp(30px, 9vw, 34px);
+  }
+
+
+  .privacy-hero > div:first-child {
+    min-width: 0;
+  }
+
+
+  .privacy-hero > div:first-child > p:not(.section-kicker) {
+    font-size: 14px;
+  }
+
+
+  .privacy-meta {
+    display: grid;
+    gap: 10px;
+  }
+
+
+  .privacy-jump {
+    margin-bottom: 42px;
+    gap: 12px 22px;
+  }
+
+
+  .privacy-content > .privacy-section {
+    padding: 34px 0;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+
+  .privacy-data-grid,
+  .privacy-provider-list {
+    grid-template-columns: 1fr;
   }
 
 
