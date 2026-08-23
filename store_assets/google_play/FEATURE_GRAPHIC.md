@@ -30,4 +30,3 @@ In einem zweiten gezielten Bildschritt wurden emblem- und logoaehnliche Details 
 - Vor einem Upload die Grafik noch einmal in der Play-Console-Vorschau auf moegliche Beschnittzonen pruefen.
 - Keine spaetere Text- oder Logoergaenzung am Rand vornehmen.
 - Falls Google die Grafik unerwartet beschneidet, nur die Positionierung anpassen und keine neuen Werbeaussagen hinzufuegen.
-

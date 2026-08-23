@@ -84,4 +84,3 @@ Die folgenden Funktionen werden im Store-Text nicht als verfuegbar oder fertig d
 - Social Feed, Storys, Kontaktanfragen, Chats, Melden und Blockieren mit mehreren Konten live testen.
 - Rechtstexte und ladungsfaehige Anschrift nach dem geplanten Umzug extern pruefen.
 - Keine Store-Angabe veroeffentlichen, wenn eine im Text genannte Kernfunktion im Release-Build nicht nutzbar ist.
-

@@ -124,4 +124,3 @@ Ziel sind acht echte Smartphone-Aufnahmen im Hochformat. Dieses Dokument beschre
 - MFA-, Recovery- und Sitzungsverwaltung vor dem vollstaendigen Sicherheits-Livetest.
 - Profilstatistiken vor dem Deploy und Livetest von `recordProfileView`.
 - Push- oder Ablaufbenachrichtigungen vor einer nachgewiesenen Zustellung im Release-Build.
-
