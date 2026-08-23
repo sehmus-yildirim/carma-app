@@ -19,11 +19,11 @@ Firebase-Projekt: `carma-a84e4`
 
 ## Aktueller Arbeitsstand
 
-- [x] Aktueller Branch: `codex/android-package-de-plaqa-app`.
-- [x] Ausgangsstand vor dieser Dokumentaktualisierung war sauber.
-- [x] Designkorrekturen und App-Check-Integration sind getrennt committed und
-  auf `origin/codex/android-package-de-plaqa-app` gesichert.
-- [x] Letzte Commits: `9d126ff` und `f7dac26`.
+- [x] Aktueller Branch: `main`.
+- [x] `main` und `origin/main` zeigen vor dieser Dokumentaktualisierung auf
+  Commit `41fa6fc5a9bf2f9ad4744f0fa650bc756f71afa0`.
+- [x] Bereits vorhandene uncommittete Store-Dokumentation und acht
+  Screenshot-Dateien werden in diesem Schritt kontrolliert fortgefuehrt.
 - [x] Keine History wurde umgeschrieben; kein Force-Push.
 
 ## Abgeschlossen
@@ -73,12 +73,21 @@ Firebase-Projekt: `carma-a84e4`
 - [x] Kinderschutzkontakt und Kinderschutz-Selbsterklaerungen vom Nutzer
   bestaetigt; oeffentlicher Standard vorhanden.
 - [x] Datensicherheitsdeklaration als Entwurf gespeichert.
-- [x] Das gepruefte AAB wurde am 2026-08-23 ausschliesslich als interner
-  Testrelease-Entwurf `1 (1.0.0)` hochgeladen und gespeichert.
-- [x] Der interne Track bleibt inaktiv; keine Tester wurden ausgewaehlt, keine
-  Einladungen versendet und nichts zur Pruefung oder Produktion eingereicht.
-- [ ] Acht echte Smartphone-Screenshots werden spaeter vom Nutzer geliefert;
-  sie wurden noch nicht hochgeladen.
+- [x] Das gepruefte AAB mit Versionscode `1` wurde am 2026-08-23 als interner
+  Release `1 (1.0.0)` bereitgestellt.
+- [x] Der interne Track ist aktiv und ausschliesslich fuer die ausgewaehlte
+  Liste `plaqa interne Tester` mit aktuell einem freigegebenen Tester
+  verfuegbar; die Tester-Adresse wird nicht im Repository dokumentiert.
+- [x] Der Teilnahme-Link ist aktiv. Die Installation aus Google Play auf dem
+  freigegebenen Redmi wurde vom Nutzer bestaetigt.
+- [x] Bis zur ersten Store-Pruefung kann Google Play den temporaeren Namen
+  `de.plaqa.app (unreviewed)` anzeigen.
+- [x] Kein offener oder geschlossener Test und kein Produktionsrelease sind
+  aktiv; die App ist nicht oeffentlich veroeffentlicht.
+- [x] Acht freigegebene Smartphone-Screenshots wurden geprueft und am
+  2026-08-23 geordnet in den Store-Entwurf hochgeladen.
+- [x] Store-Texte, App-Icon, Feature-Grafik und Screenshots wurden gemeinsam
+  nur als Entwurf gespeichert; nichts wurde eingereicht oder veroeffentlicht.
 
 ### Legal-Inventar
 
@@ -188,12 +197,11 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   Action-URL und Custom-SMTP-Status erneut kontrollieren.
 - [CONSOLE] `auth.plaqa.de` als Auth-/Action-Domain beibehalten und alle
   E-Mail-Aktionsarten testen.
-- [LOCAL] Store-Name und deutsche Beschreibungen sind vorbereitet. Das
-  512-x-512-App-Icon und die 1024-x-500-Feature-Grafik sind lokal geprueft.
-- [CONSOLE] App-Icon, Feature-Grafik und die acht spaeter gelieferten echten
-  Smartphone-Screenshots gemeinsam in den Store-Entwurf eintragen.
-- [CONSOLE] Der interne Testrelease liegt nur als inaktiver Entwurf vor. Tester
-  auswaehlen und den Track erst nach separater Freigabe starten.
+- [x] Store-Name, deutsche Beschreibungen, 512-x-512-App-Icon,
+  1024-x-500-Feature-Grafik und acht 900-x-1600-Screenshots sind lokal
+  geprueft und gemeinsam als Play-Store-Entwurf gespeichert.
+- [x] Interner Release `1 (1.0.0)` ist nach separater Freigabe aktiv; ein
+  freigegebener Tester hat die Installation aus Google Play bestaetigt.
 - [CONSOLE] Die fuer neue Privatkonten erforderliche geschlossene Testspur erst
   nach Backend-, Legal- und Live-Test-Freigabe anlegen.
 
@@ -225,8 +233,8 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
 - [LIVE] KI-Fahrzeugbild auf Kosten, Rate-Limit, Bildpfad und Fehlerzustand.
 - [LIVE] Scheduler fuer Story-, Meldungs- und Dokument-Cleanup in Logs und
   Datenwirkung pruefen.
-- [LIVE] Den vorhandenen internen AAB-Entwurf erst nach separater Freigabe
-  starten; danach Pre-Launch-Report sowie Crash-/ANR-Berichte pruefen.
+- [LIVE] Interne Release-Installation ist bestaetigt; eigentliche Funktions-,
+  Pre-Launch-, Crash- und ANR-Pruefungen bleiben bewusst offen.
 
 ## Benötigt rechtliche Prüfung
 
@@ -256,10 +264,11 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   anwaltliche Freigabe.
 - [PERSON] Blaze/Billing und Budgetgrenzen ausdruecklich freigeben.
 - [PERSON] Einsatz ausdruecklich freigegebener Testkonten und Testdokumente.
-- [x] AAB-Upload als inaktiver interner Entwurf wurde separat freigegeben und
+- [x] AAB-Upload und Start der internen Testspur wurden separat freigegeben und
   abgeschlossen.
-- [PERSON] Start einer Testspur, Einreichung zur Pruefung und
-  Produktionsveroeffentlichung weiterhin jeweils separat freigeben.
+- [PERSON] Start einer geschlossenen oder offenen Testspur, Einreichung zur
+  Pruefung und Produktionsveroeffentlichung weiterhin jeweils separat
+  freigeben.
 
 ## Blockiert Release
 
@@ -273,9 +282,11 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   Dokumentenverifizierung produktiv freigegeben wird.
 - [BLOCKER] App Check im Debug- und signierten Release-Build auf einem echten
   Geraet beobachten; Enforcement erst danach.
-- [BLOCKER] Acht echte Store-Screenshots vom Nutzer erhalten und pruefen;
-  Texte, Screenshot-Konzept, App-Icon und Feature-Grafik sind vorbereitet.
-- [BLOCKER] Testspur und von Google geforderte Testphase abschliessen.
+- [x] Acht Store-Screenshots erhalten, technisch geprueft und mit Texten,
+  App-Icon und Feature-Grafik als Entwurf gespeichert.
+- [BLOCKER] Die von Google geforderte geschlossene Testphase mit mindestens
+  12 durchgehend teilnehmenden Testern ueber mindestens 14 Tage abschliessen;
+  der aktive interne Test ersetzt diese Phase nicht.
 - [BLOCKER] Geraete- und Mehrkonten-Livetests ohne kritische Fehler bestehen.
 - [BLOCKER] Externe Rechtspruefung und neue Anschrift abschliessen.
 - [BLOCKER] Demo-/Beispieldaten im Release entfernen oder nachweislich nur im
@@ -300,9 +311,9 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
    Testkonten pruefen.
 5. App Check im Monitoring beobachten und erst nach Geraetetests schrittweise
    erzwingen.
-6. Acht echte Store-Screenshots vom Nutzer pruefen und mit den vorbereiteten
-   Store-Assets als Entwurf speichern.
-7. Tester auswaehlen und den internen Test erst nach separater Freigabe starten.
-8. Geschlossene Testphase, Pre-Launch-Report und echte Live-Tests getrennt
+6. Internen Test aktiv lassen; Funktionspruefungen erst nach separater
+   Freigabe durchfuehren.
+7. Geschlossene Testphase mit mindestens 12 Testern ueber mindestens 14 Tage,
+   Pre-Launch-Report und echte Live-Tests getrennt
    abschliessen.
-9. Produktion erst nach einer eigenen ausdruecklichen Freigabe einreichen.
+8. Produktion erst nach einer eigenen ausdruecklichen Freigabe einreichen.

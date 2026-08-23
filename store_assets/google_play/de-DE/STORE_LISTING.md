@@ -1,12 +1,16 @@
 # plaqa Google Play Store Listing (de-DE)
 
-Stand: 2026-08-22
+Stand: 2026-08-23
 
-Dieses Dokument ist die lokale, deutsche Vorlage fuer den Haupt-Store-Eintrag. In der Play Console besteht bereits ein Entwurf; die hier vorbereiteten finalen Texte und visuellen Assets wurden noch nicht gemeinsam gespeichert. Das gepruefte AAB liegt getrennt davon nur als inaktiver interner Testrelease-Entwurf vor.
+Dieses Dokument ist die lokale, deutsche Vorlage fuer den Haupt-Store-Eintrag. Die finalen Texte, das App-Icon, die Feature-Grafik und acht Smartphone-Screenshots wurden am 2026-08-23 gemeinsam als Entwurf in der Play Console gespeichert. Der gepruefte Release `1 (1.0.0)` ist ausschliesslich in der internen Testspur aktiv; die App ist nicht oeffentlich veroeffentlicht.
 
 ## Produktdetails
 
 - App-Name: `plaqa`
+- Paket-ID: `de.plaqa.app`
+- Lokale Flutter-Version: `1.0.0+1`
+- Sichtbare Store-Version: `1.0.0`
+- Versionscode: `1`
 - Zeichenanzahl App-Name: 5 von maximal 30
 - Standardsprache: Deutsch
 - App-Typ: App
@@ -63,7 +67,9 @@ plaqa ist für Personen ab 16 Jahren vorgesehen. Nutze Kennzeichen- und Kontaktf
 - App-Icon: 512 x 512 Pixel, PNG, SHA-256 `FAC4C4873F01C56E8F1C6FDCA0B0BA95BFB9DC0838F4BADCB6BC64D65D3FE6D7`
 - Feature-Grafik: `store_assets/google_play/feature-graphic.png`
 - Feature-Grafik: 1024 x 500 Pixel, PNG ohne Alpha-Kanal
-- Smartphone-Screenshots: acht echte Hochformat-Aufnahmen werden spaeter vom Nutzer geliefert und vor dem Upload auf personenbezogene Daten geprueft.
+- Smartphone-Screenshots: acht freigegebene Hochformat-Grafiken unter `store_assets/google_play/phone-screenshots/de-DE/`.
+- Screenshot-Format: jeweils 900 x 1600 Pixel, JPEG, Seitenverhaeltnis 9:16 und deutlich unter 8 MB.
+- Die sichtbaren Beispielangaben `Plaqa Nutzer`, `Plaqa N.`, `HH-PQ 2026` und `HH-TA 2040` wurden fuer den Store-Eintrag ausdruecklich freigegeben.
 
 ## Kontakt und öffentliche Seiten
 
@@ -87,8 +93,8 @@ Die folgenden Funktionen werden im Store-Text nicht als verfuegbar oder fertig d
 
 ## Release-Gates vor dem Upload
 
-- Blaze-abhaengige Kern-Functions fuer Fahrzeugverwaltung und geplante Releasefunktionen gezielt deployen.
-- Store-Text und visuelle Assets vor dem Speichern noch einmal gemeinsam mit den acht Nutzer-Screenshots pruefen.
+- Alle 23 lokalen Functions sind live; ihre Funktionswirkung bleibt mit ausdruecklich freigegebenen Testkonten zu pruefen.
+- Gespeicherten Store-Entwurf vor einer spaeteren Einreichung noch einmal gemeinsam pruefen.
 - Social Feed, Storys, Kontaktanfragen, Chats, Melden und Blockieren mit mehreren Konten live testen.
 - Rechtstexte und ladungsfaehige Anschrift nach dem geplanten Umzug extern pruefen.
 - Keine Store-Angabe veroeffentlichen, wenn eine im Text genannte Kernfunktion im Release-Build nicht nutzbar ist.

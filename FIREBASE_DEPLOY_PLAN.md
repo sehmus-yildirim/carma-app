@@ -3,14 +3,16 @@
 Stand: 2026-08-23 CEST
 Zielprojekt: `carma-a84e4`
 Android-App: `plaqa`, Paket `de.plaqa.app`, Version `1.0.0+1`
+Play Store: sichtbare Version `1.0.0`, Versionscode `1`, interner Release
+`1 (1.0.0)` aktiv
 Functions: Cloud Functions 2nd Gen, Node.js 22, globale Region `europe-west3`
 
 ## Zweck und Statusregeln
 
 Dieser Plan trennt den lokalen Quellstand vom nachweisbaren Live-Stand. Er ist
-keine Deploy-Freigabe. In diesem Aktualisierungsschritt wurde der vollstaendige
-Flutter-Testlauf wiederholt; es wurden keine Builds, Deploys oder
-Console-Aenderungen ausgefuehrt.
+keine Deploy-Freigabe. In diesem Aktualisierungsschritt wurden nur Dokumente
+angepasst; es wurden keine Tests, Builds, Deploys oder Console-Aenderungen
+ausgefuehrt.
 
 - **Live bestaetigt**: Name und grundlegender Ressourcentyp wurden zuletzt am
   2026-08-23 direkt mit der Firebase-CLI, Firebase Console oder per HTTPS
@@ -29,7 +31,7 @@ Console-Aenderungen ausgefuehrt.
 
 | Bereich | Nachweis | Ergebnis |
 |---|---|---|
-| Git | `git status`, Branch und Upstream read-only | Branch `codex/android-package-de-plaqa-app`; Design- und App-Check-Commits auf dem Remote-Branch gesichert |
+| Git | `git status`, Branch und Upstream read-only | `main` und `origin/main` zeigen vor dieser Dokumentaktualisierung auf `41fa6fc5a9bf2f9ad4744f0fa650bc756f71afa0`; vorhandene Store-Dokumentation und Screenshots bleiben uncommittet |
 | Projekt | `.firebaserc`, `firebase.json` | Zielprojekt exakt `carma-a84e4`; Functions, Firestore, Storage und Hosting korrekt zugeordnet |
 | Android | Firebase SDK-Konfiguration read-only | Firebase Android-App fuer `de.plaqa.app` vorhanden; lokale Konfiguration zeigt auf die passende App; Debug- und Release-Zertifikate sind registriert, Werte werden nicht dokumentiert |
 | Functions | `firebase functions:list --json` | Alle 23 lokalen Exports sind live, aktiv, v2 / Node.js 22 / `europe-west3`; Triggerarten stimmen mit dem lokalen Inventar ueberein |
@@ -38,12 +40,13 @@ Console-Aenderungen ausgefuehrt.
 | Hosting-Inhalt | Bytevergleich lokal gegen HTTPS | Gleich: Startseite, Kontoloeschung, Impressum, Meldestelle, Support, Partner, Auth-Action. Abweichend: Datenschutz, Kinderschutz, Community-Richtlinien, Nutzungsbedingungen |
 | Rules | CLI-Moeglichkeiten | Firestore-/Storage-Rules sind live in Benutzung, der veroeffentlichte Inhalt ist mit der CLI nicht sicher gegen lokal vergleichbar |
 | Auth/App Check | lokaler Code und Firebase Console | Android-App `de.plaqa.app` ist mit Play Integrity registriert; Firestore bleibt im Monitoring, Storage und Authentication sind nicht erzwungen, Functions erzwingen App Check lokal nicht |
+| Play Console | vom Nutzer freigegebene Console-Aktion und anschliessende Geraetebestaetigung | Signierter Release `1 (1.0.0)` mit Versionscode `1` ist ausschliesslich im internen Track aktiv; Liste `plaqa interne Tester` enthaelt einen freigegebenen Tester; Teilnahme-Link und Redmi-Installation sind bestaetigt; keine Produktion |
 
 ## Letzter dokumentierter lokaler Pruefstand
 
 Aktueller dokumentierter Stand:
 
-- Vollstaendiger Flutter-Testlauf am 2026-08-23, 185 Tests: bestanden.
+- Vollstaendiger Flutter-Testlauf am 2026-08-23, 188 Tests: bestanden.
 - `flutter analyze --no-pub`: ohne Befund.
 - 9 produktive Functions-JavaScript-Dateien: Syntaxcheck bestanden.
 - 6 Functions-Testdateien, zuletzt dokumentiert 71 Tests: bestanden.
@@ -139,21 +142,24 @@ nachgewiesenen Quellunterschied und mit gesonderter Freigabe.
 
 ## Sichere Reihenfolge
 
-1. Blaze aktivieren und Billing-Budgetwarnungen einrichten.
-2. Cloud Functions, Cloud Build, Artifact Registry, Scheduler, Identity
-   Platform/SMS und gegebenenfalls Google-AI-/Vertex-AI-APIs kontrollieren.
+1. Blaze ist aktiv; Billing-Budgetwarnungen, Kosten und benoetigte APIs weiter
+   kontrollieren.
+2. Alle 23 Functions sind live; erneute Deploys nur bei nachgewiesenem
+   Quellunterschied und mit gesonderter Freigabe ausfuehren.
 3. Firestore- und Storage-Rules nach erneutem Emulatorlauf gezielt deployen;
    sechs Indexe sind bereits live und werden nicht erneut deployed.
-4. Functions in kleinen Gruppen deployen: zuerst F1/F2, dann F6, F5, F3;
-   F4/F7/F8/F9 nur mit ihren besonderen Sicherheits- und Kostenfreigaben.
-5. App Check fuer Debug und Release nur im Monitoring betreiben.
+4. Die live vorhandenen Functions erst mit ausdruecklich freigegebenen
+   Testkonten gruppenweise funktional pruefen.
+5. App Check fuer Debug und Release weiterhin nur im Monitoring betreiben.
 6. Ausschliesslich ausdruecklich freigegebene Testkonten und Testdokumente
    verwenden.
 7. Berechtigungs-, Datenwirkungs-, Kosten- und Function-Log-Pruefungen je
    Gruppe abschliessen.
 8. App Check erst nach erfolgreichen Geraete- und Mehrkontentests schrittweise
    erzwingen.
-9. Danach AAB und Play-Testspur getrennt vorbereiten.
+9. Der interne Release ist aktiv und auf dem Redmi installiert. Geschlossene
+   Testphase, Einreichung und Produktion bleiben getrennte, freizugebende
+   Schritte.
 
 ## Erforderliche Live-Tests
 
@@ -185,6 +191,11 @@ nachgewiesenen Quellunterschied und mit gesonderter Freigabe.
 - Mehrere Functions besitzen keinen eigenen Function-Test.
 - Dokumentenverifizierung bleibt bis zum Cleanup-Livetest und zur externen
   Rechtspruefung gesperrt.
+- Interner Release `1 (1.0.0)` ist aktiv und auf dem Redmi installiert; dies
+  ersetzt weder Funktions-Livetests noch die erforderliche geschlossene
+  Testphase mit mindestens 12 Testern ueber mindestens 14 Tage.
+- Kein offener oder geschlossener Test und kein Produktionsrelease sind aktiv;
+  die App ist nicht oeffentlich veroeffentlicht.
 - Keine Produktionsdaten, Backfills, Testloeschungen oder pauschalen
   Functions-Deploys ohne getrennte Freigabe.
 
