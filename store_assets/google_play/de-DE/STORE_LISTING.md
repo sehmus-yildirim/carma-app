@@ -2,7 +2,7 @@
 
 Stand: 2026-08-22
 
-Dieses Dokument ist die lokale, deutsche Vorlage fuer den Haupt-Store-Eintrag. Es wurde noch nichts in die Play Console hochgeladen oder dort gespeichert. Vor einem spaeteren Upload muessen die unten genannten Release-Gates erneut geprueft werden.
+Dieses Dokument ist die lokale, deutsche Vorlage fuer den Haupt-Store-Eintrag. In der Play Console besteht bereits ein Entwurf; die hier vorbereiteten finalen Texte und visuellen Assets wurden noch nicht gemeinsam gespeichert. Das gepruefte AAB liegt getrennt davon nur als inaktiver interner Testrelease-Entwurf vor.
 
 ## Produktdetails
 
@@ -57,6 +57,14 @@ plaqa ist für Personen ab 16 Jahren vorgesehen. Nutze Kennzeichen- und Kontaktf
 - Begruendung: Profile, Folgen, Feed, nutzergenerierte Beitraege und Storys, Kontaktanfragen, Kommentare sowie Chats bilden den Hauptzweck. Der Fahrzeugbezug ist das Thema der Community, nicht nur ein Fahrzeug-Nachschlagewerk.
 - Alternative nur nach erneuter Produktpruefung: `Auto & Vehicles`. Diese Kategorie waere erst passender, wenn Social Feed und Nutzerkommunikation nicht mehr den Kern der App bilden.
 
+## Vorbereitete visuelle Assets
+
+- App-Icon: `store_assets/google_play/app-icon.png`
+- App-Icon: 512 x 512 Pixel, PNG, SHA-256 `FAC4C4873F01C56E8F1C6FDCA0B0BA95BFB9DC0838F4BADCB6BC64D65D3FE6D7`
+- Feature-Grafik: `store_assets/google_play/feature-graphic.png`
+- Feature-Grafik: 1024 x 500 Pixel, PNG ohne Alpha-Kanal
+- Smartphone-Screenshots: acht echte Hochformat-Aufnahmen werden spaeter vom Nutzer geliefert und vor dem Upload auf personenbezogene Daten geprueft.
+
 ## Kontakt und öffentliche Seiten
 
 - Support-E-Mail: `support@plaqa.de`
@@ -80,7 +88,7 @@ Die folgenden Funktionen werden im Store-Text nicht als verfuegbar oder fertig d
 ## Release-Gates vor dem Upload
 
 - Blaze-abhaengige Kern-Functions fuer Fahrzeugverwaltung und geplante Releasefunktionen gezielt deployen.
-- Store-Text gegen den tatsaechlich hochzuladenden AAB-Stand pruefen.
+- Store-Text und visuelle Assets vor dem Speichern noch einmal gemeinsam mit den acht Nutzer-Screenshots pruefen.
 - Social Feed, Storys, Kontaktanfragen, Chats, Melden und Blockieren mit mehreren Konten live testen.
 - Rechtstexte und ladungsfaehige Anschrift nach dem geplanten Umzug extern pruefen.
 - Keine Store-Angabe veroeffentlichen, wenn eine im Text genannte Kernfunktion im Release-Build nicht nutzbar ist.

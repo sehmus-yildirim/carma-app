@@ -54,20 +54,20 @@ class PlateContactRequestResult {
 
 class PlateSearchService {
   static const String demoTargetUserId = 'plaqa-demo-plate-user';
-  static const String demoPlateKey = 'HHCR2026';
-  static const String demoChatId = 'local-demo-hh-cr-2026';
+  static const String demoPlateKey = 'HHPQ2026';
+  static const String demoChatId = 'local-demo-hh-pq-2026';
   static const PlateSearchResult demoSearchResult = PlateSearchResult(
     found: true,
     targetUid: demoTargetUserId,
-    displayName: 'plaqa Testnutzer',
+    displayName: CaRismaAppConfig.storeDemoDisplayName,
     isVerified: true,
     distanceKm: 0.1,
     vehicleId: 'plaqa-demo-vehicle-bmw-x6',
     plateKey: demoPlateKey,
-    displayPlate: 'HH-CR 2026',
+    displayPlate: CaRismaAppConfig.storeDemoPlate,
     countryCode: 'DE',
     region: 'HH',
-    letters: 'CR',
+    letters: 'PQ',
     numbers: '2026',
     vehicleBrand: 'BMW',
     vehicleModel: 'X6',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/glass_card.dart';
@@ -143,9 +144,15 @@ class _ProfileHomeFeedScreenState extends State<ProfileHomeFeedScreen>
         child: StreamBuilder<profile_data.UserProfile?>(
           stream: _profileStream,
           builder: (context, profileSnapshot) {
-            final profile = profileSnapshot.data;
-            final displayName = _profileDisplayName(profile);
-            final profilePhotoUrl = profile?.photoUrl?.trim() ?? '';
+            final profile = CaRismaAppConfig.storeScreenshotMode
+                ? null
+                : profileSnapshot.data;
+            final displayName = CaRismaAppConfig.storeScreenshotMode
+                ? CaRismaAppConfig.storeDemoDisplayName
+                : _profileDisplayName(profile);
+            final profilePhotoUrl = CaRismaAppConfig.storeScreenshotMode
+                ? ''
+                : profile?.photoUrl?.trim() ?? '';
             return CustomScrollView(
               key: const PageStorageKey<String>('profile-home-feed-scroll'),
               physics: const ClampingScrollPhysics(),
@@ -198,9 +205,12 @@ class _ProfileHomeFeedScreenState extends State<ProfileHomeFeedScreen>
                         ),
                       );
                     }
-                    final storedPosts =
-                        feedSnapshot.data ?? const <SocialPost>[];
-                    final posts = kDebugMode
+                    final storedPosts = CaRismaAppConfig.storeScreenshotMode
+                        ? const <SocialPost>[]
+                        : feedSnapshot.data ?? const <SocialPost>[];
+                    final posts = CaRismaAppConfig.storeScreenshotMode
+                        ? _debugHomeFeedPosts(_currentUserId)
+                        : kDebugMode
                         ? <SocialPost>[
                             ..._debugHomeFeedPosts(_currentUserId),
                             ...storedPosts,
@@ -269,7 +279,10 @@ SocialPostPublicIdentity? _debugIdentityForPost(
       photoUrl: currentUserPhotoUrl,
     );
   }
-  return const SocialPostPublicIdentity(displayName: 'Mila K.', photoUrl: '');
+  return const SocialPostPublicIdentity(
+    displayName: CaRismaAppConfig.storeDemoShortName,
+    photoUrl: '',
+  );
 }
 
 List<ChatStoryRecord> _debugHomeStories({
@@ -294,7 +307,7 @@ List<ChatStoryRecord> _debugHomeStories({
     ChatStoryRecord(
       id: '${_debugHomeContentPrefix}community-story',
       ownerUserId: '${_debugHomeContentPrefix}community-user',
-      ownerDisplayName: 'Mila K.',
+      ownerDisplayName: CaRismaAppConfig.storeDemoShortName,
       ownerPhotoUrl: '',
       viewerUserIds: <String>[currentUserId],
       imageUrl: _debugVehicleImage,
@@ -336,12 +349,14 @@ class _HomeStoriesSection extends StatelessWidget {
           stream: ownerStoriesStream,
           builder: (context, ownerSnapshot) {
             final storiesById = <String, ChatStoryRecord>{};
-            for (final story in <ChatStoryRecord>[
-              ...?visibleSnapshot.data,
-              ...?ownerSnapshot.data,
-            ]) {
-              if (!story.isExpired && story.hasRenderableMedia) {
-                storiesById[story.id] = story;
+            if (!CaRismaAppConfig.storeScreenshotMode) {
+              for (final story in <ChatStoryRecord>[
+                ...?visibleSnapshot.data,
+                ...?ownerSnapshot.data,
+              ]) {
+                if (!story.isExpired && story.hasRenderableMedia) {
+                  storiesById[story.id] = story;
+                }
               }
             }
             if (kDebugMode) {

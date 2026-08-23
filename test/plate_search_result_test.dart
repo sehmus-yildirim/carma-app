@@ -58,4 +58,19 @@ void main() {
       kDebugMode,
     );
   });
+
+  test('store demo identity never contains private profile data', () {
+    expect(CaRismaAppConfig.storeDemoDisplayName, 'Plaqa Nutzer');
+    expect(CaRismaAppConfig.storeDemoShortName, 'Plaqa N.');
+    expect(CaRismaAppConfig.storeDemoPlate, 'HH-PQ 2026');
+    expect(PlateSearchService.demoPlateKey, 'HHPQ2026');
+    expect(
+      PlateSearchService.demoSearchResult.displayName,
+      CaRismaAppConfig.storeDemoDisplayName,
+    );
+    expect(
+      PlateSearchService.demoSearchResult.displayPlate,
+      CaRismaAppConfig.storeDemoPlate,
+    );
+  });
 }

@@ -13,7 +13,7 @@ class GlassCard extends StatelessWidget {
     this.opacity = 0.12,
     this.borderOpacity = 0.24,
     this.glow = false,
-    this.showOuterEffects = true,
+    this.showOuterEffects = false,
   });
 
   final Widget child;
@@ -92,18 +92,6 @@ class GlassSurface extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         color: CaRismaDesignTokens.surface2,
         border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.60),
-            blurRadius: 12,
-            offset: const Offset(4, 4),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.015),
-            blurRadius: 8,
-            offset: const Offset(-4, -4),
-          ),
-        ],
       ),
       child: child,
     );

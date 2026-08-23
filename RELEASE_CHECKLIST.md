@@ -37,7 +37,7 @@ Firebase-Projekt: `carma-a84e4`
   Android-App.
 - [x] Debug- und Release-Zertifikate sind bei der neuen Android-App registriert;
   vollstaendige Fingerprints werden nicht dokumentiert.
-- [x] Vollstaendiger Flutter-Lauf am 2026-08-23: 185 Tests bestanden.
+- [x] Vollstaendiger Flutter-Lauf am 2026-08-23: 188 Tests bestanden.
 - [x] Letzter dokumentierter Analyze-Lauf: `flutter analyze --no-pub` ohne
   Befund.
 - [x] Letzter dokumentierter Functions-Lauf: Syntaxchecks der 9 produktiven
@@ -46,6 +46,9 @@ Firebase-Projekt: `carma-a84e4`
   bestanden.
 - [x] Debug-APK und signiertes Release-AAB erfolgreich erzeugt.
 - [x] AAB-Signatur und Upload-Keystore erfolgreich abgeglichen.
+- [x] Neu gebautes Release-AAB am 2026-08-23: Paket `de.plaqa.app`, Version
+  `1.0.0` (Code 1), SHA-256
+  `987FC325A11A480268E6FE1D1936B451AC306E70AA22430597B8FA60EDAEF663`.
 - [x] Build-Artefakte, Keystore und `android/key.properties` sind nicht in Git.
 
 ### Lokale Signatursicherung
@@ -70,8 +73,12 @@ Firebase-Projekt: `carma-a84e4`
 - [x] Kinderschutzkontakt und Kinderschutz-Selbsterklaerungen vom Nutzer
   bestaetigt; oeffentlicher Standard vorhanden.
 - [x] Datensicherheitsdeklaration als Entwurf gespeichert.
-- [x] Es wurde kein AAB hochgeladen, keine Testspur gestartet und nichts zur
-  Pruefung oder Produktion eingereicht.
+- [x] Das gepruefte AAB wurde am 2026-08-23 ausschliesslich als interner
+  Testrelease-Entwurf `1 (1.0.0)` hochgeladen und gespeichert.
+- [x] Der interne Track bleibt inaktiv; keine Tester wurden ausgewaehlt, keine
+  Einladungen versendet und nichts zur Pruefung oder Produktion eingereicht.
+- [ ] Acht echte Smartphone-Screenshots werden spaeter vom Nutzer geliefert;
+  sie wurden noch nicht hochgeladen.
 
 ### Legal-Inventar
 
@@ -181,10 +188,14 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   Action-URL und Custom-SMTP-Status erneut kontrollieren.
 - [CONSOLE] `auth.plaqa.de` als Auth-/Action-Domain beibehalten und alle
   E-Mail-Aktionsarten testen.
-- [CONSOLE] Store-Name, Kurzbeschreibung, Langbeschreibung, App-Icon,
-  Feature-Grafik und Smartphone-Screenshots fertigstellen.
-- [CONSOLE] Interne beziehungsweise fuer neue Privatkonten erforderliche
-  geschlossene Testspur erst nach Backend- und Legal-Freigabe anlegen.
+- [LOCAL] Store-Name und deutsche Beschreibungen sind vorbereitet. Das
+  512-x-512-App-Icon und die 1024-x-500-Feature-Grafik sind lokal geprueft.
+- [CONSOLE] App-Icon, Feature-Grafik und die acht spaeter gelieferten echten
+  Smartphone-Screenshots gemeinsam in den Store-Entwurf eintragen.
+- [CONSOLE] Der interne Testrelease liegt nur als inaktiver Entwurf vor. Tester
+  auswaehlen und den Track erst nach separater Freigabe starten.
+- [CONSOLE] Die fuer neue Privatkonten erforderliche geschlossene Testspur erst
+  nach Backend-, Legal- und Live-Test-Freigabe anlegen.
 
 ## Benötigt Live-Test
 
@@ -214,8 +225,8 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
 - [LIVE] KI-Fahrzeugbild auf Kosten, Rate-Limit, Bildpfad und Fehlerzustand.
 - [LIVE] Scheduler fuer Story-, Meldungs- und Dokument-Cleanup in Logs und
   Datenwirkung pruefen.
-- [LIVE] AAB spaeter in einer Testspur, Pre-Launch-Report sowie Crash-/ANR-
-  Berichte pruefen.
+- [LIVE] Den vorhandenen internen AAB-Entwurf erst nach separater Freigabe
+  starten; danach Pre-Launch-Report sowie Crash-/ANR-Berichte pruefen.
 
 ## Benötigt rechtliche Prüfung
 
@@ -245,8 +256,10 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   anwaltliche Freigabe.
 - [PERSON] Blaze/Billing und Budgetgrenzen ausdruecklich freigeben.
 - [PERSON] Einsatz ausdruecklich freigegebener Testkonten und Testdokumente.
-- [PERSON] AAB-Upload, Start einer Testspur, Einreichung zur Pruefung und
-  Produktionsveroeffentlichung jeweils separat freigeben.
+- [x] AAB-Upload als inaktiver interner Entwurf wurde separat freigegeben und
+  abgeschlossen.
+- [PERSON] Start einer Testspur, Einreichung zur Pruefung und
+  Produktionsveroeffentlichung weiterhin jeweils separat freigeben.
 
 ## Blockiert Release
 
@@ -260,8 +273,8 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   Dokumentenverifizierung produktiv freigegeben wird.
 - [BLOCKER] App Check im Debug- und signierten Release-Build auf einem echten
   Geraet beobachten; Enforcement erst danach.
-- [BLOCKER] Echte Store-Screenshots aufnehmen; Texte, Screenshot-Konzept und
-  Feature-Grafik sind vorbereitet.
+- [BLOCKER] Acht echte Store-Screenshots vom Nutzer erhalten und pruefen;
+  Texte, Screenshot-Konzept, App-Icon und Feature-Grafik sind vorbereitet.
 - [BLOCKER] Testspur und von Google geforderte Testphase abschliessen.
 - [BLOCKER] Geraete- und Mehrkonten-Livetests ohne kritische Fehler bestehen.
 - [BLOCKER] Externe Rechtspruefung und neue Anschrift abschliessen.
@@ -273,8 +286,8 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   Offenlegung rotieren. Sie wurde nicht in Git oder der Git-Historie gefunden.
 - [BLOCKER] Release-Keystore und KeePass-Datenbank zusaetzlich unabhaengig und
   verschluesselt ausserhalb dieses Laptops sichern.
-- [BLOCKER] Branch nach finaler Kontrolle in `main` uebernehmen und ohne
-  Force-Push auf GitHub sichern.
+- [x] Release-Branch wurde bereits kontrolliert in `main` uebernommen. Der
+  aktuelle Abschlussstand wird ohne Force-Push auf `origin/main` gesichert.
 
 ## Nächste sichere Reihenfolge
 
@@ -287,7 +300,9 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
    Testkonten pruefen.
 5. App Check im Monitoring beobachten und erst nach Geraetetests schrittweise
    erzwingen.
-6. Echte Store-Screenshots aufnehmen.
-7. Branch kontrolliert nach `main` uebernehmen und pushen.
-8. AAB/Testspur, Pre-Launch-Report und echte Live-Tests getrennt abschliessen.
+6. Acht echte Store-Screenshots vom Nutzer pruefen und mit den vorbereiteten
+   Store-Assets als Entwurf speichern.
+7. Tester auswaehlen und den internen Test erst nach separater Freigabe starten.
+8. Geschlossene Testphase, Pre-Launch-Report und echte Live-Tests getrennt
+   abschliessen.
 9. Produktion erst nach einer eigenen ausdruecklichen Freigabe einreichen.

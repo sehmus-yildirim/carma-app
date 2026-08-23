@@ -69,13 +69,6 @@ class _ChatsSegmentedControl extends StatelessWidget {
             borderRadius: BorderRadius.circular(30),
             color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
           child: Row(
             children: [
@@ -909,13 +902,6 @@ class _InlineTextTabs<T> extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
             color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: Row(
             children: [
@@ -1348,13 +1334,6 @@ class _ChatStoriesStrip extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
           ),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,

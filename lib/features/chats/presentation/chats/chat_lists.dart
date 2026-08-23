@@ -229,26 +229,6 @@ class _ActiveChatListTile extends StatelessWidget {
                   : Colors.white.withValues(alpha: 0.06),
               width: isUnread ? 1.4 : 1.0,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.015),
-                blurRadius: 10,
-                offset: const Offset(-4, -4),
-              ),
-              if (isUnread)
-                BoxShadow(
-                  color: CaRismaDesignTokens.bluePrimary.withValues(
-                    alpha: 0.12,
-                  ),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-            ],
           ),
           child: Material(
             color: Colors.transparent,
@@ -680,13 +660,6 @@ class _EmptyListCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(22),
             color: CaRismaDesignTokens.card,
             border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
           child: Row(
             children: [

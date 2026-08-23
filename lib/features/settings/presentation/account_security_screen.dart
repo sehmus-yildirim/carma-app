@@ -1291,11 +1291,6 @@ class _AccountSectionCard extends StatelessWidget {
         border: Border.all(
           color: accent.withValues(alpha: danger ? 0.42 : 0.16),
         ),
-        boxShadow: CaRismaDesignTokens.surfaceShadows(
-          darkAlpha: 0.44,
-          blurRadius: 24,
-          offset: const Offset(0, 12),
-        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -20,6 +20,12 @@ class CaRismaAppConfig {
   static const bool useMockPlateSearch = kDebugMode;
   static const int defaultSearchRadiusKm = 5;
 
+  static const bool storeScreenshotMode =
+      kDebugMode && bool.fromEnvironment('PLAQA_STORE_SCREENSHOTS');
+  static const String storeDemoDisplayName = 'Plaqa Nutzer';
+  static const String storeDemoShortName = 'Plaqa N.';
+  static const String storeDemoPlate = 'HH-PQ 2026';
+
   // Launch setting: keep the quota implementation available, but do not
   // restrict contact requests while the community is being established.
   static const bool enforceMonthlyContactRequestLimit = false;

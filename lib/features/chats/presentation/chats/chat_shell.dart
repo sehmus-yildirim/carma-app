@@ -331,7 +331,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
         vehicleLabel: 'Mercedes GLS in Weiß',
         requestReason: 'vehicle_question',
         senderDisplayName: 'Du',
-        receiverDisplayName: 'plaqa Testnutzer',
+        receiverDisplayName: 'Plaqa N.',
         message:
             'Hallo, ich habe eine Frage zu deinem Mercedes GLS und würde mich gerne kurz mit dir darüber austauschen.',
         status: contact_requests.ContactRequestStatus.pending,
@@ -3144,18 +3144,6 @@ class _PendingRequestTile extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.04),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.65),
-            blurRadius: 16,
-            offset: const Offset(5, 5),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(-5, -5),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,

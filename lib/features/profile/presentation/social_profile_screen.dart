@@ -10,6 +10,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/plate/dach_plate_presentation.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
@@ -531,7 +532,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     required ProfileVehicle? primaryVehicle,
     required bool compact,
   }) {
-    final storyStream = _currentUserId.trim().isEmpty
+    final storyStream = CaRismaAppConfig.storeScreenshotMode
+        ? Stream<List<ChatStoryRecord>>.value(const <ChatStoryRecord>[])
+        : _currentUserId.trim().isEmpty
         ? Stream<List<ChatStoryRecord>>.value(const <ChatStoryRecord>[])
         : _isOwnProfile
         ? _storyRepository.watchOwnerStories(ownerUserId: _userId)
@@ -587,10 +590,14 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                           primaryVehicle: primaryVehicle,
                           compact: compact,
                           postCount: postCount,
-                          followerCount: followerSnapshot.hasError
+                          followerCount: CaRismaAppConfig.storeScreenshotMode
+                              ? 128
+                              : followerSnapshot.hasError
                               ? null
                               : followerSnapshot.data,
-                          followingCount: followingSnapshot.hasError
+                          followingCount: CaRismaAppConfig.storeScreenshotMode
+                              ? 84
+                              : followingSnapshot.hasError
                               ? null
                               : followingSnapshot.data,
                           followState: summary.state,
@@ -681,7 +688,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
               ? _profileRepository.watchProfile(_userId)
               : _profileRepository.watchPublicProfile(_userId),
           builder: (context, snapshot) {
-            final profile = snapshot.data;
+            final profile = CaRismaAppConfig.storeScreenshotMode
+                ? null
+                : snapshot.data;
             _scheduleLegacyVehicleSync(profile);
             return StreamBuilder<List<ProfileVehicle>>(
               stream: _vehiclesStream,
@@ -697,10 +706,12 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
                     viewerUserId: _currentUserId,
                   ),
                   builder: (context, postsSnapshot) {
-                    final storedPosts =
-                        postsSnapshot.data ?? const <SocialPost>[];
+                    final storedPosts = CaRismaAppConfig.storeScreenshotMode
+                        ? const <SocialPost>[]
+                        : postsSnapshot.data ?? const <SocialPost>[];
                     final showDebugPosts =
-                        kDebugMode && _isOwnProfile && storedPosts.isEmpty;
+                        CaRismaAppConfig.storeScreenshotMode ||
+                        (kDebugMode && _isOwnProfile && storedPosts.isEmpty);
                     final posts = showDebugPosts
                         ? _debugSocialPosts
                         : storedPosts;
@@ -824,6 +835,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
   }
 
   List<ProfileVehicle> _resolvedProfileVehicles(List<ProfileVehicle> vehicles) {
+    if (CaRismaAppConfig.storeScreenshotMode) {
+      return const <ProfileVehicle>[debugProfileVehicle];
+    }
     if (kDebugMode &&
         _isOwnProfile &&
         !vehicles.any((vehicle) => vehicle.id == debugProfileVehicleId)) {
@@ -4707,29 +4721,30 @@ class _DebugPostArtwork extends StatelessWidget {
                   ),
                 ),
               ),
-              Positioned(
-                top: compact ? 7 : 14,
-                left: compact ? 7 : 14,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 6 : 9,
-                    vertical: compact ? 3 : 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: CaRismaDesignTokens.card,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: accent.withValues(alpha: 0.78)),
-                  ),
-                  child: Text(
-                    'BEISPIEL',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: compact ? 7 : 10,
-                      fontWeight: FontWeight.w900,
+              if (!CaRismaAppConfig.storeScreenshotMode)
+                Positioned(
+                  top: compact ? 7 : 14,
+                  left: compact ? 7 : 14,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 6 : 9,
+                      vertical: compact ? 3 : 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: CaRismaDesignTokens.card,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accent.withValues(alpha: 0.78)),
+                    ),
+                    child: Text(
+                      'BEISPIEL',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: compact ? 7 : 10,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         );
@@ -5095,6 +5110,9 @@ class _PostMetaTile extends StatelessWidget {
 }
 
 String _displayNameFor(profile_data.UserProfile? profile) {
+  if (CaRismaAppConfig.storeScreenshotMode) {
+    return CaRismaAppConfig.storeDemoDisplayName;
+  }
   final firstName = profile?.firstName.trim() ?? '';
   final lastName = profile?.lastName.trim() ?? '';
   final displayName = profile?.displayName.trim() ?? '';
@@ -5111,6 +5129,7 @@ String _profileSubtitleFor(profile_data.UserProfile? profile) {
 }
 
 String _profileRegionFor(profile_data.UserProfile? profile) {
+  if (CaRismaAppConfig.storeScreenshotMode) return 'Hamburg';
   final publicRegion = profile?.publicRegion?.trim() ?? '';
   if (publicRegion.isNotEmpty) return publicRegion;
   return _safeText(profile?.country, 'Region offen');
