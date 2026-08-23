@@ -1,6 +1,6 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-22 CEST
+Stand: 2026-08-23 CEST
 App: `plaqa`
 Android-Paket: `de.plaqa.app`
 Version: `1.0.0+1`
@@ -21,11 +21,9 @@ Firebase-Projekt: `carma-a84e4`
 
 - [x] Aktueller Branch: `codex/android-package-de-plaqa-app`.
 - [x] Ausgangsstand vor dieser Dokumentaktualisierung war sauber.
-- [x] Letzter lokaler Commit: `3747951 chore: save release preparation progress`.
-- [ ] Der Branch liegt einen lokalen Commit vor
-  `origin/codex/android-package-de-plaqa-app`; Push bleibt offen.
-- [ ] Diese beiden aktualisierten Dokumente sind nach Abschluss dieses Schritts
-  noch nicht committed oder gepusht.
+- [x] Designkorrekturen und App-Check-Integration sind getrennt committed und
+  auf `origin/codex/android-package-de-plaqa-app` gesichert.
+- [x] Letzte Commits: `9d126ff` und `f7dac26`.
 - [x] Keine History wurde umgeschrieben; kein Force-Push.
 
 ## Abgeschlossen
@@ -39,7 +37,7 @@ Firebase-Projekt: `carma-a84e4`
   Android-App.
 - [x] Debug- und Release-Zertifikate sind bei der neuen Android-App registriert;
   vollstaendige Fingerprints werden nicht dokumentiert.
-- [x] Letzter dokumentierter Flutter-Lauf: 31 Testdateien, 169 Tests bestanden.
+- [x] Vollstaendiger Flutter-Lauf am 2026-08-23: 185 Tests bestanden.
 - [x] Letzter dokumentierter Analyze-Lauf: `flutter analyze --no-pub` ohne
   Befund.
 - [x] Letzter dokumentierter Functions-Lauf: Syntaxchecks der 9 produktiven
@@ -103,15 +101,15 @@ Firebase-Projekt: `carma-a84e4`
 - [x] Sicherheits-, Melde- und Kinderschutzpfade lokal in Rules/UI vorhanden.
 - [x] Firestore Rules, Storage Rules und sechs Composite Indexes lokal
   definiert.
-- [x] App Check ist im Android-Code build-gesteuert vorbereitet; Release nutzt
-  Play Integrity, Debug einen expliziten Debug-Provider.
+- [x] App Check ist im Android-Code aktiv vorbereitet; Release nutzt Play
+  Integrity, Debug den Debug-Provider und automatische Token-Aktualisierung.
 - [x] Auth-Action-Handler unter `hosting/auth/action` lokal vorhanden.
 
 ## Veröffentlicht
 
 ### Functions
 
-Am 2026-08-22 mit `firebase functions:list` read-only nachgewiesen. Die
+Am 2026-08-23 mit `firebase functions:list --json` read-only nachgewiesen. Die
 Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
 
 - [x] `searchPlate`
@@ -125,9 +123,22 @@ Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
 - [x] `reviewMfaRecovery`
 - [x] `requestVehicleHeroImage`
 - [x] `maintainChatStories`
-- [x] `syncProfilePhotoReferences` als Live-Name; CLI meldet `https`, waehrend
-  lokal ein Firestore-Update-Trigger definiert ist. Diese Abweichung bleibt
-  offen.
+- [x] `syncProfilePhotoReferences` mit Firestore-Update-Trigger auf
+  `public_profiles/{userId}`.
+- [x] `syncProfileVisibilityReferences`
+- [x] `recordProfileView`
+- [x] `submitPlateHint`
+- [x] `submitProfileVerification`
+- [x] `reviewProfileVerification`
+- [x] `saveProfileVehicle`
+- [x] `setPrimaryProfileVehicle`
+- [x] `deactivateProfileVehicle`
+- [x] `updatePrimaryVehicleLocation`
+- [x] `maintainPlateHints`
+- [x] `cleanupProfileVerificationDocuments`
+
+Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
+`europe-west3` gelistet.
 
 ### Indexes und Hosting
 
@@ -143,33 +154,25 @@ Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
 - [ ] Inhaltliche Gleichheit der live Firestore- und Storage-Rules mit lokalem
   Stand erneut pruefen; die CLI bietet hier keinen sicheren Direktvergleich.
 
-## Benötigt Blaze
+## Blaze und Functions-Deploy
 
-- [BLAZE] Billing-Plan und Budgetwarnungen vor jedem neuen oder aktualisierten
-  Functions-Deploy bestaetigen.
-- [BLAZE] `syncProfileVisibilityReferences`.
-- [BLAZE] `recordProfileView`.
-- [BLAZE] `submitPlateHint`.
-- [BLAZE] `submitProfileVerification`.
-- [BLAZE] `reviewProfileVerification`.
-- [BLAZE] `saveProfileVehicle`.
-- [BLAZE] `setPrimaryProfileVehicle`.
-- [BLAZE] `deactivateProfileVehicle`.
-- [BLAZE] `updatePrimaryVehicleLocation`.
-- [BLAZE] `maintainPlateHints`.
-- [BLAZE] `cleanupProfileVerificationDocuments`.
-- [BLAZE] Auch Updates der 12 bereits vorhandenen Functions nur kontrolliert
-  und mit aktivem Billing ausfuehren.
+- [x] Blaze/Billing ist aktiv.
+- [x] Alle 23 lokalen Functions sind live und aktiv.
+- [ ] Budgetwarnungen und laufende Kosten vor weiteren Function-Updates
+  weiterhin kontrollieren.
+- [ ] Versionsgleichheit bleibt je Function durch gezielte Live-Tests zu
+  bestaetigen; die Live-Existenz allein ersetzt diese Tests nicht.
 
 ## Benötigt Console-Konfiguration
 
-- [CONSOLE] Blaze aktivieren und Google-Cloud-Budgetwarnungen setzen.
+- [CONSOLE] Google-Cloud-Budgetwarnungen und laufende Kosten kontrollieren.
 - [CONSOLE] Cloud Functions, Cloud Build, Artifact Registry, Scheduler und bei
   Bedarf Google-AI-/Vertex-AI-APIs und Quoten pruefen.
-- [CONSOLE] App-Check-Registrierung der finalen Android-App, Debug-Provider,
-  Play Integrity, Metriken und aktuellen Enforcement-Status pruefen.
-- [CONSOLE] App Check zunaechst nur ueberwachen; MFA-Recovery steht lokal
-  weiterhin auf `enforceAppCheck: false`.
+- [x] App Check fuer `de.plaqa.app` mit Play Integrity registriert.
+- [x] Firestore bleibt im Monitoring; Storage und Authentication sind nicht
+  erzwungen; Functions erzwingen App Check lokal nicht.
+- [CONSOLE] Debug-Token, Play-Integrity-Metriken und echte Release-Anfragen auf
+  einem freigegebenen Geraet pruefen.
 - [CONSOLE] E-Mail/Passwort- und Google-Provider, autorisierte Domains und
   OAuth-Branding fuer `de.plaqa.app` erneut kontrollieren.
 - [CONSOLE] Identity Platform/SMS-MFA, SMS-Regionen, Kontingent, Billing und
@@ -251,14 +254,14 @@ Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
   danach Hosting gezielt deployen.
 - [BLOCKER] Firestore- und Storage-Rules gegen den Live-Stand pruefen,
   erforderlichen Stand deployen und Berechtigungstests bestehen.
-- [BLOCKER] Blaze aktivieren und die benoetigten 11 Functions in kleinen
-  Gruppen deployen und live testen.
-- [BLOCKER] `cleanupProfileVerificationDocuments` deployen und pruefen, bevor
+- [BLOCKER] Die 23 live Functions mit freigegebenen Testkonten gruppenweise
+  funktional pruefen.
+- [BLOCKER] `cleanupProfileVerificationDocuments` live pruefen, bevor die
   Dokumentenverifizierung produktiv freigegeben wird.
-- [BLOCKER] Live-Triggerabweichung von `syncProfilePhotoReferences` klaeren.
-- [BLOCKER] App Check fuer die finale Android-App konfigurieren und im
-  Monitoring erfolgreich nachweisen; Enforcement erst danach.
-- [BLOCKER] Store-Texte, Screenshots und Feature-Grafik fertigstellen.
+- [BLOCKER] App Check im Debug- und signierten Release-Build auf einem echten
+  Geraet beobachten; Enforcement erst danach.
+- [BLOCKER] Echte Store-Screenshots aufnehmen; Texte, Screenshot-Konzept und
+  Feature-Grafik sind vorbereitet.
 - [BLOCKER] Testspur und von Google geforderte Testphase abschliessen.
 - [BLOCKER] Geraete- und Mehrkonten-Livetests ohne kritische Fehler bestehen.
 - [BLOCKER] Externe Rechtspruefung und neue Anschrift abschliessen.
@@ -275,18 +278,16 @@ Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
 
 ## Nächste sichere Reihenfolge
 
-1. Store-Texte, Screenshot-Konzept und Feature-Grafik lokal fertigstellen.
-2. Externe Legal-Pruefung und neue Anschrift einarbeiten; vier abweichende
+1. Externe Legal-Pruefung und neue Anschrift einarbeiten; vier abweichende
    Rechtsseiten anschliessend gezielt hosten.
-3. Blaze/Budgetwarnungen und erforderliche APIs konfigurieren.
-4. Rules nach erneutem Emulatorlauf deployen; Indexes derzeit nicht erneut
+2. Budgetwarnungen und erforderliche APIs weiter beobachten.
+3. Rules nach erneutem Emulatorlauf deployen; Indexes derzeit nicht erneut
    deployen, da alle sechs live sind.
-5. Functions gemaess `FIREBASE_DEPLOY_PLAN.md` in kleinen Gruppen deployen und
-   je Gruppe live testen.
-6. App Check im Monitoring einrichten und erst nach Geraetetests schrittweise
+4. Die bereits live vorhandenen Functions gruppenweise mit freigegebenen
+   Testkonten pruefen.
+5. App Check im Monitoring beobachten und erst nach Geraetetests schrittweise
    erzwingen.
-7. Alle Flutter-, Functions-, Rules-, Analyze- und Release-Build-Pruefungen
-   wiederholen.
-8. Branch kontrolliert nach `main` uebernehmen und pushen.
-9. AAB/Testspur, Pre-Launch-Report und echte Live-Tests getrennt abschliessen.
-10. Produktion erst nach einer eigenen ausdruecklichen Freigabe einreichen.
+6. Echte Store-Screenshots aufnehmen.
+7. Branch kontrolliert nach `main` uebernehmen und pushen.
+8. AAB/Testspur, Pre-Launch-Report und echte Live-Tests getrennt abschliessen.
+9. Produktion erst nach einer eigenen ausdruecklichen Freigabe einreichen.
