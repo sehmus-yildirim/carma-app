@@ -25,6 +25,19 @@ unveraendert verwendet werden, einschliesslich der sichtbaren Beispielangaben
 - Keine EXIF-, GPS-, Geraete-, Zeit- oder personenbezogenen Dateimetadaten.
 - Die Store-Kopien sind bytegenau identisch mit den freigegebenen Originalen.
 
+## Dateiarchiv
+
+| Reihenfolge | Datei | Store-Motiv | Abmessungen | Groesse | SHA-256 |
+| --- | --- | --- | --- | ---: | --- |
+| 1 | `01-kennzeichensuche.jpeg` | Kennzeichen einfach suchen | 900 x 1600 | 135.582 Bytes | `1E4691B114FEFC5279029078DFF96D4342D43DE55AE0A17385D547B497A15AF0` |
+| 2 | `02-fahrzeug-melden.jpeg` | Wichtige Fahrzeughinweise melden | 900 x 1600 | 138.277 Bytes | `15EC8A8BE2724F185214CB920F587893C62761108BD68CC0F2EDBBD71DCD3B66` |
+| 3 | `03-kontaktanfragen.jpeg` | Kontaktanfragen direkt empfangen | 900 x 1600 | 123.401 Bytes | `FD4EBD5AFFA961F19BBFF40A187725CD2D586B202E390122BC9DD5C3CA6457D5` |
+| 4 | `04-private-chats.jpeg` | Sicher und privat chatten | 900 x 1600 | 94.289 Bytes | `728253475565CEF88693894ABA1DB07BAC00E7461BD24FF1665443E3B4AF7CB2` |
+| 5 | `05-storys-und-feed.jpeg` | Storys und Beitraege der Community | 900 x 1600 | 127.095 Bytes | `32D1D5378F82C33955094267334BC335CBAA560BE6725AD9093B4F6385B7B5A8` |
+| 6 | `06-profil-und-beitraege.jpeg` | Profil, Beitraege und Fahrzeugdarstellung | 900 x 1600 | 130.540 Bytes | `F19759D6365A52E77699154DF3AA83D55C82A123ED71EACB9F1259D4D9C1F0EA` |
+| 7 | `07-fahrzeugprofil.jpeg` | Persoenliches Fahrzeugprofil | 900 x 1600 | 131.035 Bytes | `BE9E3A63557E3D80E7C9F6D2DA6572F9F2CD3A9FA4A1D201C668D8A0FDDD30F3` |
+| 8 | `08-fahrzeugdaten.jpeg` | Fahrzeugdaten auf einen Blick | 900 x 1600 | 136.949 Bytes | `22DBB556ECD909A8FB36F5931FF0361B257DC960A0A35F91620122186B9602A5` |
+
 ## Reihenfolge
 
 1. `01-kennzeichensuche.jpeg`

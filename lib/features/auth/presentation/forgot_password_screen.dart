@@ -131,8 +131,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       case 'network-request-failed':
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
       default:
-        return error.message ??
-            'Der Reset-Link konnte gerade nicht gesendet werden.';
+        return 'Der Reset-Link konnte gerade nicht gesendet werden.';
     }
   }
 

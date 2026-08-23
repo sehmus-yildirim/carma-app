@@ -380,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'missing-user':
         return 'Das Benutzerkonto konnte nicht geladen werden.';
       default:
-        return error.message ?? 'Ein unbekannter Login-Fehler ist aufgetreten.';
+        return 'Die Anmeldung konnte gerade nicht abgeschlossen werden. Bitte versuche es erneut.';
     }
   }
 
@@ -404,8 +404,7 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'unavailable':
         return 'Der Kontodienst ist gerade nicht erreichbar. Bitte versuche es erneut.';
       default:
-        return error.message ??
-            'Die Kontodaten konnten gerade nicht gespeichert werden.';
+        return 'Die Kontodaten konnten gerade nicht gespeichert werden.';
     }
   }
 

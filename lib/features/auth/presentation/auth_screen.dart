@@ -281,7 +281,7 @@ class _AuthScreenState extends State<AuthScreen> {
       case 'apple-not-configured':
         return 'Apple Login wird später mit dem iOS-Setup aktiviert.';
       default:
-        return error.message ?? 'Ein unbekannter Fehler ist aufgetreten.';
+        return 'Die Anmeldung konnte gerade nicht abgeschlossen werden. Bitte versuche es erneut.';
     }
   }
 

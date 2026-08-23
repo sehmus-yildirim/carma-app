@@ -74,9 +74,9 @@ class AppPermissionService {
       );
     } on MissingPluginException {
       return _unavailableSnapshot();
-    } on PlatformException catch (error) {
-      throw AppPermissionServiceException(
-        error.message ?? 'Berechtigungsstatus konnte nicht geladen werden.',
+    } on PlatformException {
+      throw const AppPermissionServiceException(
+        'Berechtigungsstatus konnte nicht geladen werden.',
       );
     }
   }
@@ -93,10 +93,9 @@ class AppPermissionService {
       throw const AppPermissionServiceException(
         'Die Android-Einstellungen sind auf diesem Gerät nicht verfügbar.',
       );
-    } on PlatformException catch (error) {
-      throw AppPermissionServiceException(
-        error.message ??
-            'Die Android-Einstellungen konnten nicht geöffnet werden.',
+    } on PlatformException {
+      throw const AppPermissionServiceException(
+        'Die Android-Einstellungen konnten nicht geöffnet werden.',
       );
     }
   }

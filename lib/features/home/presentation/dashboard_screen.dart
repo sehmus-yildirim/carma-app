@@ -519,7 +519,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _position = null;
         _locationError =
-            'Standort l\u00e4dt zu lange. Bitte pr\u00fcfe GPS oder setze im Emulator einen Standort.';
+            'Standort l\u00e4dt zu lange. Bitte pr\u00fcfe GPS und versuche es erneut.';
         _isLoadingLocation = false;
       });
     } catch (_) {

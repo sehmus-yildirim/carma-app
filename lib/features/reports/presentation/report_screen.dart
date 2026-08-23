@@ -449,7 +449,7 @@ class _ReportScreenState extends State<ReportScreen> {
         _position = null;
         _gpsAddressLabel = null;
         _locationError =
-            'Standort lädt zu lange. Bitte setze im Emulator einen Standort oder nutze die manuelle Adresse.';
+            'Standort lädt zu lange. Bitte versuche es erneut oder nutze die manuelle Adresse.';
         _isLoadingLocation = false;
         _useGpsLocation = false;
       });

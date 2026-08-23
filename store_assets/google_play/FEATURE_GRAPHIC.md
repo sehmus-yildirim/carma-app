@@ -9,7 +9,7 @@ Stand: 2026-08-22
 - Format: PNG
 - Farbformat: 24-Bit-RGB ohne Alpha-Kanal
 - SHA-256: `34753EAE1E40B540C3987365CC206AE3712B789A93A61894399C900F5E0F0E82`
-- Status: lokal vorbereitet, nicht in die Play Console hochgeladen
+- Status: lokal archiviert und im Play-Console-Store-Entwurf hinterlegt; nicht zur Google-Pruefung eingereicht und nicht oeffentlich veroeffentlicht
 
 ## Markenquelle
 

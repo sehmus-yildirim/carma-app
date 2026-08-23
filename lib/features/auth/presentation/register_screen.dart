@@ -368,8 +368,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 'missing-user':
         return 'Das Benutzerkonto konnte nicht geladen werden.';
       default:
-        return error.message ??
-            'Ein unbekannter Registrierungsfehler ist aufgetreten.';
+        return 'Die Registrierung konnte gerade nicht abgeschlossen werden. Bitte versuche es erneut.';
     }
   }
 
@@ -410,8 +409,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 'already-exists':
         return 'Die Zustimmung wurde bereits gespeichert.';
       default:
-        return error.message ??
-            'Die Kontodaten konnten gerade nicht gespeichert werden.';
+        return 'Die Kontodaten konnten gerade nicht gespeichert werden.';
     }
   }
 
