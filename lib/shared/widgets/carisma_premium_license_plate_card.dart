@@ -24,6 +24,7 @@ class CaRismaPremiumLicensePlateCard extends StatelessWidget {
     required this.isSubmitting,
     required this.onSubmit,
     this.showSubmit = true,
+    this.showOuterEffects = true,
   });
 
   final String countryCode;
@@ -41,13 +42,15 @@ class CaRismaPremiumLicensePlateCard extends StatelessWidget {
   final bool isSubmitting;
   final VoidCallback onSubmit;
   final bool showSubmit;
+  final bool showOuterEffects;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       radius: 24,
-      glow: true,
+      glow: showOuterEffects,
+      showOuterEffects: showOuterEffects,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

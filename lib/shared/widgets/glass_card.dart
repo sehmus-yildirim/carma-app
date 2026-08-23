@@ -13,6 +13,7 @@ class GlassCard extends StatelessWidget {
     this.opacity = 0.12,
     this.borderOpacity = 0.24,
     this.glow = false,
+    this.showOuterEffects = true,
   });
 
   final Widget child;
@@ -23,6 +24,7 @@ class GlassCard extends StatelessWidget {
   final double opacity;
   final double borderOpacity;
   final bool glow;
+  final bool showOuterEffects;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,7 @@ class GlassCard extends StatelessWidget {
 
     return Container(
       margin: margin,
+      clipBehavior: showOuterEffects ? Clip.none : Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(effectiveRadius),
         color: CaRismaDesignTokens.card,
@@ -37,24 +40,28 @@ class GlassCard extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.05),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.65),
-            blurRadius: 16,
-            offset: const Offset(5, 5),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(-5, -5),
-          ),
-          if (glow)
-            BoxShadow(
-              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.15),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-        ],
+        boxShadow: showOuterEffects
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  blurRadius: 16,
+                  offset: const Offset(5, 5),
+                ),
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(-5, -5),
+                ),
+                if (glow)
+                  BoxShadow(
+                    color: CaRismaDesignTokens.bluePrimary.withValues(
+                      alpha: 0.15,
+                    ),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+              ]
+            : null,
       ),
       child: Padding(padding: padding, child: child),
     );

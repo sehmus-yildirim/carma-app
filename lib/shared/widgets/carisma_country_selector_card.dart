@@ -11,11 +11,13 @@ class CaRismaCountrySelectorCard extends StatelessWidget {
     required this.selectedCountryCode,
     required this.onChanged,
     this.isLocked = false,
+    this.showOuterEffects = true,
   });
 
   final String selectedCountryCode;
   final ValueChanged<String> onChanged;
   final bool isLocked;
+  final bool showOuterEffects;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +26,7 @@ class CaRismaCountrySelectorCard extends StatelessWidget {
       child: GlassCard(
         padding: const EdgeInsets.all(8),
         radius: 24,
+        showOuterEffects: showOuterEffects,
         child: Row(
           children: [
             for (

@@ -8,15 +8,18 @@ class CaRismaMessageCard extends StatelessWidget {
     super.key,
     required this.icon,
     required this.message,
+    this.showOuterEffects = true,
   });
 
   final IconData icon;
   final String message;
+  final bool showOuterEffects;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.all(15),
+      showOuterEffects: showOuterEffects,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

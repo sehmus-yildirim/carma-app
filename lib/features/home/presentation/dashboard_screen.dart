@@ -949,17 +949,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       CaRismaMessageCard(
                         icon: Icons.cloud_off_rounded,
                         message: _creditError!,
+                        showOuterEffects: false,
                       ),
                     ],
                     const SizedBox(height: 10),
                     CaRismaCountrySelectorCard(
                       selectedCountryCode: _countryCode,
                       onChanged: _changeCountry,
+                      showOuterEffects: false,
                     ),
                     const SizedBox(height: 15),
                     CaRismaRegionIdentityCard(
                       region: regionPresentation,
                       onTap: _openRegionPicker,
+                      showOuterEffects: false,
                     ),
                     const SizedBox(height: 15),
                     CaRismaPremiumLicensePlateCard(
@@ -978,6 +981,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       isSubmitting: _isSearching,
                       onSubmit: _searchPlate,
                       showSubmit: _result == null,
+                      showOuterEffects: false,
                     ),
                     if (_isLoadingLocation) ...[
                       const SizedBox(height: 8),
@@ -988,6 +992,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       CaRismaMessageCard(
                         icon: Icons.location_off_rounded,
                         message: _locationError!,
+                        showOuterEffects: false,
                       ),
                       const SizedBox(height: 8),
                       _RetryLocationButton(
@@ -1000,6 +1005,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       CaRismaMessageCard(
                         icon: Icons.error_outline_rounded,
                         message: _errorMessage!,
+                        showOuterEffects: false,
                       ),
                     ],
                     if (_successMessage != null) ...[
@@ -1007,6 +1013,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       CaRismaMessageCard(
                         icon: Icons.check_circle_outline_rounded,
                         message: _successMessage!,
+                        showOuterEffects: false,
                       ),
                     ],
                     const SizedBox(height: 10),
@@ -1032,6 +1039,7 @@ class _LocationLoadingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.all(15),
+      showOuterEffects: false,
       child: Row(
         children: [
           const CaRismaBlueIconBox(
@@ -1605,6 +1613,7 @@ class _PlateSearchResultCard extends StatelessWidget {
       return GlassCard(
         key: const ValueKey('no_result'),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        showOuterEffects: false,
         child: Row(
           children: [
             const CaRismaBlueIconBox(
@@ -1645,110 +1654,102 @@ class _PlateSearchResultCard extends StatelessWidget {
       plateCode: resultRegion,
     );
 
-    return Container(
+    return GlassCard(
       key: const ValueKey('result'),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-          width: 1,
-        ),
-      ),
-      child: GlassCard(
-        radius: 24,
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _SearchUserAvatar(size: 50, imageUrl: result.profilePhotoUrl),
-                const Spacer(),
-                if (result.isVerified) const _VerifiedBadge(),
-              ],
-            ),
-            const SizedBox(height: 5),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final rightWidth = (constraints.maxWidth * 0.46).clamp(
-                  138.0,
-                  158.0,
-                );
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+      showOuterEffects: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _SearchUserAvatar(size: 50, imageUrl: result.profilePhotoUrl),
+              const Spacer(),
+              if (result.isVerified) const _VerifiedBadge(),
+            ],
+          ),
+          const SizedBox(height: 5),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final rightWidth = (constraints.maxWidth * 0.46).clamp(
+                138.0,
+                158.0,
+              );
 
-                Widget detailRow({
-                  required String label,
-                  required String value,
-                  required Widget trailing,
-                }) {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: _VehicleDataLine(label: label, value: value),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(width: rightWidth, child: trailing),
-                    ],
-                  );
-                }
-
-                return Column(
+              Widget detailRow({
+                required String label,
+                required String value,
+                required Widget trailing,
+              }) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    detailRow(
-                      label: 'Fahrzeugmarke:',
-                      value: _valueOrFallback(result.vehicleBrand),
-                      trailing: _CompactResultPlate(
-                        width: rightWidth,
-                        countryCode: resultCountryCode,
-                        region: resultRegion,
-                        letters: resultLetters,
-                        numbers: resultNumbers,
-                        regionPresentation: regionPresentation,
-                      ),
+                    Expanded(
+                      child: _VehicleDataLine(label: label, value: value),
                     ),
-                    const SizedBox(height: 5),
-                    detailRow(
-                      label: 'Fahrzeugmodell:',
-                      value: _valueOrFallback(result.vehicleModel),
-                      trailing: _RequestReasonSelector(
-                        selectedReason: selectedReason,
-                        onTap: () => _showReasonPicker(context),
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    detailRow(
-                      label: 'Fahrzeugfarbe:',
-                      value: _valueOrFallback(result.vehicleColor),
-                      trailing: _RequestContactButton(
-                        label: requestState?.canOpenChat == true
-                            ? 'Zu Chats'
-                            : requestState?.isAccepted == true
-                            ? 'Angenommen'
-                            : requestState?.isPending == true
-                            ? 'Anfrage läuft'
-                            : 'Kontakt anfragen',
-                        icon: requestState?.canOpenChat == true
-                            ? Icons.chat_bubble_rounded
-                            : Icons.mail_outline_rounded,
-                        isEnabled:
-                            requestState == null || requestState!.canOpenChat,
-                        isLoading: isRequestingContact,
-                        onPressed: requestState?.canOpenChat == true
-                            ? (onOpenChats ?? () {})
-                            : onRequestContact,
-                      ),
-                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(width: rightWidth, child: trailing),
                   ],
                 );
-              },
-            ),
-            if (requestState != null) ...[
-              const SizedBox(height: 7),
-              _ExistingRequestInfo(requestState: requestState!),
-            ],
+              }
+
+              return Column(
+                children: [
+                  detailRow(
+                    label: 'Fahrzeugmarke:',
+                    value: _valueOrFallback(result.vehicleBrand),
+                    trailing: _CompactResultPlate(
+                      width: rightWidth,
+                      countryCode: resultCountryCode,
+                      region: resultRegion,
+                      letters: resultLetters,
+                      numbers: resultNumbers,
+                      regionPresentation: regionPresentation,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  detailRow(
+                    label: 'Fahrzeugmodell:',
+                    value: _valueOrFallback(result.vehicleModel),
+                    trailing: _RequestReasonSelector(
+                      selectedReason: selectedReason,
+                      onTap: () => _showReasonPicker(context),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  detailRow(
+                    label: 'Fahrzeugfarbe:',
+                    value: _valueOrFallback(result.vehicleColor),
+                    trailing: _RequestContactButton(
+                      label: requestState?.canOpenChat == true
+                          ? 'Zu Chats'
+                          : requestState?.isAccepted == true
+                          ? 'Angenommen'
+                          : requestState?.isPending == true
+                          ? 'Anfrage läuft'
+                          : 'Kontakt anfragen',
+                      icon: requestState?.canOpenChat == true
+                          ? Icons.chat_bubble_rounded
+                          : Icons.mail_outline_rounded,
+                      isEnabled:
+                          requestState == null || requestState!.canOpenChat,
+                      isLoading: isRequestingContact,
+                      onPressed: requestState?.canOpenChat == true
+                          ? (onOpenChats ?? () {})
+                          : onRequestContact,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          if (requestState != null) ...[
+            const SizedBox(height: 7),
+            _ExistingRequestInfo(requestState: requestState!),
           ],
-        ),
+        ],
       ),
     );
   }
