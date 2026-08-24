@@ -14,20 +14,18 @@ class CaRismaApp extends StatelessWidget {
     return AnimatedBuilder(
       animation: AppRuntimePreferences.instance,
       builder: (context, _) {
+        PlaqaAdaptiveColor.useBrightness(Brightness.dark);
         return MaterialApp(
           title: 'plaqa',
           debugShowCheckedModeBanner: false,
-          theme: CaRismaTheme.lightTheme(),
+          theme: CaRismaTheme.darkTheme(),
           darkTheme: CaRismaTheme.darkTheme(),
-          themeMode: AppRuntimePreferences.instance.materialThemeMode,
+          themeMode: ThemeMode.dark,
           scrollBehavior: const _CaRismaScrollBehavior(),
           builder: (context, child) {
-            final brightness = Theme.of(context).brightness;
-            PlaqaAdaptiveColor.useBrightness(brightness);
+            PlaqaAdaptiveColor.useBrightness(Brightness.dark);
             return AnnotatedRegion<SystemUiOverlayStyle>(
-              value: brightness == Brightness.dark
-                  ? SystemUiOverlayStyle.light
-                  : SystemUiOverlayStyle.dark,
+              value: SystemUiOverlayStyle.light,
               child: child ?? const SizedBox.shrink(),
             );
           },

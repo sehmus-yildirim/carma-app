@@ -619,20 +619,20 @@ class AppComfortSettingsScreen extends StatefulWidget {
 }
 
 class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
-  late AppPreferenceSettings _settings = widget.initialSettings;
-  late AppPreferenceSettings _savedSettings = widget.initialSettings;
+  late AppPreferenceSettings _settings = widget.initialSettings.copyWith(
+    themeMode: 'dark',
+  );
+  late AppPreferenceSettings _savedSettings = widget.initialSettings.copyWith(
+    themeMode: 'dark',
+  );
   bool _hasChanges = false;
   bool _isSaving = false;
 
   void _update(AppPreferenceSettings settings) {
-    final themeChanged = settings.themeMode != _settings.themeMode;
     setState(() {
-      _settings = settings;
+      _settings = settings.copyWith(themeMode: 'dark');
       _hasChanges = true;
     });
-    if (themeChanged) {
-      AppRuntimePreferences.instance.apply(settings);
-    }
   }
 
   Future<void> _save() async {
@@ -727,9 +727,11 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
           description: 'Weitere Sprachen erscheinen in einer späteren Version.',
         ),
         const SizedBox(height: 10),
-        _ThemeModeSection(
-          value: _settings.themeMode,
-          onChanged: (value) => _update(_settings.copyWith(themeMode: value)),
+        const _ReadOnlyStatusCard(
+          icon: Icons.palette_outlined,
+          title: 'Design',
+          value: 'Demnächst',
+          description: 'Weitere Designs erscheinen in einer späteren Version.',
         ),
         const SizedBox(height: 12),
         _SaveSettingsButton(
@@ -738,63 +740,6 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
           onPressed: _save,
         ),
       ],
-    );
-  }
-}
-
-class _ThemeModeSection extends StatelessWidget {
-  const _ThemeModeSection({required this.value, required this.onChanged});
-
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const options = <String, (String, IconData)>{
-      'system': ('System', Icons.brightness_auto_outlined),
-      'light': ('Hell', Icons.light_mode_outlined),
-      'dark': ('Dunkel', Icons.dark_mode_outlined),
-    };
-    final selected = options.containsKey(value) ? value : 'dark';
-
-    return GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionTitle(icon: Icons.palette_outlined, title: 'Design'),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<String>(
-              showSelectedIcon: false,
-              segments: options.entries
-                  .map(
-                    (entry) => ButtonSegment<String>(
-                      value: entry.key,
-                      icon: Icon(entry.value.$2, size: 18),
-                      label: Text(entry.value.$1),
-                    ),
-                  )
-                  .toList(growable: false),
-              selected: <String>{selected},
-              onSelectionChanged: (selection) {
-                if (selection.isNotEmpty) onChanged(selection.first);
-              },
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'System folgt automatisch der Darstellung deines Geräts.',
-            style: TextStyle(
-              color: CaRismaDesignTokens.textSecondary,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

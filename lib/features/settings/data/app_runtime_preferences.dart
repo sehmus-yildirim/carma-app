@@ -17,22 +17,18 @@ class AppRuntimePreferences extends ChangeNotifier {
   AppPreferenceSettings get settings => _settings;
   bool get hapticsEnabled => _settings.hapticsEnabled;
   bool get messageSoundsEnabled => _settings.messageSoundsEnabled;
-  ThemeMode get materialThemeMode => switch (_settings.themeMode) {
-    'light' => ThemeMode.light,
-    'system' => ThemeMode.system,
-    _ => ThemeMode.dark,
-  };
+  ThemeMode get materialThemeMode => ThemeMode.dark;
 
   Future<void> initialize() async {
     final preferences = await SharedPreferences.getInstance();
-    final themeMode = _normalizeThemeMode(preferences.getString(_themeModeKey));
-    _settings = _settings.copyWith(themeMode: themeMode);
+    _settings = _settings.copyWith(themeMode: 'dark');
+    if (preferences.getString(_themeModeKey) != 'dark') {
+      await preferences.setString(_themeModeKey, 'dark');
+    }
   }
 
   void apply(AppPreferenceSettings settings) {
-    final normalized = settings.copyWith(
-      themeMode: _normalizeThemeMode(settings.themeMode),
-    );
+    final normalized = settings.copyWith(themeMode: 'dark');
     if (_hasSameValues(_settings, normalized)) return;
     _settings = normalized;
     notifyListeners();
@@ -42,14 +38,6 @@ class AppRuntimePreferences extends ChangeNotifier {
     apply(settings);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_themeModeKey, _settings.themeMode);
-  }
-
-  static String _normalizeThemeMode(String? value) {
-    return switch (value?.trim().toLowerCase()) {
-      'light' => 'light',
-      'system' => 'system',
-      _ => 'dark',
-    };
   }
 
   bool _hasSameValues(
