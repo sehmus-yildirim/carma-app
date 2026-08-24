@@ -1,9 +1,10 @@
 # plaqa App Store Listing (de-DE)
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 
-Diese Datei ist eine lokale Vorlage. Es wurde nichts in App Store Connect
-hochgeladen, eingereicht oder veroeffentlicht.
+Diese Datei ist die lokale Quelle fuer den in App Store Connect gespeicherten
+Entwurf. Metadaten und Screenshots sind dort hinterlegt; es wurde kein Build
+hochgeladen und nichts eingereicht oder veroeffentlicht.
 
 ## Produktdaten
 
@@ -90,4 +91,8 @@ persoenlich angenommen. Der App-Eintrag `plaqa` mit Apple-ID `6804814664` wurde
 als Entwurf angelegt. Beschreibung, Keywords, Untertitel, URLs, Kategorien,
 Version `1.0.0`, kostenloser Preis, manuelle Veroeffentlichung und die geplante
 DACH-Verfuegbarkeit sind gespeichert. Es erfolgte weder ein Build-Upload noch
-eine Einreichung, TestFlight-Aktivierung oder Veroeffentlichung.
+eine Einreichung, TestFlight-Aktivierung oder Veroeffentlichung. Altersfreigabe
+16+, Inhaltsrechte, Copyright, Review-Kontakt und Review-Testkonto sind
+gespeichert. Je acht iPhone- und iPad-Screenshots liegen als Entwurf vor. App
+Privacy umfasst 19 Datentypen und bleibt bis zum finalen Build-Abgleich
+unveroeffentlicht.

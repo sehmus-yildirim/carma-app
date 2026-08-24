@@ -1,15 +1,16 @@
 # plaqa App Privacy Labels (de-DE)
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 
 Technische Quelle: `IOS_PRIVACY_DATA_MATRIX.md`. Die Auswahl muss vor der
 Einreichung in App Store Connect anhand des dann eingereichten Builds erneut
 kontrolliert werden.
 
-Die Angaben sind lokal vollstaendig vorbereitet, aber noch nicht in App Store
-Connect gespeichert. Vor dem App-Zugriff verlangt Apple eine persoenlich
-anzunehmende Nutzungsvereinbarung. Diese rechtliche Bestaetigung wurde nicht
-stellvertretend abgegeben.
+Die Angaben sind lokal vollstaendig vorbereitet und in App Store Connect als
+unveroeffentlichter Entwurf mit 19 Datentypen hinterlegt. Die
+App-Store-Connect-Nutzungsvereinbarung wurde persoenlich angenommen. Die Labels
+werden erst nach dem Abgleich mit dem finalen iOS-Build und einer erneuten
+persoenlichen Freigabe veroeffentlicht.
 
 ## Tracking
 

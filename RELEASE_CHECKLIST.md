@@ -94,8 +94,9 @@ Firebase-Projekt: `carma-a84e4`
 - [x] Apple-Developer-Mitgliedschaft als Privatperson ist aktiv.
 - [x] Explizite App-ID `de.plaqa.app` ist registriert.
 - [x] Sign in with Apple und Push Notifications sind im Apple-Portal aktiv.
-- [x] Associated Domains ist im Apple-Portal aktiviert; lokal ist
-  `applinks:plaqa.de` im Runner-Entitlement vorbereitet.
+- [x] Associated Domains ist fuer Version 1 im Apple-Portal deaktiviert und
+  `applinks:plaqa.de` aus dem Runner-Entitlement entfernt; der aktuelle
+  Client besitzt noch kein eingehendes Universal-Link-Routing.
 - [x] Ein kombinierter Apple-Schluessel fuer DeviceCheck und APNs wurde
   ausserhalb des Repositories gesichert; Key- und Team-IDs werden nicht im
   Repository dokumentiert.
@@ -114,8 +115,15 @@ Firebase-Projekt: `carma-a84e4`
 - [x] App-Eintrag `plaqa` mit SKU `plaqa-ios-1` und Apple-ID `6804814664`
   sowie die nicht rechtlich bindenden Metadaten wurden als Entwurf gespeichert.
   Kein Build-Upload, TestFlight, Review oder Release wurde gestartet.
-- [ ] Universal Links erst nach AASA-Datei, Routing, Xcode-/Provisioning- und
-  Geraetetest als funktionsfaehig markieren.
+- [x] Altersfreigabe 16+, Inhaltsrechte, Copyright `2026 Sehmus Yildirim`,
+  Review-Kontakt und Review-Testkonto sind gespeichert.
+- [x] App Privacy ist mit 19 Datentypen als unveroeffentlichter Entwurf
+  vorhanden; finaler Build-Abgleich bleibt offen.
+- [x] Je acht iPhone- und iPad-Screenshots sind verarbeitet, korrekt geordnet
+  und als Entwurf gespeichert; acht iPad-JPEGs sind lokal archiviert.
+- [ ] Universal Links nur nach neuer Produktentscheidung, AASA-Datei, Routing,
+  erneuter Capability-Aktivierung, Xcode-/Provisioning- und Geraetetest als
+  funktionsfaehig markieren.
 
 ### Legal-Inventar
 
@@ -339,8 +347,9 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   verschluesselt ausserhalb dieses Laptops sichern.
 - [BLOCKER] iOS-Build auf einem Mac signieren, auf echtem iPhone pruefen und
   erst danach kontrolliert per TestFlight bereitstellen.
-- [BLOCKER] Apple-Altersfreigabe, App Privacy, Inhaltsrechte, Copyright und
-  Review-Kontaktdaten gegen den finalen iOS-Build persoenlich abschliessen.
+- [BLOCKER] App Privacy und Store-Metadaten gegen den finalen iOS-Build
+  persoenlich abgleichen und erst danach veroeffentlichen beziehungsweise
+  einreichen.
 - [x] Release-Branch wurde bereits kontrolliert in `main` uebernommen. Der
   aktuelle Abschlussstand wird ohne Force-Push auf `origin/main` gesichert.
 

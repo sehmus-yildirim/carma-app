@@ -1,6 +1,6 @@
 # plaqa iOS Windows Audit
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 Branch: `main`
 
 ## Zweck
@@ -105,13 +105,15 @@ Weiter offen oder bewusst nicht aktiviert:
 
 - Kennzeichen-Spracherkennung auf iOS
 - native Sprachmemoaufnahme auf iOS
-- Universal-Link-Routen und oeffentliche `apple-app-site-association`-Datei
+- Universal Links fuer Version 1 bewusst deaktiviert
 - vollstaendiger Kamera-/Galerie-/Datei-/Tastaturtest auf einem iPhone
 
-Associated Domains ist im Apple-Portal aktiviert und `applinks:plaqa.de` steht
-im Runner-Entitlement. Bis AASA-Datei, Routing, Provisioning und Geraetetest
-abgeschlossen sind, wird Universal Links nicht als funktionierende
-Produktionsfunktion bezeichnet. Die uebrigen offenen Punkte fuehren nicht zu
+Associated Domains ist im Apple-Portal fuer Version 1 deaktiviert und
+`applinks:plaqa.de` wurde aus dem Runner-Entitlement entfernt. Der aktuelle
+Client erzeugt zwar teilbare Profil- und Beitragslinks, verarbeitet aber noch
+keine eingehenden Universal Links. Fuer eine spaetere Einfuehrung sind
+AASA-Datei, Routing, erneute Capability-Aktivierung, Provisioning und
+Geraetetest erforderlich. Die uebrigen offenen Punkte fuehren nicht zu
 einem ungeschuetzten Android-Channel-Aufruf; nicht verfuegbare Pfade werden
 abgefangen oder klar deaktiviert.
 
@@ -136,6 +138,13 @@ Unter `store_assets/app_store/de-DE/` liegen:
 - App-Privacy-Labels
 - Review-Hinweise
 - iPhone-Screenshot-Konzept
+
+App Store Connect enthaelt je acht verarbeitete iPhone- und iPad-Screenshots in
+der dokumentierten Reihenfolge. Die acht iPad-Dateien sind zusaetzlich unter
+`store_assets/app_store/ipad-screenshots/de-DE/` als JPEG/RGB ohne Alpha in
+`2048 x 2732` Pixeln archiviert. Das App-Icon ist im iOS-Assetkatalog
+vollstaendig vorbereitet; der Platzhalter in App Store Connect wird erst durch
+einen hochgeladenen iOS-Build ersetzt.
 
 `IOS_PRIVACY_DATA_MATRIX.md` bildet die tatsaechlich verwendeten Datenarten und
 Drittanbieter-SDKs ab. Verwendete URLs:
@@ -177,21 +186,25 @@ ueber lokale Build-Defines uebergeben.
 
 1. aktuelles Xcode und CocoaPods verwenden, `pod install` ausfuehren
 2. Team, Signing und Provisioning Profiles setzen
-3. Sign in with Apple, Push Notifications, App Attest, Associated Domains und
-   Background Modes in Xcode gegen das Team/Provisioning pruefen
-4. AASA-Datei und Universal-Link-Routing fertigstellen und testen
-5. Debug-/Release-App-Check auf echten Apple-Geraeten beobachten
-6. Simulator- und Device-Build, UI-, Auth-, Push-, MFA- und Medien-Livetests
-7. signierten Build in App Store Connect/TestFlight hochladen und pruefen
+3. Sign in with Apple, Push Notifications, App Attest und Background Modes in
+   Xcode gegen das Team/Provisioning pruefen
+4. Debug-/Release-App-Check auf echten Apple-Geraeten beobachten
+5. Simulator- und Device-Build, UI-, Auth-, Push-, MFA- und Medien-Livetests
+6. signierten Build in App Store Connect/TestFlight hochladen und pruefen
+7. Universal Links nur bei einer spaeteren Produktentscheidung mit AASA,
+   Routing, Capability und Geraetetest einfuehren
 
-## Unter Windows noch persoenlich offen
+## App Store Connect Stand
 
-- Altersfreigabe und App Privacy gegen den finalen Build persoenlich
-  bestaetigen
-- Inhaltsrechte, Copyright und Review-Kontaktdaten vor der Einreichung
-  bestaetigen
-- finale iPhone-Screenshots und den signierten Build spaeter auf einem Mac
-  hochladen
+- Altersfreigabe 16+, Inhaltsrechte und Copyright `2026 Sehmus Yildirim`
+  wurden persoenlich bestaetigt.
+- Review-Kontakt und Review-Testkonto sind im geschuetzten Store-Feld
+  gespeichert; Zugangsdaten stehen nicht im Repository.
+- App Privacy umfasst 19 Datentypen und bleibt bis zum finalen Build-Abgleich
+  unveroeffentlicht.
+- Acht iPhone- und acht iPad-Screenshots sind als Entwurf gespeichert.
+- Ein signierter iOS-Build, TestFlight und die Einreichung bleiben Mac- und
+  Freigabeschritte.
 
 Die App-Store-Connect-Nutzungsbedingungen wurden persoenlich angenommen. Der
 App-Eintrag `plaqa` mit SKU `plaqa-ios-1` und Apple-ID `6804814664` sowie die
@@ -202,4 +215,6 @@ nicht rechtlich bindenden Metadaten sind als Entwurf gespeichert.
 App Check wurde nicht erzwungen. Es wurde kein iOS-Build, kein TestFlight-Build,
 kein Firebase-Deploy und keine Apple-/Store-Veroeffentlichung durchgefuehrt.
 Die einzigen externen Aenderungen waren die ausdruecklich freigegebenen Apple-
-Capabilities sowie App-Check-, APNs-, SMTP- und Relay-Konfigurationen.
+Capabilities und Store-Entwuerfe sowie App-Check-, APNs-, SMTP- und
+Relay-Konfigurationen. Associated Domains wurde fuer Version 1 wieder
+deaktiviert.

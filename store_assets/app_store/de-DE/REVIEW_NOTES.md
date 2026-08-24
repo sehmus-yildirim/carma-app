@@ -1,6 +1,6 @@
 # plaqa App Review Notes (de-DE)
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 
 ## App-Zweck
 
@@ -10,7 +10,7 @@ einer angenommenen fahrzeugbezogenen Kontaktanfrage chatten.
 
 ## Zugang fuer App Review
 
-- Ein vorbereitetes Review-Testkonto wird ausschliesslich im geschuetzten
+- Das vorbereitete Review-Testkonto ist ausschliesslich im geschuetzten
   App-Review-Informationsfeld von App Store Connect hinterlegt.
 - Zugangsdaten duerfen nicht in diesem Repository gespeichert werden.
 - Falls E-Mail-Bestaetigung oder MFA fuer das Testkonto erforderlich ist, muss
@@ -52,9 +52,11 @@ nicht als nutzbare Kernfunktion beschrieben werden.
 
 - Signing, Provisioning, Background Modes und Push-Zustellung auf Mac/iPhone
 - App Attest/DeviceCheck und App Check weiterhin nur Monitoring
-- Associated Domains: AASA-Datei, Routing und Geraetetest fehlen
+- Universal Links sind fuer Version 1 deaktiviert; eine spaetere Einfuehrung
+  benoetigt AASA-Datei, Routing, Capability, Provisioning und Geraetetest
 - iOS-Build, Signierung, TestFlight und echter iPhone-Test
 - externe rechtliche Endpruefung und neue Anschrift vor Release
-- persoenliche Annahme der App-Store-Connect-Nutzungsbedingungen
+- finaler Abgleich der Store-Angaben und der unveroeffentlichten Privacy Labels
+  gegen den eingereichten Build
 
 Es wurde noch nichts in App Store Connect eingereicht oder veroeffentlicht.

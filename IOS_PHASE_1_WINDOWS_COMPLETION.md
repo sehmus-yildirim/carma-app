@@ -1,12 +1,12 @@
 # plaqa iOS Phase 1 unter Windows
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 
 ## Ergebnis
 
 Die unter Windows programmierbaren iOS-Arbeiten sind umgesetzt. Die Apple-
-Developer-, Firebase- und App-Store-Connect-Grundkonfiguration ist bis auf
-persoenliche Store-Erklaerungen und echte Apple-Geraetetests vorbereitet. Es
+Developer-, Firebase- und App-Store-Connect-Grundkonfiguration ist bis auf den
+finalen Build-Abgleich und echte Apple-Geraetetests vorbereitet. Es
 wurde kein iOS-Build hochgeladen, kein TestFlight gestartet und nichts
 veroeffentlicht.
 
@@ -19,7 +19,8 @@ veroeffentlicht.
 - Apple Login, Linking, Reauthentifizierung und Widerruf im Flutter-Code
 - aktive Apple-Developer-Mitgliedschaft und explizite App-ID `de.plaqa.app`
 - Apple-Capabilities Sign in with Apple und Push Notifications
-- Associated Domains im Apple-Portal und `applinks:plaqa.de` im Entitlement
+- Associated Domains fuer Version 1 kontrolliert deaktiviert, weil noch kein
+  eingehendes Universal-Link-Routing und keine AASA-Datei existiert
 - iOS App Check mit App Attest und DeviceCheck-Fallback, weiterhin Monitoring
 - kombinierter Apple-Schluessel fuer DeviceCheck und APNs ausserhalb von Git
 - APNs-Schluessel fuer Entwicklung und Produktion in Firebase Cloud Messaging
@@ -31,6 +32,11 @@ veroeffentlicht.
 - iOS-Datenschutzmatrix, Privacy Labels, Store-Texte, Review- und Screenshotplan
 - App-Store-Connect-Entwurf fuer `plaqa`, Apple-ID `6804814664`, Version
   `1.0.0`, kostenlos, DACH, nur iOS und manuelle Veroeffentlichung
+- acht iPhone- und acht iPad-Screenshots als gespeicherter Store-Entwurf
+- iPad-Screenshots lokal als acht JPEG-Dateien mit `2048 x 2732` archiviert
+- Altersfreigabe 16+, Inhaltsrechte, Copyright, Review-Kontakt und geschuetztes
+  Review-Testkonto in App Store Connect gespeichert
+- App Privacy mit 19 Datentypen als unveroeffentlichter Entwurf vorbereitet
 - appweite Standardkarten ohne alte aeussere Schatten und Glows
 - Secrets und Apple-Schluessel durch `.gitignore` abgesichert
 
@@ -47,15 +53,18 @@ werden:
 - Apple Login, Relay, Kamera, Galerie, Dateien, Tastatur, Safe Area und MFA live
 - App-Store-Build, TestFlight und Review
 
-Universal Links sind vorbereitet, aber noch nicht funktionsfaehig freigegeben.
-Es fehlen die oeffentliche `apple-app-site-association`-Datei, die finale
-Routenbehandlung und der Xcode-/Geraetetest.
+Universal Links sind fuer Version 1 bewusst deaktiviert. Eine spaetere
+Einfuehrung benoetigt die oeffentliche `apple-app-site-association`-Datei,
+eingehendes Flutter-Routing, erneute Aktivierung der Capability sowie einen
+Xcode-/Geraetetest.
 
 Die App-Store-Connect-Nutzungsbedingungen wurden persoenlich angenommen. Der
 App-Eintrag und die nicht rechtlich bindenden Metadaten sind als Entwurf
-gespeichert. App Privacy, Altersfreigabe, Inhaltsrechte, Review-Kontaktdaten,
-Screenshots, Copyright und Build bleiben bis zur persoenlichen Freigabe
-beziehungsweise bis zum finalen iOS-Build offen.
+gespeichert. Altersfreigabe 16+, Inhaltsrechte, Copyright, Review-Kontaktdaten,
+Review-Testkonto sowie acht iPhone- und acht iPad-Screenshots sind hinterlegt.
+App Privacy bleibt mit 19 Datentypen unveroeffentlicht und muss zusammen mit den
+Store-Angaben gegen den finalen iOS-Build abgeglichen werden. Der Build bleibt
+offen.
 
 ## Verifikation
 
@@ -65,6 +74,9 @@ beziehungsweise bis zum finalen iOS-Build offen.
 - aktive Bundle-IDs: keine alte `com.example.carma`-Runner-Konfiguration
 - App-Icons: alle referenzierten Varianten vorhanden
 - Marketing-Icon: 1024 x 1024, RGB, kein Alpha-Kanal
+- App Store Connect: je acht iPhone- und iPad-Screenshots nach Neuladen
+  vorhanden, verarbeitet und korrekt geordnet
+- lokales iPad-Archiv: acht JPEG-Dateien, je 2048 x 2732, RGB ohne Alpha
 - App Check: App Attest und DeviceCheck in Firebase registriert
 - Cloud Messaging: APNs-Authentifizierungsschluessel fuer Entwicklung und
   Produktion hinterlegt
@@ -100,13 +112,14 @@ Die blauen plaqa-Akzente und die dunklen Kontraste bleiben unveraendert.
 - Firebase App Check/Cloud-Messaging-Konfiguration: vorbereitet
 - Firebase Deploy: nein
 - App Check Enforcement: nein
-- App Store Connect App-Eintrag: Entwurf angelegt, rechtliche Angaben offen
+- App Store Connect App-Eintrag: Metadaten und persoenlich bestaetigte Angaben
+  als Entwurf gespeichert; finaler Build-Abgleich offen
 - App Store Upload: nein
 - TestFlight: nein
 - oeffentliche Veroeffentlichung: nein
 
 ## Git-Ausgangsstand
 
-- Basis vor dieser Aktualisierung: `edd93c3`
+- Basis vor dieser Aktualisierung: `8ec13b1`
 - Branch: `main`
 - Der Abschlusscommit wird erst nach Diff-, Secret- und Statuskontrolle erstellt.

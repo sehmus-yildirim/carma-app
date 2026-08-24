@@ -1,6 +1,6 @@
 # plaqa Firebase Deploy Plan
 
-Stand: 2026-08-24 CEST
+Stand: 2026-08-25 CEST
 Zielprojekt: `carma-a84e4`
 Android-App: `plaqa`, Paket `de.plaqa.app`, Version `1.0.0+1`
 iOS-App: `plaqa`, Bundle-ID `de.plaqa.app`, Version `1.0.0+1`
@@ -33,7 +33,7 @@ deployt, keine Builds hochgeladen und keine App veroeffentlicht.
 
 | Bereich | Nachweis | Ergebnis |
 |---|---|---|
-| Git | `git status`, Branch und Upstream read-only | `main` und `origin/main` zeigen vor dieser Dokumentaktualisierung auf `41fa6fc5a9bf2f9ad4744f0fa650bc756f71afa0`; vorhandene Store-Dokumentation und Screenshots bleiben uncommittet |
+| Git | `git status`, Branch und Upstream read-only | `main` und `origin/main` zeigen vor dieser Dokumentaktualisierung auf `8ec13b1f1c00023a3e4dc6cd5b1fff9bd54c27a0`; der Arbeitsbaum war sauber |
 | Projekt | `.firebaserc`, `firebase.json` | Zielprojekt exakt `carma-a84e4`; Functions, Firestore, Storage und Hosting korrekt zugeordnet |
 | Android | Firebase SDK-Konfiguration read-only | Firebase Android-App fuer `de.plaqa.app` vorhanden; lokale Konfiguration zeigt auf die passende App; Debug- und Release-Zertifikate sind registriert, Werte werden nicht dokumentiert |
 | Functions | `firebase functions:list --json` | Alle 23 lokalen Exports sind live, aktiv, v2 / Node.js 22 / `europe-west3`; Triggerarten stimmen mit dem lokalen Inventar ueberein |
@@ -45,6 +45,7 @@ deployt, keine Builds hochgeladen und keine App veroeffentlicht.
 | iOS Push | Apple Developer und Firebase Cloud Messaging | Kombinierter Apple-Schluessel fuer APNs/DeviceCheck liegt ausserhalb von Git; APNs-Authentifizierungsschluessel fuer Entwicklung und Produktion hinterlegt; keine Push-Nachricht getestet |
 | Auth-E-Mail | Firebase Authentication, IONOS und Apple Relay | benutzerdefiniertes SMTP aktiv; tatsaechlicher Absender `no-reply@plaqa.de`; Testmail im normalen Posteingang; Quelle bei Apple Private Email Relay registriert |
 | Play Console | vom Nutzer freigegebene Console-Aktion und anschliessende Geraetebestaetigung | Signierter Release `1 (1.0.0)` mit Versionscode `1` ist ausschliesslich im internen Track aktiv; Liste `plaqa interne Tester` enthaelt einen freigegebenen Tester; Teilnahme-Link und Redmi-Installation sind bestaetigt; keine Produktion |
+| App Store Connect | read-only Kontrolle und freigegebene Entwurfsreihenfolge | Version `1.0.0` bleibt in Vorbereitung; je acht iPhone- und iPad-Screenshots verarbeitet und geordnet; Privacy Labels mit 19 Datentypen unveroeffentlicht; kein Build, TestFlight, Review oder Release |
 
 ## Letzter dokumentierter lokaler Pruefstand
 

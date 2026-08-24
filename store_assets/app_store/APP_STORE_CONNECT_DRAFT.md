@@ -1,6 +1,6 @@
 # plaqa App Store Connect Draft
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 
 ## App-Eintrag
 
@@ -46,11 +46,15 @@ Entwurf angelegt. Gespeichert sind:
   Apple Vision Pro
 - Datenschutz-URL und Kontoloeschungs-URL
 - manuelle Veroeffentlichung nach einer spaeteren App-Pruefung
+- Altersfreigabe 16+, Inhaltsrechte und Copyright `2026 Sehmus Yildirim`
+- Review-Kontakt und geschuetztes Review-Testkonto
+- acht iPhone- und acht iPad-Screenshots in der festgelegten Reihenfolge
+- App Privacy mit 19 Datentypen als unveroeffentlichter Entwurf
 
-Nicht gespeichert wurden rechtlich bindende App-Privacy- oder
-Altersdeklarationen. Sie muessen gegen den finalen Build persoenlich
-bestaetigt werden. Screenshots, Copyright, Review-Kontaktdaten und Build bleiben
-ebenfalls offen.
+Die App-Privacy-Angaben und alle Store-Metadaten muessen gegen den finalen
+iOS-Build erneut kontrolliert werden. App Privacy bleibt bis zu dieser
+persoenlichen Schlusskontrolle unveroeffentlicht. Ein Build wurde nicht
+hochgeladen.
 
 ## Strikte Grenzen
 

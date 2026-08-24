@@ -1,20 +1,20 @@
 # plaqa App Store Screenshot-Plan (de-DE)
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 
-Noch keine Screenshots wurden fuer den App Store hochgeladen. Echte Aufnahmen
-folgen erst nach einem signierten iOS-Build auf einem Mac und einem iPhone-Test.
+App Store Connect enthaelt je acht verarbeitete iPhone- und iPad-Screenshots als
+Entwurf. Beide Saetze wurden nach dem Neuladen kontrolliert und in der unten
+festgelegten Reihenfolge gespeichert. Es wurde nichts eingereicht oder
+veroeffentlicht.
 
 ## Technisches Zielformat
 
-- Primaer: iPhone 6,9 Zoll, Hochformat
-- Akzeptierte aktuelle Zielgroessen: `1260 x 2736`, `1290 x 2796` oder
-  `1320 x 2868` Pixel
-- Format: JPEG oder PNG ohne Alpha-Kanal
-- Ein bis zehn Bilder; geplant sind acht
-- Falls die App weiterhin iPad unterstuetzt, ist zusaetzlich ein iPad-Satz fuer
-  13 Zoll erforderlich. Diese Geraetefamilie wird beim ersten Mac-Build bewusst
-  bestaetigt oder auf iPhone begrenzt.
+- iPhone: acht Hochformat-Screenshots im 6,5-Zoll-Feld
+- iPad: acht Hochformat-Screenshots im 13-Zoll-Feld
+- lokales iPad-Archiv: `2048 x 2732` Pixel, JPEG, RGB, kein Alpha-Kanal
+- ein bis zehn Bilder pro Geraetegruppe; verwendet werden acht
+- iPhone und iPad bleiben im ersten Build als unterstuetzte Geraetefamilien
+  vorgesehen und muessen im finalen Xcode-Build bestaetigt werden.
 
 ## Verbindliche Beispieldaten
 
@@ -54,3 +54,15 @@ folgen erst nach einem signierten iOS-Build auf einem Mac und einem iPhone-Test.
 - Keine Android-Navigation, Android-Statussymbole oder Google-Play-Texte.
 - Keine Bildmanipulation, die eine nicht vorhandene Funktion vortaeuscht.
 - Reihenfolge in App Store Connect nach dem Upload erneut kontrollieren.
+
+## Gespeicherter Entwurfsstand
+
+- iPhone: 8 von 10 Screenshots, verarbeitet, keine sichtbaren Uploadfehler
+- iPad 13 Zoll: 8 von 10 Screenshots, verarbeitet, keine sichtbaren
+  Uploadfehler
+- Reihenfolge beider Saetze: `01` bis `08` wie oben
+- iPad-Dateien lokal:
+  `store_assets/app_store/ipad-screenshots/de-DE/`
+- App-Vorschauvideos: keine; fuer Version 1 nicht erforderlich
+- finaler Abgleich: echte Darstellung und Funktionen nach dem ersten
+  signierten iOS-Build auf Mac/iPhone erneut pruefen
