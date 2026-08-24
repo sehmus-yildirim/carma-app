@@ -88,3 +88,9 @@ die bestehenden blauen plaqa-Akzente bleiben erhalten.
 - App Store Upload: nein
 - TestFlight: nein
 - oeffentliche Veroeffentlichung: nein
+
+## Lokale Sicherung
+
+- Implementierungscommit: `98eafc6cdc72ac53a8b189c723f9c6e14982cf63`
+- Commit-Nachricht: `feat: complete Windows iOS preparation and adaptive themes`
+- Push: nein; der Stand bleibt bis zur ausdruecklichen Freigabe lokal auf `main`
