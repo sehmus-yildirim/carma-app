@@ -41,51 +41,72 @@ class PushNotificationService {
     if (_initialized || !isSupported) return;
     _initialized = true;
 
-    await _messaging.setAutoInitEnabled(true);
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      await _messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+    try {
+      await _messaging.setAutoInitEnabled(true);
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+
+      _subscriptions
+        ..add(FirebaseMessaging.onMessage.listen(_handleForegroundMessage))
+        ..add(FirebaseMessaging.onMessageOpenedApp.listen(_openMessage))
+        ..add(
+          _messaging.onTokenRefresh.listen((token) {
+            unawaited(_guard(() => _saveToken(token)));
+          }),
+        )
+        ..add(
+          FirebaseAuth.instance.userChanges().listen((user) {
+            unawaited(_guard(() => _handleUserChanged(user)));
+          }),
+        );
+
+      final initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null) _openMessage(initialMessage);
+    } on Object {
+      _logSetupIssue();
     }
-
-    _subscriptions
-      ..add(FirebaseMessaging.onMessage.listen(_handleForegroundMessage))
-      ..add(FirebaseMessaging.onMessageOpenedApp.listen(_openMessage))
-      ..add(_messaging.onTokenRefresh.listen(_saveToken))
-      ..add(FirebaseAuth.instance.userChanges().listen(_handleUserChanged));
-
-    final initialMessage = await _messaging.getInitialMessage();
-    if (initialMessage != null) _openMessage(initialMessage);
-    await _handleUserChanged(FirebaseAuth.instance.currentUser);
   }
 
   Future<bool> requestPermissionAndSync() async {
     if (!isSupported) return false;
 
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
-    final allowed = _isAuthorized(settings.authorizationStatus);
-    if (allowed) await _syncCurrentToken();
-    return allowed;
+    try {
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+      final allowed = _isAuthorized(settings.authorizationStatus);
+      if (allowed) await _syncCurrentToken();
+      return allowed;
+    } on Object {
+      _logSetupIssue();
+      return false;
+    }
   }
 
   Future<void> removeCurrentToken() async {
     final userId = _registeredUserId;
     final token = _registeredToken;
-    if (userId != null && token != null) {
-      await _tokenRepository.remove(userId: userId, token: token);
+    try {
+      if (userId != null && token != null) {
+        await _tokenRepository.remove(userId: userId, token: token);
+      }
+    } on Object {
+      _logSetupIssue();
+    } finally {
+      _registeredUserId = null;
+      _registeredToken = null;
     }
-    _registeredUserId = null;
-    _registeredToken = null;
   }
 
   Future<void> _handleUserChanged(User? user) async {
@@ -152,5 +173,21 @@ class PushNotificationService {
   bool _isAuthorized(AuthorizationStatus status) {
     return status == AuthorizationStatus.authorized ||
         status == AuthorizationStatus.provisional;
+  }
+
+  Future<void> _guard(Future<void> Function() operation) async {
+    try {
+      await operation();
+    } on Object {
+      _logSetupIssue();
+    }
+  }
+
+  void _logSetupIssue() {
+    if (kDebugMode) {
+      debugPrint(
+        'Mitteilungen konnten noch nicht vollstaendig eingerichtet werden.',
+      );
+    }
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plaqa/main.dart';
@@ -47,5 +49,17 @@ void main() {
 
       expect(provider, isA<AppleAppAttestWithDeviceCheckFallbackProvider>());
     });
+  });
+
+  test('renders the app before optional push initialization starts', () {
+    final source = File('lib/main.dart').readAsStringSync();
+    final runAppIndex = source.indexOf('runApp(const CaRismaApp())');
+    final pushInitializationIndex = source.indexOf(
+      'PushNotificationService.instance.initialize()',
+    );
+
+    expect(runAppIndex, greaterThanOrEqualTo(0));
+    expect(pushInitializationIndex, greaterThan(runAppIndex));
+    expect(source, contains('addPostFrameCallback'));
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -27,9 +29,11 @@ Future<void> main() async {
   FirebaseMessaging.onBackgroundMessage(
     plaqaFirebaseMessagingBackgroundHandler,
   );
-  await PushNotificationService.instance.initialize();
 
   runApp(const CaRismaApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(PushNotificationService.instance.initialize());
+  });
 }
 
 Future<void> _activateAppCheck() async {
