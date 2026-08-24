@@ -85,8 +85,9 @@ plaqa ist fuer Personen ab 16 Jahren vorgesehen. Nutze Kennzeichen- und Kontaktf
 
 ## App Store Connect Status
 
-Der App-Eintrag konnte noch nicht angelegt werden, weil App Store Connect vor
-dem Zugriff auf die App-Verwaltung neue, rechtlich bindende
-Nutzungsbedingungen verlangt. Der Account Holder muss diese persoenlich
-annehmen. Danach werden die Angaben dieser Datei nur als Entwurf gespeichert;
-es erfolgt weder ein Build-Upload noch eine Einreichung oder Veroeffentlichung.
+Der Account Holder hat die App-Store-Connect-Nutzungsbedingungen am 2026-08-24
+persoenlich angenommen. Der App-Eintrag `plaqa` mit Apple-ID `6804814664` wurde
+als Entwurf angelegt. Beschreibung, Keywords, Untertitel, URLs, Kategorien,
+Version `1.0.0`, kostenloser Preis, manuelle Veroeffentlichung und die geplante
+DACH-Verfuegbarkeit sind gespeichert. Es erfolgte weder ein Build-Upload noch
+eine Einreichung, TestFlight-Aktivierung oder Veroeffentlichung.

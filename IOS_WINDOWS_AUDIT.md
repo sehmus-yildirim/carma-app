@@ -186,10 +186,16 @@ ueber lokale Build-Defines uebergeben.
 
 ## Unter Windows noch persoenlich offen
 
-- neue App-Store-Connect-Nutzungsbedingungen durch den Account Holder annehmen
-- danach den lokal vorbereiteten App-Eintrag `plaqa` mit SKU `plaqa-ios-1`
-  anlegen und die Metadaten als Entwurf speichern
-- Altersfreigabe und App Privacy vor dem Speichern persoenlich bestaetigen
+- Altersfreigabe und App Privacy gegen den finalen Build persoenlich
+  bestaetigen
+- Inhaltsrechte, Copyright und Review-Kontaktdaten vor der Einreichung
+  bestaetigen
+- finale iPhone-Screenshots und den signierten Build spaeter auf einem Mac
+  hochladen
+
+Die App-Store-Connect-Nutzungsbedingungen wurden persoenlich angenommen. Der
+App-Eintrag `plaqa` mit SKU `plaqa-ios-1` und Apple-ID `6804814664` sowie die
+nicht rechtlich bindenden Metadaten sind als Entwurf gespeichert.
 
 ## Sicherheitsgrenzen
 

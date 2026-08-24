@@ -110,10 +110,10 @@ Firebase-Projekt: `carma-a84e4`
   der aktuelle native iOS-Firebase-Flow ihn nicht benoetigt.
 - [x] Store-Texte, Privacy Labels, Review-Hinweise und Screenshotplan liegen
   lokal unter `store_assets/app_store/de-DE/` vor.
-- [PERSON] App-Store-Connect-Nutzungsbedingungen persoenlich annehmen. Erst
-  danach kann der App-Eintrag `plaqa` mit SKU `plaqa-ios-1` angelegt werden.
-- [ ] App-Store-Connect-Metadaten als Entwurf speichern. Kein Build-Upload,
-  TestFlight, Review oder Release wurde gestartet.
+- [x] App-Store-Connect-Nutzungsbedingungen wurden persoenlich angenommen.
+- [x] App-Eintrag `plaqa` mit SKU `plaqa-ios-1` und Apple-ID `6804814664`
+  sowie die nicht rechtlich bindenden Metadaten wurden als Entwurf gespeichert.
+  Kein Build-Upload, TestFlight, Review oder Release wurde gestartet.
 - [ ] Universal Links erst nach AASA-Datei, Routing, Xcode-/Provisioning- und
   Geraetetest als funktionsfaehig markieren.
 
@@ -236,8 +236,8 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
 - [x] iOS App Check mit App Attest und DeviceCheck registriert; Monitoring ohne
   Erzwingung beibehalten.
 - [x] APNs-Key fuer Entwicklung und Produktion in Firebase hinterlegt.
-- [CONSOLE] App Store Connect bleibt bis zur persoenlichen Annahme der neuen
-  Nutzungsbedingungen blockiert.
+- [x] App Store Connect ist nach persoenlicher Annahme der Nutzungsbedingungen
+  freigeschaltet; der App-Eintrag ist als Entwurf angelegt.
 
 ## Benötigt Live-Test
 
@@ -306,7 +306,7 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
 - [PERSON] Start einer geschlossenen oder offenen Testspur, Einreichung zur
   Pruefung und Produktionsveroeffentlichung weiterhin jeweils separat
   freigeben.
-- [PERSON] App-Store-Connect-Nutzungsbedingungen selbst lesen und annehmen.
+- [x] App-Store-Connect-Nutzungsbedingungen selbst gelesen und angenommen.
 - [PERSON] Apple-Altersfreigabe und App Privacy gegen den finalen Build
   bestaetigen.
 
@@ -339,8 +339,8 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   verschluesselt ausserhalb dieses Laptops sichern.
 - [BLOCKER] iOS-Build auf einem Mac signieren, auf echtem iPhone pruefen und
   erst danach kontrolliert per TestFlight bereitstellen.
-- [BLOCKER] App Store Connect App-Eintrag und rechtliche Store-Angaben nach
-  persoenlicher Annahme der Nutzungsbedingungen abschliessen.
+- [BLOCKER] Apple-Altersfreigabe, App Privacy, Inhaltsrechte, Copyright und
+  Review-Kontaktdaten gegen den finalen iOS-Build persoenlich abschliessen.
 - [x] Release-Branch wurde bereits kontrolliert in `main` uebernommen. Der
   aktuelle Abschlussstand wird ohne Force-Push auf `origin/main` gesichert.
 

@@ -32,14 +32,25 @@ Stand: 2026-08-24
 
 ## Kontrollierter Status
 
-App Store Connect ist erreichbar, blockiert die App-Verwaltung aber bis zur
-persoenlichen Annahme neuer Nutzungsbedingungen. Deshalb wurde noch kein
-App-Eintrag angelegt und keine rechtlich bindende Daten- oder Altersdeklaration
-gespeichert.
+Die Nutzungsbedingungen wurden am 2026-08-24 persoenlich angenommen. Der
+App-Eintrag `plaqa` wurde anschliessend mit der Apple-ID `6804814664` als reiner
+Entwurf angelegt. Gespeichert sind:
 
-Nach persoenlicher Annahme werden die oben genannten Angaben als Entwurf
-eingetragen. App Privacy und Altersfreigabe muessen dabei gegen den finalen
-Build persoenlich bestaetigt werden.
+- Plattform iOS, Primaersprache Deutsch, Bundle-ID `de.plaqa.app`
+- Version `1.0.0`, SKU `plaqa-ios-1`
+- Untertitel, Beschreibung, Keywords, Support- und Marketing-URL
+- Primaerkategorie Soziale Netze und Sekundaerkategorie Lifestyle
+- kostenloser Preis mit Deutschland als Basisregion
+- geplante Verfuegbarkeit nur in Deutschland, Oesterreich und der Schweiz
+- keine Verfuegbarkeit als kompatible iOS-App auf Apple Silicon Macs oder
+  Apple Vision Pro
+- Datenschutz-URL und Kontoloeschungs-URL
+- manuelle Veroeffentlichung nach einer spaeteren App-Pruefung
+
+Nicht gespeichert wurden rechtlich bindende App-Privacy- oder
+Altersdeklarationen. Sie muessen gegen den finalen Build persoenlich
+bestaetigt werden. Screenshots, Copyright, Review-Kontaktdaten und Build bleiben
+ebenfalls offen.
 
 ## Strikte Grenzen
 

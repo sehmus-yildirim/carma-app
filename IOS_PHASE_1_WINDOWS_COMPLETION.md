@@ -5,9 +5,10 @@ Stand: 2026-08-24
 ## Ergebnis
 
 Die unter Windows programmierbaren iOS-Arbeiten sind umgesetzt. Die Apple-
-Developer- und Firebase-Konfiguration ist bis auf App Store Connect und echte
-Apple-Geraetetests vorbereitet. Es wurde kein iOS-Build hochgeladen, kein
-TestFlight gestartet und nichts veroeffentlicht.
+Developer-, Firebase- und App-Store-Connect-Grundkonfiguration ist bis auf
+persoenliche Store-Erklaerungen und echte Apple-Geraetetests vorbereitet. Es
+wurde kein iOS-Build hochgeladen, kein TestFlight gestartet und nichts
+veroeffentlicht.
 
 ## Abgeschlossen
 
@@ -28,6 +29,8 @@ TestFlight gestartet und nichts veroeffentlicht.
 - Safe-Area-, Tastatur-, Medien-, Teilen-, Karten- und Link-Pfade statisch
 - vollstaendige iOS-Iconvarianten und plaqa-Launch-Screen
 - iOS-Datenschutzmatrix, Privacy Labels, Store-Texte, Review- und Screenshotplan
+- App-Store-Connect-Entwurf fuer `plaqa`, Apple-ID `6804814664`, Version
+  `1.0.0`, kostenlos, DACH, nur iOS und manuelle Veroeffentlichung
 - appweite Standardkarten ohne alte aeussere Schatten und Glows
 - Secrets und Apple-Schluessel durch `.gitignore` abgesichert
 
@@ -48,11 +51,11 @@ Universal Links sind vorbereitet, aber noch nicht funktionsfaehig freigegeben.
 Es fehlen die oeffentliche `apple-app-site-association`-Datei, die finale
 Routenbehandlung und der Xcode-/Geraetetest.
 
-App Store Connect ist unter Windows erreichbar, verlangt jedoch vor dem ersten
-App-Eintrag die persoenliche Annahme neuer Nutzungsbedingungen. Diese rechtlich
-bindende Bestaetigung wurde nicht stellvertretend abgegeben. Der komplette
-Store-Entwurf liegt lokal vor und kann danach ohne neue inhaltliche Planung
-eingetragen werden.
+Die App-Store-Connect-Nutzungsbedingungen wurden persoenlich angenommen. Der
+App-Eintrag und die nicht rechtlich bindenden Metadaten sind als Entwurf
+gespeichert. App Privacy, Altersfreigabe, Inhaltsrechte, Review-Kontaktdaten,
+Screenshots, Copyright und Build bleiben bis zur persoenlichen Freigabe
+beziehungsweise bis zum finalen iOS-Build offen.
 
 ## Verifikation
 
@@ -97,7 +100,7 @@ Die blauen plaqa-Akzente und die dunklen Kontraste bleiben unveraendert.
 - Firebase App Check/Cloud-Messaging-Konfiguration: vorbereitet
 - Firebase Deploy: nein
 - App Check Enforcement: nein
-- App Store Connect App-Eintrag: durch persoenliche Vereinbarung blockiert
+- App Store Connect App-Eintrag: Entwurf angelegt, rechtliche Angaben offen
 - App Store Upload: nein
 - TestFlight: nein
 - oeffentliche Veroeffentlichung: nein
