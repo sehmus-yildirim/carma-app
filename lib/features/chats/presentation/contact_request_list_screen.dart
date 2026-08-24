@@ -311,7 +311,7 @@ class _RequestListCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 18,
                   ),
@@ -320,7 +320,9 @@ class _RequestListCard extends StatelessWidget {
                 Text(
                   'Kennzeichen: $_subtitle',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.74),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.74,
+                    ),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -332,13 +334,17 @@ class _RequestListCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(18),
                     color: CaRismaDesignTokens.controlSurface,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.12,
+                      ),
                     ),
                   ),
                   child: Text(
                     request.introMessage,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.86),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.86,
+                      ),
                       fontWeight: FontWeight.w800,
                       height: 1.35,
                     ),
@@ -461,7 +467,9 @@ class _RequestActionButton extends StatelessWidget {
       onPressed: isBusy ? null : onPressed,
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.white,
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+        side: BorderSide(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.35),
+        ),
       ),
       child: child,
     );
@@ -483,7 +491,7 @@ class _RequestLoadingCard extends StatelessWidget {
             child: Text(
               'Kontaktanfragen werden geladen...',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -509,7 +517,7 @@ class _RequestErrorCard extends StatelessWidget {
           Text(
             'Anfragen konnten nicht geladen werden',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -517,7 +525,7 @@ class _RequestErrorCard extends StatelessWidget {
           Text(
             'Bitte prüfe deine Verbindung und versuche es erneut.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.72),
               fontWeight: FontWeight.w700,
               height: 1.35,
             ),
@@ -528,7 +536,7 @@ class _RequestErrorCard extends StatelessWidget {
             child: Text(
               'Erneut versuchen',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 fontWeight: FontWeight.w900,
                 decoration: TextDecoration.underline,
                 decorationColor: Colors.white,
@@ -566,7 +574,7 @@ class _RequestEmptyCard extends StatelessWidget {
                 : 'Keine gesendeten Anfragen',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
               fontSize: 22,
             ),

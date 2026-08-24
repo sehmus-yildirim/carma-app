@@ -338,7 +338,9 @@ class _ChatMessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(17),
           color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.09),
+          ),
         ),
         child: Row(
           children: [
@@ -347,11 +349,11 @@ class _ChatMessageBubble extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.14),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14),
               ),
               child: const Icon(
                 Icons.location_on_rounded,
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 size: 24,
               ),
             ),
@@ -365,7 +367,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -375,7 +377,9 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.76),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.76,
+                      ),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -406,7 +410,9 @@ class _ChatMessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(17),
           color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.09),
+          ),
         ),
         child: Row(
           children: [
@@ -423,7 +429,7 @@ class _ChatMessageBubble extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.person_rounded,
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 size: 23,
               ),
             ),
@@ -437,7 +443,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -447,7 +453,9 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.74),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.74,
+                      ),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -502,7 +510,9 @@ class _ChatMessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.09),
+          ),
         ),
         child: Row(
           children: [
@@ -519,7 +529,7 @@ class _ChatMessageBubble extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.insert_drive_file_rounded,
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 size: 25,
               ),
             ),
@@ -533,7 +543,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontWeight: FontWeight.w900,
                       height: 1.15,
                     ),
@@ -544,7 +554,9 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.74),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.74,
+                      ),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -569,7 +581,9 @@ class _ChatMessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(17),
           color: CaRismaDesignTokens.surface2.withValues(alpha: 0.90),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.09),
+          ),
         ),
         child: Row(
           children: [
@@ -586,7 +600,7 @@ class _ChatMessageBubble extends StatelessWidget {
               ),
               child: Icon(
                 isAudioPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 size: 27,
               ),
             ),
@@ -600,7 +614,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -612,7 +626,9 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.74),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.74,
+                      ),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -683,7 +699,9 @@ class _ChatMessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: CaRismaDesignTokens.card,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,7 +736,9 @@ class _ChatMessageBubble extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.78),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.78,
+                      ),
                       fontWeight: FontWeight.w700,
                       height: 1.2,
                     ),
@@ -741,10 +761,12 @@ class _ChatMessageBubble extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             _carismaBlue.withValues(alpha: 0.34),
-            Colors.white.withValues(alpha: 0.08),
+            CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
           ],
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.15),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -758,7 +780,7 @@ class _ChatMessageBubble extends StatelessWidget {
             ),
             child: const Icon(
               Icons.auto_awesome_rounded,
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               size: 17,
             ),
           ),
@@ -773,7 +795,7 @@ class _ChatMessageBubble extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 12,
                   ),
@@ -784,7 +806,9 @@ class _ChatMessageBubble extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.72,
+                    ),
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
                   ),
@@ -877,6 +901,9 @@ class _ChatMessageBubble extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         void runAfterClose(VoidCallback action) {
           Navigator.of(sheetContext).pop();
@@ -973,11 +1000,6 @@ class _ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-      color: Colors.white.withValues(alpha: 0.72),
-      fontWeight: FontWeight.w800,
-      fontSize: 11,
-    );
     final reactions = message.reactionBy.values
         .where((reaction) => reaction.trim().isNotEmpty)
         .toList();
@@ -1012,6 +1034,15 @@ class _ChatMessageBubble extends StatelessWidget {
         isDocumentMessage ||
         isAudioMessage ||
         isViewOnceMedia;
+    final usesAccentBubble = message.isMine && !isStructuredVisualMessage;
+    final bubbleTextColor = usesAccentBubble
+        ? CaRismaDesignTokens.onAccent
+        : CaRismaDesignTokens.textPrimary;
+    final timeStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: bubbleTextColor.withValues(alpha: 0.72),
+      fontWeight: FontWeight.w800,
+      fontSize: 11,
+    );
     final bubblePadding =
         isImageMessage || isVideoMessage || isStructuredVisualMessage
         ? const EdgeInsets.all(4)
@@ -1073,17 +1104,10 @@ class _ChatMessageBubble extends StatelessWidget {
                 ? null
                 : CaRismaDesignTokens.surface2.withValues(alpha: 0.86),
             border: Border.all(
-              color: message.isMine && !isStructuredVisualMessage
+              color: usesAccentBubble
                   ? _myMessageBorder
-                  : Colors.white.withValues(alpha: 0.08),
+                  : CaRismaDesignTokens.border,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1111,7 +1135,7 @@ class _ChatMessageBubble extends StatelessWidget {
                     child: Text(
                       message.text,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white,
+                        color: bubbleTextColor,
                         fontWeight: FontWeight.w800,
                         height: 1.28,
                       ),
@@ -1138,7 +1162,7 @@ class _ChatMessageBubble extends StatelessWidget {
                       child: Text(
                         message.text,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
+                          color: bubbleTextColor,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           height: 1.18,
@@ -1156,7 +1180,7 @@ class _ChatMessageBubble extends StatelessWidget {
                 Text(
                   message.text,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
+                    color: bubbleTextColor,
                     fontWeight: FontWeight.w800,
                     height: 1.28,
                   ),

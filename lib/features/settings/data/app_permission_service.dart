@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart' as geo;
 
 enum AppPermissionKind { camera, microphone, location, media, contacts }
 
@@ -14,25 +16,28 @@ enum AppPermissionState {
 
 class AppPermissionSnapshot {
   const AppPermissionSnapshot({
-    required this.isAndroid,
+    required this.platform,
     required this.sdkInt,
     required this.states,
   });
 
-  final bool isAndroid;
+  final String platform;
   final int? sdkInt;
   final Map<AppPermissionKind, AppPermissionState> states;
+
+  bool get isAndroid => platform == 'android';
+  bool get isIos => platform == 'ios';
 
   AppPermissionState stateOf(AppPermissionKind kind) {
     return states[kind] ?? AppPermissionState.unavailable;
   }
 
   factory AppPermissionSnapshot.fromPlatformMap(Map<Object?, Object?> data) {
-    final isAndroid = data['platform'] == 'android';
+    final platform = data['platform'] as String? ?? 'unknown';
     final sdkValue = data['sdkInt'];
 
     return AppPermissionSnapshot(
-      isAndroid: isAndroid,
+      platform: platform,
       sdkInt: sdkValue is int ? sdkValue : null,
       states: {
         for (final kind in AppPermissionKind.values)
@@ -81,28 +86,43 @@ class AppPermissionService {
     }
   }
 
-  Future<void> openAndroidSettings() async {
+  Future<void> openSystemSettings() async {
     try {
-      final opened = await _channel.invokeMethod<bool>('openAppSettings');
+      final openedByHost = await _channel.invokeMethod<bool>('openAppSettings');
+      if (openedByHost == true) return;
+    } on MissingPluginException {
+      // The plugin fallback below supports iOS and newer host integrations.
+    } on PlatformException {
+      // Keep the platform-neutral fallback available when the host rejects it.
+    }
+
+    try {
+      final opened = await geo.Geolocator.openAppSettings();
       if (opened != true) {
         throw const AppPermissionServiceException(
-          'Die Android-Einstellungen konnten nicht geöffnet werden.',
+          'Die App-Einstellungen konnten nicht geöffnet werden.',
         );
       }
     } on MissingPluginException {
       throw const AppPermissionServiceException(
-        'Die Android-Einstellungen sind auf diesem Gerät nicht verfügbar.',
+        'Die App-Einstellungen sind auf diesem Gerät nicht verfügbar.',
       );
     } on PlatformException {
       throw const AppPermissionServiceException(
-        'Die Android-Einstellungen konnten nicht geöffnet werden.',
+        'Die App-Einstellungen konnten nicht geöffnet werden.',
       );
     }
   }
 
+  Future<void> openAndroidSettings() => openSystemSettings();
+
   AppPermissionSnapshot _unavailableSnapshot() {
     return AppPermissionSnapshot(
-      isAndroid: false,
+      platform: switch (defaultTargetPlatform) {
+        TargetPlatform.android => 'android',
+        TargetPlatform.iOS => 'ios',
+        _ => 'unknown',
+      },
       sdkInt: null,
       states: {
         for (final kind in AppPermissionKind.values)

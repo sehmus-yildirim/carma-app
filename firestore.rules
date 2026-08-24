@@ -249,7 +249,7 @@ service cloud.firestore {
         && settingsId == 'app_preferences'
         && request.resource.data.userId == userId
         && request.resource.data.languageCode in ['de', 'en', 'tr']
-        && request.resource.data.themeMode in ['dark', 'system']
+        && request.resource.data.themeMode in ['dark', 'light', 'system']
         && request.resource.data.hapticsEnabled is bool
         && request.resource.data.messageSoundsEnabled is bool
         && request.resource.data.distanceUnit == 'km'
@@ -274,6 +274,23 @@ service cloud.firestore {
         || isValidUserSettingChatPrivacy(userId, settingsId)
         || isValidUserSettingStoryPrivacy(userId, settingsId)
         || isValidUserSettingAppPreferences(userId, settingsId);
+    }
+
+    function isValidPushTokenWrite(userId, tokenId) {
+      return isOwner(userId)
+        && tokenId.matches('^[a-f0-9]{64}$')
+        && request.resource.data.userId == userId
+        && request.resource.data.token is string
+        && request.resource.data.token.size() > 20
+        && request.resource.data.token.size() <= 4096
+        && request.resource.data.platform in ['android', 'ios']
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'userId',
+          'token',
+          'platform',
+          'updatedAt',
+        ]);
     }
 
     function isNullableStringWithMax(value, maxLength) {
@@ -3794,6 +3811,12 @@ service cloud.firestore {
           settingsId,
         );
         allow delete: if false;
+      }
+
+      match /push_tokens/{tokenId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isValidPushTokenWrite(userId, tokenId);
+        allow delete: if isOwner(userId);
       }
 
       match /support_requests/{requestId} {

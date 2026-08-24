@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/carisma_design_tokens.dart';
@@ -71,6 +72,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _acceptedResponsibleUse &&
         !_isLoading;
   }
+
+  bool get _appleSignInAvailable =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
   void initState() {
@@ -351,6 +355,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _submitAppleRegister() async {
+    if (_isLoading || !_appleSignInAvailable) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    if (!_acceptedTerms || !_acceptedPrivacy || !_acceptedResponsibleUse) {
+      setState(() {
+        _errorMessage =
+            'Bitte akzeptiere zuerst die Hinweise zur Registrierung.';
+        _successMessage = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final credential = await _authService.signInWithApple();
+      final user = credential.user;
+      if (user == null) {
+        throw FirebaseAuthException(code: 'missing-user');
+      }
+
+      await _prepareFirestoreUser(user);
+      final consentCount = await _saveRegistrationConsents(user);
+      if (!mounted) return;
+
+      setState(() {
+        _successMessage =
+            'Apple-Registrierung erfolgreich. $consentCount Zustimmungen wurden gespeichert.';
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_successMessage!)));
+      widget.onRegisterSuccess?.call();
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _mapFirebaseError(error);
+        _successMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Apple-Registrierung konnte gerade nicht durchgeführt werden.';
+        _successMessage = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   String _mapFirebaseAuthError(FirebaseAuthException error) {
     switch (error.code) {
       case 'invalid-email':
@@ -365,6 +435,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
       case 'aborted-by-user':
         return 'Die Anmeldung wurde abgebrochen.';
+      case 'credential-already-in-use':
+      case 'account-exists-with-different-credential':
+        return 'Für diese Apple-Anmeldung besteht bereits ein Konto. Melde dich zuerst mit der bisherigen Methode an und verknüpfe Apple anschließend unter Konto & Sicherheit.';
+      case 'missing-or-invalid-nonce':
+      case 'invalid-provider-id':
+        return 'Apple-Anmeldung ist noch nicht vollständig konfiguriert.';
       case 'missing-user':
         return 'Das Benutzerkonto konnte nicht geladen werden.';
       default:
@@ -452,11 +528,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-            physics: const NeverScrollableScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -498,7 +574,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             _obscurePassword
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
-                            color: Colors.white.withValues(alpha: 0.72),
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.72,
+                            ),
                           ),
                         ),
                       ),
@@ -527,7 +605,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             _obscureRepeatPassword
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
-                            color: Colors.white.withValues(alpha: 0.72),
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.72,
+                            ),
                           ),
                         ),
                       ),
@@ -608,9 +688,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 const SizedBox(height: 8),
-                const CaRismaSocialAuthButton(
+                CaRismaSocialAuthButton(
                   provider: CaRismaSocialAuthProvider.apple,
-                  isEnabled: false,
+                  isEnabled: _appleSignInAvailable && !_isLoading,
+                  onPressed: _appleSignInAvailable && !_isLoading
+                      ? _submitAppleRegister
+                      : null,
                 ),
                 const SizedBox(height: 8),
                 CaRismaAuthNavigationButton(
@@ -718,7 +801,9 @@ class _ConsentRow extends StatelessWidget {
                 activeColor: CaRismaDesignTokens.bluePrimary,
                 checkColor: Colors.white,
                 side: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.42),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.42,
+                  ),
                   width: 1.4,
                 ),
                 onChanged: _isEnabled
@@ -761,7 +846,7 @@ class _ConsentRow extends StatelessWidget {
 
 TextStyle? _consentTextStyle(BuildContext context) {
   return Theme.of(context).textTheme.bodyMedium?.copyWith(
-    color: Colors.white.withValues(alpha: 0.76),
+    color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
     fontWeight: FontWeight.w700,
     fontSize: 12,
     height: 1.08,
@@ -806,7 +891,7 @@ class CaRismaAuthDivider extends StatelessWidget {
       children: [
         Expanded(
           child: Divider(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
             thickness: 1,
           ),
         ),
@@ -815,14 +900,14 @@ class CaRismaAuthDivider extends StatelessWidget {
           child: Text(
             'oder weiter mit',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.52),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.52),
               fontWeight: FontWeight.w700,
             ),
           ),
         ),
         Expanded(
           child: Divider(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
             thickness: 1,
           ),
         ),

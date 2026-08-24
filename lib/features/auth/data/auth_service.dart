@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../shared/notifications/push_notification_service.dart';
+
 enum AuthLoginProvider { password, google, apple, unknown }
 
 class AuthAccountSnapshot {
@@ -45,6 +47,8 @@ class AuthAccountSnapshot {
   bool get isAppleOnly =>
       providers.contains(AuthLoginProvider.apple) && !hasPasswordProvider;
 
+  bool get hasAppleProvider => providers.contains(AuthLoginProvider.apple);
+
   String get providerLabel {
     final labels = <String>[
       if (providers.contains(AuthLoginProvider.password)) 'E-Mail',
@@ -80,6 +84,8 @@ abstract interface class AccountAuthGateway {
     required String currentPassword,
     required String newEmail,
   });
+
+  Future<void> linkCurrentUserWithApple();
 
   Future<void> deleteCurrentUser({String? currentPassword});
 
@@ -225,18 +231,39 @@ class AuthService implements AccountAuthGateway {
 
   @override
   Future<void> deleteCurrentUser({String? currentPassword}) async {
-    final user = await reauthenticateCurrentUser(
-      currentPassword: currentPassword,
-    );
+    final currentUser = await reloadCurrentUser();
+    if (currentUser == null) {
+      throw FirebaseAuthException(code: 'missing-user');
+    }
+
+    final account = AuthAccountSnapshot.fromUser(currentUser);
+    late final User user;
+    String? appleAuthorizationCode;
+
+    if (account.hasAppleProvider) {
+      final credential = await _reauthenticateWithApple(currentUser);
+      user = credential.user ?? currentUser;
+      appleAuthorizationCode = credential.additionalUserInfo?.authorizationCode
+          ?.trim();
+    } else {
+      user = await reauthenticateCurrentUser(currentPassword: currentPassword);
+    }
     await user.getIdToken(true);
 
-    try {
-      await _firebaseFunctions.httpsCallable('requestAccountDeletion').call({
-        'platform': _securityPlatformCode(),
-      });
-    } on FirebaseFunctionsException catch (error) {
-      throw _authExceptionFromFunctions(error);
-    }
+    await executeAppleAwareAccountDeletion(
+      hasAppleProvider: account.hasAppleProvider,
+      appleAuthorizationCode: appleAuthorizationCode,
+      revokeAppleToken: _revokeAppleToken,
+      requestAccountDeletion: () async {
+        try {
+          await _firebaseFunctions.httpsCallable('requestAccountDeletion').call(
+            {'platform': _securityPlatformCode()},
+          );
+        } on FirebaseFunctionsException catch (error) {
+          throw _authExceptionFromFunctions(error);
+        }
+      },
+    );
 
     await _signOutBestEffort();
   }
@@ -297,13 +324,19 @@ class AuthService implements AccountAuthGateway {
       return user;
     }
 
-    if (account.isAppleOnly) {
-      throw FirebaseAuthException(code: 'apple-reauth-not-configured');
+    if (account.hasAppleProvider) {
+      await _reauthenticateWithApple(user);
+      return user;
     }
     throw FirebaseAuthException(code: 'reauth-provider-not-supported');
   }
 
   Future<void> _signOutBestEffort() async {
+    try {
+      await PushNotificationService.instance.removeCurrentToken();
+    } catch (_) {
+      // A failed token cleanup must not keep the user signed in.
+    }
     try {
       await _googleSignIn.signOut();
     } catch (_) {
@@ -365,12 +398,80 @@ class AuthService implements AccountAuthGateway {
     return _firebaseAuth.signInWithCredential(credential);
   }
 
-  Future<void> signInWithApple() async {
-    throw FirebaseAuthException(
-      code: 'apple-not-configured',
-      message:
-          'Apple Login wird vorbereitet und später mit dem iOS-Setup aktiviert.',
+  Future<UserCredential> signInWithApple() async {
+    try {
+      final credential = await _firebaseAuth.signInWithProvider(
+        _createAppleProvider(),
+      );
+      await _applyAppleDisplayName(credential);
+      return credential;
+    } on FirebaseAuthException catch (error) {
+      throw normalizeAppleAuthException(error);
+    }
+  }
+
+  @override
+  Future<void> linkCurrentUserWithApple() async {
+    final user = await reloadCurrentUser();
+    if (user == null) {
+      throw FirebaseAuthException(code: 'missing-user');
+    }
+
+    final account = AuthAccountSnapshot.fromUser(user);
+    if (account.hasAppleProvider) {
+      throw FirebaseAuthException(code: 'provider-already-linked');
+    }
+
+    try {
+      final credential = await user.linkWithProvider(_createAppleProvider());
+      await _applyAppleDisplayName(credential);
+    } on FirebaseAuthException catch (error) {
+      throw normalizeAppleAuthException(error);
+    }
+  }
+
+  AppleAuthProvider _createAppleProvider() {
+    return AppleAuthProvider()
+      ..addScope('email')
+      ..addScope('name');
+  }
+
+  Future<UserCredential> _reauthenticateWithApple(User user) async {
+    try {
+      return await user.reauthenticateWithProvider(_createAppleProvider());
+    } on FirebaseAuthException catch (error) {
+      throw normalizeAppleAuthException(error);
+    }
+  }
+
+  Future<void> _revokeAppleToken(String authorizationCode) async {
+    try {
+      await _firebaseAuth.revokeTokenWithAuthorizationCode(authorizationCode);
+    } on FirebaseAuthException catch (error) {
+      final normalized = normalizeAppleAuthException(error);
+      if (normalized.code == 'aborted-by-user') {
+        throw normalized;
+      }
+      throw FirebaseAuthException(code: 'apple-token-revocation-failed');
+    } catch (_) {
+      throw FirebaseAuthException(code: 'apple-token-revocation-failed');
+    }
+  }
+
+  Future<void> _applyAppleDisplayName(UserCredential credential) async {
+    final user = credential.user;
+    if (user == null) {
+      return;
+    }
+
+    final displayName = appleDisplayNameToApply(
+      isNewUser: credential.additionalUserInfo?.isNewUser ?? false,
+      existingDisplayName: user.displayName,
+      profile: credential.additionalUserInfo?.profile,
     );
+    if (displayName != null) {
+      await user.updateDisplayName(displayName);
+    }
   }
 
   Future<void> signOut() async {
@@ -384,4 +485,76 @@ class AuthService implements AccountAuthGateway {
   static bool _isValidEmail(String email) {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
   }
+}
+
+@visibleForTesting
+String? appleDisplayNameToApply({
+  required bool isNewUser,
+  required String? existingDisplayName,
+  required Map<String, dynamic>? profile,
+}) {
+  if (!isNewUser || (existingDisplayName?.trim().isNotEmpty ?? false)) {
+    return null;
+  }
+
+  String value(String key) => (profile?[key] as String?)?.trim() ?? '';
+
+  final directNames = [
+    value('name'),
+    value('displayName'),
+  ].where((entry) => entry.isNotEmpty);
+  if (directNames.isNotEmpty) {
+    return directNames.first;
+  }
+
+  final givenNames = [
+    value('given_name'),
+    value('firstName'),
+    value('first_name'),
+  ].where((entry) => entry.isNotEmpty);
+  final familyNames = [
+    value('family_name'),
+    value('lastName'),
+    value('last_name'),
+  ].where((entry) => entry.isNotEmpty);
+  final givenName = givenNames.isEmpty ? '' : givenNames.first;
+  final familyName = familyNames.isEmpty ? '' : familyNames.first;
+  final combined = [
+    givenName,
+    familyName,
+  ].where((entry) => entry.isNotEmpty).join(' ').trim();
+  return combined.isEmpty ? null : combined;
+}
+
+@visibleForTesting
+Future<void> executeAppleAwareAccountDeletion({
+  required bool hasAppleProvider,
+  required String? appleAuthorizationCode,
+  required Future<void> Function(String authorizationCode) revokeAppleToken,
+  required Future<void> Function() requestAccountDeletion,
+}) async {
+  if (hasAppleProvider) {
+    final authorizationCode = appleAuthorizationCode?.trim() ?? '';
+    if (authorizationCode.isEmpty) {
+      throw FirebaseAuthException(code: 'apple-authorization-code-missing');
+    }
+    await revokeAppleToken(authorizationCode);
+  }
+
+  await requestAccountDeletion();
+}
+
+@visibleForTesting
+FirebaseAuthException normalizeAppleAuthException(FirebaseAuthException error) {
+  const cancellationCodes = {
+    'aborted-by-user',
+    'canceled',
+    'cancelled',
+    'web-context-canceled',
+    'popup-closed-by-user',
+  };
+  if (cancellationCodes.contains(error.code)) {
+    return FirebaseAuthException(code: 'aborted-by-user');
+  }
+  return error;
 }

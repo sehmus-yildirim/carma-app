@@ -18,6 +18,17 @@
 	<string>plaqa</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.493803183324-rsojqr0bc4t4t9pmueml1g01436jprdp</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
@@ -26,8 +37,16 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>plaqa benötigt Zugriff auf deine Kamera, damit du Bilder und Videos für dein Profil, deine Fahrzeuge, Beiträge, Storys, Meldungen und Nachweise aufnehmen kannst.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>plaqa benötigt deinen Standort, um Kennzeichen-Treffer nur in deiner Nähe zu suchen.</string>
+	<string>plaqa benötigt deinen Standort während der Nutzung, um standortbezogene Fahrzeug- und Kennzeichenfunktionen bereitzustellen.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>plaqa benötigt Zugriff auf dein Mikrofon, damit du Videos mit Ton aufnehmen kannst.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>plaqa benötigt Zugriff auf deine Fotomediathek, damit du Bilder und Videos für dein Profil, deine Fahrzeuge, Beiträge, Storys und Nachweise auswählen kannst.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>plaqa benötigt deine Erlaubnis, damit du ausgewählte Bilder und Videos aus Chats in deiner Fotomediathek sichern kannst.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -58,8 +77,10 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

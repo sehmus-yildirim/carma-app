@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/legal/legal_versions.dart';
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/notifications/push_notification_service.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_auth_brand_header.dart';
@@ -92,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Text(
                   title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -102,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           content: Text(
             body,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
               fontWeight: FontWeight.w700,
               height: 1.42,
             ),
@@ -184,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Text(
                       'Konto löschen',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -205,7 +206,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'Betroffen sind Profil, Fahrzeuge und Kennzeichen, Chats und Anfragen, Hinweise, Storys und Medien. Gesetzliche Aufbewahrungsfristen können eine sofortige vollständige Löschung einzelner Daten verhindern.',
                     ),
                     const SizedBox(height: 12),
-                    if (account.hasPasswordProvider) ...[
+                    if (account.hasAppleProvider) ...[
+                      const _SettingsDialogStatusCard(
+                        icon: Icons.apple,
+                        iconColor: CaRismaDesignTokens.bluePrimary,
+                        title: 'Apple-Anmeldung bestätigen',
+                        body:
+                            'Vor der Löschung öffnet sich Apple einmal zur sicheren Bestätigung. Dabei wird die Apple-Verknüpfung widerrufen; ein App-Passwort ist nicht erforderlich.',
+                      ),
+                      const SizedBox(height: 12),
+                    ] else if (account.hasPasswordProvider) ...[
                       TextField(
                         controller: passwordController,
                         onTap: revealConfirmationField,
@@ -215,20 +225,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         enableSuggestions: false,
                         cursorColor: CaRismaDesignTokens.danger,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontWeight: FontWeight.w800,
                         ),
                         decoration: InputDecoration(
                           labelText: 'Aktuelles Passwort',
                           labelStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.62),
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.62,
+                            ),
                           ),
                           filled: true,
                           fillColor: CaRismaDesignTokens.controlSurface,
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
                             borderSide: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.12),
+                              color: CaRismaDesignTokens.textPrimary.withValues(
+                                alpha: 0.12,
+                              ),
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -250,7 +264,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               passwordVisible
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: Colors.white.withValues(alpha: 0.72),
+                              color: CaRismaDesignTokens.textPrimary.withValues(
+                                alpha: 0.72,
+                              ),
                             ),
                           ),
                         ),
@@ -272,7 +288,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         color: CaRismaDesignTokens.controlSurface,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.10),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.10,
+                          ),
                         ),
                       ),
                       child: CheckboxListTile(
@@ -287,7 +305,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'Ich habe die Folgen der Löschanfrage verstanden.',
                           maxLines: 2,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: CaRismaDesignTokens.textPrimary,
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
                           ),
@@ -328,13 +346,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             enabled: !isDeleting,
                             cursorColor: CaRismaDesignTokens.danger,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: CaRismaDesignTokens.textPrimary,
                               fontWeight: FontWeight.w800,
                             ),
                             decoration: InputDecoration(
                               hintText: 'KONTO LÖSCHEN',
                               hintStyle: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.42),
+                                color: CaRismaDesignTokens.textPrimary
+                                    .withValues(alpha: 0.42),
                                 fontWeight: FontWeight.w800,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -376,7 +395,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       'Dein Anmeldekonto wird dauerhaft gelöscht. Die vollständige Bereinigung verbleibender App-Daten erfolgt unter Beachtung gesetzlicher Aufbewahrungsfristen.',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.58),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.58,
+                        ),
                         fontWeight: FontWeight.w700,
                         height: 1.35,
                       ),
@@ -392,7 +413,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     'Abbrechen',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.72,
+                      ),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -441,7 +464,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: TextStyle(
                             color: confirmed
                                 ? CaRismaDesignTokens.danger
-                                : Colors.white.withValues(alpha: 0.30),
+                                : CaRismaDesignTokens.textPrimary.withValues(
+                                    alpha: 0.30,
+                                  ),
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -930,15 +955,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _updateNotificationPreference({
+  Future<void> _updateNotificationPreference({
     required bool value,
     required ValueChanged<bool> applyValue,
-  }) {
+  }) async {
+    if (value) {
+      final allowed = await PushNotificationService.instance
+          .requestPermissionAndSync();
+      if (!allowed) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Erlaube Mitteilungen in den Systemeinstellungen, um sie zu aktivieren.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
       applyValue(value);
     });
 
-    _saveNotificationSettings();
+    await _saveNotificationSettings();
   }
 
   Future<void> _loadNotificationSettings() async {
@@ -993,7 +1035,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _storyPrivacySettings = settings.storyPrivacy;
         _appPreferenceSettings = settings.appPreferences;
       });
-      AppRuntimePreferences.instance.apply(settings.appPreferences);
+      await AppRuntimePreferences.instance.applyAndPersist(
+        settings.appPreferences,
+      );
     } catch (_) {
       if (!mounted) {
         return;
@@ -1178,12 +1222,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           title: const Text(
             'Abmelden?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+            style: TextStyle(
+              color: CaRismaDesignTokens.textPrimary,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           content: Text(
             'Du wirst von diesem Gerät abgemeldet und kommst zurück zum Login.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
               fontWeight: FontWeight.w700,
               height: 1.35,
             ),
@@ -1194,7 +1241,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text(
                 'Abbrechen',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.74),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.74,
+                  ),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1834,7 +1883,7 @@ class _SettingsGroupCardState extends State<_SettingsGroupCard> {
                       child: Text(
                         widget.title,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.3,
                           fontSize: 14,
@@ -1847,7 +1896,9 @@ class _SettingsGroupCardState extends State<_SettingsGroupCard> {
                       curve: Curves.easeOutCubic,
                       child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.72,
+                        ),
                         size: 24,
                       ),
                     ),
@@ -1902,7 +1953,9 @@ class _SettingsRow extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             color: CaRismaDesignTokens.controlSurface,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+            ),
           ),
           child: Row(
             children: [
@@ -1915,7 +1968,7 @@ class _SettingsRow extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                         fontSize: 15.5,
                       ),
@@ -1924,7 +1977,9 @@ class _SettingsRow extends StatelessWidget {
                     Text(
                       description,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.66),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.66,
+                        ),
                         fontWeight: FontWeight.w700,
                         height: 1.25,
                       ),
@@ -1935,7 +1990,7 @@ class _SettingsRow extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.66),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.66),
                 size: 26,
               ),
             ],
@@ -1999,7 +2054,9 @@ class _SettingsStatusOverviewScreen extends StatelessWidget {
                     Text(
                       intro,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.72,
+                        ),
                         fontWeight: FontWeight.w700,
                         height: 1.38,
                       ),
@@ -2056,7 +2113,9 @@ class _SettingsDialogStatusCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2077,7 +2136,7 @@ class _SettingsDialogStatusCard extends StatelessWidget {
                       child: Text(
                         title,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontWeight: FontWeight.w900,
                           fontSize: 14.5,
                         ),
@@ -2113,7 +2172,9 @@ class _SettingsDialogStatusCard extends StatelessWidget {
                 Text(
                   body,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.66),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.66,
+                    ),
                     fontWeight: FontWeight.w700,
                     height: 1.32,
                     fontSize: 12.5,
@@ -2146,7 +2207,11 @@ class _AppVersionCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+                border: Border.all(
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.10,
+                  ),
+                ),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(9),
@@ -2164,7 +2229,9 @@ class _AppVersionCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.72),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.72,
+                  ),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -2224,8 +2291,7 @@ class _AppPermissionsSettingsScreenState
       kind: AppPermissionKind.contacts,
       icon: Icons.contact_phone_outlined,
       title: 'Kontakte',
-      description:
-          'Nur einen aktiv ausgewählten Kontakt über den Android-Picker teilen.',
+      description: 'Nur aktiv ausgewählte Kontaktinformationen teilen.',
     ),
   ];
 
@@ -2277,12 +2343,12 @@ class _AppPermissionsSettingsScreenState
     }
   }
 
-  Future<void> _openAndroidSettings() async {
-    if (_isOpeningSettings || _snapshot?.isAndroid != true) return;
+  Future<void> _openSystemSettings() async {
+    if (_isOpeningSettings) return;
     setState(() => _isOpeningSettings = true);
 
     try {
-      await _permissionService.openAndroidSettings();
+      await _permissionService.openSystemSettings();
     } on AppPermissionServiceException catch (error) {
       if (!mounted) return;
       setState(() => _isOpeningSettings = false);
@@ -2295,8 +2361,6 @@ class _AppPermissionsSettingsScreenState
   @override
   Widget build(BuildContext context) {
     final snapshot = _snapshot;
-    final isAndroid = snapshot?.isAndroid == true;
-
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -2366,12 +2430,10 @@ class _AppPermissionsSettingsScreenState
                       const SizedBox(height: 10),
                       _AppPermissionActionButton(
                         icon: Icons.settings_outlined,
-                        label: isAndroid
-                            ? 'Android-Einstellungen öffnen'
-                            : 'Nur unter Android verfügbar',
-                        enabled: isAndroid && !_isOpeningSettings,
+                        label: 'App-Einstellungen öffnen',
+                        enabled: !_isOpeningSettings,
                         isPrimary: true,
-                        onTap: _openAndroidSettings,
+                        onTap: _openSystemSettings,
                       ),
                     ],
                   ),
@@ -2432,7 +2494,9 @@ class _AppPermissionTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -2446,7 +2510,7 @@ class _AppPermissionTile extends StatelessWidget {
                 Text(
                   definition.title,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 15.5,
                   ),
@@ -2455,7 +2519,9 @@ class _AppPermissionTile extends StatelessWidget {
                 Text(
                   definition.description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.64),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.64,
+                    ),
                     fontWeight: FontWeight.w700,
                     height: 1.28,
                   ),
@@ -2542,7 +2608,9 @@ class _AppPermissionActionButton extends StatelessWidget {
                   style: TextStyle(
                     color: enabled
                         ? Colors.white
-                        : Colors.white.withValues(alpha: 0.42),
+                        : CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.42,
+                          ),
                     fontWeight: FontWeight.w900,
                     fontSize: 15,
                   ),
@@ -2594,7 +2662,7 @@ class _AppPermissionErrorCard extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.74),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.74),
                 fontWeight: FontWeight.w700,
                 height: 1.34,
               ),
@@ -2648,12 +2716,15 @@ class _SafetyCenterSettingsScreenState
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text(
           'Kontakt entblocken?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         content: Text(
           '${chat.displayNameFor(userId)} kann dir danach wieder Nachrichten senden.',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.76),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
             fontWeight: FontWeight.w700,
             height: 1.35,
           ),
@@ -2663,7 +2734,9 @@ class _SafetyCenterSettingsScreenState
             onPressed: () => Navigator.of(dialogContext).pop(false),
             style: TextButton.styleFrom(
               overlayColor: Colors.transparent,
-              foregroundColor: Colors.white.withValues(alpha: 0.78),
+              foregroundColor: CaRismaDesignTokens.textPrimary.withValues(
+                alpha: 0.78,
+              ),
             ),
             child: const Text('Abbrechen'),
           ),
@@ -2994,7 +3067,7 @@ class _SecurityCenterSectionCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 17,
                   ),
@@ -3030,7 +3103,9 @@ class _SecurityCenterInfoTile extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -3053,7 +3128,7 @@ class _SecurityCenterInfoTile extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 15.5,
                   ),
@@ -3062,7 +3137,9 @@ class _SecurityCenterInfoTile extends StatelessWidget {
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.66),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.66,
+                    ),
                     fontWeight: FontWeight.w700,
                     height: 1.28,
                   ),
@@ -3111,7 +3188,9 @@ class _SecurityBlockedChatTile extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         children: [
@@ -3129,7 +3208,7 @@ class _SecurityBlockedChatTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontSize: 15.5,
                     fontWeight: FontWeight.w900,
                   ),
@@ -3140,7 +3219,9 @@ class _SecurityBlockedChatTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.64),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.64,
+                    ),
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -3152,7 +3233,9 @@ class _SecurityBlockedChatTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.48),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.48,
+                      ),
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -3166,7 +3249,9 @@ class _SecurityBlockedChatTile extends StatelessWidget {
             onPressed: isBusy ? null : onUnblock,
             style: OutlinedButton.styleFrom(
               foregroundColor: CaRismaDesignTokens.bluePrimary,
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+              side: BorderSide(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               overlayColor: Colors.transparent,
             ),
@@ -3217,12 +3302,15 @@ class _BlockedChatsSettingsScreenState
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text(
           'Kontakt entblocken?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         content: Text(
           '${chat.displayNameFor(userId)} kann dir danach wieder Nachrichten senden.',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.76),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
             fontWeight: FontWeight.w700,
             height: 1.35,
           ),
@@ -3358,7 +3446,7 @@ class _BlockedChatsSettingsScreenState
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: CaRismaDesignTokens.textPrimary,
                                         fontSize: 16,
                                         fontWeight: FontWeight.w900,
                                       ),
@@ -3370,9 +3458,8 @@ class _BlockedChatsSettingsScreenState
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.62,
-                                          ),
+                                          color: CaRismaDesignTokens.textPrimary
+                                              .withValues(alpha: 0.62),
                                           fontSize: 13,
                                           fontWeight: FontWeight.w700,
                                         ),
@@ -3388,7 +3475,8 @@ class _BlockedChatsSettingsScreenState
                                   foregroundColor:
                                       CaRismaDesignTokens.bluePrimary,
                                   side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.14),
+                                    color: CaRismaDesignTokens.textPrimary
+                                        .withValues(alpha: 0.14),
                                   ),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
@@ -3447,7 +3535,9 @@ class _BlockedChatAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: imageUrl.isEmpty
@@ -3455,7 +3545,7 @@ class _BlockedChatAvatar extends StatelessWidget {
               child: Text(
                 fallback,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
@@ -3468,7 +3558,7 @@ class _BlockedChatAvatar extends StatelessWidget {
                 child: Text(
                   fallback,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
                   ),
@@ -3504,7 +3594,7 @@ class _BlockedChatsEmptyState extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
               ),
@@ -3514,7 +3604,7 @@ class _BlockedChatsEmptyState extends StatelessWidget {
               description,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.62),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.62),
                 fontWeight: FontWeight.w700,
                 height: 1.35,
               ),
@@ -3571,7 +3661,9 @@ class _SettingsDetailScreen extends StatelessWidget {
                   Text(
                     text,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.78),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.78,
+                      ),
                       fontWeight: FontWeight.w700,
                       fontSize: 16.5,
                       height: 1.35,
@@ -3701,7 +3793,7 @@ class _CaRismaLegalContentScreenState extends State<CaRismaLegalContentScreen> {
                                 maxLines: 1,
                                 style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(
-                                      color: Colors.white,
+                                      color: CaRismaDesignTokens.textPrimary,
                                       fontWeight: FontWeight.w900,
                                       fontSize: 17,
                                     ),
@@ -3761,7 +3853,7 @@ class _LegalSectionBlock extends StatelessWidget {
         Text(
           section.title,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Colors.white,
+            color: CaRismaDesignTokens.textPrimary,
             fontWeight: FontWeight.w900,
             fontSize: 17,
           ),
@@ -3770,7 +3862,7 @@ class _LegalSectionBlock extends StatelessWidget {
         Text(
           section.body,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.white.withValues(alpha: 0.72),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.72),
             fontWeight: FontWeight.w700,
             height: 1.36,
           ),
@@ -4580,7 +4672,7 @@ Gesetzliche Verbraucherrechte, insbesondere Informations-, Gewährleistungs- und
 
 14.4 Abrechnung über App Stores
 
-Käufe können über Google Play oder später den Apple App Store abgewickelt werden.
+Käufe können über den jeweiligen App Store abgewickelt werden.
 
 Für Zahlung, Abrechnung, Rückerstattung und Verwaltung können ergänzend die Bedingungen des jeweiligen App Stores gelten.
 
@@ -4826,7 +4918,7 @@ Die Kontolöschung beendet ein über einen App Store abgeschlossenes Abonnement 
             title: '20. App Stores und Drittanbieter',
             body: r'''20.1 App Stores
 
-plaqa kann über Google Play und später über den Apple App Store bereitgestellt werden.
+plaqa kann über den jeweiligen App Store bereitgestellt werden.
 
 Der jeweilige App-Store-Anbieter ist nicht Vertragspartner des Nutzungsvertrags über die von plaqa betriebenen App-Funktionen, soweit nicht ausdrücklich etwas anderes angegeben wird.
 
@@ -5155,7 +5247,7 @@ Nutzer müssen bei der Registrierung richtige und aktuelle Angaben machen. Die V
           _LegalSection(
             title: '8. Anmeldung über externe Anbieter',
             body:
-                r'''Neben E-Mail und Passwort kann die Anmeldung über Google verwendet werden. Sign in with Apple und weitere externe Anmeldeanbieter sind in der aktuellen Android-App nicht aktiviert.
+                r'''Neben E-Mail und Passwort kann die Anmeldung über Google verwendet werden. Auf unterstützten Apple-Geräten wird außerdem „Mit Apple fortfahren“ angeboten, sobald die erforderliche Apple-Konfiguration vollständig aktiviert ist.
 
 Bei der Google-Anmeldung können Google und plaqa Informationen austauschen, zum Beispiel:
 
@@ -5492,7 +5584,7 @@ Abhängig von Gerät, Betriebssystem und Berechtigung können insbesondere verar
 * IP-basierte ungefähre Standortinformationen,
 * Metadaten einer aktiv geteilten Datei oder Aufnahme.
 
-plaqa beabsichtigt nicht, ohne Funktionsbezug dauerhafte Bewegungsprofile zu erstellen. Die Android-App fordert keine Berechtigung für Standortzugriff im Hintergrund an. Standort wird erst bei einer aktiv ausgelösten Funktion abgefragt. Für Kennzeichensuche, Fahrzeugstandort, Chatstandort oder Meldung können exakte Breiten- und Längengrade gespeichert werden; ein Geohash ist im aktuellen Ablauf nicht erforderlich.
+plaqa beabsichtigt nicht, ohne Funktionsbezug dauerhafte Bewegungsprofile zu erstellen. Die App fordert keine Berechtigung für Standortzugriff im Hintergrund an. Standort wird erst bei einer aktiv ausgelösten Funktion abgefragt. Für Kennzeichensuche, Fahrzeugstandort, Chatstandort oder Meldung können exakte Breiten- und Längengrade gespeichert werden; ein Geohash ist im aktuellen Ablauf nicht erforderlich.
 
 Der für die Kennzeichensuche gespeicherte Fahrzeugstandort wird nach einer Stunde nicht mehr als aktueller Treffer berücksichtigt. Andere aktiv geteilte Standortangaben bleiben Bestandteil des jeweiligen Chats oder Meldevorgangs, bis dieser gelöscht, anonymisiert oder aus einem berechtigten Sicherheits- oder Rechtsgrund nicht mehr benötigt wird.
 
@@ -5528,7 +5620,7 @@ Für:
 
 Kontaktdaten sollen nur verarbeitet werden, wenn ein Nutzer aktiv einen Kontakt auswählt und im Chat teilt.
 
-Die Android-App verwendet dafür den systemseitigen Kontaktauswahldialog. Sie fordert keinen allgemeinen Zugriff auf das gesamte Adressbuch an und speichert nur den vom Nutzer ausgewählten Namen und die ausgewählte Telefonnummer in der Nachricht.
+Auf unterstützten Geräten verwendet die App dafür den systemseitigen Kontaktauswahldialog. Sie fordert keinen allgemeinen Zugriff auf das gesamte Adressbuch an und speichert nur den vom Nutzer ausgewählten Namen und die ausgewählte Telefonnummer in der Nachricht.
 
 18.4 Dateien und Dokumente
 
@@ -5547,9 +5639,9 @@ Berechtigungen können über das Betriebssystem entzogen werden. Bereits hochgel
           _LegalSection(
             title: '19. Push-Benachrichtigungen',
             body:
-                r'''Push-Benachrichtigungen sind in der aktuellen App-Version nicht technisch aktiviert. Firebase Cloud Messaging ist nicht als App-Abhängigkeit eingebunden und es werden derzeit keine FCM-Registrierungstoken gespeichert.
+                r'''Push-Benachrichtigungen werden technisch über Firebase Cloud Messaging vorbereitet. Erst wenn Nutzer App-Mitteilungen bewusst aktivieren und die Systemberechtigung erteilen, kann ein gerätebezogenes Registrierungstoken privat dem jeweiligen Konto zugeordnet werden. Der Versand über Apple-Geräte setzt zusätzlich die noch abzuschließende APNs-Konfiguration voraus.
 
-Falls Push-Benachrichtigungen später aktiviert werden, können insbesondere folgende Daten verarbeitet werden:
+Dabei können insbesondere folgende Daten verarbeitet werden:
 
 * Push-Token beziehungsweise FCM-Registrierungstoken,
 * App-Instanz oder Installationskennung,
@@ -5717,12 +5809,12 @@ Die Verarbeitung dient insbesondere der Authentifizierung, Speicherung, Datenban
 * andere Nutzer, soweit dies durch die jeweilige App-Funktion vorgesehen ist,
 * potenzielle Erwerber oder Rechtsnachfolger im Rahmen zulässiger Unternehmenstransaktionen.
 
-Dienstleister erhalten nur solche Daten, die für ihre jeweilige Aufgabe erforderlich sind. Aktuell gehören dazu insbesondere Google/Firebase und Google Cloud für Authentifizierung, Datenbank, Dateien, Backend, App Check, Hosting und optionale Fahrzeugbilder sowie IONOS für die plaqa-E-Mail-Postfächer. Google Play verarbeitet Download- und Store-Daten in eigener Verantwortung. Soweit erforderlich, werden Verträge zur Auftragsverarbeitung geschlossen.''',
+Dienstleister erhalten nur solche Daten, die für ihre jeweilige Aufgabe erforderlich sind. Aktuell gehören dazu insbesondere Google/Firebase und Google Cloud für Authentifizierung, Datenbank, Dateien, Backend, App Check, Hosting und optionale Fahrzeugbilder sowie IONOS für die plaqa-E-Mail-Postfächer. Der jeweilige App Store verarbeitet Download- und Store-Daten in eigener Verantwortung. Soweit erforderlich, werden Verträge zur Auftragsverarbeitung geschlossen.''',
           ),
           _LegalSection(
             title: '25. App Stores und In-App-Käufe',
             body:
-                r'''Die Android-App wird über Google Play angeboten. Eine spätere Veröffentlichung über den Apple App Store ist möglich, aber noch nicht Bestandteil der aktuellen Android-Version.
+                r'''plaqa kann über den jeweiligen App Store bereitgestellt werden. Die iOS-Fassung befindet sich noch in der technischen Vorbereitung und ist noch nicht im Apple App Store veröffentlicht.
 
 Beim Download, bei Updates oder In-App-Käufen verarbeiten die jeweiligen Store-Anbieter Daten in eigener Verantwortung. Dazu können gehören:
 
@@ -5996,7 +6088,7 @@ Bei wesentlichen Änderungen werden Nutzer in angemessener Weise informiert. Sow
 
 * in der App unter „Einstellungen > Datenschutz“,
 * auf der Website unter https://plaqa.de/datenschutz/,
-* gegebenenfalls über die Datenschutzangaben in Google Play und im Apple App Store.''',
+* gegebenenfalls über die Datenschutzangaben im jeweiligen App Store.''',
           ),
           _LegalSection(
             title: '39. Kontakt und aktuelle Fassung',
@@ -7049,7 +7141,9 @@ class _SettingsDetailTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             color: CaRismaDesignTokens.controlSurface,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+            ),
           ),
           child: Row(
             children: [
@@ -7062,7 +7156,7 @@ class _SettingsDetailTile extends StatelessWidget {
                     Text(
                       item.title,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                         fontSize: 15.5,
                       ),
@@ -7071,7 +7165,9 @@ class _SettingsDetailTile extends StatelessWidget {
                     Text(
                       item.description,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.66),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.66,
+                        ),
                         fontWeight: FontWeight.w700,
                         height: 1.25,
                       ),
@@ -7082,7 +7178,7 @@ class _SettingsDetailTile extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.66),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.66),
                 size: 26,
               ),
             ],

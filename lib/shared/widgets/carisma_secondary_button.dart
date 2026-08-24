@@ -50,7 +50,7 @@ class CaRismaSecondaryButton extends StatelessWidget {
               border: Border.all(
                 color: isDestructive
                     ? CaRismaDesignTokens.danger.withValues(alpha: 0.28)
-                    : Colors.white.withValues(alpha: 0.09),
+                    : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.09),
               ),
               boxShadow: CaRismaDesignTokens.surfaceShadows(
                 darkAlpha: 0.22,

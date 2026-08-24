@@ -690,6 +690,9 @@ class _ReportScreenState extends State<ReportScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.62),
+
+      useSafeArea: true,
+
       builder: (context) {
         return _ReportNotificationDetailsSheet(
           repository: _reportRepository,
@@ -946,7 +949,7 @@ class _IncomingReportNotificationsSection extends StatelessWidget {
                 Text(
                   'Empfangene Hinweise',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -971,7 +974,7 @@ class _IncomingReportNotificationsSection extends StatelessWidget {
                     child: Text(
                       unreadCount.toString(),
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1024,7 +1027,7 @@ class _IncomingReportsStatusCard extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1032,7 +1035,9 @@ class _IncomingReportsStatusCard extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.68),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.68,
+                    ),
                     fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
@@ -1090,7 +1095,7 @@ class _SentReportNotificationsSection extends StatelessWidget {
               Text(
                 'Gesendete Hinweise',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1154,7 +1159,7 @@ class _SentReportNotificationCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -1164,7 +1169,9 @@ class _SentReportNotificationCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.72,
+                      ),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1175,7 +1182,9 @@ class _SentReportNotificationCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.52),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.52,
+                        ),
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -1244,7 +1253,7 @@ class _IncomingReportNotificationCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                    color: Colors.white,
+                                    color: CaRismaDesignTokens.textPrimary,
                                     fontWeight: FontWeight.w900,
                                   ),
                             ),
@@ -1264,7 +1273,9 @@ class _IncomingReportNotificationCard extends StatelessWidget {
                       Text(
                         notification.formattedPlate,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.72),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.72,
+                          ),
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -1277,7 +1288,7 @@ class _IncomingReportNotificationCard extends StatelessWidget {
             Text(
               notification.message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.84),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.84),
                 fontWeight: FontWeight.w800,
                 height: 1.28,
               ),
@@ -1377,7 +1388,9 @@ class _IncomingReportChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1390,7 +1403,7 @@ class _IncomingReportChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1442,7 +1455,9 @@ class _ReportNotificationDetailsSheet extends StatelessWidget {
                     height: 5,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      color: Colors.white.withValues(alpha: 0.22),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.22,
+                      ),
                     ),
                   ),
                 ),
@@ -1464,7 +1479,7 @@ class _ReportNotificationDetailsSheet extends StatelessWidget {
                             categoryLabel,
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
-                                  color: Colors.white,
+                                  color: CaRismaDesignTokens.textPrimary,
                                   fontWeight: FontWeight.w900,
                                   height: 1.05,
                                 ),
@@ -1474,7 +1489,8 @@ class _ReportNotificationDetailsSheet extends StatelessWidget {
                             notification.formattedPlate,
                             style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.70),
+                                  color: CaRismaDesignTokens.textPrimary
+                                      .withValues(alpha: 0.70),
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
@@ -1484,7 +1500,7 @@ class _ReportNotificationDetailsSheet extends StatelessWidget {
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       tooltip: 'Schließen',
                     ),
                   ],
@@ -1495,7 +1511,9 @@ class _ReportNotificationDetailsSheet extends StatelessWidget {
                   child: Text(
                     notification.message,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.86),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.86,
+                      ),
                       fontWeight: FontWeight.w800,
                       height: 1.32,
                     ),
@@ -1573,7 +1591,9 @@ class _ReportDetailBlock extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1677,7 +1697,9 @@ class _ReportEvidencePlaceholder extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: Colors.black.withValues(alpha: 0.18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1688,7 +1710,7 @@ class _ReportEvidencePlaceholder extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.76),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1723,7 +1745,9 @@ class _ReportEvidenceImageDialog extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
               icon: const Icon(Icons.close_rounded),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.12),
+                backgroundColor: CaRismaDesignTokens.textPrimary.withValues(
+                  alpha: 0.12,
+                ),
                 foregroundColor: Colors.white,
               ),
             ),
@@ -1851,21 +1875,9 @@ class _CategoryCard extends StatelessWidget {
             border: Border.all(
               color: isSelected
                   ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
               width: isSelected ? 1.5 : 1.0,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: CaRismaDesignTokens.bluePrimary.withValues(
-                        alpha: 0.30,
-                      ),
-                      blurRadius: 24,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1884,7 +1896,7 @@ class _CategoryCard extends StatelessWidget {
                         maxLines: 1,
                         softWrap: false,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontWeight: FontWeight.w900,
                           fontSize: 15,
                           height: 1.08,
@@ -1901,7 +1913,9 @@ class _CategoryCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.72),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.72,
+                    ),
                     fontWeight: FontWeight.w700,
                     fontSize: 12.5,
                     height: 1.14,
@@ -1987,14 +2001,16 @@ class _LocationCard extends StatelessWidget {
                   controller: addressController,
                   textInputAction: TextInputAction.done,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Adresse + Hausnummer, PLZ u. Ort',
                     hintMaxLines: 1,
                     hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.50),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.50,
+                      ),
                       fontWeight: FontWeight.w700,
                     ),
                     filled: true,
@@ -2006,7 +2022,9 @@ class _LocationCard extends StatelessWidget {
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(20),
                       borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.10),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.10,
+                        ),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
@@ -2059,20 +2077,9 @@ class _LocationModeButton extends StatelessWidget {
             border: Border.all(
               color: isSelected
                   ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
-                  : Colors.white.withValues(alpha: 0.10),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
               width: isSelected ? 1.4 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: CaRismaDesignTokens.bluePrimary.withValues(
-                        alpha: 0.15,
-                      ),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
           ),
           child: Center(
             child: FittedBox(
@@ -2091,7 +2098,7 @@ class _LocationModeButton extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontWeight: isSelected
                           ? FontWeight.w900
                           : FontWeight.w800,
@@ -2172,17 +2179,19 @@ class _InlineStatusBox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 22),
+          Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
                 fontWeight: FontWeight.w700,
                 height: 1.3,
               ),
@@ -2299,16 +2308,7 @@ class _PrimaryActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.15),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(22)),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -2342,7 +2342,7 @@ class _PrimaryActionButton extends StatelessWidget {
                     Text(
                       label,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -2372,7 +2372,7 @@ class _NoteCard extends StatelessWidget {
         maxLines: 4,
         textInputAction: TextInputAction.newline,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: Colors.white,
+          color: CaRismaDesignTokens.textPrimary,
           fontWeight: FontWeight.w700,
         ),
         decoration: InputDecoration(
@@ -2380,12 +2380,12 @@ class _NoteCard extends StatelessWidget {
               'Kurzer sachlicher Hinweis - Dieser Bereich ist nur für echte Hinweise gedacht. Missbrauch kann zur Sperrung deines Kontos führen.',
           hintMaxLines: 4,
           hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.48),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.48),
             fontWeight: FontWeight.w700,
             height: 1.35,
           ),
           counterStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.50),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.50),
             fontWeight: FontWeight.w700,
           ),
           filled: true,
@@ -2393,7 +2393,9 @@ class _NoteCard extends StatelessWidget {
           contentPadding: const EdgeInsets.all(16),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+            borderSide: BorderSide(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),

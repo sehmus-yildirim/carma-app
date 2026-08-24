@@ -869,7 +869,7 @@ class _PlateSegmentTextField extends StatelessWidget {
       textInputAction: textInputAction,
       textCapitalization: TextCapitalization.characters,
       style: const TextStyle(
-        color: Colors.white,
+        color: CaRismaDesignTokens.textPrimary,
         fontWeight: FontWeight.w900,
         letterSpacing: 1.1,
       ),
@@ -900,8 +900,10 @@ class _PlateSpeechInputButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.16),
+            ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -912,13 +914,13 @@ class _PlateSpeechInputButton extends StatelessWidget {
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                   ),
                 )
               else
                 const Icon(
                   Icons.mic_none_rounded,
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   size: 20,
                 ),
               const SizedBox(width: 10),
@@ -931,7 +933,7 @@ class _PlateSpeechInputButton extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -958,12 +960,14 @@ class _IntroCard extends StatelessWidget {
             height: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14),
+              border: Border.all(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.22),
+              ),
             ),
             child: const Icon(
               Icons.directions_car_filled_rounded,
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
             ),
           ),
           const SizedBox(width: 14),
@@ -971,7 +975,7 @@ class _IntroCard extends StatelessWidget {
             child: Text(
               'Suche gezielt nach einem Kennzeichen in deiner Nähe. Treffer werden nur angezeigt, wenn Standort, Aktivität und Radius passen.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
                 height: 1.4,
               ),
             ),
@@ -1041,7 +1045,7 @@ class _SearchFormCard extends StatelessWidget {
           Text(
             'Suchdaten',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1079,7 +1083,7 @@ class _SearchFormCard extends StatelessWidget {
               numbers: numbersController.text,
             ),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.54),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.54),
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
             ),
@@ -1088,7 +1092,7 @@ class _SearchFormCard extends StatelessWidget {
           DropdownButtonFormField<String>(
             initialValue: countryCode,
             dropdownColor: CaRismaDesignTokens.controlSurface,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: CaRismaDesignTokens.textPrimary),
             decoration: _inputDecoration(
               label: 'Land',
               hint: 'Land auswählen',
@@ -1105,7 +1109,7 @@ class _SearchFormCard extends StatelessWidget {
           DropdownButtonFormField<int>(
             initialValue: radiusKm,
             dropdownColor: CaRismaDesignTokens.controlSurface,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: CaRismaDesignTokens.textPrimary),
             decoration: _inputDecoration(
               label: 'Radius',
               hint: 'Radius auswählen',
@@ -1137,18 +1141,29 @@ class _SearchFormCard extends StatelessWidget {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
-      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
-      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.38)),
+      prefixIcon: Icon(
+        icon,
+        color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
+      ),
+      labelStyle: TextStyle(
+        color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.72),
+      ),
+      hintStyle: TextStyle(
+        color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.38),
+      ),
       filled: true,
       fillColor: CaRismaDesignTokens.controlSurface,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+        borderSide: BorderSide(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.16),
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.46)),
+        borderSide: BorderSide(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.46),
+        ),
       ),
     );
   }
@@ -1175,7 +1190,7 @@ class _LocationStatus extends StatelessWidget {
             height: 18,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
             ),
           ),
           const SizedBox(width: 10),
@@ -1184,7 +1199,9 @@ class _LocationStatus extends StatelessWidget {
               'Standort wird abgefragt...',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
+              style: TextStyle(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.72),
+              ),
             ),
           ),
         ],
@@ -1198,7 +1215,7 @@ class _LocationStatus extends StatelessWidget {
           Text(
             locationError!,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
               height: 1.35,
             ),
           ),
@@ -1215,12 +1232,16 @@ class _LocationStatus extends StatelessWidget {
 
     return Row(
       children: [
-        const Icon(Icons.my_location_rounded, color: Colors.white, size: 18),
+        const Icon(
+          Icons.my_location_rounded,
+          color: CaRismaDesignTokens.textPrimary,
+          size: 18,
+        ),
         const SizedBox(width: 8),
         Text(
           'Standort bereit',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.78),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1261,8 +1282,10 @@ class _SearchCreditStatus extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.08),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14),
+        ),
       ),
       child: Row(
         children: [
@@ -1271,9 +1294,12 @@ class _SearchCreditStatus extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              color: Colors.white.withValues(alpha: 0.1),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.1),
             ),
-            child: const Icon(Icons.search_rounded, color: Colors.white),
+            child: const Icon(
+              Icons.search_rounded,
+              color: CaRismaDesignTokens.textPrimary,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1283,7 +1309,7 @@ class _SearchCreditStatus extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1291,7 +1317,9 @@ class _SearchCreditStatus extends StatelessWidget {
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.68),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.68,
+                    ),
                     height: 1.25,
                   ),
                 ),
@@ -1305,7 +1333,7 @@ class _SearchCreditStatus extends StatelessWidget {
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
               ),
             )
           else
@@ -1315,12 +1343,6 @@ class _SearchCreditStatus extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: statusColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: statusColor.withValues(alpha: 0.36),
-                    blurRadius: 10,
-                  ),
-                ],
               ),
             ),
         ],
@@ -1349,13 +1371,17 @@ class _ResultCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            const Icon(Icons.search_off_rounded, color: Colors.white, size: 28),
+            const Icon(
+              Icons.search_off_rounded,
+              color: CaRismaDesignTokens.textPrimary,
+              size: 28,
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 'Kein aktiver Nutzer innerhalb von 5 km gefunden. Der Standort muss innerhalb der letzten Stunde aktualisiert worden sein.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1373,7 +1399,7 @@ class _ResultCard extends StatelessWidget {
           Text(
             'Treffer gefunden',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -1385,12 +1411,19 @@ class _ResultCard extends StatelessWidget {
                 height: 52,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.14),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.14,
+                  ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.22),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.22,
+                    ),
                   ),
                 ),
-                child: const Icon(Icons.person_rounded, color: Colors.white),
+                child: const Icon(
+                  Icons.person_rounded,
+                  color: CaRismaDesignTokens.textPrimary,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1400,7 +1433,7 @@ class _ResultCard extends StatelessWidget {
                     Text(
                       result.displayName ?? 'plaqa Nutzer',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -1410,7 +1443,9 @@ class _ResultCard extends StatelessWidget {
                           ? 'In deiner Nähe'
                           : '${result.distanceKm!.toStringAsFixed(1)} km entfernt',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.68),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.68,
+                        ),
                       ),
                     ),
                   ],
@@ -1450,14 +1485,14 @@ class _LoadingCard extends StatelessWidget {
             height: 22,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
             ),
           ),
           const SizedBox(width: 14),
           Text(
             'Suche läuft...',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1480,13 +1515,13 @@ class _MessageCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white),
+          Icon(icon, color: CaRismaDesignTokens.textPrimary),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.82),
                 height: 1.35,
               ),
             ),
@@ -1524,20 +1559,15 @@ class _PlateSearchButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
-              color: Colors.white.withValues(alpha: 0.16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.16),
+              border: Border.all(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.28),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: Colors.white, size: 21),
+                Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 21),
                 const SizedBox(width: 10),
                 Flexible(
                   child: Text(
@@ -1546,7 +1576,7 @@ class _PlateSearchButton extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

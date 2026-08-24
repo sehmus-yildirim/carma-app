@@ -23,9 +23,7 @@ void main() {
     expect(decoration.boxShadow, isNull);
   });
 
-  testWidgets('GlassCard keeps explicit outer effects available', (
-    tester,
-  ) async {
+  testWidgets('GlassCard keeps legacy effect requests flat', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -42,6 +40,6 @@ void main() {
     );
     final decoration = container.decoration! as BoxDecoration;
 
-    expect(decoration.boxShadow, isNotEmpty);
+    expect(decoration.boxShadow, isNull);
   });
 }

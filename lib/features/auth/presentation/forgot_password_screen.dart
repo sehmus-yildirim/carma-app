@@ -149,11 +149,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-            physics: const NeverScrollableScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

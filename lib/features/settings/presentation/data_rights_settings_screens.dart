@@ -252,7 +252,11 @@ class _ExportContentLine extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                bottom: BorderSide(
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
+                ),
               ),
       ),
       child: Row(

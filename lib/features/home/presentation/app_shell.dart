@@ -1,8 +1,8 @@
-import 'dart:ui' as ui;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/models/carisma_models.dart';
+import '../../../shared/notifications/push_notification_navigation.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../chats/presentation/chats_screen.dart';
 import '../../profile/presentation/profile_hub_screen.dart';
@@ -33,12 +33,32 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _unreadReportCountStream = _watchUnreadReportCount();
+    PushNotificationNavigation.instance.addListener(_openPendingNotification);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openPendingNotification();
+    });
   }
 
   @override
   void dispose() {
+    PushNotificationNavigation.instance.removeListener(
+      _openPendingNotification,
+    );
     _profileHubController.dispose();
     super.dispose();
+  }
+
+  void _openPendingNotification() {
+    final target = PushNotificationNavigation.instance.takePendingTarget();
+    if (target == null || !mounted) return;
+
+    final index = switch (target.destination) {
+      PushNotificationDestination.profile => 1,
+      PushNotificationDestination.chats => 2,
+      PushNotificationDestination.reports => 3,
+      PushNotificationDestination.settings => 4,
+    };
+    _onTabSelected(index);
   }
 
   Stream<int> _watchUnreadReportCount() {
@@ -164,50 +184,43 @@ class _GlassBottomNavigationBar extends StatelessWidget {
         height: 72,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusNav),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                  CaRismaDesignTokens.radiusNav,
-                ),
-                color: CaRismaDesignTokens.card.withValues(alpha: 0.98),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  width: 1.0,
-                ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                CaRismaDesignTokens.radiusNav,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compactWidth = (constraints.maxWidth * 0.155)
-                        .clamp(44.0, 58.0)
-                        .toDouble();
-                    final activeWidth =
-                        constraints.maxWidth -
-                        compactWidth * (_items.length - 1);
+              color: CaRismaDesignTokens.card,
+              border: Border.all(color: CaRismaDesignTokens.border, width: 1.0),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compactWidth = (constraints.maxWidth * 0.155)
+                      .clamp(44.0, 58.0)
+                      .toDouble();
+                  final activeWidth =
+                      constraints.maxWidth - compactWidth * (_items.length - 1);
 
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(_items.length, (index) {
-                        final item = _items[index];
-                        final isSelected = selectedIndex == index;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(_items.length, (index) {
+                      final item = _items[index];
+                      final isSelected = selectedIndex == index;
 
-                        return _GlassNavigationButton(
-                          item: item,
-                          isSelected: isSelected,
-                          width: isSelected ? activeWidth : compactWidth,
-                          badgeCount: switch (index) {
-                            3 => unreadReportCount,
-                            _ => 0,
-                          },
-                          onTap: () => onTabSelected(index),
-                        );
-                      }),
-                    );
-                  },
-                ),
+                      return _GlassNavigationButton(
+                        item: item,
+                        isSelected: isSelected,
+                        width: isSelected ? activeWidth : compactWidth,
+                        badgeCount: switch (index) {
+                          3 => unreadReportCount,
+                          _ => 0,
+                        },
+                        onTap: () => onTabSelected(index),
+                      );
+                    }),
+                  );
+                },
               ),
             ),
           ),
@@ -258,15 +271,6 @@ class _GlassNavigationButton extends StatelessWidget {
                   ),
                   width: 1.4,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: CaRismaDesignTokens.bluePrimary.withValues(
-                      alpha: 0.16,
-                    ),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               )
             : null,
         child: Stack(

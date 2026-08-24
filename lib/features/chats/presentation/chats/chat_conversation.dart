@@ -71,7 +71,7 @@ class _DeleteMessageOption extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -2799,7 +2799,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
           insetPadding: const EdgeInsets.symmetric(horizontal: 26),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+            side: BorderSide(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -2832,7 +2834,7 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                       child: Text(
                         'Nachricht löschen?',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
                         ),
@@ -2848,7 +2850,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
                             : 'Diese Nachricht kann nur noch für dich gelöscht werden.'
                       : 'Die Nachricht wird nur aus deinem Chat entfernt.',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.72,
+                    ),
                     fontWeight: FontWeight.w700,
                     height: 1.32,
                   ),
@@ -3146,6 +3150,9 @@ class _ChatConversationScreenState extends State<_ChatConversationScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
+
+      useSafeArea: true,
+
       builder: (context) {
         return _ChatProfileSheet(
           displayName: widget.displayName,
@@ -3269,7 +3276,7 @@ Future<void> _showChatProfileImage(
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded),
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 tooltip: 'Schließen',
               ),
             ),
@@ -3393,7 +3400,7 @@ class _CompactChatInfoCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
-                              color: Colors.white,
+                              color: CaRismaDesignTokens.textPrimary,
                               fontWeight: FontWeight.w900,
                               fontSize: 17,
                               height: 1.05,
@@ -3452,7 +3459,9 @@ class _ChatHeaderInfoChip extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         color: CaRismaDesignTokens.surface2,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.11),
+        ),
       ),
       child: Text(
         label,
@@ -3460,7 +3469,7 @@ class _ChatHeaderInfoChip extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Colors.white.withValues(alpha: 0.86),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.86),
           fontWeight: FontWeight.w900,
           fontSize: 10,
           height: 1,
@@ -3547,6 +3556,9 @@ class _ChatProfileSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
+
+      useSafeArea: true,
+
       builder: (context) {
         return _ChatProfileAllMediaSheet(
           messages: messages,
@@ -3570,6 +3582,9 @@ class _ChatProfileSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
+
+      useSafeArea: true,
+
       builder: (context) {
         return _ChatProfileAllLinksSheet(
           links: links,
@@ -3593,6 +3608,9 @@ class _ChatProfileSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
+
+      useSafeArea: true,
+
       builder: (context) {
         return _ChatProfileAllDocumentsSheet(
           messages: messages,
@@ -3750,6 +3768,9 @@ class _ChatProfileSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
@@ -3816,7 +3837,9 @@ class _ChatProfileSheet extends StatelessWidget {
                     height: 4,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      color: Colors.white.withValues(alpha: 0.24),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.24,
+                      ),
                     ),
                   ),
                 ),
@@ -3860,7 +3883,7 @@ class _ChatProfileSheet extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -3901,7 +3924,9 @@ class _ChatProfileSheet extends StatelessWidget {
                             CaRismaDesignTokens.radiusInput,
                           ),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.09),
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.09,
+                            ),
                           ),
                         ),
                         child: const Row(
@@ -4057,7 +4082,9 @@ class _ChatProfileChip extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
         color: CaRismaDesignTokens.card,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -4070,7 +4097,7 @@ class _ChatProfileChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.88),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.88),
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -4107,14 +4134,16 @@ class _ChatProfileStat extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             color: CaRismaDesignTokens.card,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+            ),
           ),
           child: Column(
             children: [
               Text(
                 value,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -4122,7 +4151,9 @@ class _ChatProfileStat extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.66),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.66,
+                  ),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -4148,7 +4179,7 @@ class _ChatProfileSectionTitle extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -4445,6 +4476,9 @@ class _ChatProfileAllMediaSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
@@ -4650,6 +4684,9 @@ class _ChatProfileAllLinksSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
@@ -4898,6 +4935,9 @@ class _ChatProfileAllDocumentsSheet extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
@@ -5129,7 +5169,9 @@ class _ChatProfileCollectionShellBodyState
                   height: 4,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
-                    color: Colors.white.withValues(alpha: 0.24),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.24,
+                    ),
                   ),
                 ),
               ),
@@ -5141,7 +5183,7 @@ class _ChatProfileCollectionShellBodyState
                       child: Text(
                         widget.title,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -5156,7 +5198,7 @@ class _ChatProfileCollectionShellBodyState
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       tooltip: 'Schließen',
                     ),
                   ],
@@ -5180,7 +5222,9 @@ class _ChatProfileCollectionShellBodyState
                       color: CaRismaDesignTokens.background,
                       border: Border(
                         top: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.09),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.09,
+                          ),
                         ),
                       ),
                     ),
@@ -5267,11 +5311,13 @@ class _ChatProfileSelectionCheck extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: isSelected ? _carismaBlue : Colors.black.withValues(alpha: 0.46),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.82),
+        ),
       ),
       child: Icon(
         isSelected ? Icons.check_rounded : Icons.circle_outlined,
-        color: Colors.white,
+        color: CaRismaDesignTokens.textPrimary,
         size: isSelected ? 18 : 14,
       ),
     );
@@ -5328,7 +5374,9 @@ class _ChatProfileListTile extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: CaRismaDesignTokens.card,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.09),
+        ),
       ),
       child: Row(
         children: [
@@ -5343,7 +5391,7 @@ class _ChatProfileListTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -5353,7 +5401,9 @@ class _ChatProfileListTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.62),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.62,
+                    ),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -5379,16 +5429,22 @@ class _ChatProfileEmptyRow extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: CaRismaDesignTokens.card,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white.withValues(alpha: 0.42), size: 22),
+          Icon(
+            icon,
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.42),
+            size: 22,
+          ),
           const SizedBox(width: 10),
           Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.62),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.62),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -5519,13 +5575,13 @@ class _ChatVideoPreviewDialogState extends State<_ChatVideoPreviewDialog> {
                     tooltip: 'Abbrechen',
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                   ),
                   const Expanded(
                     child: Text(
                       'Video prüfen',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
@@ -5570,7 +5626,7 @@ class _ChatVideoPreviewDialogState extends State<_ChatVideoPreviewDialog> {
                                 ),
                                 child: const Icon(
                                   Icons.play_arrow_rounded,
-                                  color: Colors.white,
+                                  color: CaRismaDesignTokens.textPrimary,
                                   size: 38,
                                 ),
                               ),
@@ -5595,7 +5651,7 @@ class _ChatVideoPreviewDialogState extends State<_ChatVideoPreviewDialog> {
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                       ),
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                     ),
                     Expanded(
                       child: VideoProgressIndicator(

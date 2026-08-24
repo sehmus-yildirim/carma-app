@@ -423,9 +423,14 @@ class AppPreferenceSettings {
 
   factory AppPreferenceSettings.fromMap(Map<String, dynamic>? data) {
     if (data == null) return const AppPreferenceSettings();
+    final rawThemeMode = data['themeMode'] as String?;
+    final themeMode =
+        const <String>{'system', 'light', 'dark'}.contains(rawThemeMode)
+        ? rawThemeMode!
+        : 'dark';
     return AppPreferenceSettings(
       languageCode: data['languageCode'] as String? ?? 'de',
-      themeMode: data['themeMode'] as String? ?? 'dark',
+      themeMode: themeMode,
       hapticsEnabled: data['hapticsEnabled'] as bool? ?? true,
       messageSoundsEnabled: data['messageSoundsEnabled'] as bool? ?? true,
       distanceUnit: data['distanceUnit'] as String? ?? 'km',

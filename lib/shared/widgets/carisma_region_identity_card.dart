@@ -9,7 +9,7 @@ class CaRismaRegionIdentityCard extends StatelessWidget {
     super.key,
     required this.region,
     this.onTap,
-    this.showOuterEffects = true,
+    this.showOuterEffects = false,
   });
 
   final RegistrationRegionPresentationData region;
@@ -44,7 +44,9 @@ class CaRismaRegionIdentityCard extends StatelessWidget {
                       ),
                       borderRadius: BorderRadius.circular(13),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.1,
+                        ),
                       ),
                     ),
                     child: AnimatedSwitcher(
@@ -73,7 +75,9 @@ class CaRismaRegionIdentityCard extends StatelessWidget {
                   const SizedBox(width: 7),
                   Icon(
                     Icons.chevron_right_rounded,
-                    color: Colors.white.withValues(alpha: 0.52),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.52,
+                    ),
                     size: 23,
                   ),
                 ],
@@ -185,14 +189,9 @@ class _CaRismaRegistrationRegionPickerSheetState
         decoration: BoxDecoration(
           color: CaRismaDesignTokens.card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 28,
-              offset: const Offset(0, -8),
-            ),
-          ],
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+          ),
         ),
         child: Column(
           children: [
@@ -201,7 +200,7 @@ class _CaRismaRegistrationRegionPickerSheetState
               width: 42,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.24),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.24),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -217,7 +216,7 @@ class _CaRismaRegistrationRegionPickerSheetState
                           'Zulassungsregion wählen',
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
-                                color: Colors.white,
+                                color: CaRismaDesignTokens.textPrimary,
                                 fontWeight: FontWeight.w800,
                               ),
                         ),
@@ -236,7 +235,7 @@ class _CaRismaRegistrationRegionPickerSheetState
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     tooltip: 'Schließen',
                   ),
                 ],
@@ -249,13 +248,15 @@ class _CaRismaRegistrationRegionPickerSheetState
                 onChanged: (value) => setState(() => _query = value),
                 textCapitalization: TextCapitalization.characters,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Code oder Stadt suchen',
                   hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.46),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.46,
+                    ),
                   ),
                   prefixIcon: const Icon(
                     Icons.search_rounded,
@@ -267,13 +268,17 @@ class _CaRismaRegistrationRegionPickerSheetState
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.1,
+                      ),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.1,
+                      ),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -305,7 +310,9 @@ class _CaRismaRegistrationRegionPickerSheetState
                       itemCount: regions.length,
                       separatorBuilder: (_, _) => Divider(
                         height: 1,
-                        color: Colors.white.withValues(alpha: 0.065),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.065,
+                        ),
                       ),
                       itemBuilder: (context, index) {
                         final region = regions[index];
@@ -371,7 +378,8 @@ class _CaRismaRegistrationRegionPickerSheetState
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                            color: Colors.white,
+                                            color:
+                                                CaRismaDesignTokens.textPrimary,
                                             fontSize: 15.5,
                                             fontWeight: FontWeight.w700,
                                           ),

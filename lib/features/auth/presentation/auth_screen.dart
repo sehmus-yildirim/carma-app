@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/carisma_background.dart';
@@ -13,7 +14,10 @@ const Color _carismaMutedWhite = Color(0xCCFFFFFF);
 const Color _carismaHint = Color(0x99FFFFFF);
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.appleSignIn, this.appleSignInAvailable});
+
+  final Future<UserCredential> Function()? appleSignIn;
+  final bool? appleSignInAvailable;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -227,14 +231,45 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  void _showAppleInfo() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Apple Login ist vorbereitet und wird später mit dem iOS-Setup aktiviert.',
-        ),
-      ),
-    );
+  Future<void> _signInWithApple() async {
+    FocusScope.of(context).unfocus();
+
+    if (_isRegisterMode && !_acceptedLegal) {
+      setState(() {
+        _errorMessage =
+            'Bitte akzeptiere die AGB und die Datenschutzerklärung.';
+      });
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final signIn = widget.appleSignIn ?? _authService.signInWithApple;
+      await signIn();
+      if (!mounted) return;
+
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Apple-Anmeldung erfolgreich.')),
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = _mapFirebaseAuthError(error));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Apple-Anmeldung konnte gerade nicht durchgeführt werden.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _toggleMode() {
@@ -278,8 +313,12 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'Netzwerkfehler. Bitte prüfe deine Internetverbindung.';
       case 'aborted-by-user':
         return 'Die Anmeldung wurde abgebrochen.';
-      case 'apple-not-configured':
-        return 'Apple Login wird später mit dem iOS-Setup aktiviert.';
+      case 'credential-already-in-use':
+      case 'account-exists-with-different-credential':
+        return 'Für diese Apple-Anmeldung besteht bereits ein Konto. Melde dich zuerst mit der bisherigen Methode an und verknüpfe Apple anschließend unter Konto & Sicherheit.';
+      case 'missing-or-invalid-nonce':
+      case 'invalid-provider-id':
+        return 'Apple-Anmeldung ist noch nicht vollständig konfiguriert.';
       default:
         return 'Die Anmeldung konnte gerade nicht abgeschlossen werden. Bitte versuche es erneut.';
     }
@@ -301,6 +340,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
     final cardTitle = _isRegisterMode ? 'Konto erstellen' : 'Anmelden';
     final primaryButtonText = _isRegisterMode ? 'Registrieren' : 'Einloggen';
+    final appleAvailable =
+        widget.appleSignInAvailable ??
+        (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS);
     final switchText = _isRegisterMode
         ? 'Ich habe schon ein Konto'
         : 'Konto erstellen';
@@ -507,7 +549,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                     color: _carismaWhite,
                                     size: 22,
                                   ),
-                                  onPressed: _isLoading ? null : _showAppleInfo,
+                                  onPressed: _isLoading || !appleAvailable
+                                      ? null
+                                      : _signInWithApple,
                                 ),
                               ],
                             ),

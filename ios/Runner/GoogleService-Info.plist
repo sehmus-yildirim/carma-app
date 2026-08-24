@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>493803183324-rsojqr0bc4t4t9pmueml1g01436jprdp.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.493803183324-rsojqr0bc4t4t9pmueml1g01436jprdp</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>493803183324-1p1d3qjh6c1qmjpdt7b2e66lh5ujcc96.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCugKy_9EquDztsLjqyY5vzShiUl4QGm5w</string>
+	<key>GCM_SENDER_ID</key>
+	<string>493803183324</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>de.plaqa.app</string>
+	<key>PROJECT_ID</key>
+	<string>carma-a84e4</string>
+	<key>STORAGE_BUCKET</key>
+	<string>carma-a84e4.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:493803183324:ios:8b44caabe90a41ae896819</string>
+</dict>
+</plist>

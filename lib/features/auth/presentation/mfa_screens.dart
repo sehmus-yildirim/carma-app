@@ -331,7 +331,9 @@ class _MfaManagementScreenState extends State<MfaManagementScreen> {
                     ),
                     if (index != factors.length - 1)
                       Divider(
-                        color: Colors.white.withValues(alpha: 0.07),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.07,
+                        ),
                         height: 20,
                       ),
                   ],
@@ -1230,7 +1232,9 @@ class _MfaCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.card,
         borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1460,7 +1464,9 @@ class _MfaRoundButton extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: CaRismaDesignTokens.card,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.1),
+          ),
         ),
         child: Icon(icon, color: color, size: 22),
       ),
@@ -1496,7 +1502,9 @@ class _MfaPasswordDialogState extends State<_MfaPasswordDialog> {
       backgroundColor: CaRismaDesignTokens.card,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusPanel),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        side: BorderSide(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.1),
+        ),
       ),
       title: const Text(
         'Anmeldung bestätigen',
@@ -1605,7 +1613,9 @@ InputDecoration _mfaInputDecoration({
 }) {
   final normalBorder = OutlineInputBorder(
     borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusInput),
-    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+    borderSide: BorderSide(
+      color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.1),
+    ),
   );
   return InputDecoration(
     labelText: label,

@@ -815,7 +815,7 @@ class _VehicleSectionHeader extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -898,7 +898,9 @@ class _VehicleModificationsCard extends StatelessWidget {
                         itemCount: items.length,
                         separatorBuilder: (_, _) => Divider(
                           height: 1,
-                          color: Colors.white.withValues(alpha: 0.07),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.07,
+                          ),
                         ),
                         itemBuilder: (context, index) => _ModificationRow(
                           modification: items[index],
@@ -966,7 +968,7 @@ class _ModificationRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1052,7 +1054,7 @@ class _VehicleDataValue extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.white,
+            color: CaRismaDesignTokens.textPrimary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1071,9 +1073,11 @@ class _EquipmentTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.055),
+        color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.055),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         children: [
@@ -1089,7 +1093,7 @@ class _EquipmentTile extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 fontWeight: FontWeight.w800,
                 height: 1.05,
               ),
@@ -1136,7 +1140,7 @@ class _ProfileVehicleCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -1228,9 +1232,11 @@ class _VehicleChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.055),
+        color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.055),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1240,7 +1246,7 @@ class _VehicleChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1268,7 +1274,9 @@ class _VehicleHighlightTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         children: [
@@ -1294,7 +1302,7 @@ class _VehicleHighlightTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1351,7 +1359,7 @@ class _VehicleMessageState extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),

@@ -2321,6 +2321,9 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) {
         return DraggableScrollableSheet(
           initialChildSize: initialChildSize,
@@ -2588,6 +2591,9 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     return showModalBottomSheet<_StoryStickerDraft>(
       context: context,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -2674,6 +2680,9 @@ class _StoryDraftEditorScreenState extends State<_StoryDraftEditorScreen> {
     return showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) {
         return SafeArea(
           child: Padding(

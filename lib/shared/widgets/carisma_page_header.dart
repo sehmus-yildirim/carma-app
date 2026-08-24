@@ -28,19 +28,9 @@ class CaRismaPageHeader extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             color: CaRismaDesignTokens.surface2,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.60),
-                blurRadius: 16,
-                offset: const Offset(5, 5),
-              ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.015),
-                blurRadius: 10,
-                offset: const Offset(-5, -5),
-              ),
-            ],
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.04),
+            ),
           ),
           child: Icon(
             icon,
@@ -78,20 +68,10 @@ class CaRismaPageHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   color: CaRismaDesignTokens.surface2,
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.05,
+                    ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      blurRadius: 12,
-                      offset: const Offset(4, 4),
-                    ),
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.015),
-                      blurRadius: 8,
-                      offset: const Offset(-4, -4),
-                    ),
-                  ],
                 ),
                 child: Icon(
                   actionIcon,

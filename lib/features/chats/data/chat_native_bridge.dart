@@ -1,4 +1,8 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PickedPhoneContact {
   const PickedPhoneContact({required this.name, required this.phoneNumber});
@@ -70,6 +74,7 @@ class ChatNativeBridge {
   };
 
   Future<PickedPhoneContact?> pickPhoneContact() async {
+    _requireAndroidNativeTool('Kontakte auswählen');
     final result = await _channel.invokeMapMethod<String, String>(
       'pickPhoneContact',
     );
@@ -95,6 +100,20 @@ class ChatNativeBridge {
     required double latitude,
     required double longitude,
   }) async {
+    if (_isIos) {
+      final uri = Uri.https('maps.apple.com', '/', <String, String>{
+        'll': '$latitude,$longitude',
+      });
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw PlatformException(
+          code: 'map-unavailable',
+          message: 'Die Karten-App konnte nicht geöffnet werden.',
+        );
+      }
+      return;
+    }
+
+    _requireAndroidNativeTool('Karte öffnen');
     await _channel.invokeMethod<void>('openMap', <String, Object>{
       'latitude': latitude,
       'longitude': longitude,
@@ -105,6 +124,7 @@ class ChatNativeBridge {
     required double latitude,
     required double longitude,
   }) async {
+    _requireAndroidNativeTool('Ortsnamen ermitteln');
     final result = await _channel.invokeMethod<Object?>(
       'reverseGeocodeLocation',
       <String, Object>{'latitude': latitude, 'longitude': longitude},
@@ -143,6 +163,39 @@ class ChatNativeBridge {
   }
 
   Future<PickedDocumentFile?> pickDocumentFile() async {
+    if (_isIos) {
+      final file = await FilePicker.pickFile(
+        dialogTitle: 'Dokument auswählen',
+        type: FileType.custom,
+        allowedExtensions: _documentContentTypesByExtension.keys.toList(
+          growable: false,
+        ),
+      );
+      if (file == null) {
+        return null;
+      }
+
+      final path = file.path?.trim() ?? '';
+      final sizeBytes = await file.length();
+      if (path.isEmpty || file.name.trim().isEmpty || sizeBytes <= 0) {
+        throw PlatformException(
+          code: 'document-unavailable',
+          message: 'Das ausgewählte Dokument konnte nicht gelesen werden.',
+        );
+      }
+
+      return PickedDocumentFile(
+        path: path,
+        name: file.name.trim(),
+        sizeBytes: sizeBytes,
+        contentType: _documentContentTypeFor(
+          fileName: file.name,
+          contentType: 'application/octet-stream',
+        ),
+      );
+    }
+
+    _requireAndroidNativeTool('Dokument auswählen');
     final result = await _channel.invokeMapMethod<String, Object?>(
       'pickDocumentFile',
     );
@@ -203,6 +256,24 @@ class ChatNativeBridge {
     required String url,
     required String contentType,
   }) async {
+    if (_isIos) {
+      final uri = Uri.tryParse(url.trim());
+      if (uri == null || !const {'https', 'http'}.contains(uri.scheme)) {
+        throw PlatformException(
+          code: 'invalid-document-url',
+          message: 'Der Dokumentlink ist ungültig.',
+        );
+      }
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw PlatformException(
+          code: 'document-unavailable',
+          message: 'Das Dokument konnte nicht geöffnet werden.',
+        );
+      }
+      return;
+    }
+
+    _requireAndroidNativeTool('Dokument öffnen');
     await _channel.invokeMethod<void>('openDocumentUrl', <String, Object>{
       'url': url,
       'contentType': contentType,
@@ -210,9 +281,11 @@ class ChatNativeBridge {
   }
 
   Future<void> shareText({required String text}) async {
-    await _channel.invokeMethod<void>('shareText', <String, Object>{
-      'text': text,
-    });
+    final normalizedText = text.trim();
+    if (normalizedText.isEmpty) {
+      return;
+    }
+    await SharePlus.instance.share(ShareParams(text: normalizedText));
   }
 
   Future<void> saveImageToGallery({
@@ -220,6 +293,7 @@ class ChatNativeBridge {
     required String fileName,
     required String contentType,
   }) async {
+    _requireAndroidNativeTool('Bild speichern');
     await _channel.invokeMethod<void>('saveImageToGallery', <String, Object>{
       'url': url,
       'fileName': fileName,
@@ -232,6 +306,7 @@ class ChatNativeBridge {
     required String fileName,
     required String contentType,
   }) async {
+    _requireAndroidNativeTool('Video speichern');
     await _channel.invokeMethod<void>('saveVideoToGallery', <String, Object>{
       'url': url,
       'fileName': fileName,
@@ -244,6 +319,21 @@ class ChatNativeBridge {
     required String fileName,
     required String contentType,
   }) async {
+    if (_isIos) {
+      final uri = Uri.tryParse(url.trim());
+      if (uri == null || !const {'https', 'http'}.contains(uri.scheme)) {
+        throw PlatformException(
+          code: 'invalid-document-url',
+          message: 'Der Dokumentlink ist ungültig.',
+        );
+      }
+      await SharePlus.instance.share(
+        ShareParams(text: uri.toString(), subject: fileName.trim()),
+      );
+      return;
+    }
+
+    _requireAndroidNativeTool('Dokument speichern');
     await _channel.invokeMethod<void>(
       'saveDocumentToDownloads',
       <String, Object>{
@@ -255,10 +345,12 @@ class ChatNativeBridge {
   }
 
   Future<void> startVoiceMemo() async {
+    _requireAndroidNativeTool('Sprachmemo aufnehmen');
     await _channel.invokeMethod<void>('startVoiceMemo');
   }
 
   Future<PickedVoiceMemoFile> stopVoiceMemo() async {
+    _requireAndroidNativeTool('Sprachmemo aufnehmen');
     final result = await _channel.invokeMapMethod<String, Object?>(
       'stopVoiceMemo',
     );
@@ -290,16 +382,35 @@ class ChatNativeBridge {
   }
 
   Future<void> cancelVoiceMemo() async {
+    _requireAndroidNativeTool('Sprachmemo aufnehmen');
     await _channel.invokeMethod<void>('cancelVoiceMemo');
   }
 
   Future<void> playVoiceMemo({required String url}) async {
+    _requireAndroidNativeTool('Sprachmemo wiedergeben');
     await _channel.invokeMethod<void>('playVoiceMemo', <String, Object>{
       'url': url,
     });
   }
 
   Future<void> stopVoiceMemoPlayback() async {
+    _requireAndroidNativeTool('Sprachmemo wiedergeben');
     await _channel.invokeMethod<void>('stopVoiceMemoPlayback');
+  }
+
+  bool get _isIos => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  void _requireAndroidNativeTool(String action) {
+    if (_isAndroid) {
+      return;
+    }
+    throw PlatformException(
+      code: 'platform-tool-unavailable',
+      message:
+          '$action ist auf diesem Gerät noch nicht verfügbar. Bitte nutze eine andere Auswahl.',
+    );
   }
 }

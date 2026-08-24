@@ -42,6 +42,18 @@ void main() {
         ),
         'Bestätige zuerst deine E-Mail Adresse.',
       );
+      expect(
+        accountAuthErrorMessage(
+          FirebaseAuthException(code: 'provider-already-linked'),
+        ),
+        'Apple ist bereits mit diesem Konto verknüpft.',
+      );
+      expect(
+        accountAuthErrorMessage(
+          FirebaseAuthException(code: 'credential-already-in-use'),
+        ),
+        contains('bereits zu einem anderen Konto'),
+      );
     });
   });
 
@@ -94,6 +106,33 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Passwort ändern'), findsNothing);
+  });
+
+  testWidgets('links Apple once and refreshes the account status', (
+    tester,
+  ) async {
+    final gateway = _FakeAccountAuthGateway(_passwordAccount);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AccountSecurityScreen(
+          accountGateway: gateway,
+          initialAccount: _passwordAccount,
+          appleLinkAvailable: true,
+          onLogout: () {},
+          onRequestAccountDeletion: () {},
+          onOpenSupport: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('Mit Apple verknüpfen'), findsOneWidget);
+    await tester.tap(find.text('Mit Apple verknüpfen'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.appleLinkCalls, 1);
+    expect(find.text('Mit Apple verknüpft'), findsOneWidget);
+    expect(find.text('Aktiv'), findsOneWidget);
   });
 
   testWidgets('password reset sends only after controlled email confirmation', (
@@ -273,11 +312,25 @@ class _FakeAccountAuthGateway implements AccountAuthGateway {
   AuthAccountSnapshot account;
   int passwordResetCalls = 0;
   int verificationCalls = 0;
+  int appleLinkCalls = 0;
   int revokeCalls = 0;
   String? lastRevokePassword;
 
   @override
   Future<void> deleteCurrentUser({String? currentPassword}) async {}
+
+  @override
+  Future<void> linkCurrentUserWithApple() async {
+    appleLinkCalls += 1;
+    account = AuthAccountSnapshot(
+      userId: account.userId,
+      email: account.email,
+      isEmailVerified: account.isEmailVerified,
+      providers: {...account.providers, AuthLoginProvider.apple},
+      creationTime: account.creationTime,
+      lastSignInTime: account.lastSignInTime,
+    );
+  }
 
   @override
   Future<AuthAccountSnapshot?> loadCurrentAccount() async => account;

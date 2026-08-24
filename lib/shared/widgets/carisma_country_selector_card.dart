@@ -11,7 +11,7 @@ class CaRismaCountrySelectorCard extends StatelessWidget {
     required this.selectedCountryCode,
     required this.onChanged,
     this.isLocked = false,
-    this.showOuterEffects = true,
+    this.showOuterEffects = false,
   });
 
   final String selectedCountryCode;
@@ -87,25 +87,9 @@ class _CountryButton extends StatelessWidget {
             border: Border.all(
               color: isSelected
                   ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
               width: isSelected ? 1.4 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.34),
-                      blurRadius: 14,
-                      offset: const Offset(0, 8),
-                    ),
-                    BoxShadow(
-                      color: CaRismaDesignTokens.bluePrimary.withValues(
-                        alpha: 0.18,
-                      ),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -130,7 +114,7 @@ class _CountryButton extends StatelessWidget {
                     config.countryLabel,
                     maxLines: 1,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontSize: 15,
                       fontWeight: isSelected
                           ? FontWeight.w900

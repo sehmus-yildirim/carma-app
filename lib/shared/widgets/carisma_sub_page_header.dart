@@ -66,11 +66,13 @@ class _RoundBackButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: CaRismaDesignTokens.surfaceGradient(),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           child: const Icon(
             Icons.arrow_back_rounded,
-            color: Colors.white,
+            color: CaRismaDesignTokens.textPrimary,
             size: 22,
           ),
         ),

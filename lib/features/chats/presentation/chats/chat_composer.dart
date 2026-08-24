@@ -102,7 +102,9 @@ class _MessageComposer extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: attachmentUploadProgress,
                   minHeight: 3,
-                  backgroundColor: Colors.white.withValues(alpha: 0.08),
+                  backgroundColor: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
                   valueColor: const AlwaysStoppedAnimation<Color>(
                     CaRismaDesignTokens.bluePrimary,
                   ),
@@ -429,7 +431,7 @@ class _ComposerIconButton extends StatelessWidget {
           size: 46,
           icon: icon,
           iconColor: onTap == null
-              ? Colors.white.withValues(alpha: 0.38)
+              ? CaRismaDesignTokens.textPrimary.withValues(alpha: 0.38)
               : CaRismaDesignTokens.textPrimary,
           iconSize: 25,
           isEnabled: onTap != null,
@@ -471,21 +473,9 @@ class _CaRismaActionCircle extends StatelessWidget {
           border: Border.all(
             color: isActive
                 ? CaRismaDesignTokens.bluePrimary
-                : Colors.white.withValues(alpha: 0.11),
+                : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.11),
             width: isActive ? 1.5 : 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.36),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-            if (isActive)
-              BoxShadow(
-                color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.3),
-                blurRadius: 18,
-              ),
-          ],
         ),
         child: Icon(icon, color: iconColor, size: iconSize),
       ),
@@ -741,25 +731,12 @@ class _VoiceMemoGestureButtonState extends State<_VoiceMemoGestureButton> {
                       ? const Color(0xFFEF4444)
                       : CaRismaDesignTokens.bluePrimary
                 : CaRismaDesignTokens.surface2.withValues(alpha: 0.72),
-            boxShadow: widget.isEnabled
-                ? [
-                    BoxShadow(
-                      color:
-                          (isActive
-                                  ? const Color(0xFFEF4444)
-                                  : CaRismaDesignTokens.bluePrimary)
-                              .withValues(alpha: 0.28),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : const [],
           ),
           child: Icon(
             Icons.mic_rounded,
             color: widget.isEnabled
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.42),
+                ? CaRismaDesignTokens.onAccent
+                : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.42),
             size: 23,
           ),
         ),
@@ -809,17 +786,10 @@ class _SendButton extends StatelessWidget {
                 ? null
                 : CaRismaDesignTokens.surface2.withValues(alpha: 0.72),
             border: Border.all(
-              color: Colors.white.withValues(alpha: isEnabled ? 0.0 : 0.14),
+              color: CaRismaDesignTokens.textPrimary.withValues(
+                alpha: isEnabled ? 0.0 : 0.14,
+              ),
             ),
-            boxShadow: isEnabled
-                ? [
-                    BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.35),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ]
-                : const [],
           ),
           child: isBusy
               ? const Center(
@@ -828,15 +798,15 @@ class _SendButton extends StatelessWidget {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.2,
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.onAccent,
                     ),
                   ),
                 )
               : Icon(
                   icon,
                   color: isEnabled
-                      ? Colors.white
-                      : Colors.white.withValues(alpha: 0.42),
+                      ? CaRismaDesignTokens.onAccent
+                      : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.42),
                   size: 22,
                 ),
         ),

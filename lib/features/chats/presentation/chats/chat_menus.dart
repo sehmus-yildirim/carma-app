@@ -695,10 +695,10 @@ class _ChatOverflowMenu extends StatelessWidget {
       popupMenuTheme: PopupMenuThemeData(
         color: CaRismaDesignTokens.surface1,
         surfaceTintColor: Colors.transparent,
-        elevation: 12,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          side: const BorderSide(color: CaRismaDesignTokens.border),
         ),
       ),
     );
@@ -707,7 +707,10 @@ class _ChatOverflowMenu extends StatelessWidget {
       data: menuTheme,
       child: PopupMenuButton<_ChatMenuAction>(
         tooltip: 'Chat-Einstellungen',
-        icon: const Icon(Icons.more_vert_rounded, color: Colors.white70),
+        icon: const Icon(
+          Icons.more_vert_rounded,
+          color: CaRismaDesignTokens.textSecondary,
+        ),
         color: CaRismaDesignTokens.surface1,
         onSelected: (action) => _handleAction(context, action),
         itemBuilder: (context) {

@@ -79,7 +79,7 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
     _FaqEntry(
       question: 'Warum kann ich keine Fotos oder Sprachmemos senden?',
       answer:
-          'Prüfe unter Einstellungen, Schutz & Daten und App-Berechtigungen den Zugriff auf Kamera, Mikrofon und Medien. Dauerhaft abgelehnte Rechte kannst du direkt in den Android-Einstellungen wieder erlauben.',
+          'Prüfe unter Einstellungen, Schutz & Daten und App-Berechtigungen den Zugriff auf Kamera, Mikrofon und Medien. Dauerhaft abgelehnte Rechte kannst du direkt in den App-Einstellungen deines Geräts wieder erlauben.',
       keywords: 'foto video sprachmemo kamera mikrofon galerie berechtigung',
     ),
     _FaqEntry(

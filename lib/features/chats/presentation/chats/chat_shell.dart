@@ -1443,6 +1443,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+
+      useSafeArea: true,
+
       builder: (context) {
         final maxSheetHeight = MediaQuery.sizeOf(context).height * 0.74;
 
@@ -1818,6 +1821,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return _StoryStickerInfoSheet(
           icon: Icons.location_on_rounded,
@@ -1916,6 +1922,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return _StoryStickerInfoSheet(
           icon: Icons.link_rounded,
@@ -2007,6 +2016,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return _StoryStickerInfoSheet(
           icon: Icons.tag_rounded,
@@ -2080,6 +2092,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return _StoryStickerInfoSheet(
           icon: Icons.directions_car_filled_rounded,
@@ -2146,6 +2161,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return _StoryStickerInfoSheet(
           icon: _storyStatusStickerIcon(statusLabel),
@@ -2569,13 +2587,6 @@ class _StoryDeleteDialog extends StatelessWidget {
               borderRadius: BorderRadius.circular(28),
               color: CaRismaDesignTokens.card,
               border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.36),
-                  blurRadius: 32,
-                  offset: const Offset(0, 18),
-                ),
-              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -2753,13 +2764,6 @@ class _StoryStickerInfoSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 color: CaRismaDesignTokens.card,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-                boxShadow: [
-                  BoxShadow(
-                    color: _carismaBlue.withValues(alpha: 0.2),
-                    blurRadius: 34,
-                    offset: const Offset(0, 18),
-                  ),
-                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -2787,13 +2791,6 @@ class _StoryStickerInfoSheet extends StatelessWidget {
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.18),
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.28),
-                              blurRadius: 18,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
                         ),
                         child: Icon(icon, color: Colors.white, size: 26),
                       ),
@@ -3165,18 +3162,6 @@ class _PendingRequestTile extends StatelessWidget {
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.04),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.50),
-                        blurRadius: 12,
-                        offset: const Offset(4, 4),
-                      ),
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.015),
-                        blurRadius: 8,
-                        offset: const Offset(-4, -4),
-                      ),
-                    ],
                   ),
                   child: const Icon(
                     Icons.person_outline_rounded,

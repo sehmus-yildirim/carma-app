@@ -634,6 +634,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
+
+      useSafeArea: true,
+
       builder: (sheetContext) => SafeArea(
         top: false,
         child: Padding(
@@ -763,7 +766,10 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         backgroundColor: CaRismaDesignTokens.card,
         title: const Text(
           'Nachweis entfernen?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         content: const Text(
           'Der ausgewählte Nachweis wird aus dem privaten Speicher entfernt.',
@@ -964,7 +970,10 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         backgroundColor: CaRismaDesignTokens.card,
         title: const Text(
           'Datenschutz & Berechtigung',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         content: const SingleChildScrollView(
           child: Text.rich(
@@ -1214,7 +1223,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                   'Verifizierungsübersicht',
                   maxLines: 1,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1317,7 +1326,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1367,7 +1376,10 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         const Divider(color: Color(0x1FFFFFFF), height: 26),
         const Text(
           'Fahrzeugzuordnung',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 10),
         _DarkDropdown<String>(
@@ -1436,7 +1448,10 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         const Divider(color: Color(0x1FFFFFFF), height: 26),
         const Text(
           'Dokumenttyp',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 10),
         _DarkDropdown<ProfileVerificationIdentityDocumentType>(
@@ -1499,7 +1514,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               }
             },
             style: const TextStyle(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w800,
             ),
             decoration: InputDecoration(
@@ -1587,7 +1602,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
           const Text(
             'Datenschutzübersicht',
             style: TextStyle(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
@@ -1632,7 +1647,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
           const Text(
             'Verifizierungsverlauf',
             style: TextStyle(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
@@ -1658,7 +1673,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
           const Text(
             'Aktuelle Hinweise',
             style: TextStyle(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
@@ -1727,7 +1742,11 @@ class _VerificationStageRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                bottom: BorderSide(
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
+                ),
               ),
       ),
       child: Row(
@@ -1745,7 +1764,7 @@ class _VerificationStageRow extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1901,10 +1920,12 @@ class _VerificationDocumentCard extends StatelessWidget {
                   color: CaRismaDesignTokens.controlSurface,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.12,
+                    ),
                   ),
                 ),
-                child: Icon(icon, color: Colors.white),
+                child: Icon(icon, color: CaRismaDesignTokens.textPrimary),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1914,7 +1935,7 @@ class _VerificationDocumentCard extends StatelessWidget {
                     Text(
                       group.title,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontSize: 16.5,
                         fontWeight: FontWeight.w900,
                       ),
@@ -2031,7 +2052,7 @@ class _DocumentSideSection extends StatelessWidget {
               child: Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -2218,14 +2239,16 @@ class _VerificationInfoBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         crossAxisAlignment: centerIcon
             ? CrossAxisAlignment.center
             : CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white, size: 21),
+          Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 21),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2258,16 +2281,22 @@ class _ProfilePhoto extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+        ),
       ),
       child: url.isEmpty
-          ? const Icon(Icons.person_rounded, color: Colors.white, size: 28)
+          ? const Icon(
+              Icons.person_rounded,
+              color: CaRismaDesignTokens.textPrimary,
+              size: 28,
+            )
           : Image.network(
               url,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => const Icon(
                 Icons.person_rounded,
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 size: 28,
               ),
             ),
@@ -2298,12 +2327,16 @@ class _PrerequisiteRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                bottom: BorderSide(
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
+                ),
               ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 20),
+          Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2311,7 +2344,7 @@ class _PrerequisiteRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -2395,15 +2428,21 @@ class _DarkDropdown<T> extends StatelessWidget {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          borderSide: BorderSide(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          borderSide: BorderSide(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+          ),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderSide: BorderSide(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+          ),
         ),
       ),
       child: DropdownButtonHideUnderline(
@@ -2413,9 +2452,11 @@ class _DarkDropdown<T> extends StatelessWidget {
           isDense: true,
           dropdownColor: CaRismaDesignTokens.card,
           iconEnabledColor: Colors.white,
-          iconDisabledColor: Colors.white.withValues(alpha: 0.45),
+          iconDisabledColor: CaRismaDesignTokens.textPrimary.withValues(
+            alpha: 0.45,
+          ),
           style: const TextStyle(
-            color: Colors.white,
+            color: CaRismaDesignTokens.textPrimary,
             fontWeight: FontWeight.w800,
           ),
           hint: Text(
@@ -2475,17 +2516,19 @@ class _SourceAction extends StatelessWidget {
         decoration: BoxDecoration(
           color: CaRismaDesignTokens.controlSurface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 27),
+            Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 27),
             const SizedBox(height: 7),
             Text(
               label,
               style: const TextStyle(
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -2539,7 +2582,7 @@ class _OutlineAction extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -2581,7 +2624,7 @@ class _SubmitVerificationAction extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: isLocked
-                  ? Colors.white.withValues(alpha: 0.14)
+                  ? CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14)
                   : CaRismaDesignTokens.bluePrimary,
               width: 1.5,
             ),
@@ -2599,7 +2642,7 @@ class _SubmitVerificationAction extends StatelessWidget {
                 else
                   Icon(
                     isLocked ? Icons.lock_outline_rounded : Icons.send_rounded,
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                   ),
                 const SizedBox(width: 10),
                 Flexible(
@@ -2608,7 +2651,7 @@ class _SubmitVerificationAction extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
                     ),
@@ -2649,7 +2692,11 @@ class _VerificationNotificationRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                bottom: BorderSide(
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
+                ),
               ),
       ),
       child: Row(
@@ -2751,13 +2798,21 @@ class _HistoryRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                bottom: BorderSide(
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
+                ),
               ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.history_rounded, color: Colors.white, size: 20),
+          const Icon(
+            Icons.history_rounded,
+            color: CaRismaDesignTokens.textPrimary,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -2766,7 +2821,7 @@ class _HistoryRow extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -2845,7 +2900,11 @@ class _PrivacyOverviewRow extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                bottom: BorderSide(
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
+                ),
               ),
       ),
       child: Row(
@@ -2860,7 +2919,7 @@ class _PrivacyOverviewRow extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),

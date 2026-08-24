@@ -30,4 +30,22 @@ void main() {
       );
     });
   });
+
+  group('appleAppCheckProviderForBuild', () {
+    test('uses the Apple debug provider for debug builds', () {
+      final provider = appleAppCheckProviderForBuild(
+        isDebug: true,
+        debugToken: '  ios-debug-token  ',
+      );
+
+      expect(provider, isA<AppleDebugProvider>());
+      expect((provider as AppleDebugProvider).debugToken, 'ios-debug-token');
+    });
+
+    test('uses App Attest with DeviceCheck fallback for release builds', () {
+      final provider = appleAppCheckProviderForBuild(isDebug: false);
+
+      expect(provider, isA<AppleAppAttestWithDeviceCheckFallbackProvider>());
+    });
+  });
 }

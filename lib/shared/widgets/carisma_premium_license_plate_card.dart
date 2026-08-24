@@ -138,17 +138,6 @@ class _PremiumSubmitButtonState extends State<_PremiumSubmitButton> {
                       : Colors.white.withValues(alpha: 0.12),
                   width: canTap ? 1.4 : 1,
                 ),
-                boxShadow: canTap
-                    ? [
-                        BoxShadow(
-                          color: CaRismaDesignTokens.bluePrimary.withValues(
-                            alpha: 0.16,
-                          ),
-                          blurRadius: 18,
-                          offset: const Offset(0, 6),
-                        ),
-                      ]
-                    : null,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),

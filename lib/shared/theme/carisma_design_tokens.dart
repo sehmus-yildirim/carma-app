@@ -1,25 +1,97 @@
 import 'package:flutter/material.dart';
 
+class PlaqaAdaptiveColor extends Color {
+  const PlaqaAdaptiveColor({required this.dark, required this.light})
+    : super(dark);
+
+  final int dark;
+  final int light;
+
+  static Brightness _brightness = Brightness.dark;
+
+  static void useBrightness(Brightness brightness) {
+    _brightness = brightness;
+  }
+
+  int get _activeValue => _brightness == Brightness.dark ? dark : light;
+
+  @override
+  double get a => ((_activeValue >> 24) & 0xff) / 255;
+
+  @override
+  double get r => ((_activeValue >> 16) & 0xff) / 255;
+
+  @override
+  double get g => ((_activeValue >> 8) & 0xff) / 255;
+
+  @override
+  double get b => (_activeValue & 0xff) / 255;
+
+  @override
+  int toARGB32() => _activeValue;
+
+  @override
+  int get value => _activeValue;
+}
+
 class CaRismaDesignTokens {
   const CaRismaDesignTokens._();
 
-  static const Color background = Color(0xFF0A0D12);
-  static const Color backgroundTop = Color(0xFF0A0D12);
-  static const Color backgroundMid = Color(0xFF0A0D12);
-  static const Color surface1 = Color(0xFF121419);
-  static const Color card = Color(0xFF121419);
+  static const Color background = PlaqaAdaptiveColor(
+    dark: 0xFF0A0D12,
+    light: 0xFFF4F7FB,
+  );
+  static const Color backgroundTop = PlaqaAdaptiveColor(
+    dark: 0xFF0A0D12,
+    light: 0xFFF8FAFC,
+  );
+  static const Color backgroundMid = PlaqaAdaptiveColor(
+    dark: 0xFF0A0D12,
+    light: 0xFFF1F5F9,
+  );
+  static const Color surface1 = PlaqaAdaptiveColor(
+    dark: 0xFF121419,
+    light: 0xFFFFFFFF,
+  );
+  static const Color card = PlaqaAdaptiveColor(
+    dark: 0xFF121419,
+    light: 0xFFFFFFFF,
+  );
   static const Color surface2 = card;
   static const Color cardHighlight = card;
-  static const Color controlSurface = Color(0xFF121419);
-  static const Color border = Color(0x0AFFFFFF);
-  static const Color textPrimary = Color(0xFFF4F7FB);
-  static const Color textSecondary = Color(0xFFAAB3C2);
-  static const Color textMuted = Color(0xFF6F7A8A);
+  static const Color controlSurface = PlaqaAdaptiveColor(
+    dark: 0xFF121419,
+    light: 0xFFEEF3F8,
+  );
+  static const Color border = PlaqaAdaptiveColor(
+    dark: 0x0AFFFFFF,
+    light: 0x1F344054,
+  );
+  static const Color textPrimary = PlaqaAdaptiveColor(
+    dark: 0xFFF4F7FB,
+    light: 0xFF101828,
+  );
+  static const Color textSecondary = PlaqaAdaptiveColor(
+    dark: 0xFFAAB3C2,
+    light: 0xFF475467,
+  );
+  static const Color textMuted = PlaqaAdaptiveColor(
+    dark: 0xFF6F7A8A,
+    light: 0xFF667085,
+  );
   static const Color bluePrimary = Color(0xFF1A5CBA);
   static const Color blueBright = bluePrimary;
   static const Color blueDark = bluePrimary;
-  static const Color danger = Color(0xFFFF4D4F);
-  static const Color success = Color(0xFF22C55E);
+  static const Color onAccent = Colors.white;
+  static const Color onMedia = Colors.white;
+  static const Color danger = PlaqaAdaptiveColor(
+    dark: 0xFFFF4D4F,
+    light: 0xFFD92D20,
+  );
+  static const Color success = PlaqaAdaptiveColor(
+    dark: 0xFF22C55E,
+    light: 0xFF15803D,
+  );
 
   static const double radiusSmall = 14;
   static const double radiusInput = 18;
@@ -34,7 +106,7 @@ class CaRismaDesignTokens {
   static const LinearGradient screenGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF0A0D12), Color(0xFF0A0D12), Color(0xFF0A0D12)],
+    colors: [backgroundTop, backgroundMid, background],
     stops: [0, 0.52, 1],
   );
 
@@ -64,24 +136,7 @@ class CaRismaDesignTokens {
     double blurRadius = 40,
     Offset offset = const Offset(0, 18),
   }) {
-    return [
-      BoxShadow(
-        color: Colors.black.withValues(alpha: darkAlpha),
-        blurRadius: blurRadius,
-        offset: offset,
-      ),
-      if (blueAlpha > 0)
-        BoxShadow(
-          color: bluePrimary.withValues(alpha: blueAlpha),
-          blurRadius: 28,
-          offset: const Offset(0, 12),
-        ),
-      BoxShadow(
-        color: Colors.white.withValues(alpha: 0.04),
-        blurRadius: 14,
-        offset: const Offset(0, -1),
-      ),
-    ];
+    return const <BoxShadow>[];
   }
 
   static BoxDecoration surfaceDecoration({
@@ -93,11 +148,7 @@ class CaRismaDesignTokens {
     return BoxDecoration(
       borderRadius: BorderRadius.circular(radius),
       gradient: cardGradient,
-      border: Border.all(color: Colors.white.withValues(alpha: borderAlpha)),
-      boxShadow: surfaceShadows(
-        darkAlpha: darkShadowAlpha,
-        blueAlpha: blueShadowAlpha,
-      ),
+      border: Border.all(color: border),
     );
   }
 
@@ -109,19 +160,7 @@ class CaRismaDesignTokens {
     return BoxDecoration(
       borderRadius: BorderRadius.circular(radius),
       gradient: blueGradient,
-      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      boxShadow: [
-        BoxShadow(
-          color: bluePrimary.withValues(alpha: glowAlpha),
-          blurRadius: 28,
-          offset: const Offset(0, 12),
-        ),
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.30),
-          blurRadius: 14,
-          offset: const Offset(0, 6),
-        ),
-      ],
+      border: Border.all(color: textPrimary.withValues(alpha: 0.18)),
     );
   }
 }

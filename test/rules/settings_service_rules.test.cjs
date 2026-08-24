@@ -128,3 +128,53 @@ describe('settings service request rules', () => {
     );
   });
 });
+
+describe('app preference rules', () => {
+  function appPreferencesPayload(themeMode) {
+    return {
+      userId,
+      languageCode: 'de',
+      themeMode,
+      hapticsEnabled: true,
+      messageSoundsEnabled: true,
+      distanceUnit: 'km',
+      defaultPlateCountry: 'DE',
+      updatedAt: serverTimestamp(),
+    };
+  }
+
+  test('owner can save every supported theme mode', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const reference = doc(owner, 'users', userId, 'settings', 'app_preferences');
+
+    for (const themeMode of ['dark', 'light', 'system']) {
+      await assertSucceeds(setDoc(reference, appPreferencesPayload(themeMode)));
+    }
+  });
+
+  test('unknown theme modes and writes for another user fail', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderId).firestore();
+    const ownerReference = doc(
+        owner,
+        'users',
+        userId,
+        'settings',
+        'app_preferences',
+    );
+    const outsiderReference = doc(
+        outsider,
+        'users',
+        userId,
+        'settings',
+        'app_preferences',
+    );
+
+    await assertFails(
+        setDoc(ownerReference, appPreferencesPayload('sepia')),
+    );
+    await assertFails(
+        setDoc(outsiderReference, appPreferencesPayload('light')),
+    );
+  });
+});

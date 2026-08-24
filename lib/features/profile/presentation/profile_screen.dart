@@ -680,7 +680,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: CaRismaDesignTokens.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          side: BorderSide(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+          ),
         ),
         title: const Text(
           'Änderungen verwerfen?',
@@ -918,6 +920,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -1656,7 +1661,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           title: const Text(
             'Neues Profil hinzufügen?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+            style: TextStyle(
+              color: CaRismaDesignTokens.textPrimary,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           content: const Text(
             'Wenn du ein neues Profil hinzufügst, wird dein altes Profil gelöscht. Dein neues Profil muss anschließend erneut verifiziert werden.',
@@ -1804,7 +1812,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           'Verwalte deine Identität, dein Fahrzeug und deine Sichtbarkeit.',
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.78),
+                                color: CaRismaDesignTokens.textPrimary
+                                    .withValues(alpha: 0.78),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16.5,
                                 height: 1.35,
@@ -2130,7 +2139,7 @@ class _ProfileNextStepCard extends StatelessWidget {
                     Text(
                       _title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                         fontSize: 18.5,
                       ),
@@ -2139,7 +2148,9 @@ class _ProfileNextStepCard extends StatelessWidget {
                     Text(
                       _description,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.72,
+                        ),
                         fontWeight: FontWeight.w700,
                         height: 1.34,
                       ),
@@ -2242,7 +2253,7 @@ class _RejectedVerificationActionCard extends StatelessWidget {
                     Text(
                       'Verifizierung erneut einreichen',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                         fontSize: 18,
                       ),
@@ -2252,7 +2263,9 @@ class _RejectedVerificationActionCard extends StatelessWidget {
                       Text(
                         reviewText,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.56),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.56,
+                          ),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -2276,7 +2289,7 @@ class _RejectedVerificationActionCard extends StatelessWidget {
             child: Text(
               _reasonText,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.82),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.82),
                 fontWeight: FontWeight.w800,
                 height: 1.3,
               ),
@@ -2349,7 +2362,7 @@ class _RejectedVerificationStep extends StatelessWidget {
           child: Text(
             text,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.72),
               fontWeight: FontWeight.w700,
               height: 1.25,
             ),
@@ -2483,6 +2496,9 @@ class _VerificationScreenState extends State<_VerificationScreen> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -2627,7 +2643,9 @@ class _VerificationScreenState extends State<_VerificationScreen> {
                 Text(
                   'Lade deine Dokumente hoch. Dein Konto und dein Fahrzeug werden erst nach Prüfung freigegeben.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.78,
+                    ),
                     fontWeight: FontWeight.w700,
                     fontSize: 16.5,
                     height: 1.35,
@@ -2826,7 +2844,7 @@ class _ProfileStatusCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 22,
                   ),
@@ -2844,7 +2862,9 @@ class _ProfileStatusCard extends StatelessWidget {
                   Text(
                     submittedAtText,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.62),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.62,
+                      ),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2854,7 +2874,9 @@ class _ProfileStatusCard extends StatelessWidget {
                   Text(
                     reviewedAtText,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.62),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.62,
+                      ),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -2866,7 +2888,9 @@ class _ProfileStatusCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.72,
+                      ),
                       fontWeight: FontWeight.w700,
                       height: 1.25,
                     ),
@@ -2876,7 +2900,9 @@ class _ProfileStatusCard extends StatelessWidget {
                 Text(
                   '$uploadedDocumentCount von $totalDocumentCount Dokumenten ausgewählt',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.56),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.56,
+                    ),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -2930,7 +2956,7 @@ class _ProfilePhotoButton extends StatelessWidget {
             alignment: Alignment.center,
             child: Icon(
               Icons.add_rounded,
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               size: size * 0.19,
             ),
           ),
@@ -2958,21 +2984,9 @@ class _ProfilePhotoButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(radius),
             color: CaRismaDesignTokens.surface2,
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
               width: 1.0,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.60),
-                blurRadius: 12,
-                offset: const Offset(4, 4),
-              ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.015),
-                blurRadius: 8,
-                offset: const Offset(-4, -4),
-              ),
-            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(radius - 1),
@@ -3194,7 +3208,9 @@ class _MfaPhoneField extends StatelessWidget {
         decoration: BoxDecoration(
           color: CaRismaDesignTokens.controlSurface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+          ),
         ),
         child: Row(
           children: [
@@ -3208,7 +3224,9 @@ class _MfaPhoneField extends StatelessWidget {
                       )
                     : Icon(
                         Icons.phone_iphone_rounded,
-                        color: Colors.white.withValues(alpha: 0.66),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.66,
+                        ),
                         size: 23,
                       ),
               ),
@@ -3300,7 +3318,7 @@ class _VerificationSummaryCard extends StatelessWidget {
                           ? 'Dokumente vollständig'
                           : 'Dokumente fehlen',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         fontWeight: FontWeight.w900,
                         fontSize: 18.5,
                       ),
@@ -3309,7 +3327,9 @@ class _VerificationSummaryCard extends StatelessWidget {
                     Text(
                       '$uploadedDocumentCount von $totalDocumentCount Dokumenten ausgewählt',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.68),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.68,
+                        ),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -3326,7 +3346,9 @@ class _VerificationSummaryCard extends StatelessWidget {
                 LinearProgressIndicator(
                   value: verificationProgress,
                   minHeight: 8,
-                  backgroundColor: Colors.white.withValues(alpha: 0.10),
+                  backgroundColor: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.10,
+                  ),
                   valueColor: const AlwaysStoppedAnimation<Color>(
                     CaRismaDesignTokens.bluePrimary,
                   ),
@@ -3345,14 +3367,6 @@ class _VerificationSummaryCard extends StatelessWidget {
                               CaRismaDesignTokens.bluePrimary,
                             ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: CaRismaDesignTokens.bluePrimary.withValues(
-                                alpha: 0.55,
-                              ),
-                              blurRadius: 8,
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -3480,6 +3494,9 @@ class _VehiclePickerField extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (sheetContext) {
         return _VehiclePickerSheet(
           title: label,
@@ -3514,7 +3531,7 @@ class _VehiclePickerField extends StatelessWidget {
             decoration: InputDecoration(
               labelText: label,
               labelStyle: TextStyle(
-                color: Colors.white.withValues(alpha: 0.70),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.70),
                 fontWeight: FontWeight.w800,
               ),
               filled: true,
@@ -3526,13 +3543,17 @@ class _VehiclePickerField extends StatelessWidget {
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.08,
+                  ),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.10),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.10,
+                  ),
                 ),
               ),
             ),
@@ -3546,7 +3567,9 @@ class _VehiclePickerField extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: value.trim().isNotEmpty
                           ? Colors.white
-                          : Colors.white.withValues(alpha: 0.48),
+                          : CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.48,
+                            ),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -3554,8 +3577,8 @@ class _VehiclePickerField extends StatelessWidget {
                 Icon(
                   Icons.search_rounded,
                   color: enabled
-                      ? Colors.white.withValues(alpha: 0.78)
-                      : Colors.white.withValues(alpha: 0.40),
+                      ? CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78)
+                      : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.40),
                 ),
               ],
             ),
@@ -3648,7 +3671,9 @@ class _VehiclePickerSheetState extends State<_VehiclePickerSheet> {
                 width: 52,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.24),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.24,
+                  ),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -3661,7 +3686,7 @@ class _VehiclePickerSheetState extends State<_VehiclePickerSheet> {
                         widget.title,
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
-                              color: Colors.white,
+                              color: CaRismaDesignTokens.textPrimary,
                               fontWeight: FontWeight.w900,
                             ),
                       ),
@@ -3669,7 +3694,7 @@ class _VehiclePickerSheetState extends State<_VehiclePickerSheet> {
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded),
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                     ),
                   ],
                 ),
@@ -3686,18 +3711,22 @@ class _VehiclePickerSheetState extends State<_VehiclePickerSheet> {
                     });
                   },
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                   decoration: InputDecoration(
                     hintText: '${widget.title} suchen oder eingeben',
                     hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.44),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.44,
+                      ),
                       fontWeight: FontWeight.w800,
                     ),
                     prefixIcon: Icon(
                       Icons.search_rounded,
-                      color: Colors.white.withValues(alpha: 0.56),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.56,
+                      ),
                     ),
                     filled: true,
                     fillColor: CaRismaDesignTokens.controlSurface,
@@ -3801,7 +3830,7 @@ class _VehiclePickerTile extends StatelessWidget {
             border: Border.all(
               color: isSelected
                   ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.55)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
             ),
           ),
           child: Row(
@@ -3828,7 +3857,9 @@ class _VehiclePickerTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.58),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.58,
+                          ),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -3838,7 +3869,7 @@ class _VehiclePickerTile extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.42),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.42),
               ),
             ],
           ),
@@ -3880,7 +3911,7 @@ class _VerificationVehicleCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 18,
                   ),
@@ -3921,7 +3952,9 @@ class _VerificationInfoRow extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         children: [
@@ -3930,7 +3963,7 @@ class _VerificationInfoRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.62),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.62),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -3942,7 +3975,7 @@ class _VerificationInfoRow extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white,
+                color: CaRismaDesignTokens.textPrimary,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -3991,7 +4024,9 @@ class _DocumentUploadCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: verificationProgress,
               minHeight: 8,
-              backgroundColor: Colors.white.withValues(alpha: 0.10),
+              backgroundColor: CaRismaDesignTokens.textPrimary.withValues(
+                alpha: 0.10,
+              ),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 CaRismaDesignTokens.bluePrimary,
               ),
@@ -4045,11 +4080,13 @@ class _DocumentUploadTile extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        color: Colors.white.withValues(alpha: _isUploaded ? 0.09 : 0.06),
+        color: CaRismaDesignTokens.textPrimary.withValues(
+          alpha: _isUploaded ? 0.09 : 0.06,
+        ),
         border: Border.all(
           color: _isUploaded
               ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.42)
-              : Colors.white.withValues(alpha: 0.10),
+              : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
         ),
       ),
       child: Column(
@@ -4075,7 +4112,7 @@ class _DocumentUploadTile extends StatelessWidget {
                       child: Text(
                         title,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontWeight: FontWeight.w900,
                           fontSize: 15.5,
                         ),
@@ -4087,7 +4124,9 @@ class _DocumentUploadTile extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: _isUploaded
                             ? CaRismaDesignTokens.bluePrimary
-                            : Colors.white.withValues(alpha: 0.68),
+                            : CaRismaDesignTokens.textPrimary.withValues(
+                                alpha: 0.68,
+                              ),
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -4156,7 +4195,7 @@ class _RemoteDocumentPreview extends StatelessWidget {
           child: Text(
             'Dokument gespeichert',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.72),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -4205,7 +4244,9 @@ class _ReadOnlyProfileField extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -4215,7 +4256,7 @@ class _ReadOnlyProfileField extends StatelessWidget {
             child: Center(
               child: Icon(
                 icon,
-                color: Colors.white.withValues(alpha: 0.66),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.66),
                 size: 23,
               ),
             ),
@@ -4305,16 +4346,19 @@ class _ProfileTextField extends StatelessWidget {
         textCapitalization: textCapitalization,
         textInputAction: TextInputAction.next,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: Colors.white,
+          color: CaRismaDesignTokens.textPrimary,
           fontWeight: FontWeight.w800,
         ),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.50),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.50),
             fontWeight: FontWeight.w700,
           ),
-          prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.78)),
+          prefixIcon: Icon(
+            icon,
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
+          ),
           suffixIcon: showLockIcon
               ? const Icon(
                   Icons.lock_outline_rounded,
@@ -4336,11 +4380,15 @@ class _ProfileTextField extends StatelessWidget {
           ),
           disabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            borderSide: BorderSide(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+            borderSide: BorderSide(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
@@ -4408,16 +4456,18 @@ class _ProfileDropdown extends StatelessWidget {
         initialValue: safeValue,
         dropdownColor: const Color(0xFF101827),
         iconEnabledColor: Colors.white,
-        iconDisabledColor: Colors.white.withValues(alpha: 0.48),
+        iconDisabledColor: CaRismaDesignTokens.textPrimary.withValues(
+          alpha: 0.48,
+        ),
         isExpanded: true,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: Colors.white,
+          color: CaRismaDesignTokens.textPrimary,
           fontWeight: FontWeight.w800,
         ),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.70),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.70),
             fontWeight: FontWeight.w800,
           ),
           filled: true,
@@ -4428,11 +4478,15 @@ class _ProfileDropdown extends StatelessWidget {
           ),
           disabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            borderSide: BorderSide(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+            borderSide: BorderSide(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(20),
@@ -4477,21 +4531,9 @@ class _UserAvatarPlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         color: CaRismaDesignTokens.surface2,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.60),
-            blurRadius: 12,
-            offset: const Offset(4, 4),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.015),
-            blurRadius: 8,
-            offset: const Offset(-4, -4),
-          ),
-        ],
       ),
       child: Icon(
         Icons.person_rounded,
@@ -4521,11 +4563,13 @@ class _InlineStatusBox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 22),
+          Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: fixedLines == null
@@ -4556,7 +4600,7 @@ class _InlineStatusBox extends StatelessWidget {
 
   TextStyle? _textStyle(BuildContext context) {
     return Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Colors.white.withValues(alpha: 0.78),
+      color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
       fontWeight: FontWeight.w700,
       height: 1.3,
     );
@@ -4589,13 +4633,6 @@ class _PrimaryActionButton extends StatelessWidget {
           ],
         ),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,

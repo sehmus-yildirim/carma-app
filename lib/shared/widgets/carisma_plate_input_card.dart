@@ -195,7 +195,7 @@ class _VoiceInputButton extends StatelessWidget {
           border: Border.all(
             color: isEnabled
                 ? CaRismaDesignTokens.blueBright.withValues(alpha: 0.30)
-                : Colors.white.withValues(alpha: 0.06),
+                : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.06),
           ),
         ),
         child: Row(
@@ -224,7 +224,9 @@ class _VoiceInputButton extends StatelessWidget {
                       size: 23,
                       color: isEnabled
                           ? CaRismaDesignTokens.blueBright
-                          : Colors.white.withValues(alpha: 0.45),
+                          : CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.45,
+                            ),
                     ),
             ),
             const SizedBox(width: 13),
@@ -236,7 +238,7 @@ class _VoiceInputButton extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: isEnabled
                       ? Colors.white
-                      : Colors.white.withValues(alpha: 0.45),
+                      : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.45),
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                 ),
@@ -246,7 +248,7 @@ class _VoiceInputButton extends StatelessWidget {
               Icons.graphic_eq_rounded,
               color: isEnabled
                   ? CaRismaDesignTokens.blueBright.withValues(alpha: 0.72)
-                  : Colors.white.withValues(alpha: 0.22),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.22),
               size: 25,
             ),
             const SizedBox(width: 4),
@@ -332,13 +334,17 @@ class _PlateInputField extends StatelessWidget {
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
                 borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.065),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.065,
+                  ),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
                 borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.07),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.07,
+                  ),
                 ),
               ),
               focusedBorder: OutlineInputBorder(

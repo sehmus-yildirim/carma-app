@@ -25,7 +25,7 @@ class _ChatAccessBlockedCard extends StatelessWidget {
                 Text(
                   'Chats nicht verfügbar',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                     fontSize: 18.5,
                   ),
@@ -34,7 +34,9 @@ class _ChatAccessBlockedCard extends StatelessWidget {
                 Text(
                   message,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.72),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.72,
+                    ),
                     fontWeight: FontWeight.w700,
                     height: 1.34,
                   ),
@@ -62,13 +64,15 @@ class _ChatsSegmentedControl extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(30),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
         child: Container(
           padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
             color: CaRismaDesignTokens.card,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           child: Row(
             children: [
@@ -135,15 +139,6 @@ class _SegmentButton extends StatelessWidget {
                   : Colors.transparent,
               width: isSelected ? 1.4 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.16),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -445,7 +440,9 @@ class _ArchivedChatsReveal extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: CaRismaDesignTokens.card,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         children: [
@@ -467,7 +464,7 @@ class _ArchivedChatsReveal extends StatelessWidget {
                       child: Text(
                         'Archiviert',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontSize: 15.5,
                           fontWeight: FontWeight.w900,
                         ),
@@ -477,7 +474,9 @@ class _ArchivedChatsReveal extends StatelessWidget {
                       Text(
                         '$archivedCount',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.62),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.62,
+                          ),
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                         ),
@@ -485,7 +484,9 @@ class _ArchivedChatsReveal extends StatelessWidget {
                     const SizedBox(width: 8),
                     Icon(
                       Icons.chevron_right_rounded,
-                      color: Colors.white.withValues(alpha: 0.62),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.62,
+                      ),
                     ),
                   ],
                 ),
@@ -500,7 +501,7 @@ class _ArchivedChatsReveal extends StatelessWidget {
               height: 54,
               child: Icon(
                 Icons.keyboard_arrow_up_rounded,
-                color: Colors.white.withValues(alpha: 0.66),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.66),
               ),
             ),
           ),
@@ -534,7 +535,7 @@ class _ArchivedChatsHeader extends StatelessWidget {
               child: Text(
                 'Archivierte Chats',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
@@ -801,7 +802,9 @@ class _RequestSortToggle extends StatelessWidget {
         decoration: BoxDecoration(
           color: CaRismaDesignTokens.controlSurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -895,13 +898,15 @@ class _InlineTextTabs<T> extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
         child: Container(
           padding: EdgeInsets.all(isCompact ? 5 : 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             color: CaRismaDesignTokens.card,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           child: Row(
             children: [
@@ -941,7 +946,7 @@ class _InlineTextTab<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isSelected
         ? Colors.white
-        : Colors.white.withValues(alpha: 0.48);
+        : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.48);
 
     return Material(
       color: Colors.transparent,
@@ -961,22 +966,15 @@ class _InlineTextTab<T> extends StatelessWidget {
             borderRadius: BorderRadius.circular(19),
             color: isSelected
                 ? CaRismaDesignTokens.controlSurface
-                : Colors.white.withValues(alpha: isCompact ? 0.02 : 0.03),
+                : CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: isCompact ? 0.02 : 0.03,
+                  ),
             border: Border.all(
               color: isSelected
                   ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
                   : Colors.transparent,
               width: isSelected ? 1.4 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -1013,7 +1011,7 @@ class _InlineTextTab<T> extends StatelessWidget {
                 width: isSelected ? (isCompact ? 18 : 22) : 0,
                 height: isCompact ? 2 : 2.4,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -1040,7 +1038,7 @@ class _InlineTabCountBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderColor = isSelected
         ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.54)
-        : Colors.white.withValues(alpha: 0.10);
+        : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10);
     final iconColor = isSelected
         ? CaRismaDesignTokens.bluePrimary
         : CaRismaDesignTokens.textSecondary.withValues(alpha: 0.72);
@@ -1148,14 +1146,16 @@ class ProfileStoryStrip extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
         child: Container(
           height: 112,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),
             color: CaRismaDesignTokens.card,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
@@ -1326,14 +1326,16 @@ class _ChatStoriesStrip extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
         child: Container(
           height: visibleGroups.isEmpty ? 116 : 128,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             color: CaRismaDesignTokens.card,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+            ),
           ),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
@@ -1470,8 +1472,8 @@ class _StoryBubble extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withValues(alpha: 0.28),
-                    Colors.white.withValues(alpha: 0.10),
+                    CaRismaDesignTokens.textPrimary.withValues(alpha: 0.28),
+                    CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
                   ],
                 )
         : null;
@@ -1500,7 +1502,9 @@ class _StoryBubble extends StatelessWidget {
                       gradient: ringGradient,
                       color: hasStory
                           ? null
-                          : Colors.white.withValues(alpha: 0.10),
+                          : CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.10,
+                            ),
                       boxShadow: isNewStory
                           ? [
                               BoxShadow(
@@ -1522,14 +1526,16 @@ class _StoryBubble extends StatelessWidget {
                     child: ClipOval(
                       child: isBusy
                           ? Container(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: CaRismaDesignTokens.textPrimary.withValues(
+                                alpha: 0.08,
+                              ),
                               child: const Center(
                                 child: SizedBox(
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2.4,
-                                    color: Colors.white,
+                                    color: CaRismaDesignTokens.textPrimary,
                                   ),
                                 ),
                               ),
@@ -1584,7 +1590,7 @@ class _StoryBubble extends StatelessWidget {
                               ),
                               child: const Icon(
                                 Icons.add_rounded,
-                                color: Colors.white,
+                                color: CaRismaDesignTokens.textPrimary,
                                 size: 16,
                               ),
                             ),
@@ -1616,7 +1622,7 @@ class _StoryBubble extends StatelessWidget {
                           child: Text(
                             'Neu',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: CaRismaDesignTokens.textPrimary,
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
                               height: 1,
@@ -1639,7 +1645,9 @@ class _StoryBubble extends StatelessWidget {
                             0xFF101827,
                           ).withValues(alpha: 0.92),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.18,
+                            ),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -1654,14 +1662,16 @@ class _StoryBubble extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.visibility_rounded,
-                              color: Colors.white.withValues(alpha: 0.82),
+                              color: CaRismaDesignTokens.textPrimary.withValues(
+                                alpha: 0.82,
+                              ),
                               size: 12,
                             ),
                             const SizedBox(width: 3),
                             Text(
                               viewCountLabel,
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: CaRismaDesignTokens.textPrimary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w900,
                                 height: 1,
@@ -1682,7 +1692,7 @@ class _StoryBubble extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: hasStory && (!isViewed || isOwnStory)
                       ? Colors.white
-                      : Colors.white.withValues(alpha: 0.78),
+                      : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
                   fontWeight: hasStory && (!isViewed || isOwnStory)
                       ? FontWeight.w900
                       : FontWeight.w800,
@@ -1716,7 +1726,11 @@ class _StoryVideoBubblePlaceholder extends StatelessWidget {
         ),
       ),
       child: const Center(
-        child: Icon(Icons.videocam_rounded, color: Colors.white, size: 32),
+        child: Icon(
+          Icons.videocam_rounded,
+          color: CaRismaDesignTokens.textPrimary,
+          size: 32,
+        ),
       ),
     );
   }
@@ -1742,7 +1756,7 @@ class _InlineLoadingRow extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.76),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1764,7 +1778,7 @@ class _InlineErrorCard extends StatelessWidget {
       child: Text(
         message,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Colors.white.withValues(alpha: 0.76),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -2012,13 +2026,15 @@ class _RequestExpansionButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: CaRismaDesignTokens.controlSurface,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              border: Border.all(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+              ),
             ),
             child: Icon(
               isExpanded
                   ? Icons.keyboard_arrow_up_rounded
                   : Icons.keyboard_arrow_down_rounded,
-              color: Colors.white.withValues(alpha: 0.78),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
               size: 23,
             ),
           ),
@@ -2800,7 +2816,9 @@ class _RequestInfoPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2947,7 +2965,7 @@ class _InlineRequestButton extends StatelessWidget {
         borderColor ??
         (isPrimary
             ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.62)
-            : Colors.white.withValues(alpha: 0.16));
+            : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.16));
     final foregroundColor = isPrimary
         ? CaRismaDesignTokens.textPrimary
         : CaRismaDesignTokens.textSecondary.withValues(alpha: 0.9);
@@ -2958,7 +2976,9 @@ class _InlineRequestButton extends StatelessWidget {
           OutlinedButton.styleFrom(
             backgroundColor: CaRismaDesignTokens.controlSurface,
             foregroundColor: foregroundColor,
-            disabledForegroundColor: Colors.white.withValues(alpha: 0.42),
+            disabledForegroundColor: CaRismaDesignTokens.textPrimary.withValues(
+              alpha: 0.42,
+            ),
             minimumSize: const Size(0, 44),
             padding: const EdgeInsets.symmetric(horizontal: 8),
             shape: shape,

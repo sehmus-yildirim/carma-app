@@ -9,6 +9,7 @@ import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/carisma_switch_row.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../chats/data/chat_repository.dart';
+import '../data/app_runtime_preferences.dart';
 import '../data/user_settings_repository.dart';
 
 typedef VisibilitySettingsChanged =
@@ -619,14 +620,19 @@ class AppComfortSettingsScreen extends StatefulWidget {
 
 class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
   late AppPreferenceSettings _settings = widget.initialSettings;
+  late AppPreferenceSettings _savedSettings = widget.initialSettings;
   bool _hasChanges = false;
   bool _isSaving = false;
 
   void _update(AppPreferenceSettings settings) {
+    final themeChanged = settings.themeMode != _settings.themeMode;
     setState(() {
       _settings = settings;
       _hasChanges = true;
     });
+    if (themeChanged) {
+      AppRuntimePreferences.instance.apply(settings);
+    }
   }
 
   Future<void> _save() async {
@@ -634,10 +640,25 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
     setState(() => _isSaving = true);
     final saved = await widget.onChanged('App-Komfort', _settings);
     if (!mounted) return;
+    if (saved) {
+      await AppRuntimePreferences.instance.applyAndPersist(_settings);
+    }
+    if (!mounted) return;
     setState(() {
       _isSaving = false;
-      if (saved) _hasChanges = false;
+      if (saved) {
+        _savedSettings = _settings;
+        _hasChanges = false;
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    if (_hasChanges) {
+      AppRuntimePreferences.instance.apply(_savedSettings);
+    }
+    super.dispose();
   }
 
   @override
@@ -706,11 +727,9 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
           description: 'Weitere Sprachen erscheinen in einer späteren Version.',
         ),
         const SizedBox(height: 10),
-        const _ReadOnlyStatusCard(
-          icon: Icons.dark_mode_outlined,
-          title: 'Design',
-          value: 'Demnächst',
-          description: 'Weitere Designs erscheinen in einer späteren Version.',
+        _ThemeModeSection(
+          value: _settings.themeMode,
+          onChanged: (value) => _update(_settings.copyWith(themeMode: value)),
         ),
         const SizedBox(height: 12),
         _SaveSettingsButton(
@@ -719,6 +738,63 @@ class _AppComfortSettingsScreenState extends State<AppComfortSettingsScreen> {
           onPressed: _save,
         ),
       ],
+    );
+  }
+}
+
+class _ThemeModeSection extends StatelessWidget {
+  const _ThemeModeSection({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const options = <String, (String, IconData)>{
+      'system': ('System', Icons.brightness_auto_outlined),
+      'light': ('Hell', Icons.light_mode_outlined),
+      'dark': ('Dunkel', Icons.dark_mode_outlined),
+    };
+    final selected = options.containsKey(value) ? value : 'dark';
+
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(icon: Icons.palette_outlined, title: 'Design'),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: options.entries
+                  .map(
+                    (entry) => ButtonSegment<String>(
+                      value: entry.key,
+                      icon: Icon(entry.value.$2, size: 18),
+                      label: Text(entry.value.$1),
+                    ),
+                  )
+                  .toList(growable: false),
+              selected: <String>{selected},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) onChanged(selection.first);
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'System folgt automatisch der Darstellung deines Geräts.',
+            style: TextStyle(
+              color: CaRismaDesignTokens.textSecondary,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -851,18 +927,22 @@ class _SaveSettingsButton extends StatelessWidget {
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.2,
-                      color: Colors.white,
+                      color: CaRismaDesignTokens.textPrimary,
                     ),
                   )
                 : const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.save_outlined, color: Colors.white, size: 21),
+                      Icon(
+                        Icons.save_outlined,
+                        color: CaRismaDesignTokens.textPrimary,
+                        size: 21,
+                      ),
                       SizedBox(width: 10),
                       Text(
                         'Einstellungen speichern',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: CaRismaDesignTokens.textPrimary,
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
                         ),
@@ -996,7 +1076,7 @@ class _ChoiceTile extends StatelessWidget {
             border: Border.all(
               color: selected
                   ? CaRismaDesignTokens.bluePrimary
-                  : Colors.white.withValues(alpha: 0.10),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -1081,7 +1161,9 @@ class _CheckOptionTile extends StatelessWidget {
               onChanged: (value) => onChanged(value ?? false),
               activeColor: CaRismaDesignTokens.bluePrimary,
               checkColor: Colors.white,
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
+              side: BorderSide(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.28),
+              ),
             ),
           ],
         ),

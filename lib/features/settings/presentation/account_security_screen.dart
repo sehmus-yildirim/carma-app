@@ -18,6 +18,7 @@ class AccountSecurityScreen extends StatefulWidget {
     required this.onOpenSupport,
     this.accountGateway,
     this.initialAccount,
+    this.appleLinkAvailable,
   });
 
   final VoidCallback onLogout;
@@ -25,6 +26,7 @@ class AccountSecurityScreen extends StatefulWidget {
   final VoidCallback onOpenSupport;
   final AccountAuthGateway? accountGateway;
   final AuthAccountSnapshot? initialAccount;
+  final bool? appleLinkAvailable;
 
   @override
   State<AccountSecurityScreen> createState() => _AccountSecurityScreenState();
@@ -34,7 +36,14 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
   late final AccountAuthGateway _accountGateway;
   AuthAccountSnapshot? _account;
   bool _isLoading = false;
+  bool _isLinkingApple = false;
   String? _loadError;
+  String? _appleLinkMessage;
+  bool _appleLinkMessageIsError = false;
+
+  bool get _appleLinkAvailable =>
+      widget.appleLinkAvailable ??
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
   void initState() {
@@ -92,6 +101,45 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
     ).push<void>(MaterialPageRoute<void>(builder: (_) => page));
     if (refreshAfterwards && mounted) {
       await _refreshAccount();
+    }
+  }
+
+  Future<void> _linkApple() async {
+    if (_isLinkingApple || !_appleLinkAvailable) {
+      return;
+    }
+
+    setState(() {
+      _isLinkingApple = true;
+      _appleLinkMessage = null;
+    });
+
+    try {
+      await _accountGateway.linkCurrentUserWithApple();
+      final account = await _accountGateway.loadCurrentAccount();
+      if (!mounted) return;
+      setState(() {
+        _account = account ?? _account;
+        _appleLinkMessage = 'Apple wurde sicher mit deinem Konto verknüpft.';
+        _appleLinkMessageIsError = false;
+      });
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _appleLinkMessage = accountAuthErrorMessage(error);
+        _appleLinkMessageIsError = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _appleLinkMessage =
+            'Apple konnte gerade nicht mit deinem Konto verknüpft werden.';
+        _appleLinkMessageIsError = true;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLinkingApple = false);
+      }
     }
   }
 
@@ -180,6 +228,36 @@ class _AccountSecurityScreenState extends State<AccountSecurityScreen> {
                       )
                     : null,
               ),
+              if (_appleLinkAvailable) ...[
+                _AccountDivider(),
+                _AccountActionTile(
+                  icon: Icons.apple,
+                  title: account.hasAppleProvider
+                      ? 'Mit Apple verknüpft'
+                      : 'Mit Apple verknüpfen',
+                  description: account.hasAppleProvider
+                      ? 'Apple kann für die Anmeldung und sichere Kontobestätigung verwendet werden.'
+                      : 'Apple kontrolliert als zusätzliche Anmeldemethode mit diesem Konto verbinden.',
+                  enabled: !account.hasAppleProvider && !_isLinkingApple,
+                  badge: account.hasAppleProvider
+                      ? 'Aktiv'
+                      : _isLinkingApple
+                      ? 'Wird verknüpft'
+                      : null,
+                  onTap: account.hasAppleProvider || _isLinkingApple
+                      ? null
+                      : _linkApple,
+                ),
+                if (_appleLinkMessage != null) ...[
+                  _AccountDivider(),
+                  _AccountSecurityHintLine(
+                    icon: _appleLinkMessageIsError
+                        ? Icons.error_outline_rounded
+                        : Icons.check_circle_outline_rounded,
+                    text: _appleLinkMessage!,
+                  ),
+                ],
+              ],
             ],
           ),
           const SizedBox(height: 14),
@@ -476,7 +554,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
           headerBadgeColor: _account.isEmailVerified
               ? CaRismaDesignTokens.success
               : CaRismaDesignTokens.danger,
-          innerBorderColor: Colors.white.withValues(alpha: 0.14),
+          innerBorderColor: CaRismaDesignTokens.textPrimary.withValues(
+            alpha: 0.14,
+          ),
           children: [
             _AccountEmailLine(
               icon: Icons.mail_outline_rounded,
@@ -829,11 +909,16 @@ class _AccountSessionsScreenState extends State<AccountSessionsScreen> {
         backgroundColor: CaRismaDesignTokens.card,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          side: BorderSide(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+          ),
         ),
         title: const Text(
           'Alle Sitzungen abmelden?',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: CaRismaDesignTokens.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -842,7 +927,7 @@ class _AccountSessionsScreenState extends State<AccountSessionsScreen> {
             Text(
               'Aus Sicherheitsgründen werden alle anderen Sitzungen gemeinsam abgemeldet. Danach musst du dich auch hier neu anmelden.',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.68),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.68),
                 height: 1.35,
                 fontWeight: FontWeight.w700,
               ),
@@ -853,16 +938,20 @@ class _AccountSessionsScreenState extends State<AccountSessionsScreen> {
                 obscureText: true,
                 autofocus: true,
                 onChanged: (value) => currentPassword = value,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: CaRismaDesignTokens.textPrimary),
                 decoration: InputDecoration(
                   labelText: 'Aktuelles Passwort',
                   labelStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.62),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.62,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.14),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.14,
+                      ),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -881,7 +970,9 @@ class _AccountSessionsScreenState extends State<AccountSessionsScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(
               'Abbrechen',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.68)),
+              style: TextStyle(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.68),
+              ),
             ),
           ),
           TextButton(
@@ -1327,7 +1418,8 @@ class _AccountSectionCard extends StatelessWidget {
                 ),
                 border: Border.all(
                   color:
-                      innerBorderColor ?? Colors.white.withValues(alpha: 0.05),
+                      innerBorderColor ??
+                      CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
                 ),
               ),
               child: Column(children: children),
@@ -1419,7 +1511,9 @@ class _AccountActionTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: Colors.white.withValues(alpha: 0.52),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.52,
+                  ),
                   size: 22,
                 ),
               ],
@@ -1543,7 +1637,9 @@ class _AccountNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.card,
         borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusInput),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.06),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1791,9 +1887,11 @@ class _RoundIconButton extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: CaRismaDesignTokens.controlSurface,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+          ),
         ),
-        child: Icon(icon, color: Colors.white, size: 22),
+        child: Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 22),
       ),
     );
   }
@@ -1820,7 +1918,9 @@ class _AccountIconSurface extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.34),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.07),
+        ),
       ),
       child: Icon(icon, color: color, size: iconSize),
     );
@@ -1869,7 +1969,9 @@ class _AccountMetaBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.controlSurface,
         borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusInput),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1948,7 +2050,7 @@ class _AccountDivider extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 13),
       color: danger
           ? CaRismaDesignTokens.danger.withValues(alpha: 0.14)
-          : Colors.white.withValues(alpha: 0.05),
+          : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
     );
   }
 }
@@ -1957,7 +2059,7 @@ InputBorder _inputBorder({Color? color, double width = 1}) {
   return OutlineInputBorder(
     borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusInput),
     borderSide: BorderSide(
-      color: color ?? Colors.white.withValues(alpha: 0.07),
+      color: color ?? CaRismaDesignTokens.textPrimary.withValues(alpha: 0.07),
       width: width,
     ),
   );
@@ -2012,8 +2114,18 @@ String accountAuthErrorMessage(FirebaseAuthException error) {
     'requires-recent-login' =>
       'Bitte melde dich erneut an und versuche die Aktion danach noch einmal.',
     'aborted-by-user' => 'Die erneute Anmeldung wurde abgebrochen.',
-    'apple-reauth-not-configured' =>
-      'Die sichere erneute Apple-Anmeldung ist noch nicht eingerichtet.',
+    'provider-already-linked' =>
+      'Apple ist bereits mit diesem Konto verknüpft.',
+    'credential-already-in-use' || 'account-exists-with-different-credential' =>
+      'Diese Apple-Anmeldung gehört bereits zu einem anderen Konto. Melde dich dort zuerst an oder verwende deine bisherige Anmeldemethode.',
+    'operation-not-allowed' =>
+      'Apple-Anmeldung ist für plaqa noch nicht freigeschaltet.',
+    'missing-or-invalid-nonce' || 'invalid-provider-id' =>
+      'Apple-Anmeldung ist noch nicht vollständig konfiguriert.',
+    'apple-authorization-code-missing' =>
+      'Apple hat keinen gültigen Bestätigungscode geliefert. Bitte starte die Kontolöschung erneut.',
+    'apple-token-revocation-failed' =>
+      'Die Apple-Anmeldung konnte nicht sicher widerrufen werden. Das Konto wurde nicht gelöscht. Bitte versuche es erneut.',
     'reauth-provider-not-supported' =>
       'Diese Anmeldemethode unterstützt die sichere Kontoaktion noch nicht.',
     'server-account-action-failed' =>

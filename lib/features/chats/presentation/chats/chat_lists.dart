@@ -218,7 +218,7 @@ class _ActiveChatListTile extends StatelessWidget {
     final tile = ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
@@ -226,7 +226,7 @@ class _ActiveChatListTile extends StatelessWidget {
             border: Border.all(
               color: isUnread
                   ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.45)
-                  : Colors.white.withValues(alpha: 0.06),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.06),
               width: isUnread ? 1.4 : 1.0,
             ),
           ),
@@ -588,10 +588,16 @@ class _ChatSwipeAction extends StatelessWidget {
                       ? CaRismaDesignTokens.bluePrimary
                       : CaRismaDesignTokens.controlSurface,
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.10),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.10,
+                    ),
                   ),
                 ),
-                child: Icon(icon, color: Colors.white, size: 21),
+                child: Icon(
+                  icon,
+                  color: CaRismaDesignTokens.textPrimary,
+                  size: 21,
+                ),
               ),
               const SizedBox(height: 5),
               Text(
@@ -599,7 +605,9 @@ class _ChatSwipeAction extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.88),
+                  color: CaRismaDesignTokens.textPrimary.withValues(
+                    alpha: 0.88,
+                  ),
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0,
@@ -629,11 +637,13 @@ class _ChatStateIcon extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: CaRismaDesignTokens.controlSurface,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+          ),
         ),
         child: Icon(
           icon,
-          color: Colors.white.withValues(alpha: 0.84),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.84),
           size: 16,
         ),
       ),
@@ -652,14 +662,16 @@ class _EmptyListCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ui.ImageFilter.blur(sigmaX: 0, sigmaY: 0),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             color: CaRismaDesignTokens.card,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.06),
+            ),
           ),
           child: Row(
             children: [
@@ -669,15 +681,12 @@ class _EmptyListCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: CaRismaDesignTokens.blueGradient,
-                  boxShadow: [
-                    BoxShadow(
-                      color: _carismaBlue.withValues(alpha: 0.22),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
                 ),
-                child: Icon(icon, color: Colors.white, size: 20),
+                child: Icon(
+                  icon,
+                  color: CaRismaDesignTokens.onAccent,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -718,21 +727,9 @@ class _UserAvatarPlaceholder extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         color: CaRismaDesignTokens.surface2,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.60),
-            blurRadius: 12,
-            offset: const Offset(4, 4),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.015),
-            blurRadius: 8,
-            offset: const Offset(-4, -4),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius - 1),
@@ -859,9 +856,11 @@ class _RoundIconButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: CaRismaDesignTokens.controlSurface,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+            ),
           ),
-          child: Icon(icon, color: Colors.white, size: 22),
+          child: Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 22),
         ),
       ),
     );

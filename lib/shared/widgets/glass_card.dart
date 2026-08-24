@@ -32,36 +32,11 @@ class GlassCard extends StatelessWidget {
 
     return Container(
       margin: margin,
-      clipBehavior: showOuterEffects ? Clip.none : Clip.antiAlias,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(effectiveRadius),
         color: CaRismaDesignTokens.card,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
-          width: 1.0,
-        ),
-        boxShadow: showOuterEffects
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.65),
-                  blurRadius: 16,
-                  offset: const Offset(5, 5),
-                ),
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(-5, -5),
-                ),
-                if (glow)
-                  BoxShadow(
-                    color: CaRismaDesignTokens.bluePrimary.withValues(
-                      alpha: 0.15,
-                    ),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-              ]
-            : null,
+        border: Border.all(color: CaRismaDesignTokens.border, width: 1.0),
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -91,7 +66,7 @@ class GlassSurface extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         color: CaRismaDesignTokens.surface2,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        border: Border.all(color: CaRismaDesignTokens.border),
       ),
       child: child,
     );

@@ -468,6 +468,9 @@ class _FakeAccountGateway implements AccountAuthGateway {
   Future<void> deleteCurrentUser({String? currentPassword}) async {}
 
   @override
+  Future<void> linkCurrentUserWithApple() async {}
+
+  @override
   Future<AuthAccountSnapshot?> loadCurrentAccount() async => account;
 
   @override

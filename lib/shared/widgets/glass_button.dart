@@ -88,8 +88,12 @@ class GlassSecondaryButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white.withValues(alpha: 0.35),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          disabledForegroundColor: CaRismaDesignTokens.textPrimary.withValues(
+            alpha: 0.35,
+          ),
+          side: BorderSide(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+          ),
           backgroundColor: CaRismaDesignTokens.surface2.withValues(alpha: 0.82),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(CaRismaDesignTokens.radiusCard),

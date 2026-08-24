@@ -28,7 +28,9 @@ class CaRismaAuthBrandHeader extends StatelessWidget {
                     color: CaRismaDesignTokens.controlSurface,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.08,
+                      ),
                     ),
                   ),
                   child: const Icon(

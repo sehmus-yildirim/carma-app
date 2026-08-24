@@ -23,21 +23,9 @@ class CaRismaBlueIconBox extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.32),
         color: CaRismaDesignTokens.surface2,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.65),
-            blurRadius: 12,
-            offset: const Offset(4, 4),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.015),
-            blurRadius: 8,
-            offset: const Offset(-4, -4),
-          ),
-        ],
       ),
       child: Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: iconSize),
     );

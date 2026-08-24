@@ -1056,7 +1056,9 @@ class _LocationLoadingCard extends StatelessWidget {
                 Text(
                   'Standort wird geladen...',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.78,
+                    ),
                     fontWeight: FontWeight.w800,
                     height: 1.3,
                   ),
@@ -1144,14 +1146,9 @@ class _RegistrationRegionPickerSheetState
         decoration: BoxDecoration(
           color: CaRismaDesignTokens.card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 28,
-              offset: const Offset(0, -8),
-            ),
-          ],
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
+          ),
         ),
         child: Column(
           children: [
@@ -1160,7 +1157,7 @@ class _RegistrationRegionPickerSheetState
               width: 42,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.24),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.24),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -1176,7 +1173,7 @@ class _RegistrationRegionPickerSheetState
                           'Zulassungsregion wählen',
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
-                                color: Colors.white,
+                                color: CaRismaDesignTokens.textPrimary,
                                 fontWeight: FontWeight.w800,
                               ),
                         ),
@@ -1195,7 +1192,7 @@ class _RegistrationRegionPickerSheetState
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     tooltip: 'Schließen',
                   ),
                 ],
@@ -1208,13 +1205,15 @@ class _RegistrationRegionPickerSheetState
                 onChanged: (value) => setState(() => _query = value),
                 textCapitalization: TextCapitalization.characters,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Code oder Stadt suchen',
                   hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.46),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.46,
+                    ),
                   ),
                   prefixIcon: const Icon(
                     Icons.search_rounded,
@@ -1226,13 +1225,17 @@ class _RegistrationRegionPickerSheetState
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.1,
+                      ),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: CaRismaDesignTokens.textPrimary.withValues(
+                        alpha: 0.1,
+                      ),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -1264,7 +1267,9 @@ class _RegistrationRegionPickerSheetState
                       itemCount: regions.length,
                       separatorBuilder: (_, _) => Divider(
                         height: 1,
-                        color: Colors.white.withValues(alpha: 0.065),
+                        color: CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.065,
+                        ),
                       ),
                       itemBuilder: (context, index) {
                         final region = regions[index];
@@ -1330,7 +1335,8 @@ class _RegistrationRegionPickerSheetState
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                            color: Colors.white,
+                                            color:
+                                                CaRismaDesignTokens.textPrimary,
                                             fontSize: 15.5,
                                             fontWeight: FontWeight.w700,
                                           ),
@@ -1437,7 +1443,9 @@ class _SearchCreditCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: CaRismaDesignTokens.card,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.06),
+        ),
       ),
       child: Row(
         children: [
@@ -1451,7 +1459,9 @@ class _SearchCreditCard extends StatelessWidget {
                 Text(
                   _headline,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.85,
+                    ),
                     fontWeight: FontWeight.w800,
                     fontSize: 13.5,
                   ),
@@ -1460,7 +1470,9 @@ class _SearchCreditCard extends StatelessWidget {
                 Text(
                   _subline,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.58),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.58,
+                    ),
                     fontWeight: FontWeight.w700,
                     fontSize: 11.5,
                   ),
@@ -1474,12 +1486,6 @@ class _SearchCreditCard extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: badgeColor,
-              boxShadow: [
-                BoxShadow(
-                  color: badgeColor.withValues(alpha: 0.50),
-                  blurRadius: 6,
-                ),
-              ],
             ),
           ),
         ],
@@ -1529,21 +1535,9 @@ class _SearchUserAvatar extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
         color: CaRismaDesignTokens.surface2,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.60),
-            blurRadius: 12,
-            offset: const Offset(4, 4),
-          ),
-          BoxShadow(
-            color: Colors.white.withValues(alpha: 0.015),
-            blurRadius: 8,
-            offset: const Offset(-4, -4),
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius - 1),
@@ -1626,7 +1620,7 @@ class _PlateSearchResultCard extends StatelessWidget {
               child: Text(
                 'Kein Nutzer in deiner N\u00e4he gefunden. Daf\u00fcr wurde keine Anfrage verbraucht.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
                 ),
@@ -1795,13 +1789,6 @@ class _VerifiedBadge extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: CaRismaDesignTokens.success,
-              boxShadow: [
-                BoxShadow(
-                  color: CaRismaDesignTokens.success.withValues(alpha: 0.70),
-                  blurRadius: 9,
-                  spreadRadius: 1,
-                ),
-              ],
             ),
           ),
           const SizedBox(width: 7),
@@ -1980,7 +1967,9 @@ class _ContactReasonPicker extends StatelessWidget {
       decoration: BoxDecoration(
         color: CaRismaDesignTokens.surface1,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -1991,7 +1980,7 @@ class _ContactReasonPicker extends StatelessWidget {
               width: 42,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.24),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.24),
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
@@ -2082,17 +2071,9 @@ class _ContactReasonTile extends StatelessWidget {
             border: Border.all(
               color: isSelected
                   ? accent.withValues(alpha: 0.72)
-                  : Colors.white.withValues(alpha: 0.06),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.06),
               width: isSelected ? 1.25 : 1,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.10),
-                      blurRadius: 14,
-                    ),
-                  ]
-                : const [],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -2104,11 +2085,15 @@ class _ContactReasonTile extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: isSelected
                       ? accent.withValues(alpha: 0.20)
-                      : Colors.white.withValues(alpha: 0.035),
+                      : CaRismaDesignTokens.textPrimary.withValues(
+                          alpha: 0.035,
+                        ),
                   border: Border.all(
                     color: isSelected
                         ? accent.withValues(alpha: 0.45)
-                        : Colors.white.withValues(alpha: 0.06),
+                        : CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.06,
+                          ),
                   ),
                 ),
                 child: Icon(_icon, color: accent, size: 20),
@@ -2150,13 +2135,15 @@ class _ContactReasonTile extends StatelessWidget {
                   border: Border.all(
                     color: isSelected
                         ? accent
-                        : Colors.white.withValues(alpha: 0.20),
+                        : CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.20,
+                          ),
                   ),
                 ),
                 child: isSelected
                     ? const Icon(
                         Icons.check_rounded,
-                        color: Colors.white,
+                        color: CaRismaDesignTokens.textPrimary,
                         size: 15,
                       )
                     : null,
@@ -2188,10 +2175,10 @@ class _RequestContactButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final foreground = isEnabled
         ? Colors.white
-        : Colors.white.withValues(alpha: 0.42);
+        : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.42);
     final accent = isEnabled
         ? CaRismaDesignTokens.bluePrimary
-        : Colors.white.withValues(alpha: 0.18);
+        : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.18);
 
     return SizedBox(
       width: double.infinity,
@@ -2275,7 +2262,9 @@ class _ExistingRequestInfo extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.06),
+        ),
       ),
       child: Row(
         children: [
@@ -2285,7 +2274,7 @@ class _ExistingRequestInfo extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.78),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
                 fontWeight: FontWeight.w800,
                 fontSize: 12.5,
               ),

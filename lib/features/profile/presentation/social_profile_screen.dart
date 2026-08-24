@@ -470,6 +470,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) => _FollowRequestsSheet(
         requests: _followRepository.watchFollowRequests(_userId),
         onAccept: _followRepository.acceptRequest,
@@ -1133,6 +1136,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     final action = await showModalBottomSheet<_VehicleGalleryPickerAction>(
       context: context,
       backgroundColor: CaRismaDesignTokens.background,
+
+      useSafeArea: true,
+
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1237,6 +1243,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: CaRismaDesignTokens.background,
+
+      useSafeArea: true,
+
       builder: (sheetContext) => SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -1500,6 +1509,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     final action = await showModalBottomSheet<_ProfileIdentityAction>(
       context: context,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
         child: GlassCard(
@@ -1555,6 +1567,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     final action = await showModalBottomSheet<_ProfileCreateAction>(
       context: context,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (sheetContext) => Padding(
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
         child: GlassCard(
@@ -1639,6 +1654,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     final action = await showModalBottomSheet<_ProfilePhotoAction>(
       context: context,
       backgroundColor: Colors.transparent,
+
+      useSafeArea: true,
+
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -3493,13 +3511,6 @@ class _ProfileMainVehicleCard extends StatelessWidget {
         border: Border.all(
           color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.72),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.16),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3619,7 +3630,7 @@ class _FollowRequestsBanner extends StatelessWidget {
                 child: Text(
                   count == 1 ? '1 Folgeanfrage' : '$count Folgeanfragen',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
+                    color: CaRismaDesignTokens.textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -3709,7 +3720,9 @@ class _FollowListSheetState extends State<_FollowListSheet> {
                     controller: _searchController,
                     onChanged: (value) =>
                         setState(() => _query = value.trim().toLowerCase()),
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(
+                      color: CaRismaDesignTokens.textPrimary,
+                    ),
                     decoration: const InputDecoration(
                       hintText: 'In dieser Liste suchen',
                       prefixIcon: Icon(Icons.search_rounded),
@@ -3752,7 +3765,9 @@ class _FollowListSheetState extends State<_FollowListSheet> {
                           controller: scrollController,
                           itemCount: relationships.length,
                           separatorBuilder: (_, _) => Divider(
-                            color: Colors.white.withValues(alpha: 0.06),
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.06,
+                            ),
                             height: 1,
                           ),
                           itemBuilder: (context, index) {
@@ -3893,7 +3908,9 @@ class _FollowRequestsSheetState extends State<_FollowRequestsSheet> {
                         controller: scrollController,
                         itemCount: items.length,
                         separatorBuilder: (_, _) => Divider(
-                          color: Colors.white.withValues(alpha: 0.06),
+                          color: CaRismaDesignTokens.textPrimary.withValues(
+                            alpha: 0.06,
+                          ),
                           height: 1,
                         ),
                         itemBuilder: (context, index) {
@@ -3964,7 +3981,10 @@ class _FollowRelationshipTile extends StatelessWidget {
         backgroundColor: CaRismaDesignTokens.blueDark,
         backgroundImage: imageUrl.isEmpty ? null : NetworkImage(imageUrl),
         child: imageUrl.isEmpty
-            ? const Icon(Icons.person_rounded, color: Colors.white)
+            ? const Icon(
+                Icons.person_rounded,
+                color: CaRismaDesignTokens.onAccent,
+              )
             : null,
       ),
       title: Text(
@@ -3972,7 +3992,7 @@ class _FollowRelationshipTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: Colors.white,
+          color: CaRismaDesignTokens.textPrimary,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -4047,10 +4067,17 @@ class _SocialAvatar extends StatelessWidget {
         ? Image.network(
             photoUrl,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.person_rounded, color: Colors.white, size: 38),
+            errorBuilder: (context, error, stackTrace) => const Icon(
+              Icons.person_rounded,
+              color: CaRismaDesignTokens.textPrimary,
+              size: 38,
+            ),
           )
-        : const Icon(Icons.person_rounded, color: Colors.white, size: 38);
+        : const Icon(
+            Icons.person_rounded,
+            color: CaRismaDesignTokens.textPrimary,
+            size: 38,
+          );
 
     return Material(
       color: Colors.transparent,
@@ -4075,7 +4102,7 @@ class _SocialAvatar extends StatelessWidget {
                     : null,
                 color: hasActiveStory
                     ? null
-                    : Colors.white.withValues(alpha: 0.10),
+                    : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
                 boxShadow: [
                   BoxShadow(
                     color: hasActiveStory
@@ -4120,12 +4147,12 @@ class _SocialAvatar extends StatelessWidget {
                                 padding: EdgeInsets.all(4),
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.6,
-                                  color: Colors.white,
+                                  color: CaRismaDesignTokens.onAccent,
                                 ),
                               )
                             : Icon(
                                 storyBadgeIcon,
-                                color: Colors.white,
+                                color: CaRismaDesignTokens.onAccent,
                                 size: 15,
                               ),
                       ),
@@ -4197,7 +4224,9 @@ class _ProfilePhotoActionTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             color: CaRismaDesignTokens.controlSurface,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.075)),
+            border: Border.all(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.075),
+            ),
           ),
           child: Row(
             children: [
@@ -4241,7 +4270,7 @@ class _ProfileTabs extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         color: CaRismaDesignTokens.card,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.05),
           width: 1,
         ),
       ),
@@ -4306,7 +4335,7 @@ class _ProfileTabButton extends StatelessWidget {
             border: Border.all(
               color: isSelected
                   ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88)
-                  : Colors.white.withValues(alpha: 0.08),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
               width: isSelected ? 1.4 : 1,
             ),
           ),
@@ -4420,7 +4449,7 @@ class _SocialPostsFeedbackState extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -4479,7 +4508,7 @@ class _EmptyPostsState extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),

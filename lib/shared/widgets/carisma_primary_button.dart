@@ -15,7 +15,7 @@ class CaRismaPrimaryButton extends StatelessWidget {
     this.borderRadius = 26,
     this.iconSize = 27,
     this.fontSize = 19,
-    this.showShadow = true,
+    this.showShadow = false,
     this.surfaceOutlined = false,
   });
 
@@ -94,7 +94,7 @@ class CaRismaPrimaryButton extends StatelessWidget {
                   effectiveIcon,
                   color: surfaceOutlined
                       ? CaRismaDesignTokens.bluePrimary
-                      : Colors.white,
+                      : CaRismaDesignTokens.onAccent,
                   size: iconSize,
                 ),
                 const SizedBox(width: 12),
@@ -103,7 +103,9 @@ class CaRismaPrimaryButton extends StatelessWidget {
                     effectiveLabel,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: surfaceOutlined
+                          ? CaRismaDesignTokens.bluePrimary
+                          : CaRismaDesignTokens.onAccent,
                       fontWeight: FontWeight.w900,
                       fontSize: fontSize,
                       letterSpacing: 0,

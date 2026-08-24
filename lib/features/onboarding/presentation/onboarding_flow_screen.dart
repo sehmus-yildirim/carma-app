@@ -197,7 +197,9 @@ class _ProgressCard extends StatelessWidget {
                 child: Text(
                   'Schritt ${currentStep + 1} von $totalSteps',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.72),
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.72,
+                    ),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -205,7 +207,7 @@ class _ProgressCard extends StatelessWidget {
               Text(
                 '${((currentStep + 1) / totalSteps * 100).round()}%',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -217,7 +219,9 @@ class _ProgressCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 8,
-              backgroundColor: Colors.white.withValues(alpha: 0.10),
+              backgroundColor: CaRismaDesignTokens.textPrimary.withValues(
+                alpha: 0.10,
+              ),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 CaRismaDesignTokens.blueBright,
               ),
@@ -402,7 +406,7 @@ class _HeroInfoCard extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.45,
               height: 1.12,
@@ -412,7 +416,7 @@ class _HeroInfoCard extends StatelessWidget {
           Text(
             description,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withValues(alpha: 0.76),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
               fontWeight: FontWeight.w700,
               fontSize: 16.5,
               height: 1.35,
@@ -456,7 +460,9 @@ class _HeroPointRow extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,7 +473,7 @@ class _HeroPointRow extends StatelessWidget {
             child: Text(
               point.text,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.76),
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
                 fontWeight: FontWeight.w700,
                 height: 1.28,
               ),

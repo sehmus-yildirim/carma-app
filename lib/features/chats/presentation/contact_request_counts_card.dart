@@ -102,7 +102,7 @@ class _ContactRequestCountsCardState extends State<ContactRequestCountsCard> {
 
   TextStyle _bodyStyle(BuildContext context) {
     return Theme.of(context).textTheme.bodyMedium!.copyWith(
-      color: Colors.white.withValues(alpha: 0.78),
+      color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
       fontWeight: FontWeight.w700,
       height: 1.35,
     );
@@ -126,7 +126,7 @@ class _RequestContent extends StatelessWidget {
         Text(
           'Kontaktanfragen',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Colors.white,
+            color: CaRismaDesignTokens.textPrimary,
             fontWeight: FontWeight.w900,
             fontSize: 17,
           ),
@@ -174,7 +174,7 @@ class _RequestContent extends StatelessWidget {
           child: Text(
             'Aktualisieren',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
               decoration: TextDecoration.underline,
               decorationColor: Colors.white,
@@ -197,7 +197,7 @@ class _RequestContent extends StatelessWidget {
 
   TextStyle _bodyStyle(BuildContext context) {
     return Theme.of(context).textTheme.bodyMedium!.copyWith(
-      color: Colors.white.withValues(alpha: 0.78),
+      color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
       fontWeight: FontWeight.w700,
       height: 1.35,
     );
@@ -218,7 +218,7 @@ class _ErrorContent extends StatelessWidget {
         Text(
           'Kontaktanfragen',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Colors.white,
+            color: CaRismaDesignTokens.textPrimary,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -226,7 +226,7 @@ class _ErrorContent extends StatelessWidget {
         Text(
           error,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.white.withValues(alpha: 0.78),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.78),
             fontWeight: FontWeight.w700,
             height: 1.35,
           ),
@@ -237,7 +237,7 @@ class _ErrorContent extends StatelessWidget {
           child: Text(
             'Erneut versuchen',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
               decoration: TextDecoration.underline,
               decorationColor: Colors.white,
@@ -259,7 +259,7 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: Colors.white,
+        color: CaRismaDesignTokens.textPrimary,
         fontWeight: FontWeight.w900,
       ),
     );
@@ -286,7 +286,9 @@ class _RequestMiniTile extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +298,7 @@ class _RequestMiniTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white,
+              color: CaRismaDesignTokens.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -306,7 +308,7 @@ class _RequestMiniTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.72),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -314,7 +316,7 @@ class _RequestMiniTile extends StatelessWidget {
           Text(
             status,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.58),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.58),
               fontWeight: FontWeight.w800,
             ),
           ),

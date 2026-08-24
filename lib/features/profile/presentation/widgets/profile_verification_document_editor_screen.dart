@@ -299,7 +299,7 @@ class _DocumentEditorAction extends StatelessWidget {
             border: Border.all(
               color: isPrimary
                   ? CaRismaDesignTokens.bluePrimary
-                  : Colors.white.withValues(alpha: 0.12),
+                  : CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
               width: isPrimary ? 1.5 : 1,
             ),
           ),
@@ -312,14 +312,14 @@ class _DocumentEditorAction extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                Icon(icon, color: Colors.white, size: 20),
+                Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 20),
               const SizedBox(height: 2),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
+                  color: CaRismaDesignTokens.textPrimary,
                   fontWeight: FontWeight.w800,
                 ),
               ),

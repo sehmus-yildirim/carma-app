@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/carisma_auth_brand_header.dart';
@@ -54,6 +55,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool get _hasValidPassword => _passwordController.text.length >= 6;
 
   bool get _canSubmit => _hasValidEmail && _hasValidPassword && !_isLoading;
+
+  bool get _appleSignInAvailable =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   @override
   void initState() {
@@ -292,6 +296,79 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _submitAppleLogin() async {
+    if (_isLoading || !_appleSignInAvailable) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final credential = await _authService.signInWithApple();
+      final user = credential.user;
+      if (user == null) {
+        throw FirebaseAuthException(code: 'missing-user');
+      }
+
+      if (credential.additionalUserInfo?.isNewUser ?? false) {
+        await _authService.signOut();
+        if (!mounted) return;
+        setState(() {
+          _errorMessage =
+              'Bitte öffne zuerst die Registrierung und bestätige dort die erforderlichen Hinweise.';
+        });
+        return;
+      }
+
+      await _prepareFirestoreUser(user);
+      if (!mounted) return;
+
+      setState(() {
+        _successMessage = _loginSuccessMessage(
+          user,
+          verifiedMessage: 'Apple-Anmeldung erfolgreich.',
+        );
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_successMessage!)));
+      widget.onLoginSuccess?.call();
+    } on FirebaseAuthMultiFactorException catch (error) {
+      await _resolveMfaLogin(
+        error,
+        verifiedMessage: 'Apple-Anmeldung erfolgreich.',
+      );
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _mapFirebaseAuthError(error);
+        _successMessage = null;
+      });
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _mapFirebaseError(error);
+        _successMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Apple-Anmeldung konnte gerade nicht durchgeführt werden.';
+        _successMessage = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _resolveMfaLogin(
     FirebaseAuthMultiFactorException error, {
     String verifiedMessage = 'Erfolgreich eingeloggt.',
@@ -377,6 +454,12 @@ class _LoginScreenState extends State<LoginScreen> {
         return 'Diese Anmeldemethode ist aktuell nicht verfügbar.';
       case 'aborted-by-user':
         return 'Die Anmeldung wurde abgebrochen.';
+      case 'credential-already-in-use':
+      case 'account-exists-with-different-credential':
+        return 'Für diese Apple-Anmeldung besteht bereits ein Konto. Melde dich zuerst mit deiner bisherigen Methode an und verknüpfe Apple anschließend unter Konto & Sicherheit.';
+      case 'missing-or-invalid-nonce':
+      case 'invalid-provider-id':
+        return 'Apple-Anmeldung ist noch nicht vollständig konfiguriert.';
       case 'missing-user':
         return 'Das Benutzerkonto konnte nicht geladen werden.';
       default:
@@ -446,11 +529,11 @@ class _LoginScreenState extends State<LoginScreen> {
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-            physics: const NeverScrollableScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -497,7 +580,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             _obscurePassword
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
-                            color: Colors.white.withValues(alpha: 0.72),
+                            color: CaRismaDesignTokens.textPrimary.withValues(
+                              alpha: 0.72,
+                            ),
                           ),
                         ),
                       ),
@@ -564,9 +649,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 8),
-                const CaRismaSocialAuthButton(
+                CaRismaSocialAuthButton(
                   provider: CaRismaSocialAuthProvider.apple,
-                  isEnabled: false,
+                  isEnabled: _appleSignInAvailable && !_isLoading,
+                  onPressed: _appleSignInAvailable && !_isLoading
+                      ? _submitAppleLogin
+                      : null,
                 ),
                 const SizedBox(height: 8),
                 CaRismaAuthNavigationButton(
@@ -598,7 +686,7 @@ class _AuthDivider extends StatelessWidget {
       children: [
         Expanded(
           child: Divider(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
             thickness: 1,
           ),
         ),
@@ -607,14 +695,14 @@ class _AuthDivider extends StatelessWidget {
           child: Text(
             'oder weiter mit',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.52),
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.52),
               fontWeight: FontWeight.w700,
             ),
           ),
         ),
         Expanded(
           child: Divider(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
             thickness: 1,
           ),
         ),

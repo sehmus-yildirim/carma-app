@@ -51,6 +51,9 @@ node_modules/
 *.service-account.json
 firebase-service-account.json
 service-account.json
+firebase-admin.json
+*firebase-admin*.json
+*service-account*.json
 /tools/mfa_recovery_admin/config.js
 
 # Android release signing
@@ -59,3 +62,12 @@ service-account.json
 /android/*.keystore
 /android/app/*.jks
 /android/app/*.keystore
+
+# Apple signing and authentication secrets
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.provisionprofile
+AuthKey_*.p8
+apns-*.p8

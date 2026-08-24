@@ -33,18 +33,11 @@ class CaRismaSectionTitle extends StatelessWidget {
                 CaRismaDesignTokens.bluePrimary,
               ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.26),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: Text(
             number,
             style: const TextStyle(
-              color: Colors.white,
+              color: CaRismaDesignTokens.onAccent,
               fontWeight: FontWeight.w900,
               fontSize: 14,
             ),

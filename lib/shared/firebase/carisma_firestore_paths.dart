@@ -24,6 +24,7 @@ class CaRismaFirestoreCollections {
   static const String verificationRequests = 'verification_requests';
   static const String verificationNotifications = 'verification_notifications';
   static const String settings = 'settings';
+  static const String pushTokens = 'push_tokens';
 }
 
 class CaRismaFirestoreFields {
@@ -187,6 +188,10 @@ class CaRismaFirestorePaths {
 
   static String userNotificationSettings(String userId) {
     return '${user(userId)}/${CaRismaFirestoreCollections.settings}/notifications';
+  }
+
+  static String userPushToken(String userId, String tokenHash) {
+    return '${user(userId)}/${CaRismaFirestoreCollections.pushTokens}/$tokenHash';
   }
 
   static String userLegalConsents(String userId) {

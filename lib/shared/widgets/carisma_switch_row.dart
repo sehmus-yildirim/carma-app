@@ -30,7 +30,9 @@ class CaRismaSwitchRow extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           color: CaRismaDesignTokens.controlSurface,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
+          ),
           boxShadow: CaRismaDesignTokens.surfaceShadows(
             darkAlpha: 0.20,
             blurRadius: 22,
@@ -69,8 +71,12 @@ class CaRismaSwitchRow extends StatelessWidget {
               value: value,
               activeThumbColor: Colors.white,
               activeTrackColor: CaRismaDesignTokens.bluePrimary,
-              inactiveThumbColor: Colors.white.withValues(alpha: 0.76),
-              inactiveTrackColor: Colors.white.withValues(alpha: 0.14),
+              inactiveThumbColor: CaRismaDesignTokens.textPrimary.withValues(
+                alpha: 0.76,
+              ),
+              inactiveTrackColor: CaRismaDesignTokens.textPrimary.withValues(
+                alpha: 0.14,
+              ),
               onChanged: enabled ? onChanged : null,
             ),
           ],

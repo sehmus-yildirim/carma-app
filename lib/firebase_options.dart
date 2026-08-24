@@ -60,11 +60,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCugKy_9EquDztsLjqyY5vzShiUl4QGm5w',
-    appId: '1:493803183324:ios:9c92e2a694aba958896819',
+    appId: '1:493803183324:ios:8b44caabe90a41ae896819',
     messagingSenderId: '493803183324',
     projectId: 'carma-a84e4',
     storageBucket: 'carma-a84e4.firebasestorage.app',
-    iosBundleId: 'com.example.carma',
+    iosClientId:
+        '493803183324-rsojqr0bc4t4t9pmueml1g01436jprdp.apps.googleusercontent.com',
+    iosBundleId: 'de.plaqa.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(

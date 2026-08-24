@@ -8,7 +8,7 @@ class CaRismaMessageCard extends StatelessWidget {
     super.key,
     required this.icon,
     required this.message,
-    this.showOuterEffects = true,
+    this.showOuterEffects = false,
   });
 
   final IconData icon;
@@ -37,14 +37,9 @@ class CaRismaMessageCard extends StatelessWidget {
                   CaRismaDesignTokens.surface1,
                 ],
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.38),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              border: Border.all(
+                color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.07),
+              ),
             ),
             child: Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 22),
           ),
