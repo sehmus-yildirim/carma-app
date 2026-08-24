@@ -6,6 +6,11 @@ Technische Quelle: `IOS_PRIVACY_DATA_MATRIX.md`. Die Auswahl muss vor der
 Einreichung in App Store Connect anhand des dann eingereichten Builds erneut
 kontrolliert werden.
 
+Die Angaben sind lokal vollstaendig vorbereitet, aber noch nicht in App Store
+Connect gespeichert. Vor dem App-Zugriff verlangt Apple eine persoenlich
+anzunehmende Nutzungsvereinbarung. Diese rechtliche Bestaetigung wurde nicht
+stellvertretend abgegeben.
+
 ## Tracking
 
 - Werden Daten fuer Tracking verwendet? **Nein**

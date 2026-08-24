@@ -1,6 +1,6 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-23 CEST
+Stand: 2026-08-24 CEST
 App: `plaqa`
 Android-Paket: `de.plaqa.app`
 Version: `1.0.0+1`
@@ -88,6 +88,34 @@ Firebase-Projekt: `carma-a84e4`
   2026-08-23 geordnet in den Store-Entwurf hochgeladen.
 - [x] Store-Texte, App-Icon, Feature-Grafik und Screenshots wurden gemeinsam
   nur als Entwurf gespeichert; nichts wurde eingereicht oder veroeffentlicht.
+
+### Apple und App Store Connect
+
+- [x] Apple-Developer-Mitgliedschaft als Privatperson ist aktiv.
+- [x] Explizite App-ID `de.plaqa.app` ist registriert.
+- [x] Sign in with Apple und Push Notifications sind im Apple-Portal aktiv.
+- [x] Associated Domains ist im Apple-Portal aktiviert; lokal ist
+  `applinks:plaqa.de` im Runner-Entitlement vorbereitet.
+- [x] Ein kombinierter Apple-Schluessel fuer DeviceCheck und APNs wurde
+  ausserhalb des Repositories gesichert; Key- und Team-IDs werden nicht im
+  Repository dokumentiert.
+- [x] Firebase App Check fuer iOS verwendet App Attest und DeviceCheck; alle
+  Firebase-Dienste bleiben ohne Erzwingung.
+- [x] Der APNs-Authentifizierungsschluessel ist fuer Entwicklung und Produktion
+  in Firebase Cloud Messaging hinterlegt; keine Push-Nachricht wurde getestet.
+- [x] Der echte Firebase-SMTP-Absender ist `no-reply@plaqa.de`; eine Testmail
+  wurde im normalen Posteingang empfangen.
+- [x] `no-reply@plaqa.de` ist als Apple-Private-Email-Relay-Quelle registriert.
+- [x] Ein separater Apple-Login-Schluessel wurde bewusst nicht erzeugt, weil
+  der aktuelle native iOS-Firebase-Flow ihn nicht benoetigt.
+- [x] Store-Texte, Privacy Labels, Review-Hinweise und Screenshotplan liegen
+  lokal unter `store_assets/app_store/de-DE/` vor.
+- [PERSON] App-Store-Connect-Nutzungsbedingungen persoenlich annehmen. Erst
+  danach kann der App-Eintrag `plaqa` mit SKU `plaqa-ios-1` angelegt werden.
+- [ ] App-Store-Connect-Metadaten als Entwurf speichern. Kein Build-Upload,
+  TestFlight, Review oder Release wurde gestartet.
+- [ ] Universal Links erst nach AASA-Datei, Routing, Xcode-/Provisioning- und
+  Geraetetest als funktionsfaehig markieren.
 
 ### Legal-Inventar
 
@@ -194,7 +222,8 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
 - [CONSOLE] Identity Platform/SMS-MFA, SMS-Regionen, Kontingent, Billing und
   Testnummern erneut kontrollieren.
 - [CONSOLE] Firebase-E-Mail-Vorlagen, Absender, Supportadresse, deutsche Texte,
-  Action-URL und Custom-SMTP-Status erneut kontrollieren.
+  Action-URL und Custom-SMTP-Status vor Release erneut kontrollieren; Custom
+  SMTP und der Absender `no-reply@plaqa.de` sind aktuell bestaetigt.
 - [CONSOLE] `auth.plaqa.de` als Auth-/Action-Domain beibehalten und alle
   E-Mail-Aktionsarten testen.
 - [x] Store-Name, deutsche Beschreibungen, 512-x-512-App-Icon,
@@ -204,6 +233,11 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   freigegebener Tester hat die Installation aus Google Play bestaetigt.
 - [CONSOLE] Die fuer neue Privatkonten erforderliche geschlossene Testspur erst
   nach Backend-, Legal- und Live-Test-Freigabe anlegen.
+- [x] iOS App Check mit App Attest und DeviceCheck registriert; Monitoring ohne
+  Erzwingung beibehalten.
+- [x] APNs-Key fuer Entwicklung und Produktion in Firebase hinterlegt.
+- [CONSOLE] App Store Connect bleibt bis zur persoenlichen Annahme der neuen
+  Nutzungsbedingungen blockiert.
 
 ## Benötigt Live-Test
 
@@ -235,6 +269,9 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   Datenwirkung pruefen.
 - [LIVE] Interne Release-Installation ist bestaetigt; eigentliche Funktions-,
   Pre-Launch-, Crash- und ANR-Pruefungen bleiben bewusst offen.
+- [LIVE] iOS: Apple Login, Private Relay, App Attest/DeviceCheck, APNs-
+  Zustellung, Hintergrund/Antippen und Tokenrotation auf echtem iPhone.
+- [LIVE] iOS Universal Links erst nach AASA- und Routing-Einbindung testen.
 
 ## Benötigt rechtliche Prüfung
 
@@ -269,6 +306,9 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
 - [PERSON] Start einer geschlossenen oder offenen Testspur, Einreichung zur
   Pruefung und Produktionsveroeffentlichung weiterhin jeweils separat
   freigeben.
+- [PERSON] App-Store-Connect-Nutzungsbedingungen selbst lesen und annehmen.
+- [PERSON] Apple-Altersfreigabe und App Privacy gegen den finalen Build
+  bestaetigen.
 
 ## Blockiert Release
 
@@ -297,6 +337,10 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   Offenlegung rotieren. Sie wurde nicht in Git oder der Git-Historie gefunden.
 - [BLOCKER] Release-Keystore und KeePass-Datenbank zusaetzlich unabhaengig und
   verschluesselt ausserhalb dieses Laptops sichern.
+- [BLOCKER] iOS-Build auf einem Mac signieren, auf echtem iPhone pruefen und
+  erst danach kontrolliert per TestFlight bereitstellen.
+- [BLOCKER] App Store Connect App-Eintrag und rechtliche Store-Angaben nach
+  persoenlicher Annahme der Nutzungsbedingungen abschliessen.
 - [x] Release-Branch wurde bereits kontrolliert in `main` uebernommen. Der
   aktuelle Abschlussstand wird ohne Force-Push auf `origin/main` gesichert.
 

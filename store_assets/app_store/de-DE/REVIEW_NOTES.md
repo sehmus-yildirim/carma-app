@@ -35,10 +35,10 @@ einer angenommenen fahrzeugbezogenen Kontaktanfrage chatten.
 ## Apple-Anmeldung
 
 Der Dart-Flow fuer „Mit Apple fortfahren“, Kontoverknuepfung, erneute
-Authentifizierung und Token-Widerruf bei Kontoloeschung ist vorbereitet. Vor
-Einreichung muessen Apple-Capability, Firebase-Provider, Private Email Relay und
-ein echter iPhone-Test abgeschlossen sein. Die Funktion darf erst dann als
-fertig markiert werden.
+Authentifizierung und Token-Widerruf bei Kontoloeschung ist vorbereitet.
+Apple-Capability, Firebase-Provider, benutzerdefinierter SMTP-Absender und
+Private Email Relay sind konfiguriert. Vor Einreichung bleibt der echte iPhone-
+Test einschliesslich Relay-Zustellung und Widerruf erforderlich.
 
 ## Verifizierung und Dokumente
 
@@ -50,10 +50,11 @@ nicht als nutzbare Kernfunktion beschrieben werden.
 
 ## Bekannte Release-Gates
 
-- APNs-Schluessel und Push-Capability auf dem Mac
+- Signing, Provisioning, Background Modes und Push-Zustellung auf Mac/iPhone
 - App Attest/DeviceCheck und App Check weiterhin nur Monitoring
-- Private Email Relay nach Aktivierung der Apple-Developer-Mitgliedschaft
+- Associated Domains: AASA-Datei, Routing und Geraetetest fehlen
 - iOS-Build, Signierung, TestFlight und echter iPhone-Test
 - externe rechtliche Endpruefung und neue Anschrift vor Release
+- persoenliche Annahme der App-Store-Connect-Nutzungsbedingungen
 
 Es wurde noch nichts in App Store Connect eingereicht oder veroeffentlicht.

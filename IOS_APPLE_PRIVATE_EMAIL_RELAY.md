@@ -75,9 +75,9 @@ Nicht als Quelle registrieren:
 
 Die Registrierung erfolgt im Apple Developer Portal unter Certificates,
 Identifiers & Profiles, Services, Sign in with Apple for Email Communication.
-Die Apple-Developer-Anmeldung wurde begonnen. Die erfolgreiche Registrierung
-der konkreten Relay-Quelle wurde in diesem Arbeitsstand jedoch noch nicht
-abschliessend bestaetigt und wird deshalb weiterhin als offen gefuehrt.
+Die Apple-Developer-Mitgliedschaft ist aktiv. `no-reply@plaqa.de` wurde als
+Quelle registriert; die vorhandenen IONOS-Mail-DNS-Eintraege wurden dabei nicht
+veraendert.
 
 ## Firebase-Vorlagen
 
@@ -118,10 +118,8 @@ keine Kontoloeschung ausgefuehrt.
 
 ## Offene Schritte
 
-- Aktivierung der Apple-Developer-Mitgliedschaft kontrollieren
-- Rolle Account Holder oder Admin im Portal bestaetigen
-- `no-reply@plaqa.de` als E-Mail-Quelle registrieren
-- Apples SPF-/Quellenstatus nach der Registrierung kontrollieren
-- sichtbaren Firebase-Absendernamen auf `plaqa` kontrollieren
-- echten Relay-Test auf einem Apple-Geraet durchfuehren
-- Apple-Provider erst nach Abschluss der uebrigen Apple-Konfiguration aktivieren
+- sichtbaren Firebase-Absendernamen in mehreren Mailprogrammen kontrollieren
+- echten Relay-Test mit einer Apple-Adresse unter `privaterelay.appleid.com`
+  auf einem Apple-Geraet durchfuehren
+- Apple-Login, Verknuepfung, Reauthentifizierung und Widerruf live pruefen
+- Zustellung und Bounce-Verhalten fuer alle anwendbaren Sicherheitsmails testen

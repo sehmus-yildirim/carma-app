@@ -38,11 +38,16 @@ Version und `1` die interne Buildnummer.
 - Sign in with Apple ist in Dart fuer Anmeldung, Kontoverknuepfung,
   Reauthentifizierung und Token-Widerruf bei Kontoloeschung vorbereitet.
 - Das Sign-in-with-Apple-Entitlement ist fuer den Runner hinterlegt.
+- Die Apple-Developer-Mitgliedschaft ist aktiv und die explizite App-ID
+  `de.plaqa.app` ist registriert.
+- Sign in with Apple und Push Notifications sind fuer die App-ID aktiviert.
+- Der Firebase-Apple-Provider ist mit den echten Apple-Werten vorbereitet.
+- Der produktive Firebase-SMTP-Absender ist `no-reply@plaqa.de`; die Adresse ist
+  als Apple-Private-Email-Relay-Quelle registriert.
 
-Offen bleiben die Aktivierung und Schluesselzuordnung im Apple Developer Portal
-sowie die abschliessende Provider-Konfiguration und der Test auf einem iPhone.
-Die Private-Email-Relay-Quelle `no-reply@plaqa.de` kann erst nach vollstaendig
-aktivierter Apple-Developer-Mitgliedschaft registriert werden.
+Offen bleiben die finale Xcode-/Provisioning-Pruefung und der Login-/Relay-Test
+auf einem echten iPhone. Ein eigener Apple-Login-Schluessel wurde bewusst nicht
+erzeugt, weil der aktuelle native iOS-Firebase-Flow ihn nicht benoetigt.
 
 ## App Check
 
@@ -56,8 +61,10 @@ Der Flutter-Startcode aktiviert App Check auf Android und iOS:
 - Tokens werden weder protokolliert noch gespeichert
 
 Firebase bleibt fuer alle Dienste im Monitoring-Modus. Es wurde keine
-Erzwingung aktiviert. Ein iOS-Debug-Token und reale App-Attest-Metriken benoetigen
-spaeter einen kontrollierten iPhone-Lauf.
+Erzwingung aktiviert. Die Firebase-iOS-App ist mit App Attest und DeviceCheck
+registriert; DeviceCheck verwendet den ausserhalb von Git gesicherten Apple-
+Schluessel. Ein iOS-Debug-Token und reale App-Attest-/DeviceCheck-Metriken
+benoetigen spaeter einen kontrollierten iPhone-Lauf.
 
 ## Push-Benachrichtigungen
 
@@ -71,9 +78,11 @@ spaeter einen kontrollierten iPhone-Lauf.
 - APNs-Token-Pruefung vor iOS-FCM-Synchronisierung
 - private, eigentuemergebundene Firestore-Pfade fuer Push-Tokens
 
-APNs-Key, Push-Capability, Background Mode und Signing muessen auf dem Mac bzw.
-im Apple Developer Portal final bestaetigt werden. Ohne diese Apple-Schritte ist
-der Dart-Pfad vorbereitet, aber es werden noch keine echten iOS-Pushs zugestellt.
+Die Push-Capability ist im Apple Developer Portal aktiv. Ein kombinierter Apple-
+Schluessel fuer APNs und DeviceCheck wurde sicher ausserhalb des Repositories
+gespeichert und in Firebase Cloud Messaging fuer Entwicklung und Produktion
+hinterlegt. Background Mode, Signing, Provisioning und die echte Zustellung
+muessen weiterhin auf dem Mac beziehungsweise iPhone kontrolliert werden.
 
 ## Berechtigungen und iOS-Oberflaeche
 
@@ -96,11 +105,15 @@ Weiter offen oder bewusst nicht aktiviert:
 
 - Kennzeichen-Spracherkennung auf iOS
 - native Sprachmemoaufnahme auf iOS
-- Universal Links und Associated Domains
+- Universal-Link-Routen und oeffentliche `apple-app-site-association`-Datei
 - vollstaendiger Kamera-/Galerie-/Datei-/Tastaturtest auf einem iPhone
 
-Diese offenen Punkte fuehren nicht zu einem ungeschuetzten Android-Channel-Aufruf;
-nicht verfuegbare Pfade werden abgefangen oder klar deaktiviert.
+Associated Domains ist im Apple-Portal aktiviert und `applinks:plaqa.de` steht
+im Runner-Entitlement. Bis AASA-Datei, Routing, Provisioning und Geraetetest
+abgeschlossen sind, wird Universal Links nicht als funktionierende
+Produktionsfunktion bezeichnet. Die uebrigen offenen Punkte fuehren nicht zu
+einem ungeschuetzten Android-Channel-Aufruf; nicht verfuegbare Pfade werden
+abgefangen oder klar deaktiviert.
 
 ## App-Icon und Startbildschirm
 
@@ -164,15 +177,23 @@ ueber lokale Build-Defines uebergeben.
 
 1. aktuelles Xcode und CocoaPods verwenden, `pod install` ausfuehren
 2. Team, Signing und Provisioning Profiles setzen
-3. Sign in with Apple, Push Notifications, App Attest und Background Modes als
-   Capabilities bestaetigen
-4. APNs-Key in Firebase hinterlegen
-5. Private Email Relay fuer `no-reply@plaqa.de` registrieren
-6. Debug-/Release-App-Check auf echten Apple-Geraeten beobachten
-7. Simulator- und Device-Build, UI-, Auth-, Push-, MFA- und Medien-Livetests
-8. App Store Connect, TestFlight und Privacy Labels kontrolliert einrichten
+3. Sign in with Apple, Push Notifications, App Attest, Associated Domains und
+   Background Modes in Xcode gegen das Team/Provisioning pruefen
+4. AASA-Datei und Universal-Link-Routing fertigstellen und testen
+5. Debug-/Release-App-Check auf echten Apple-Geraeten beobachten
+6. Simulator- und Device-Build, UI-, Auth-, Push-, MFA- und Medien-Livetests
+7. signierten Build in App Store Connect/TestFlight hochladen und pruefen
+
+## Unter Windows noch persoenlich offen
+
+- neue App-Store-Connect-Nutzungsbedingungen durch den Account Holder annehmen
+- danach den lokal vorbereiteten App-Eintrag `plaqa` mit SKU `plaqa-ios-1`
+  anlegen und die Metadaten als Entwurf speichern
+- Altersfreigabe und App Privacy vor dem Speichern persoenlich bestaetigen
 
 ## Sicherheitsgrenzen
 
 App Check wurde nicht erzwungen. Es wurde kein iOS-Build, kein TestFlight-Build,
 kein Firebase-Deploy und keine Apple-/Store-Veroeffentlichung durchgefuehrt.
+Die einzigen externen Aenderungen waren die ausdruecklich freigegebenen Apple-
+Capabilities sowie App-Check-, APNs-, SMTP- und Relay-Konfigurationen.

@@ -9,10 +9,15 @@ hochgeladen, eingereicht oder veroeffentlicht.
 
 - App-Name: `plaqa`
 - Bundle-ID: `de.plaqa.app`
+- SKU: `plaqa-ios-1`
 - Version: `1.0.0`
 - Buildnummer: `1`
 - Primaersprache: Deutsch
+- Preis: kostenlos
 - Kategorieempfehlung: Soziale Netze
+- Sekundaerkategorie: Lifestyle
+- Verfuegbarkeit zum Start: Deutschland, Oesterreich und Schweiz; vor der
+  Freigabe in App Store Connect erneut bestaetigen
 - Mindestalter der plaqa-Nutzung: 16 Jahre
 - Support-URL: `https://plaqa.de/support/`
 - Datenschutz-URL: `https://plaqa.de/datenschutz/`
@@ -77,3 +82,11 @@ plaqa ist fuer Personen ab 16 Jahren vorgesehen. Nutze Kennzeichen- und Kontaktf
 - Support: `support@plaqa.de`
 - Datenschutz: `privacy@plaqa.de`
 - Allgemein: `info@plaqa.de`
+
+## App Store Connect Status
+
+Der App-Eintrag konnte noch nicht angelegt werden, weil App Store Connect vor
+dem Zugriff auf die App-Verwaltung neue, rechtlich bindende
+Nutzungsbedingungen verlangt. Der Account Holder muss diese persoenlich
+annehmen. Danach werden die Angaben dieser Datei nur als Entwurf gespeichert;
+es erfolgt weder ein Build-Upload noch eine Einreichung oder Veroeffentlichung.

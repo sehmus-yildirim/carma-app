@@ -1,8 +1,9 @@
 # plaqa Firebase Deploy Plan
 
-Stand: 2026-08-23 CEST
+Stand: 2026-08-24 CEST
 Zielprojekt: `carma-a84e4`
 Android-App: `plaqa`, Paket `de.plaqa.app`, Version `1.0.0+1`
+iOS-App: `plaqa`, Bundle-ID `de.plaqa.app`, Version `1.0.0+1`
 Play Store: sichtbare Version `1.0.0`, Versionscode `1`, interner Release
 `1 (1.0.0)` aktiv
 Functions: Cloud Functions 2nd Gen, Node.js 22, globale Region `europe-west3`
@@ -10,9 +11,10 @@ Functions: Cloud Functions 2nd Gen, Node.js 22, globale Region `europe-west3`
 ## Zweck und Statusregeln
 
 Dieser Plan trennt den lokalen Quellstand vom nachweisbaren Live-Stand. Er ist
-keine Deploy-Freigabe. In diesem Aktualisierungsschritt wurden nur Dokumente
-angepasst; es wurden keine Tests, Builds, Deploys oder Console-Aenderungen
-ausgefuehrt.
+keine Deploy-Freigabe. In diesem Aktualisierungsschritt wurden die ausdruecklich
+freigegebenen iOS-App-Check-, DeviceCheck- und APNs-Einstellungen in Firebase
+konfiguriert. Es wurden keine Functions, Rules, Indexes oder Hosting-Ressourcen
+deployt, keine Builds hochgeladen und keine App veroeffentlicht.
 
 - **Live bestaetigt**: Name und grundlegender Ressourcentyp wurden zuletzt am
   2026-08-23 direkt mit der Firebase-CLI, Firebase Console oder per HTTPS
@@ -39,7 +41,9 @@ ausgefuehrt.
 | Hosting | `firebase hosting:sites:list` und HTTPS | Site `carma-a84e4` live; `plaqa.de` und `auth.plaqa.de` erreichbar |
 | Hosting-Inhalt | Bytevergleich lokal gegen HTTPS | Gleich: Startseite, Kontoloeschung, Impressum, Meldestelle, Support, Partner, Auth-Action. Abweichend: Datenschutz, Kinderschutz, Community-Richtlinien, Nutzungsbedingungen |
 | Rules | CLI-Moeglichkeiten | Firestore-/Storage-Rules sind live in Benutzung, der veroeffentlichte Inhalt ist mit der CLI nicht sicher gegen lokal vergleichbar |
-| Auth/App Check | lokaler Code und Firebase Console | Android-App `de.plaqa.app` ist mit Play Integrity registriert; Firestore bleibt im Monitoring, Storage und Authentication sind nicht erzwungen, Functions erzwingen App Check lokal nicht |
+| Auth/App Check | lokaler Code und Firebase Console | Android-App `de.plaqa.app` nutzt Play Integrity; iOS-App `de.plaqa.app` ist mit App Attest und DeviceCheck registriert; Firestore, Storage und Authentication bleiben nicht erzwungen, Functions erzwingen App Check lokal nicht |
+| iOS Push | Apple Developer und Firebase Cloud Messaging | Kombinierter Apple-Schluessel fuer APNs/DeviceCheck liegt ausserhalb von Git; APNs-Authentifizierungsschluessel fuer Entwicklung und Produktion hinterlegt; keine Push-Nachricht getestet |
+| Auth-E-Mail | Firebase Authentication, IONOS und Apple Relay | benutzerdefiniertes SMTP aktiv; tatsaechlicher Absender `no-reply@plaqa.de`; Testmail im normalen Posteingang; Quelle bei Apple Private Email Relay registriert |
 | Play Console | vom Nutzer freigegebene Console-Aktion und anschliessende Geraetebestaetigung | Signierter Release `1 (1.0.0)` mit Versionscode `1` ist ausschliesslich im internen Track aktiv; Liste `plaqa interne Tester` enthaelt einen freigegebenen Tester; Teilnahme-Link und Redmi-Installation sind bestaetigt; keine Produktion |
 
 ## Letzter dokumentierter lokaler Pruefstand
@@ -135,10 +139,10 @@ nachgewiesenen Quellunterschied und mit gesonderter Freigabe.
 | Storage Rules | `storage.rules` | letzter Voll-Lauf in 97 Rules-Tests bestanden | **Live-Status erneut pruefen**; Inhalt nicht per CLI verglichen | Nein | App Check ersetzt keine Rules | `firebase deploy --project carma-a84e4 --only storage`; vorher Rules-Test wiederholen; danach Profil-, Post-, Chat-, Fahrzeug-, Melde- und Dokumentmedien testen; Rollback ueber vorheriges Rules-Release |
 | Firestore Indexes | `firestore.indexes.json`, sechs Definitionen | Query-Abgleich lokal dokumentiert | **alle sechs live bestaetigt** | Nein | keine | aktuell kein Deploy; bei Aenderung `firebase deploy --project carma-a84e4 --only firestore:indexes`; Query testen; additive Indexe nicht vorschnell loeschen |
 | Firebase Hosting | `hosting/`, Site `carma-a84e4` | lokale Assets vorhanden | Site/Domain live; vier Rechtsseiten lokal neuer als live | Nein | Custom Domains/DNS in Console | Nach externer Legal-/Anschriftenfreigabe `firebase deploy --project carma-a84e4 --only hosting`; alle URLs/Assets testen; Rollback ueber Hosting-Release-Historie |
-| App Check | `firebase_app_check`; Debug nutzt Debug-Provider, Release Play Integrity | 3 gezielte Tests und kompletter Flutter-Testlauf bestanden | `de.plaqa.app` mit Play Integrity registriert; Firestore Monitoring, Storage/Authentication nicht erzwungen; Functions lokal ohne Enforcement | Functions-Aktualisierung: Ja | Geraete- und Metriktest bleibt offen | kein CLI-Deploy; Debug-Token und Play Integrity live pruefen, erst danach pro Produkt erzwingen; bei legitimen Blockaden Enforcement sofort deaktivieren |
+| App Check | `firebase_app_check`; Debug nutzt Debug-Provider, Android Release Play Integrity, iOS Release App Attest mit DeviceCheck-Fallback | gezielte Tests und kompletter Flutter-Testlauf bestanden | Android und iOS `de.plaqa.app` registriert; iOS App Attest/DeviceCheck aktiv; Firestore, Storage und Authentication nicht erzwungen; Functions lokal ohne Enforcement | Functions-Aktualisierung: Ja | Android- und iOS-Geraete-/Metriktest bleibt offen | kein CLI-Deploy; Debug-Token, Play Integrity und App Attest/DeviceCheck live pruefen, erst danach pro Produkt erzwingen; bei legitimen Blockaden Enforcement sofort deaktivieren |
 | Authentication | E-Mail/Passwort und Google lokal implementiert; Android-App `de.plaqa.app` registriert | statisch vorhanden | Providerstatus erneut in Console pruefen | Nein, Identity-Platform-Funktionen koennen Billing erfordern | Google-Provider, E-Mail-Provider, autorisierte Domains, SHA und OAuth-Branding | Console-Aenderungen einzeln; Registrierung/Login/Reset/Emailwechsel testen; alte Android-Clients bis zum Abschluss behalten |
 | SMS-MFA | Enrollment, Login, Entfernen und Recovery lokal implementiert | lokale MFA-Tests vorhanden; Live-Flows frueher begonnen | Identity-Platform-/SMS-MFA-, Quota- und Billingstatus erneut pruefen | voraussichtlich ja fuer produktiven Umfang | SMS-Regionen, Quota, SHA, Testnummern, Datenschutz | kein Firebase-Deploy fuer Provider; alle E-Mail-/Google-MFA-Flows mit Testkonto pruefen; bei Fehler MFA nicht freigeben |
-| Auth-E-Mails / Action-Domain | deutsche Sprache im App-Code; `auth.plaqa.de/auth/action` lokal und live erreichbar | HTTPS 200, lokale Action-Seite bytegleich live | Template, Absender, SMTP und Action-URL erneut in Auth-Console pruefen | Nein | `no-reply@plaqa.de`, Supportadresse, Templates und autorisierte Domain | keine pauschale CLI-Aenderung; Verifikation, Reset, E-Mail-Wechsel und Wiederherstellung einzeln testen; bei Fehler Firebase-Standardhandler voruebergehend nutzen |
+| Auth-E-Mails / Action-Domain | deutsche Sprache im App-Code; `auth.plaqa.de/auth/action` lokal und live erreichbar | HTTPS 200; SMTP-Testmail von `no-reply@plaqa.de` zugestellt | Custom SMTP ueber IONOS und Action-Domain aktiv; Apple-Relay-Quelle registriert | Nein | Supportadresse, Templates und autorisierte Domain vor Release erneut pruefen | keine pauschale CLI-Aenderung; Verifikation, Reset, E-Mail-Wechsel, Wiederherstellung und Apple-Relay einzeln testen; bei Fehler Firebase-Standardhandler voruebergehend nutzen |
 
 ## Sichere Reihenfolge
 
@@ -186,8 +190,10 @@ nachgewiesenen Quellunterschied und mit gesonderter Freigabe.
 - Firestore- und Storage-Live-Rules sind inhaltlich noch nicht verglichen.
 - Datenschutz, Kinderschutz, Community-Richtlinien und Nutzungsbedingungen sind
   lokal neuer als die live ausgelieferten Seiten.
-- App Check ist fuer die finale Android-App registriert und bleibt im
+- App Check ist fuer die finalen Android- und iOS-Apps registriert und bleibt im
   Monitoring; Erzwingung darf erst nach Provider-/Geraetetest erfolgen.
+- iOS-APNs ist fuer Entwicklung und Produktion konfiguriert; echte Zustellung,
+  Tokenrotation und Navigation nach Antippen bleiben ungeprueft.
 - Mehrere Functions besitzen keinen eigenen Function-Test.
 - Dokumentenverifizierung bleibt bis zum Cleanup-Livetest und zur externen
   Rechtspruefung gesperrt.
