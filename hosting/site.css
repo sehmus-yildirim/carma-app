@@ -1,9150 +1,1947 @@
 :root {
-  --bg: #080b10;
-  --bg-soft: #0c1119;
-  --surface: rgba(17, 22, 31, 0.8);
-  --surface-strong: #111720;
-  --text: #f6f8fc;
-  --muted: #9ba6b7;
-  --line: rgba(146, 165, 193, 0.16);
-  --blue: #1671ff;
-  --blue-bright: #2180ff;
-  --orange: #ff7417;
-  --radius: 24px;
-  --max: 1480px;
   color-scheme: dark;
+  --ink: #070a0f;
+  --ink-soft: #0d121a;
+  --ink-raised: #121923;
+  --paper: #ffffff;
+  --paper-soft: #f3f6f9;
+  --text: #f7f9fc;
+  --text-dark: #111722;
+  --muted: #9aa6b5;
+  --muted-dark: #596474;
+  --line: rgba(255, 255, 255, 0.14);
+  --line-dark: #dbe1e8;
+  --blue: #0869ff;
+  --blue-dark: #0052d6;
+  --orange: #ff721f;
+  --green: #20b96b;
+  --red: #e44655;
+  --max: 1240px;
+  --radius: 8px;
+  --shadow: 0 28px 70px rgba(2, 7, 16, 0.2);
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; background: var(--bg); }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 92px;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  overflow-x: hidden;
-  background:
-    radial-gradient(circle at 64% 42%, rgba(19, 105, 255, 0.08), transparent 30%),
-    linear-gradient(180deg, #070a0f 0%, #080c12 54%, #070a0f 100%);
+  min-width: 0;
+  overflow-x: clip;
+  background: var(--ink);
   color: var(--text);
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-
-a { color: inherit; text-decoration: none; }
-button, a { -webkit-tap-highlight-color: transparent; }
-
-.ambient {
-  position: fixed;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: 999px;
-  filter: blur(110px);
-  opacity: .3;
-}
-.ambient-one { width: 520px; height: 520px; top: 20%; right: 12%; background: rgba(14, 102, 255, .18); }
-.ambient-two { width: 320px; height: 320px; bottom: 5%; left: 42%; background: rgba(255, 116, 23, .035); }
-
-.site-header {
-  width: min(calc(100% - 72px), var(--max));
-  height: 104px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 220px 1fr 220px;
-  align-items: center;
-  position: relative;
-  z-index: 20;
-}
-.brand { justify-self: start; display: inline-flex; align-items: center; }
-.brand img { width: 166px; height: auto; display: block; }
-.desktop-nav { display: flex; justify-content: center; align-items: center; gap: clamp(24px, 2.6vw, 48px); }
-.desktop-nav a { color: #d8dee8; font-size: 15px; font-weight: 600; transition: color .2s ease; }
-.desktop-nav a:hover { color: #fff; }
-.header-cta {
-  justify-self: end;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 0 22px;
-  border: 1px solid rgba(30, 122, 255, .75);
-  border-radius: 999px;
-  color: #eef5ff;
-  font-size: 14px;
-  font-weight: 700;
-  background: rgba(8, 18, 32, .36);
-  box-shadow: inset 0 0 0 1px rgba(32, 118, 255, .05);
-  transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
-}
-.header-cta:hover { transform: translateY(-1px); background: rgba(20, 102, 233, .12); box-shadow: 0 10px 40px rgba(11, 91, 218, .12); }
-.menu-button { display: none; }
-.mobile-menu { display: none; }
-
-.hero-section {
-  width: min(calc(100% - 72px), var(--max));
-  min-height: calc(100vh - 104px - 150px);
-  margin: 0 auto;
-  padding: 46px 0 30px;
-  display: grid;
-  grid-template-columns: minmax(420px, .83fr) minmax(650px, 1.17fr);
-  gap: clamp(28px, 4vw, 76px);
-  align-items: center;
-}
-.hero-copy { position: relative; z-index: 5; max-width: 650px; padding-bottom: 54px; }
-h1 {
-  margin: 0;
-  font-size: clamp(55px, 5.1vw, 88px);
-  line-height: .99;
-  letter-spacing: -0.055em;
-  font-weight: 780;
-  text-wrap: balance;
-}
-h1 span { display: block; margin-top: 14px; color: var(--blue-bright); }
-.hero-text {
-  max-width: 620px;
-  margin: 34px 0 0;
-  color: #aeb7c5;
-  font-size: clamp(18px, 1.35vw, 22px);
-  line-height: 1.55;
-  font-weight: 450;
-}
-.hero-actions { margin-top: 36px; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
-.primary-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  min-width: 258px;
-  min-height: 62px;
-  padding: 0 30px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #0e66ee, #1679ff);
-  box-shadow: 0 18px 54px rgba(15, 105, 247, .2), inset 0 1px rgba(255,255,255,.12);
-  font-size: 18px;
-  font-weight: 750;
-  transition: transform .25s ease, box-shadow .25s ease;
-}
-.primary-cta:hover { transform: translateY(-2px); box-shadow: 0 22px 70px rgba(15, 105, 247, .28), inset 0 1px rgba(255,255,255,.14); }
-.availability { display: inline-flex; align-items: center; gap: 12px; color: #8f9bad; font-size: 15px; }
-.availability i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-bright); box-shadow: 0 0 14px rgba(33,128,255,.9); }
-
-.device-stage {
-  position: relative;
-  height: min(720px, 68vh);
-  min-height: 600px;
-  isolation: isolate;
-  perspective: 1400px;
-}
-.stage-glow {
-  position: absolute;
-  width: 78%;
-  height: 62%;
-  left: 13%;
-  top: 18%;
-  z-index: -2;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(18, 108, 255, .22), rgba(18, 108, 255, .06) 44%, transparent 72%);
-  filter: blur(28px);
-}
-.stage-glow::after {
-  content: "";
-  position: absolute;
-  inset: 54% -18% auto -18%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0 8%, rgba(20, 115, 255, .15), rgba(40, 131, 255, .85) 50%, rgba(20, 115, 255, .15), transparent 92% 100%);
-  box-shadow: 0 0 30px rgba(21, 113, 255, .85), 0 0 90px rgba(21, 113, 255, .35);
-  transform: rotate(-6deg);
-  opacity: .72;
-}
-.phone {
-  position: absolute;
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid rgba(231, 236, 244, .48);
-  border-radius: 42px;
-  background: #05080c;
-  box-shadow:
-    0 40px 90px rgba(0,0,0,.55),
-    0 0 0 5px rgba(12,15,20,.92),
-    0 0 0 6px rgba(158,173,196,.23),
-    inset 0 0 0 1px rgba(255,255,255,.05);
-  transform-origin: center bottom;
-  will-change: transform;
-}
-.phone img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.phone-left {
-  width: clamp(240px, 17.2vw, 300px);
-  aspect-ratio: 921 / 2048;
-  left: 1%;
-  bottom: 2%;
-  z-index: 1;
-  transform: rotateY(9deg) rotateZ(-3.4deg) scale(.92);
-  opacity: .94;
-}
-.phone-center {
-  width: clamp(290px, 20vw, 360px);
-  aspect-ratio: 921 / 2048;
-  left: 31%;
-  bottom: -1%;
-  z-index: 3;
-  transform: translateZ(20px);
-}
-.phone-right {
-  width: clamp(240px, 17.2vw, 300px);
-  aspect-ratio: 921 / 2048;
-  right: 0;
-  bottom: 1%;
-  z-index: 2;
-  transform: rotateY(-9deg) rotateZ(3.2deg) scale(.92);
-  opacity: .95;
-}
-.demo-plate {
-  position: absolute;
-  z-index: 6;
-  left: 43%;
-  bottom: 8%;
-  transform: translateX(-50%) rotate(-3deg);
-  display: flex;
-  align-items: stretch;
-  overflow: hidden;
-  border: 3px solid #171717;
-  border-radius: 8px;
-  background: #f7f7f4;
-  color: #090909;
-  box-shadow: 0 20px 46px rgba(0,0,0,.45), 0 0 40px rgba(19,106,255,.14);
-  opacity: .96;
-}
-.demo-plate .eu-strip { display: grid; place-items: center; width: 28px; background: #0b50b6; color: #fff; font-size: 11px; font-weight: 800; }
-.demo-plate strong { padding: 7px 12px 6px; font-family: "Arial Narrow", "DIN Condensed", Arial, sans-serif; font-size: 19px; letter-spacing: .02em; white-space: nowrap; }
-
-.workflow-rail {
-  width: min(calc(100% - 72px), var(--max));
-  margin: 20px auto 42px;
-  min-height: 118px;
-  padding: 0 26px;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(16, 21, 29, .84), rgba(11, 15, 21, .88));
-  box-shadow: 0 18px 70px rgba(0,0,0,.18), inset 0 1px rgba(255,255,255,.025);
-  backdrop-filter: blur(18px);
-}
-.rail-item { min-width: 0; min-height: 64px; padding: 0 26px; display: flex; align-items: center; gap: 18px; border-right: 1px solid var(--line); }
-.rail-item:first-child { padding-left: 8px; }
-.rail-item:last-child { border-right: 0; }
-.rail-icon { flex: 0 0 auto; width: 42px; height: 42px; display: grid; place-items: center; color: var(--blue-bright); }
-.rail-icon svg { width: 40px; height: 40px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.rail-item-accent .rail-icon { color: var(--orange); }
-.rail-item div { min-width: 0; display: grid; gap: 6px; }
-.rail-item strong { font-size: 15px; font-weight: 750; white-space: nowrap; }
-.rail-item small { color: #8c97a8; font-size: 13px; white-space: nowrap; }
-
-@media (prefers-reduced-motion: no-preference) {
-  .hero-copy { animation: copy-in .75s cubic-bezier(.22,.8,.22,1) both; }
-  .phone-left { animation: phone-left-in 1s .18s cubic-bezier(.2,.75,.2,1) both; }
-  .phone-center { animation: phone-center-in .95s .08s cubic-bezier(.2,.75,.2,1) both; }
-  .phone-right { animation: phone-right-in 1s .26s cubic-bezier(.2,.75,.2,1) both; }
-  .demo-plate { animation: plate-in .8s .62s cubic-bezier(.2,.8,.2,1) both; }
-  @keyframes copy-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-  @keyframes phone-left-in { from { opacity: 0; transform: translate(36px,28px) rotateY(9deg) rotateZ(-3.4deg) scale(.87); } to { opacity: .94; transform: rotateY(9deg) rotateZ(-3.4deg) scale(.92); } }
-  @keyframes phone-center-in { from { opacity: 0; transform: translateY(36px) translateZ(-30px) scale(.96); } to { opacity: 1; transform: translateZ(20px); } }
-  @keyframes phone-right-in { from { opacity: 0; transform: translate(-32px,28px) rotateY(-9deg) rotateZ(3.2deg) scale(.87); } to { opacity: .95; transform: rotateY(-9deg) rotateZ(3.2deg) scale(.92); } }
-  @keyframes plate-in { from { opacity: 0; transform: translate(-50%,20px) rotate(-6deg) scale(.92); } to { opacity: .96; transform: translateX(-50%) rotate(-3deg); } }
-}
-
-@media (max-width: 1240px) {
-  .site-header, .hero-section, .workflow-rail { width: min(calc(100% - 44px), var(--max)); }
-  .site-header { grid-template-columns: 180px 1fr 185px; }
-  .desktop-nav { gap: 24px; }
-  .hero-section { grid-template-columns: minmax(380px, .9fr) minmax(540px, 1.1fr); }
-  h1 { font-size: clamp(52px, 5vw, 70px); }
-  .device-stage { min-height: 560px; }
-  .rail-item { padding: 0 15px; gap: 11px; }
-  .rail-icon { width: 34px; }
-  .rail-icon svg { width: 32px; height: 32px; }
-  .rail-item strong { font-size: 13px; }
-  .rail-item small { font-size: 11px; }
-}
-
-@media (max-width: 980px) {
-  .site-header { height: 86px; grid-template-columns: 1fr auto; width: calc(100% - 36px); }
-  .brand img { width: 132px; }
-  .desktop-nav, .header-cta { display: none; }
-  .menu-button {
-    display: grid;
-    place-content: center;
-    gap: 7px;
-    width: 48px;
-    height: 48px;
-    border: 1px solid var(--line);
-    border-radius: 50%;
-    background: rgba(14, 18, 25, .72);
-  }
-  .menu-button span { display: block; width: 20px; height: 1.5px; background: #edf3fb; transition: transform .2s ease; }
-  .mobile-menu {
-    position: fixed;
-    z-index: 30;
-    inset: 86px 18px auto;
-    padding: 22px;
-    border: 1px solid var(--line);
-    border-radius: 22px;
-    background: rgba(9, 13, 19, .97);
-    backdrop-filter: blur(22px);
-    box-shadow: 0 30px 80px rgba(0,0,0,.45);
-  }
-  .mobile-menu:not([hidden]) { display: grid; gap: 4px; }
-  .mobile-menu a { padding: 15px 14px; border-radius: 14px; color: #e9eef7; font-weight: 700; }
-  .hero-section { width: calc(100% - 36px); min-height: auto; grid-template-columns: 1fr; padding-top: 52px; gap: 34px; }
-  .hero-copy { max-width: 760px; padding-bottom: 0; }
-  h1 { max-width: 740px; font-size: clamp(48px, 9vw, 76px); }
-  .hero-text { max-width: 680px; font-size: 18px; }
-  .device-stage { width: min(760px, 100%); height: 650px; min-height: 0; margin: 0 auto; }
-  .phone-left { left: 2%; width: 28%; }
-  .phone-center { left: 36%; width: 32%; }
-  .phone-right { right: 2%; width: 28%; }
-  .workflow-rail { width: calc(100% - 36px); overflow-x: auto; grid-template-columns: repeat(5, minmax(210px, 1fr)); padding: 18px 14px; scroll-snap-type: x proximity; }
-  .rail-item { min-height: 72px; scroll-snap-align: start; }
-}
-
-@media (max-width: 640px) {
-  body { background: radial-gradient(circle at 50% 34%, rgba(17, 98, 239, .1), transparent 26%), #080b10; }
-  .site-header { width: calc(100% - 28px); }
-  .hero-section { width: calc(100% - 28px); padding-top: 34px; }
-  h1 { font-size: clamp(43px, 13vw, 60px); line-height: 1.01; }
-  h1 span { margin-top: 9px; }
-  .hero-text { margin-top: 26px; font-size: 16px; line-height: 1.58; }
-  .primary-cta { min-width: 220px; min-height: 58px; font-size: 16px; }
-  .device-stage { height: 560px; margin-top: 12px; }
-  .phone { border-radius: 26px; box-shadow: 0 28px 62px rgba(0,0,0,.58), 0 0 0 3px rgba(12,15,20,.92), 0 0 0 4px rgba(158,173,196,.2); }
-  .phone-left { width: 31%; left: -2%; bottom: 6%; transform: rotateZ(-4deg) scale(.9); }
-  .phone-center { width: 39%; left: 30.5%; bottom: 2%; }
-  .phone-right { width: 31%; right: -2%; bottom: 6%; transform: rotateZ(4deg) scale(.9); }
-  .demo-plate { left: 50%; bottom: 2%; }
-  .demo-plate strong { font-size: 13px; padding: 5px 8px; }
-  .demo-plate .eu-strip { width: 20px; font-size: 8px; }
-  .workflow-rail { width: calc(100% - 28px); margin-top: 8px; margin-bottom: 26px; border-radius: 20px; }
-}
-
-/* ===== PLAQA HERO POLISH 01 ===== */
-
-@media (min-width: 1241px) {
-  .site-header {
-    height: 92px;
-  }
-
-  .brand img {
-    width: 154px;
-  }
-
-  .desktop-nav {
-    gap: clamp(28px, 2.4vw, 42px);
-  }
-
-  .desktop-nav a {
-    font-size: 14px;
-    color: #c6cfdb;
-  }
-
-  .hero-section {
-    min-height: calc(100vh - 92px);
-    padding: 18px 0 40px;
-    grid-template-columns: minmax(410px, .84fr) minmax(650px, 1.16fr);
-    gap: clamp(36px, 4vw, 70px);
-  }
-
-  .hero-copy {
-    max-width: 610px;
-    padding-bottom: 10px;
-  }
-
-  h1 {
-    font-size: clamp(58px, 4.35vw, 76px);
-    line-height: 1.01;
-    letter-spacing: -0.05em;
-  }
-
-  h1 span {
-    margin-top: 12px;
-  }
-
-  .hero-text {
-    max-width: 590px;
-    margin-top: 28px;
-    font-size: clamp(17px, 1.15vw, 20px);
-    line-height: 1.55;
-  }
-
-  .hero-actions {
-    margin-top: 30px;
-    gap: 15px;
-  }
-
-  .primary-cta {
-    min-width: 238px;
-    min-height: 56px;
-    font-size: 17px;
-  }
-
-  .device-stage {
-    height: min(660px, 69vh);
-    min-height: 560px;
-    transform: translateY(-8px);
-  }
-
-  .phone-left {
-    width: clamp(220px, 15.2vw, 270px);
-    left: 4%;
-    bottom: 2%;
-    transform: rotateY(9deg) rotateZ(-2.6deg) scale(.92);
-  }
-
-  .phone-center {
-    width: clamp(265px, 18.3vw, 326px);
-    left: 33%;
-    bottom: -1%;
-  }
-
-  .phone-right {
-    width: clamp(220px, 15.2vw, 270px);
-    right: 1.5%;
-    bottom: 2%;
-    transform: rotateY(-9deg) rotateZ(2.6deg) scale(.92);
-  }
-
-  .stage-glow {
-    width: 84%;
-    height: 68%;
-    left: 9%;
-    top: 14%;
-    background:
-      radial-gradient(
-        ellipse,
-        rgba(20, 112, 255, .22),
-        rgba(20, 112, 255, .075) 44%,
-        transparent 72%
-      );
-    filter: blur(34px);
-  }
-
-  .demo-plate {
-    left: 48%;
-    bottom: 5%;
-  }
-}
-
-/* ===== PLAQA HOW IT WORKS ===== */
-
-.how-section {
-  width: min(calc(100% - 72px), var(--max));
-  margin: 90px auto 140px;
-  padding-top: 50px;
-}
-
-.how-heading {
-  max-width: 820px;
-  margin-bottom: 70px;
-}
-
-.section-kicker {
-  margin: 0 0 18px;
-  color: var(--blue-bright);
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-}
-
-.how-heading h2 {
-  margin: 0;
-  font-size: clamp(46px, 5vw, 76px);
-  line-height: 1.02;
-  letter-spacing: -.045em;
-}
-
-.how-heading h2 span {
-  display: block;
-  color: #8895a8;
-}
-
-.how-heading > p:last-child {
-  max-width: 680px;
-  margin: 26px 0 0;
-  color: #9da8b8;
-  font-size: 19px;
-  line-height: 1.6;
-}
-
-.how-layout {
-  display: grid;
-  grid-template-columns: minmax(430px, .9fr) minmax(460px, 1.1fr);
-  gap: clamp(55px, 7vw, 120px);
-  align-items: start;
-}
-
-.how-steps {
-  display: grid;
-  gap: 18px;
-  padding-top: 40px;
-}
-
-.how-step {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 18px;
-  padding: 28px 30px;
-  border: 1px solid rgba(145,164,193,.13);
-  border-radius: 26px;
-  background: rgba(15,20,28,.46);
-  opacity: .54;
-  transform: scale(.985);
-  transition:
-    opacity .35s ease,
-    transform .35s ease,
-    border-color .35s ease,
-    background .35s ease,
-    box-shadow .35s ease;
-}
-
-.how-step.is-active {
-  opacity: 1;
-  transform: scale(1);
-  border-color: rgba(31,121,255,.48);
-  background: linear-gradient(
-    135deg,
-    rgba(17,26,40,.92),
-    rgba(12,17,25,.82)
-  );
-  box-shadow:
-    0 20px 70px rgba(0,0,0,.22),
-    inset 0 0 0 1px rgba(32,117,255,.06);
-}
-
-.step-number {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 1px solid rgba(39,126,255,.45);
-  color: var(--blue-bright);
-  font-weight: 800;
-  font-size: 14px;
-}
-
-.how-step h3 {
-  margin: 2px 0 9px;
-  font-size: 24px;
-  letter-spacing: -.02em;
-}
-
-.how-step p {
-  margin: 0;
-  max-width: 540px;
-  color: #929eaf;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.6;
+  text-rendering: optimizeLegibility;
 }
 
-.how-preview {
-  position: sticky;
-  top: 115px;
-  height: 700px;
-  display: grid;
-  place-items: center;
-  isolation: isolate;
+body,
+button,
+a,
+input,
+textarea {
+  letter-spacing: 0;
 }
 
-.how-glow {
-  position: absolute;
-  z-index: -1;
-  width: 520px;
-  height: 520px;
-  border-radius: 50%;
-  background:
-    radial-gradient(
-      circle,
-      rgba(25,115,255,.21),
-      rgba(25,115,255,.055) 47%,
-      transparent 72%
-    );
-  filter: blur(24px);
-}
-
-.how-phone {
-  width: min(355px, 78%);
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid rgba(232,238,246,.45);
-  border-radius: 44px;
-  background: #05080c;
-  box-shadow:
-    0 45px 100px rgba(0,0,0,.56),
-    0 0 0 5px rgba(12,15,20,.94),
-    0 0 0 6px rgba(154,171,194,.2);
-}
-
-.how-phone img {
-  width: 100%;
+img,
+svg,
+video {
   display: block;
-  aspect-ratio: 921 / 2048;
-  object-fit: cover;
-  transition: opacity .24s ease, transform .35s ease;
+  max-width: 100%;
 }
 
-.how-phone img.is-switching {
-  opacity: .08;
-  transform: scale(.985);
-}
-
-@media (max-width: 980px) {
-  .how-section {
-    width: calc(100% - 36px);
-    margin-top: 70px;
-  }
-
-  .how-layout {
-    grid-template-columns: 1fr;
-    gap: 30px;
-  }
-
-  .how-preview {
-    position: relative;
-    top: auto;
-    height: 620px;
-    order: -1;
-  }
-}
-
-@media (max-width: 640px) {
-  .how-section {
-    width: calc(100% - 28px);
-    margin: 60px auto 90px;
-  }
-
-  .how-heading {
-    margin-bottom: 38px;
-  }
-
-  .how-heading h2 {
-    font-size: clamp(40px, 11vw, 54px);
-  }
-
-  .how-heading > p:last-child {
-    font-size: 16px;
-  }
-
-  .how-preview {
-    height: 550px;
-  }
-
-  .how-phone {
-    width: min(290px, 78%);
-    border-radius: 32px;
-  }
-
-  .how-step {
-    grid-template-columns: 48px 1fr;
-    padding: 22px 20px;
-    border-radius: 21px;
-  }
-
-  .step-number {
-    width: 40px;
-    height: 40px;
-  }
-
-  .how-step h3 {
-    font-size: 20px;
-  }
-
-  .how-step p {
-    font-size: 15px;
-  }
-}
-
-/* =========================================================
-   plaqa HERO — ABOVE THE FOLD
-   Header + Hero + Workflow passen in einen Desktop-Viewport
-   ========================================================= */
-
-@media (min-width: 1100px) {
-  .site-header {
-    height: 78px;
-  }
-
-  .hero-section {
-    height: calc(100svh - 78px - 112px);
-    min-height: 0;
-    padding: 6px 0 8px;
-    align-items: center;
-  }
-
-  .hero-copy {
-    padding-bottom: 0;
-  }
-
-  .device-stage {
-    height: 100%;
-    min-height: 0;
-  }
-
-  .workflow-rail {
-    height: 92px;
-    min-height: 92px;
-    margin: 6px auto 14px;
-  }
-}
-
-
-/* Laptop / kleinere Desktop-Höhen */
-@media (min-width: 1100px) and (max-height: 950px) {
-
-  .brand img {
-    width: 150px;
-  }
-
-  .desktop-nav a {
-    font-size: 13px;
-  }
-
-  h1 {
-    font-size: clamp(52px, 4vw, 66px);
-    line-height: 1.01;
-  }
-
-  h1 span {
-    margin-top: 10px;
-  }
-
-  .hero-text {
-    max-width: 590px;
-    margin-top: 22px;
-    font-size: 16.5px;
-    line-height: 1.48;
-  }
-
-  .hero-actions {
-    margin-top: 24px;
-    gap: 12px;
-  }
-
-  .primary-cta {
-    min-width: 230px;
-    min-height: 54px;
-    font-size: 16px;
-  }
-
-  .availability {
-    font-size: 14px;
-  }
-
-
-  /* Linkes Original-Smartphone: Melden */
-  .phone-left {
-    width: clamp(185px, 12.2vw, 215px);
-    left: 5%;
-    bottom: 4%;
-    transform:
-      rotateY(8deg)
-      rotateZ(-2.5deg)
-      scale(.94);
-  }
-
-
-  /* Mittleres Original-Smartphone: Suche
-     bewusst kleiner, damit Navigation frei bleibt */
-  .phone-center {
-    width: clamp(225px, 14.4vw, 252px);
-    left: 34.5%;
-    bottom: 1%;
-    transform: translateZ(15px);
-  }
-
-
-  /* Rechtes Original-Smartphone: Anfrage */
-  .phone-right {
-    width: clamp(185px, 12.2vw, 215px);
-    right: 4%;
-    bottom: 4%;
-    transform:
-      rotateY(-8deg)
-      rotateZ(2.5deg)
-      scale(.94);
-  }
-
-  .stage-glow {
-    width: 80%;
-    height: 64%;
-    left: 10%;
-    top: 19%;
-  }
-
-
-  /* Untere Funktionsleiste kompakter */
-  .workflow-rail {
-    padding: 0 18px;
-  }
-
-  .rail-item {
-    min-height: 56px;
-    padding: 0 18px;
-    gap: 12px;
-  }
-
-  .rail-icon {
-    width: 32px;
-    height: 32px;
-  }
-
-  .rail-icon svg {
-    width: 30px;
-    height: 30px;
-  }
-
-  .rail-item strong {
-    font-size: 13px;
-  }
-
-  .rail-item small {
-    font-size: 11px;
-  }
-}
-
-/* ===== plaqa branded text ===== */
-
-.plaqa-word {
-  display: inline-flex;
-  align-items: baseline;
-  font: inherit;
-  font-weight: inherit;
-  letter-spacing: inherit;
-  white-space: nowrap;
-}
-
-.plaqa-word .plaqa-blue {
-  color: #1671ff;
-}
-
-.plaqa-word .plaqa-orange {
-  color: #ff7417;
-}
-
-
-/* =========================================================
-   plaqa SECTION 02 — ONE VIEWPORT
-   kompletter "So funktioniert plaqa"-Bereich in einem Screen
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  .how-section {
-    width: min(calc(100% - 72px), var(--max));
-    height: 100svh;
-    min-height: 0;
-    margin: 0 auto;
-    padding: 28px 0 30px;
-    box-sizing: border-box;
-
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-
-    overflow: hidden;
-  }
-
-  /* ---------- Überschrift kompakter ---------- */
-
-  .how-heading {
-    max-width: none;
-    margin: 0 0 20px;
-
-    display: grid;
-    grid-template-columns:
-      minmax(520px, 1.15fr)
-      minmax(360px, .85fr);
-
-    column-gap: clamp(40px, 5vw, 80px);
-    align-items: end;
-  }
-
-  .section-kicker {
-    grid-column: 1 / -1;
-
-    margin: 0 0 8px;
-
-    font-size: 12px;
-    letter-spacing: .13em;
-  }
-
-  .how-heading h2 {
-    margin: 0;
-
-    font-size: clamp(44px, 3.6vw, 62px);
-    line-height: .99;
-    letter-spacing: -.045em;
-  }
-
-  .how-heading h2 span {
-    margin-top: 4px;
-  }
-
-  .how-heading > p:last-child {
-    max-width: 500px;
-    margin: 0;
-    padding-bottom: 4px;
-
-    font-size: 15px;
-    line-height: 1.5;
-  }
-
-
-  /* ---------- Hauptbereich ---------- */
-
-  .how-layout {
-    min-height: 0;
-
-    display: grid;
-    grid-template-columns:
-      minmax(480px, .95fr)
-      minmax(340px, .70fr);
-
-    gap: clamp(45px, 6vw, 90px);
-    align-items: center;
-  }
-
-
-  /* ---------- 3 Schritte ---------- */
-
-  .how-steps {
-    padding: 0;
-    gap: 10px;
-    align-self: center;
-  }
-
-  .how-step {
-    grid-template-columns: 46px 1fr;
-    gap: 14px;
-
-    padding: 17px 20px;
-
-    border-radius: 20px;
-  }
-
-  .step-number {
-    width: 38px;
-    height: 38px;
-
-    font-size: 12px;
-  }
-
-  .how-step h3 {
-    margin: 0 0 5px;
-
-    font-size: 20px;
-    line-height: 1.18;
-  }
-
-  .how-step p {
-    max-width: 540px;
-
-    font-size: 14px;
-    line-height: 1.45;
-  }
-
-
-  /* ---------- Smartphone ---------- */
-
-  .how-preview {
-    position: relative;
-    top: auto;
-
-    height: 100%;
-    max-height: 520px;
-    min-height: 0;
-
-    align-self: center;
-
-    display: grid;
-    place-items: center;
-  }
-
-  .how-phone {
-    width: min(255px, 68%);
-    max-height: 100%;
-
-    border-radius: 31px;
-  }
-
-  .how-phone img {
-    max-height: 500px;
-
-    object-fit: cover;
-  }
-
-  .how-glow {
-    width: 390px;
-    height: 390px;
-  }
-}
-
-
-/* =========================================================
-   Kleine Laptop-Höhen
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 780px) {
-
-  .how-section {
-    padding-top: 20px;
-    padding-bottom: 22px;
-  }
-
-  .how-heading {
-    margin-bottom: 14px;
-  }
-
-  .how-heading h2 {
-    font-size: clamp(40px, 3.25vw, 54px);
-  }
-
-  .how-heading > p:last-child {
-    font-size: 14px;
-    line-height: 1.42;
-  }
-
-  .how-step {
-    padding: 14px 18px;
-  }
-
-  .how-step h3 {
-    font-size: 18px;
-  }
-
-  .how-step p {
-    font-size: 13px;
-    line-height: 1.38;
-  }
-
-  .how-preview {
-    max-height: 450px;
-  }
-
-  .how-phone {
-    width: min(225px, 65%);
-  }
-
-  .how-phone img {
-    max-height: 440px;
-  }
-
-  .how-glow {
-    width: 330px;
-    height: 330px;
-  }
-}
-
-
-/* =========================================================
-   plaqa CTA — Brand-safe
-   Dunkler Hintergrund, damit Blau + Orange klar sichtbar bleiben
-   ========================================================= */
-
-.primary-cta {
-  background:
-    linear-gradient(
-      145deg,
-      rgba(18, 25, 36, .98),
-      rgba(9, 14, 22, .98)
-    ) !important;
-
-  border: 1px solid rgba(32, 126, 255, .82) !important;
-
-  color: #f5f7fb !important;
-
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, .30),
-    0 0 0 1px rgba(25, 111, 255, .08) inset,
-    0 0 24px rgba(18, 105, 255, .10);
-
-  transition:
-    transform .22s ease,
-    border-color .22s ease,
-    box-shadow .22s ease,
-    background .22s ease;
-}
-
-.primary-cta:hover {
-  transform: translateY(-2px);
-
-  border-color: rgba(47, 139, 255, 1) !important;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(21, 31, 47, .98),
-      rgba(10, 17, 28, .98)
-    ) !important;
-
-  box-shadow:
-    0 16px 38px rgba(0, 0, 0, .38),
-    0 0 0 1px rgba(38, 128, 255, .12) inset,
-    0 0 30px rgba(23, 112, 255, .17);
-}
-
-
-/* Markenfarben im Button immer unverändert sichtbar */
-
-.primary-cta .plaqa-word .plaqa-blue {
-  color: #1671ff !important;
-}
-
-.primary-cta .plaqa-word .plaqa-orange {
-  color: #ff7417 !important;
-}
-
-
-/* normaler Button-Text */
-
-.primary-cta {
-  font-weight: 750;
-}
-
-.primary-cta svg,
-.primary-cta .arrow {
-  color: #ffffff;
-}
-
-
-/* =========================================================
-   plaqa SECTION 02 — PREMIUM REBALANCE
-   Ein Viewport, ohne die Inhalte kleinzuquetschen
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  .how-section {
-    width: min(calc(100% - 80px), var(--max));
-    height: 100svh;
-    min-height: 720px;
-
-    margin: 0 auto;
-    padding: 30px 0 34px;
-
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-
-    overflow: hidden;
-  }
-
-
-  /* ---------- Headline ---------- */
-
-  .how-heading {
-    max-width: none;
-    margin: 0 0 24px;
-
-    display: grid;
-    grid-template-columns:
-      minmax(560px, 1.12fr)
-      minmax(380px, .88fr);
-
-    column-gap: clamp(55px, 6vw, 110px);
-    align-items: end;
-  }
-
-  .section-kicker {
-    grid-column: 1 / -1;
-
-    margin: 0 0 10px;
-
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: .13em;
-  }
-
-  .how-heading h2 {
-    margin: 0;
-
-    font-size: clamp(48px, 4vw, 66px);
-    line-height: 1;
-    letter-spacing: -.045em;
-  }
-
-  .how-heading h2 span {
-    display: block;
-    margin-top: 5px;
-  }
-
-  .how-heading > p:last-child {
-    max-width: 520px;
-    margin: 0;
-    padding-bottom: 7px;
-
-    font-size: 16px;
-    line-height: 1.52;
-  }
-
-
-  /* ---------- Inhalt ---------- */
-
-  .how-layout {
-    min-height: 0;
-
-    display: grid;
-    grid-template-columns:
-      minmax(560px, 1.03fr)
-      minmax(400px, .97fr);
-
-    gap: clamp(70px, 7vw, 125px);
-
-    align-items: stretch;
-  }
-
-
-  /* ---------- Schritte ---------- */
-
-  .how-steps {
-    align-self: center;
-
-    display: grid;
-    gap: 14px;
-
-    padding: 0;
-  }
-
-  .how-step {
-    grid-template-columns: 58px 1fr;
-    gap: 18px;
-
-    min-height: 108px;
-    padding: 22px 26px;
-
-    border-radius: 24px;
-
-    background:
-      linear-gradient(
-        145deg,
-        rgba(13, 18, 26, .88),
-        rgba(8, 12, 18, .72)
-      );
-
-    opacity: .50;
-  }
-
-  .how-step.is-active {
-    opacity: 1;
-
-    border-color: rgba(31, 121, 255, .64);
-
-    background:
-      linear-gradient(
-        135deg,
-        rgba(18, 29, 45, .96),
-        rgba(10, 16, 25, .92)
-      );
-
-    box-shadow:
-      0 22px 65px rgba(0, 0, 0, .28),
-      inset 0 0 0 1px rgba(36, 126, 255, .08);
-  }
-
-  .step-number {
-    width: 46px;
-    height: 46px;
-
-    font-size: 13px;
-  }
-
-  .how-step h3 {
-    margin: 1px 0 7px;
-
-    font-size: 23px;
-    line-height: 1.18;
-  }
-
-  .how-step p {
-    margin: 0;
-
-    max-width: 610px;
-
-    font-size: 15px;
-    line-height: 1.48;
-  }
-
-
-  /* ---------- Smartphone wieder größer ---------- */
-
-  .how-preview {
-    position: relative;
-    top: auto;
-
-    height: 100%;
-    min-height: 0;
-    max-height: none;
-
-    display: grid;
-    place-items: center;
-
-    align-self: stretch;
-  }
-
-  .how-phone {
-    width: clamp(285px, 20vw, 330px);
-    max-height: calc(100svh - 245px);
-
-    border-radius: 38px;
-
-    box-shadow:
-      0 48px 110px rgba(0, 0, 0, .58),
-      0 0 0 5px rgba(10, 14, 20, .96),
-      0 0 0 6px rgba(137, 159, 189, .23);
-  }
-
-  .how-phone img {
-    width: 100%;
-    height: auto;
-    max-height: calc(100svh - 255px);
-
-    object-fit: contain;
-  }
-
-  .how-glow {
-    width: 470px;
-    height: 470px;
-
-    background:
-      radial-gradient(
-        circle,
-        rgba(25, 115, 255, .19),
-        rgba(25, 115, 255, .05) 48%,
-        transparent 73%
-      );
-
-    filter: blur(28px);
-  }
-}
-
-
-/* Bei sehr niedrigen Laptop-Bildschirmen nur leicht kompakter */
-@media (min-width: 1100px) and (max-height: 800px) {
-
-  .how-section {
-    min-height: 0;
-    padding-top: 22px;
-    padding-bottom: 24px;
-  }
-
-  .how-heading {
-    margin-bottom: 18px;
-  }
-
-  .how-heading h2 {
-    font-size: clamp(44px, 3.55vw, 58px);
-  }
-
-  .how-step {
-    min-height: 92px;
-    padding: 17px 22px;
-  }
-
-  .how-step h3 {
-    font-size: 20px;
-  }
-
-  .how-step p {
-    font-size: 14px;
-  }
-
-  .how-phone {
-    width: clamp(265px, 18vw, 305px);
-  }
-}
-
-
-/* =========================================================
-   plaqa — CINEMATIC 3D DEVICE SYSTEM
-   Original-App-Screens bleiben unverändert
-   ========================================================= */
-
-/* Bühne */
-.device-stage {
-  perspective: 1500px !important;
-  perspective-origin: 50% 42% !important;
-  transform-style: preserve-3d !important;
-  isolation: isolate;
-}
-
-/* Licht hinter der kompletten Device-Gruppe */
-.device-stage::before {
-  content: "";
-  position: absolute;
-  z-index: -4;
-
-  left: 10%;
-  right: 4%;
-  bottom: 4%;
-
-  height: 46%;
-
-  background:
-    radial-gradient(
-      ellipse at center,
-      rgba(22, 111, 255, .24) 0%,
-      rgba(20, 95, 225, .11) 34%,
-      rgba(8, 52, 130, .04) 54%,
-      transparent 74%
-    );
-
-  filter: blur(42px);
-  transform: translateZ(-120px);
-  pointer-events: none;
-}
-
-
-/* Bodenschatten / Lichtreflex */
-.device-stage::after {
-  content: "";
-  position: absolute;
-  z-index: -3;
-
-  width: 82%;
-  height: 70px;
-
-  left: 10%;
-  bottom: 1%;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(0, 0, 0, .72) 0%,
-      rgba(0, 0, 0, .43) 34%,
-      transparent 72%
-    );
-
-  filter: blur(18px);
-  transform:
-    rotateX(72deg)
-    translateZ(-40px);
-
-  pointer-events: none;
-}
-
-
-/* Alle Geräte */
-.phone-left,
-.phone-center,
-.phone-right {
-  transform-style: preserve-3d !important;
-  backface-visibility: hidden;
-
-  border-radius: 42px;
-
-  background: #05070a;
-
-  box-shadow:
-    0 55px 95px rgba(0, 0, 0, .54),
-    0 18px 32px rgba(0, 0, 0, .36),
-    0 0 0 1px rgba(220, 232, 248, .32),
-    0 0 0 5px rgba(6, 9, 13, .98),
-    0 0 0 6px rgba(130, 151, 178, .30),
-    inset 1px 0 0 rgba(255,255,255,.12),
-    inset -1px 0 0 rgba(255,255,255,.045);
-
-  overflow: visible !important;
-
-  will-change: transform;
-  transition:
-    transform .20s cubic-bezier(.2,.8,.2,1),
-    filter .25s ease,
-    box-shadow .25s ease;
-}
-
-
-/* Originalbild sauber im Glas */
-.phone-left img,
-.phone-center img,
-.phone-right img {
-  position: relative;
-  z-index: 2;
-
-  display: block;
-  width: 100%;
+img {
   height: auto;
-
-  border-radius: 37px;
-
-  transform: translateZ(4px);
-
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,.045);
-
-  filter:
-    contrast(1.025)
-    saturate(1.035);
-
-  pointer-events: none;
-}
-
-
-/* Glasreflex */
-.phone-left::before,
-.phone-center::before,
-.phone-right::before {
-  content: "";
-  position: absolute;
-  z-index: 5;
-
-  inset: 5px;
-
-  border-radius: 36px;
-
-  background:
-    linear-gradient(
-      118deg,
-      rgba(255,255,255,.11) 0%,
-      rgba(255,255,255,.035) 13%,
-      transparent 29%,
-      transparent 67%,
-      rgba(70,140,255,.035) 100%
-    );
-
-  mix-blend-mode: screen;
-  opacity: .70;
-
-  pointer-events: none;
-
-  transform: translateZ(8px);
-}
-
-
-/* Metallische rechte Seitenkante */
-.phone-left::after,
-.phone-center::after,
-.phone-right::after {
-  content: "";
-  position: absolute;
-
-  z-index: -1;
-
-  top: 16px;
-  bottom: 16px;
-  right: -8px;
-
-  width: 14px;
-
-  border-radius: 0 12px 12px 0;
-
-  background:
-    linear-gradient(
-      90deg,
-      rgba(34,39,48,.98),
-      rgba(132,146,165,.66) 35%,
-      rgba(42,47,57,.98) 70%,
-      rgba(10,13,18,.98)
-    );
-
-  box-shadow:
-    4px 0 14px rgba(0,0,0,.48),
-    inset 1px 0 rgba(255,255,255,.16);
-
-  transform:
-    translateZ(-7px)
-    rotateY(-4deg);
-
-  pointer-events: none;
-}
-
-
-/* =========================================================
-   GERÄTE-POSITIONIERUNG
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  /* Linkes Gerät – Melden */
-  .phone-left {
-    width: clamp(205px, 13.8vw, 246px) !important;
-
-    left: 2.5% !important;
-    bottom: 5% !important;
-
-    z-index: 2;
-
-    transform:
-      translate3d(0, 8px, -105px)
-      rotateY(17deg)
-      rotateX(2deg)
-      rotateZ(-3.4deg)
-      scale(.94) !important;
-
-    filter:
-      brightness(.89)
-      saturate(.95);
-  }
-
-
-  /* Mittleres Gerät – Suche */
-  .phone-center {
-    width: clamp(245px, 16.1vw, 288px) !important;
-
-    left: 34% !important;
-    bottom: 1.5% !important;
-
-    z-index: 5;
-
-    transform:
-      translate3d(0, -2px, 55px)
-      rotateY(-1.5deg)
-      rotateX(1deg)
-      scale(1) !important;
-
-    filter:
-      brightness(1.03)
-      saturate(1.04);
-
-    box-shadow:
-      0 70px 120px rgba(0,0,0,.64),
-      0 24px 45px rgba(0,0,0,.44),
-      0 0 0 1px rgba(228,237,248,.40),
-      0 0 0 5px rgba(5,8,12,.98),
-      0 0 0 6px rgba(151,171,198,.34),
-      0 0 52px rgba(21,105,255,.16),
-      inset 1px 0 rgba(255,255,255,.15);
-  }
-
-
-  /* Rechtes Gerät – Anfrage */
-  .phone-right {
-    width: clamp(205px, 13.8vw, 246px) !important;
-
-    right: 1.5% !important;
-    bottom: 5% !important;
-
-    z-index: 2;
-
-    transform:
-      translate3d(0, 8px, -105px)
-      rotateY(-17deg)
-      rotateX(2deg)
-      rotateZ(3.4deg)
-      scale(.94) !important;
-
-    filter:
-      brightness(.89)
-      saturate(.95);
-  }
-
-
-  /* Mittleres Gerät etwas höher bei großen Displays */
-  @media (min-height: 900px) {
-    .phone-center {
-      bottom: 3% !important;
-    }
-  }
-
-}
-
-
-/* =========================================================
-   SUBTILER 3D HOVER
-   ========================================================= */
-
-@media (hover:hover) and (pointer:fine) {
-
-  .phone-center:hover {
-    box-shadow:
-      0 76px 130px rgba(0,0,0,.67),
-      0 26px 48px rgba(0,0,0,.45),
-      0 0 0 1px rgba(235,241,250,.46),
-      0 0 0 5px rgba(5,8,12,.98),
-      0 0 0 6px rgba(158,180,210,.38),
-      0 0 68px rgba(22,108,255,.22);
-  }
-
-}
-
-
-/* =========================================================
-   LICHTBAND HINTER DEN PHONES
-   ========================================================= */
-
-.stage-glow {
-  width: 92% !important;
-  height: 66% !important;
-
-  left: 4% !important;
-  top: 21% !important;
-
-  background:
-    radial-gradient(
-      ellipse at 50% 50%,
-      rgba(22,105,255,.22),
-      rgba(15,82,195,.095) 38%,
-      rgba(8,45,111,.04) 56%,
-      transparent 75%
-    ) !important;
-
-  filter: blur(34px) !important;
-
-  transform:
-    translateZ(-150px)
-    scale(1.04);
-}
-
-
-/* =========================================================
-   REDUCED MOTION
-   ========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-  .phone-left,
-  .phone-center,
-  .phone-right {
-    transition: none !important;
-  }
-}
-
-
-/* =========================================================
-   plaqa — CINEMATIC 3D DEVICE SYSTEM
-   Original-App-Screens bleiben unverändert
-   ========================================================= */
-
-/* Bühne */
-.device-stage {
-  perspective: 1500px !important;
-  perspective-origin: 50% 42% !important;
-  transform-style: preserve-3d !important;
-  isolation: isolate;
-}
-
-/* Licht hinter der kompletten Device-Gruppe */
-.device-stage::before {
-  content: "";
-  position: absolute;
-  z-index: -4;
-
-  left: 10%;
-  right: 4%;
-  bottom: 4%;
-
-  height: 46%;
-
-  background:
-    radial-gradient(
-      ellipse at center,
-      rgba(22, 111, 255, .24) 0%,
-      rgba(20, 95, 225, .11) 34%,
-      rgba(8, 52, 130, .04) 54%,
-      transparent 74%
-    );
-
-  filter: blur(42px);
-  transform: translateZ(-120px);
-  pointer-events: none;
-}
-
-
-/* Bodenschatten / Lichtreflex */
-.device-stage::after {
-  content: "";
-  position: absolute;
-  z-index: -3;
-
-  width: 82%;
-  height: 70px;
-
-  left: 10%;
-  bottom: 1%;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(0, 0, 0, .72) 0%,
-      rgba(0, 0, 0, .43) 34%,
-      transparent 72%
-    );
-
-  filter: blur(18px);
-  transform:
-    rotateX(72deg)
-    translateZ(-40px);
-
-  pointer-events: none;
-}
-
-
-/* Alle Geräte */
-.phone-left,
-.phone-center,
-.phone-right {
-  transform-style: preserve-3d !important;
-  backface-visibility: hidden;
-
-  border-radius: 42px;
-
-  background: #05070a;
-
-  box-shadow:
-    0 55px 95px rgba(0, 0, 0, .54),
-    0 18px 32px rgba(0, 0, 0, .36),
-    0 0 0 1px rgba(220, 232, 248, .32),
-    0 0 0 5px rgba(6, 9, 13, .98),
-    0 0 0 6px rgba(130, 151, 178, .30),
-    inset 1px 0 0 rgba(255,255,255,.12),
-    inset -1px 0 0 rgba(255,255,255,.045);
-
-  overflow: visible !important;
-
-  will-change: transform;
-  transition:
-    transform .20s cubic-bezier(.2,.8,.2,1),
-    filter .25s ease,
-    box-shadow .25s ease;
-}
-
-
-/* Originalbild sauber im Glas */
-.phone-left img,
-.phone-center img,
-.phone-right img {
-  position: relative;
-  z-index: 2;
-
-  display: block;
-  width: 100%;
-  height: auto;
-
-  border-radius: 37px;
-
-  transform: translateZ(4px);
-
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,.045);
-
-  filter:
-    contrast(1.025)
-    saturate(1.035);
-
-  pointer-events: none;
-}
-
-
-/* Glasreflex */
-.phone-left::before,
-.phone-center::before,
-.phone-right::before {
-  content: "";
-  position: absolute;
-  z-index: 5;
-
-  inset: 5px;
-
-  border-radius: 36px;
-
-  background:
-    linear-gradient(
-      118deg,
-      rgba(255,255,255,.11) 0%,
-      rgba(255,255,255,.035) 13%,
-      transparent 29%,
-      transparent 67%,
-      rgba(70,140,255,.035) 100%
-    );
-
-  mix-blend-mode: screen;
-  opacity: .70;
-
-  pointer-events: none;
-
-  transform: translateZ(8px);
-}
-
-
-/* Metallische rechte Seitenkante */
-.phone-left::after,
-.phone-center::after,
-.phone-right::after {
-  content: "";
-  position: absolute;
-
-  z-index: -1;
-
-  top: 16px;
-  bottom: 16px;
-  right: -8px;
-
-  width: 14px;
-
-  border-radius: 0 12px 12px 0;
-
-  background:
-    linear-gradient(
-      90deg,
-      rgba(34,39,48,.98),
-      rgba(132,146,165,.66) 35%,
-      rgba(42,47,57,.98) 70%,
-      rgba(10,13,18,.98)
-    );
-
-  box-shadow:
-    4px 0 14px rgba(0,0,0,.48),
-    inset 1px 0 rgba(255,255,255,.16);
-
-  transform:
-    translateZ(-7px)
-    rotateY(-4deg);
-
-  pointer-events: none;
-}
-
-
-/* =========================================================
-   GERÄTE-POSITIONIERUNG
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  /* Linkes Gerät – Melden */
-  .phone-left {
-    width: clamp(205px, 13.8vw, 246px) !important;
-
-    left: 2.5% !important;
-    bottom: 5% !important;
-
-    z-index: 2;
-
-    transform:
-      translate3d(0, 8px, -105px)
-      rotateY(17deg)
-      rotateX(2deg)
-      rotateZ(-3.4deg)
-      scale(.94) !important;
-
-    filter:
-      brightness(.89)
-      saturate(.95);
-  }
-
-
-  /* Mittleres Gerät – Suche */
-  .phone-center {
-    width: clamp(245px, 16.1vw, 288px) !important;
-
-    left: 34% !important;
-    bottom: 1.5% !important;
-
-    z-index: 5;
-
-    transform:
-      translate3d(0, -2px, 55px)
-      rotateY(-1.5deg)
-      rotateX(1deg)
-      scale(1) !important;
-
-    filter:
-      brightness(1.03)
-      saturate(1.04);
-
-    box-shadow:
-      0 70px 120px rgba(0,0,0,.64),
-      0 24px 45px rgba(0,0,0,.44),
-      0 0 0 1px rgba(228,237,248,.40),
-      0 0 0 5px rgba(5,8,12,.98),
-      0 0 0 6px rgba(151,171,198,.34),
-      0 0 52px rgba(21,105,255,.16),
-      inset 1px 0 rgba(255,255,255,.15);
-  }
-
-
-  /* Rechtes Gerät – Anfrage */
-  .phone-right {
-    width: clamp(205px, 13.8vw, 246px) !important;
-
-    right: 1.5% !important;
-    bottom: 5% !important;
-
-    z-index: 2;
-
-    transform:
-      translate3d(0, 8px, -105px)
-      rotateY(-17deg)
-      rotateX(2deg)
-      rotateZ(3.4deg)
-      scale(.94) !important;
-
-    filter:
-      brightness(.89)
-      saturate(.95);
-  }
-
-
-  /* Mittleres Gerät etwas höher bei großen Displays */
-  @media (min-height: 900px) {
-    .phone-center {
-      bottom: 3% !important;
-    }
-  }
-
-}
-
-
-/* =========================================================
-   SUBTILER 3D HOVER
-   ========================================================= */
-
-@media (hover:hover) and (pointer:fine) {
-
-  .phone-center:hover {
-    box-shadow:
-      0 76px 130px rgba(0,0,0,.67),
-      0 26px 48px rgba(0,0,0,.45),
-      0 0 0 1px rgba(235,241,250,.46),
-      0 0 0 5px rgba(5,8,12,.98),
-      0 0 0 6px rgba(158,180,210,.38),
-      0 0 68px rgba(22,108,255,.22);
-  }
-
-}
-
-
-/* =========================================================
-   LICHTBAND HINTER DEN PHONES
-   ========================================================= */
-
-.stage-glow {
-  width: 92% !important;
-  height: 66% !important;
-
-  left: 4% !important;
-  top: 21% !important;
-
-  background:
-    radial-gradient(
-      ellipse at 50% 50%,
-      rgba(22,105,255,.22),
-      rgba(15,82,195,.095) 38%,
-      rgba(8,45,111,.04) 56%,
-      transparent 75%
-    ) !important;
-
-  filter: blur(34px) !important;
-
-  transform:
-    translateZ(-150px)
-    scale(1.04);
-}
-
-
-/* =========================================================
-   REDUCED MOTION
-   ========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-  .phone-left,
-  .phone-center,
-  .phone-right {
-    transition: none !important;
-  }
-}
-
-
-/* =========================================================
-   plaqa — 3D DEVICE OVERRIDE V2
-   Alte Transform-Animationen werden bewusst ersetzt
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  /* WICHTIG: alte Keyframes dürfen die 3D-Transforms nicht mehr überschreiben */
-  .phone-left,
-  .phone-center,
-  .phone-right {
-    animation: none !important;
-    translate: none !important;
-    transform-origin: center center !important;
-    transform-style: preserve-3d !important;
-    backface-visibility: hidden !important;
-    overflow: visible !important;
-  }
-
-  .device-stage {
-    perspective: 1200px !important;
-    perspective-origin: 50% 45% !important;
-    transform-style: preserve-3d !important;
-  }
-
-  /* ---------- LINKES PHONE: deutlich nach hinten ---------- */
-
-  .phone-left {
-    width: clamp(205px, 14vw, 250px) !important;
-
-    left: 1% !important;
-    bottom: 6% !important;
-
-    z-index: 2 !important;
-
-    transform:
-      translate3d(18px, 14px, -150px)
-      rotateY(22deg)
-      rotateX(3deg)
-      rotateZ(-4deg)
-      scale(.92) !important;
-
-    filter:
-      brightness(.82)
-      saturate(.90)
-      drop-shadow(0 35px 45px rgba(0,0,0,.55)) !important;
-  }
-
-
-  /* ---------- MITTLERES PHONE: klar nach vorne ---------- */
-
-  .phone-center {
-    width: clamp(260px, 17.4vw, 310px) !important;
-
-    left: 33.3% !important;
-    bottom: 1% !important;
-
-    z-index: 8 !important;
-
-    transform:
-      translate3d(0, -10px, 85px)
-      rotateY(-2deg)
-      rotateX(1deg)
-      scale(1.035) !important;
-
-    filter:
-      brightness(1.05)
-      saturate(1.06)
-      drop-shadow(0 48px 58px rgba(0,0,0,.62)) !important;
-  }
-
-
-  /* ---------- RECHTES PHONE: spiegelverkehrt nach hinten ---------- */
-
-  .phone-right {
-    width: clamp(205px, 14vw, 250px) !important;
-
-    right: 0 !important;
-    bottom: 6% !important;
-
-    z-index: 2 !important;
-
-    transform:
-      translate3d(-18px, 14px, -150px)
-      rotateY(-22deg)
-      rotateX(3deg)
-      rotateZ(4deg)
-      scale(.92) !important;
-
-    filter:
-      brightness(.82)
-      saturate(.90)
-      drop-shadow(0 35px 45px rgba(0,0,0,.55)) !important;
-  }
-
-
-  /* ---------- Echtes Gerätegehäuse ---------- */
-
-  .phone-left,
-  .phone-center,
-  .phone-right {
-    border-radius: 40px !important;
-
-    background:
-      linear-gradient(
-        145deg,
-        #20252d 0%,
-        #06080c 13%,
-        #030507 55%,
-        #161b22 100%
-      ) !important;
-
-    padding: 5px !important;
-
-    box-shadow:
-      0 0 0 1px rgba(222,232,246,.44),
-      0 0 0 5px rgba(7,9,13,.96),
-      0 0 0 6px rgba(131,151,180,.32),
-      inset 2px 0 2px rgba(255,255,255,.11),
-      inset -2px 0 2px rgba(255,255,255,.035) !important;
-  }
-
-
-  /* ---------- Screen-Glas ---------- */
-
-  .phone-left img,
-  .phone-center img,
-  .phone-right img {
-    width: 100% !important;
-
-    border-radius: 34px !important;
-
-    transform: translateZ(10px) !important;
-
-    box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,.04),
-      0 0 20px rgba(0,0,0,.18) !important;
-  }
-
-
-  /* ---------- Glasreflex deutlicher sichtbar ---------- */
-
-  .phone-left::before,
-  .phone-center::before,
-  .phone-right::before {
-    content: "" !important;
-
-    position: absolute !important;
-    z-index: 20 !important;
-
-    inset: 6px !important;
-
-    border-radius: 33px !important;
-
-    background:
-      linear-gradient(
-        115deg,
-        rgba(255,255,255,.16) 0%,
-        rgba(255,255,255,.055) 10%,
-        rgba(255,255,255,0) 27%,
-        rgba(255,255,255,0) 66%,
-        rgba(32,116,255,.035) 100%
-      ) !important;
-
-    pointer-events: none !important;
-
-    transform: translateZ(14px) !important;
-  }
-
-
-  /* ---------- Metallkante / Gehäusetiefe ---------- */
-
-  .phone-left::after,
-  .phone-center::after,
-  .phone-right::after {
-    content: "" !important;
-
-    position: absolute !important;
-    z-index: -2 !important;
-
-    top: 20px !important;
-    bottom: 20px !important;
-    right: -11px !important;
-
-    width: 16px !important;
-
-    border-radius: 0 12px 12px 0 !important;
-
-    background:
-      linear-gradient(
-        90deg,
-        #171c24 0%,
-        #9aa8ba 28%,
-        #343b47 50%,
-        #11151b 74%,
-        #05070a 100%
-      ) !important;
-
-    box-shadow:
-      5px 1px 16px rgba(0,0,0,.58),
-      inset 1px 0 rgba(255,255,255,.24) !important;
-
-    transform:
-      translateZ(-12px)
-      rotateY(-5deg) !important;
-
-    pointer-events: none !important;
-  }
-
-
-  /* ---------- Starkes Licht hinter CENTER ---------- */
-
-  .stage-glow {
-    width: 94% !important;
-    height: 78% !important;
-
-    left: 3% !important;
-    top: 13% !important;
-
-    background:
-      radial-gradient(
-        ellipse at 52% 54%,
-        rgba(22,112,255,.34) 0%,
-        rgba(17,92,230,.16) 26%,
-        rgba(12,66,170,.075) 46%,
-        transparent 72%
-      ) !important;
-
-    filter: blur(42px) !important;
-
-    transform:
-      translateZ(-200px)
-      scale(1.08) !important;
-  }
-
-
-  /* ---------- Licht auf dem "Boden" ---------- */
-
-  .device-stage::after {
-    content: "" !important;
-
-    position: absolute !important;
-    z-index: -3 !important;
-
-    left: 8% !important;
-    bottom: 0 !important;
-
-    width: 86% !important;
-    height: 85px !important;
-
-    border-radius: 50% !important;
-
-    background:
-      radial-gradient(
-        ellipse,
-        rgba(25,108,255,.21) 0%,
-        rgba(0,0,0,.52) 35%,
-        rgba(0,0,0,0) 70%
-      ) !important;
-
-    filter: blur(22px) !important;
-
-    transform:
-      rotateX(70deg)
-      translateZ(-70px) !important;
-
-    pointer-events: none !important;
-  }
-}
-
-
-/* Hover macht CENTER noch etwas räumlicher */
-
-@media (min-width: 1100px) and (hover:hover) {
-
-  .phone-center:hover {
-    transform:
-      translate3d(0, -18px, 115px)
-      rotateY(-1deg)
-      rotateX(0deg)
-      scale(1.055) !important;
-
-    filter:
-      brightness(1.075)
-      saturate(1.08)
-      drop-shadow(0 58px 70px rgba(0,0,0,.68)) !important;
-  }
-
-}
-
-
-@media (min-width: 1100px) and (hover:hover) {
-
-  .device-stage {
-    transform:
-      translate3d(
-        var(--mouse-x, 0px),
-        var(--mouse-y, 0px),
-        0
-      ) !important;
-
-    transition: transform .12s linear;
-  }
-
-}
-
-
-/* ===== PLAQA SHOWCASE REBUILD START ===== */
-
-/*
-  Komplett neues Hero-Device-System.
-  Bewusst eigene Klassennamen, damit frühere .phone- und
-  .device-stage-Regeln keinerlei Einfluss mehr haben.
-*/
-
-.plaqa-showcase {
-  --showcase-x: 0px;
-  --showcase-y: 0px;
-  --showcase-tilt-x: 0deg;
-  --showcase-tilt-y: 0deg;
-
-  position: relative;
-  width: 100%;
-  height: min(650px, 68vh);
-  min-height: 545px;
-
-  perspective: 1700px;
-  perspective-origin: 50% 42%;
-  transform-style: preserve-3d;
-
-  isolation: isolate;
-}
-
-
-/* ---------- atmosphärisches Licht ---------- */
-
-.plaqa-showcase__halo {
-  position: absolute;
-  z-index: -5;
-
-  width: 88%;
-  height: 78%;
-
-  left: 7%;
-  top: 11%;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse at 52% 48%,
-      rgba(25, 113, 255, .30) 0%,
-      rgba(21, 91, 220, .15) 27%,
-      rgba(11, 56, 145, .065) 48%,
-      transparent 72%
-    );
-
-  filter: blur(45px);
-
-  transform: translateZ(-220px);
-
-  pointer-events: none;
-}
-
-
-/* ---------- Boden / Tiefe ---------- */
-
-.plaqa-showcase__floor {
-  position: absolute;
-  z-index: -4;
-
-  left: 8%;
-  bottom: 0;
-
-  width: 86%;
-  height: 110px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(22, 104, 255, .18) 0%,
-      rgba(7, 36, 82, .11) 23%,
-      rgba(0, 0, 0, .58) 45%,
-      transparent 72%
-    );
-
-  filter: blur(21px);
-
-  transform:
-    rotateX(73deg)
-    translateZ(-90px);
-
-  pointer-events: none;
-}
-
-
-/* =========================================================
-   GERÄTE — BASIS
-   ========================================================= */
-
-.plaqa-device {
-  position: absolute;
-  margin: 0;
-
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-
-  will-change: transform;
-
-  transition:
-    transform .26s cubic-bezier(.2,.8,.2,1),
-    filter .28s ease;
-}
-
-
-.plaqa-device__body {
-  position: relative;
-
-  width: 100%;
-
-  padding: 6px;
-
-  border-radius: 45px;
-
-  background:
-    linear-gradient(
-      132deg,
-      #8d99a9 0%,
-      #222832 5%,
-      #07090d 13%,
-      #020305 53%,
-      #171c24 88%,
-      #778495 100%
-    );
-
-  box-shadow:
-    0 65px 115px rgba(0,0,0,.62),
-    0 24px 48px rgba(0,0,0,.42),
-
-    0 0 0 1px rgba(230,237,247,.44),
-
-    inset 2px 0 2px rgba(255,255,255,.13),
-    inset -2px 0 2px rgba(255,255,255,.035);
-
-  transform-style: preserve-3d;
-}
-
-
-/* ---------- echter App-Screen ---------- */
-
-.plaqa-device__screen {
-  position: relative;
-  z-index: 3;
-
-  overflow: hidden;
-
-  width: 100%;
-
-  border-radius: 39px;
-
-  background: #05070a;
-
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,.045),
-    0 0 22px rgba(0,0,0,.24);
-
-  transform: translateZ(13px);
-}
-
-
-.plaqa-device__screen img {
-  display: block;
-
-  width: 100%;
-  height: auto;
-
-  border-radius: inherit;
-
-  filter:
-    contrast(1.025)
-    saturate(1.035);
-
-  pointer-events: none;
-}
-
-
-/* ---------- Glasreflex ---------- */
-
-.plaqa-device__shine {
-  position: absolute;
-  z-index: 8;
-
-  inset: 7px;
-
-  border-radius: 38px;
-
-  background:
-    linear-gradient(
-      116deg,
-      rgba(255,255,255,.15) 0%,
-      rgba(255,255,255,.055) 9%,
-      rgba(255,255,255,0) 26%,
-      rgba(255,255,255,0) 69%,
-      rgba(35,120,255,.045) 100%
-    );
-
-  opacity: .68;
-
-  transform:
-    translate3d(
-      var(--showcase-x),
-      var(--showcase-y),
-      17px
-    );
-
-  pointer-events: none;
-}
-
-
-/* ---------- echte optische Gehäusetiefe ---------- */
-
-.plaqa-device__edge {
-  position: absolute;
-  z-index: -2;
-
-  top: 22px;
-  bottom: 22px;
-
-  right: -12px;
-
-  width: 18px;
-
-  border-radius: 0 13px 13px 0;
-
-  background:
-    linear-gradient(
-      90deg,
-      #10141a 0%,
-      #707d8f 19%,
-      #b4becb 34%,
-      #404854 54%,
-      #141820 76%,
-      #05070a 100%
-    );
-
-  box-shadow:
-    6px 2px 18px rgba(0,0,0,.58),
-    inset 1px 0 rgba(255,255,255,.25);
-
-  transform:
-    translateZ(-13px)
-    rotateY(-5deg);
-
-  pointer-events: none;
-}
-
-
-/* =========================================================
-   POSITIONIERUNG
-   ========================================================= */
-
-.plaqa-device--left {
-  width: clamp(205px, 13.6vw, 245px);
-
-  left: 2%;
-  top: 22%;
-
-  z-index: 2;
-
-  transform:
-    translate3d(
-      calc(var(--showcase-x) * -.55),
-      calc(var(--showcase-y) * -.40),
-      -120px
-    )
-    rotateY(calc(25deg + var(--showcase-tilt-x)))
-    rotateX(calc(2deg - var(--showcase-tilt-y)))
-    rotateZ(-4deg)
-    scale(.94);
-
-  filter:
-    brightness(.86)
-    saturate(.94);
-}
-
-
-.plaqa-device--center {
-  width: clamp(248px, 16.4vw, 292px);
-
-  left: 50%;
-  top: 4%;
-
-  z-index: 7;
-
-  transform:
-    translate3d(
-      calc(-50% + var(--showcase-x)),
-      var(--showcase-y),
-      105px
-    )
-    rotateY(calc(-1.2deg + var(--showcase-tilt-x)))
-    rotateX(calc(.8deg - var(--showcase-tilt-y)));
-
-  filter:
-    brightness(1.035)
-    saturate(1.045);
-}
-
-
-.plaqa-device--center .plaqa-device__body {
-  box-shadow:
-    0 76px 135px rgba(0,0,0,.68),
-    0 27px 53px rgba(0,0,0,.46),
-
-    0 0 0 1px rgba(236,241,249,.48),
-
-    0 0 0 5px rgba(5,8,12,.78),
-
-    0 0 62px rgba(19,105,255,.16),
-
-    inset 2px 0 2px rgba(255,255,255,.15),
-    inset -2px 0 2px rgba(255,255,255,.04);
-}
-
-
-.plaqa-device--right {
-  width: clamp(205px, 13.6vw, 245px);
-
-  right: 1%;
-  top: 22%;
-
-  z-index: 2;
-
-  transform:
-    translate3d(
-      calc(var(--showcase-x) * .55),
-      calc(var(--showcase-y) * -.40),
-      -120px
-    )
-    rotateY(calc(-25deg + var(--showcase-tilt-x)))
-    rotateX(calc(2deg - var(--showcase-tilt-y)))
-    rotateZ(4deg)
-    scale(.94);
-
-  filter:
-    brightness(.86)
-    saturate(.94);
-}
-
-
-/* =========================================================
-   SUBTILES SCHWEBEN
-   Wichtig: Animation sitzt am inneren Body,
-   3D-Transform des äußeren Geräts bleibt unangetastet.
-   ========================================================= */
-
-.plaqa-device--left .plaqa-device__body {
-  animation:
-    plaqa-device-float-left 7.3s
-    ease-in-out infinite;
-}
-
-
-.plaqa-device--center .plaqa-device__body {
-  animation:
-    plaqa-device-float-center 6.1s
-    ease-in-out infinite;
-}
-
-
-.plaqa-device--right .plaqa-device__body {
-  animation:
-    plaqa-device-float-right 7.7s
-    ease-in-out infinite;
-}
-
-
-@keyframes plaqa-device-float-left {
-  0%, 100% { translate: 0 0; }
-  50%      { translate: 0 -7px; }
-}
-
-
-@keyframes plaqa-device-float-center {
-  0%, 100% { translate: 0 0; }
-  50%      { translate: 0 -10px; }
-}
-
-
-@keyframes plaqa-device-float-right {
-  0%, 100% { translate: 0 -3px; }
-  50%      { translate: 0 5px; }
-}
-
-
-/* =========================================================
-   HOVER
-   ========================================================= */
-
-@media (hover:hover) and (pointer:fine) {
-
-  .plaqa-device--center:hover {
-    transform:
-      translate3d(
-        calc(-50% + var(--showcase-x)),
-        calc(var(--showcase-y) - 8px),
-        135px
-      )
-      rotateY(calc(-.4deg + var(--showcase-tilt-x)))
-      rotateX(calc(.3deg - var(--showcase-tilt-y)))
-      scale(1.025);
-  }
-
-}
-
-
-/* =========================================================
-   LAPTOP-HÖHEN
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 900px) {
-
-  .plaqa-showcase {
-    height: min(590px, 65vh);
-    min-height: 500px;
-  }
-
-  .plaqa-device--left,
-  .plaqa-device--right {
-    width: clamp(185px, 12.5vw, 220px);
-  }
-
-  .plaqa-device--center {
-    width: clamp(225px, 14.6vw, 258px);
-  }
-
-}
-
-
-/* =========================================================
-   TABLET
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .plaqa-showcase {
-    width: min(760px, 100%);
-    height: 620px;
-
-    margin: 0 auto;
-  }
-
-  .plaqa-device--left {
-    width: 28%;
-    left: 2%;
-    top: 23%;
-  }
-
-  .plaqa-device--center {
-    width: 34%;
-    top: 5%;
-  }
-
-  .plaqa-device--right {
-    width: 28%;
-    right: 2%;
-    top: 23%;
-  }
-
-}
-
-
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 700px) {
-
-  .plaqa-showcase {
-    height: 510px;
-    min-height: 0;
-
-    perspective: 1200px;
-  }
-
-  .plaqa-device__body {
-    padding: 4px;
-    border-radius: 30px;
-  }
-
-  .plaqa-device__screen,
-  .plaqa-device__shine {
-    border-radius: 26px;
-  }
-
-  .plaqa-device--left {
-    width: 31%;
-    left: -2%;
-    top: 25%;
-
-    transform:
-      translateZ(-80px)
-      rotateY(17deg)
-      rotateZ(-4deg)
-      scale(.92);
-  }
-
-  .plaqa-device--center {
-    width: 41%;
-    top: 7%;
-
-    transform:
-      translateX(-50%)
-      translateZ(70px);
-  }
-
-  .plaqa-device--right {
-    width: 31%;
-    right: -2%;
-    top: 25%;
-
-    transform:
-      translateZ(-80px)
-      rotateY(-17deg)
-      rotateZ(4deg)
-      scale(.92);
-  }
-
-}
-
-
-/* =========================================================
-   ACCESSIBILITY
-   ========================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-
-  .plaqa-device,
-  .plaqa-device__body,
-  .plaqa-device__shine {
-    animation: none !important;
-    transition: none !important;
-  }
-
-}
-
-/* ===== PLAQA SHOWCASE REBUILD END ===== */
-/* =========================================================
-   plaqa — DEVICE REFINEMENT 03
-   ========================================================= */
-
-
-/* ---------------------------------------------------------
-   HERO: mittleres Smartphone höher
-   --------------------------------------------------------- */
-
-@media (min-width: 1100px) {
-
-  .plaqa-device--center {
-    top: calc(4% - 25px) !important;
-  }
-
-}
-
-
-/* ---------------------------------------------------------
-   HERO: helle/weiße Seitenkante entfernen
-   --------------------------------------------------------- */
-
-.plaqa-device__edge {
-  display: none !important;
-}
-
-
-/* Außenrahmen dunkler und hochwertiger */
-
-.plaqa-device__body {
-  background:
-    linear-gradient(
-      135deg,
-      #252b34 0%,
-      #0b0e13 8%,
-      #040609 45%,
-      #070a0f 76%,
-      #1b2028 100%
-    ) !important;
-
-  box-shadow:
-    0 58px 105px rgba(0,0,0,.62),
-    0 22px 42px rgba(0,0,0,.40),
-    0 0 0 1px rgba(61,82,109,.55),
-    inset 1px 0 1px rgba(255,255,255,.055),
-    inset -1px 0 1px rgba(255,255,255,.025) !important;
-}
-
-
-.plaqa-device--center .plaqa-device__body {
-  box-shadow:
-    0 70px 125px rgba(0,0,0,.67),
-    0 25px 48px rgba(0,0,0,.44),
-    0 0 0 1px rgba(48,105,181,.48),
-    0 0 44px rgba(18,102,255,.14),
-    inset 1px 0 1px rgba(255,255,255,.065),
-    inset -1px 0 1px rgba(255,255,255,.025) !important;
-}
-
-
-/* =========================================================
-   "SO FUNKTIONIERT" — KOMPLETT NEUES SMARTPHONE
-   ========================================================= */
-
-.how-preview {
-  position: relative !important;
-
-  height: 100% !important;
-  min-height: 0 !important;
-
-  display: grid !important;
-  place-items: center !important;
-
-  perspective: 1350px;
-  transform-style: preserve-3d;
-}
-
-
-/* Blauer Hintergrundschein */
-
-.how-device-glow {
-  position: absolute;
-
-  width: 430px;
-  height: 520px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(24,112,255,.23) 0%,
-      rgba(15,84,210,.11) 34%,
-      rgba(9,48,125,.04) 54%,
-      transparent 74%
-    );
-
-  filter: blur(42px);
-
-  pointer-events: none;
-
-  transform:
-    translate3d(30px, 0, -90px);
-}
-
-
-/* Komplettes neues Smartphone */
-
-.how-device {
-  position: relative;
-
-  width: clamp(285px, 18vw, 326px);
-
-  aspect-ratio: 921 / 2048;
-
-  margin: 0;
-
-  transform:
-    rotateY(-6deg)
-    rotateX(1.4deg)
-    translateZ(30px);
-
-  transform-style: preserve-3d;
-
-  filter:
-    drop-shadow(0 42px 52px rgba(0,0,0,.58));
-
-  transition:
-    transform .42s cubic-bezier(.2,.8,.2,1);
-}
-
-
-/* Gehäuse */
-
-.how-device__frame {
-  position: relative;
-
-  width: 100%;
-  height: 100%;
-
-  padding: 6px;
-
-  box-sizing: border-box;
-
-  border-radius: 44px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #303743 0%,
-      #10141a 6%,
-      #040608 23%,
-      #020305 62%,
-      #131820 91%,
-      #252d38 100%
-    );
-
-  border:
-    1px solid rgba(65,88,118,.62);
-
-  box-shadow:
-    inset 1px 0 rgba(255,255,255,.055),
-    inset -1px 0 rgba(255,255,255,.025);
-
-  transform-style: preserve-3d;
-}
-
-
-/* Echter App-Screen */
-
-.how-device__glass {
-  position: relative;
-
-  width: 100%;
-  height: 100%;
-
-  overflow: hidden;
-
-  border-radius: 38px;
-
-  background: #040608;
-
-  transform: translateZ(8px);
-
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,.035);
-}
-
-
-.how-device__glass img {
-  display: block;
-
-  width: 100% !important;
-  height: 100% !important;
-
-  max-height: none !important;
-
-  object-fit: cover !important;
-  object-position: top center !important;
-
-  border-radius: 38px;
-
-  transition:
-    opacity .24s ease,
-    transform .34s ease;
-
-  pointer-events: none;
-}
-
-
-.how-device__glass img.is-switching {
-  opacity: .08;
-  transform: scale(.985);
-}
-
-
-/* Glasreflex */
-
-.how-device__reflection {
-  position: absolute;
-
-  z-index: 10;
-
-  inset: 7px;
-
-  border-radius: 37px;
-
-  pointer-events: none;
-
-  background:
-    linear-gradient(
-      114deg,
-      rgba(255,255,255,.10) 0%,
-      rgba(255,255,255,.025) 11%,
-      transparent 27%,
-      transparent 72%,
-      rgba(32,111,255,.025) 100%
-    );
-
-  transform: translateZ(12px);
-}
-
-
-/* Dunkle Hardware-Buttons */
-
-.how-device__button {
-  position: absolute;
-
-  z-index: -2;
-
-  left: -5px;
-
-  width: 4px;
-
-  border-radius: 4px 0 0 4px;
-
-  background:
-    linear-gradient(
-      180deg,
-      #47515f,
-      #171c23 55%,
-      #07090d
-    );
-
-  box-shadow:
-    -2px 1px 5px rgba(0,0,0,.42);
-}
-
-
-.how-device__button--top {
-  top: 19%;
-  height: 7%;
-}
-
-
-.how-device__button--bottom {
-  top: 29%;
-  height: 11%;
-}
-
-
-/* Schatten unter Smartphone */
-
-.how-device__shadow {
-  position: absolute;
-
-  z-index: -4;
-
-  left: 4%;
-  bottom: -35px;
-
-  width: 96%;
-  height: 55px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(0,0,0,.70),
-      rgba(0,0,0,.29) 42%,
-      transparent 72%
-    );
-
-  filter: blur(15px);
-
-  transform:
-    rotateX(70deg)
-    translateZ(-30px);
-}
-
-
-/* Hover */
-
-@media (hover:hover) and (pointer:fine) {
-
-  .how-device:hover {
-    transform:
-      rotateY(-2.5deg)
-      rotateX(.5deg)
-      translateY(-7px)
-      translateZ(50px);
-  }
-
-}
-
-
-/* Desktop */
-
-@media (min-width: 1100px) {
-
-  .how-device {
-    max-height: calc(100svh - 260px);
-    width: auto;
-    height: min(580px, calc(100svh - 260px));
-  }
-
-}
-
-
-/* Niedrigere Laptops */
-
-@media (min-width: 1100px) and (max-height: 800px) {
-
-  .how-device {
-    height: min(500px, calc(100svh - 225px));
-  }
-
-}
-
-
-/* Tablet */
-
-@media (max-width: 1099px) {
-
-  .how-device {
-    width: min(300px, 65vw);
-    height: auto;
-  }
-
-}
-
-
-/* Mobile */
-
-@media (max-width: 640px) {
-
-  .how-device {
-    width: min(265px, 72vw);
-
-    transform:
-      rotateY(-3deg)
-      translateZ(20px);
-  }
-
-  .how-device__frame {
-    border-radius: 36px;
-  }
-
-  .how-device__glass,
-  .how-device__glass img,
-  .how-device__reflection {
-    border-radius: 31px;
-  }
-
-}
-
-
-/* ===== PLAQA INTERACTIVE DEVICES START ===== */
-
-/* =========================================================
-   HERO — INTERAKTIVE 3D-SMARTPHONES
-   ========================================================= */
-
-.plaqa-showcase {
-  --device-lane: clamp(235px, 18vw, 330px);
-
-  perspective: 1650px !important;
-  perspective-origin: 50% 45% !important;
-
-  transform-style: preserve-3d !important;
-
-  overflow: visible !important;
-}
-
-
-/*
-  Alle drei Geräte bekommen dieselbe Grundgröße.
-  Dadurch können sie ihre Positionen sauber tauschen.
-*/
-
-.plaqa-showcase .plaqa-device {
-  left: 50% !important;
-  right: auto !important;
-  top: 50% !important;
-
-  width: clamp(205px, 13.4vw, 245px) !important;
-
-  transform-origin: center center !important;
-  transform-style: preserve-3d !important;
-  backface-visibility: hidden !important;
-
-  cursor: pointer;
-
-  transition:
-    transform .68s cubic-bezier(.18,.82,.2,1),
-    filter .48s ease,
-    opacity .48s ease,
-    z-index 0s linear .12s !important;
-
-  will-change: transform;
-}
-
-
-/* =========================================================
-   SCREEN-QUALITÄT — ALLE 3 HERO-PHONES
-   ========================================================= */
-
-.plaqa-device__screen img {
-  width: 100% !important;
-  height: auto !important;
-
-  image-rendering: auto;
-
-  filter:
-    brightness(1.13)
-    contrast(1.06)
-    saturate(1.06) !important;
-
-  backface-visibility: hidden;
-}
-
-
-/* Glasreflex deutlich dezenter — Screen bleibt heller */
-
-.plaqa-device__shine {
-  opacity: .28 !important;
-}
-
-
-/* Rahmen heller, aber weiterhin dunkel/premium */
-
-.plaqa-device__body {
-  background:
-    linear-gradient(
-      135deg,
-      #354152 0%,
-      #161d27 6%,
-      #080c12 18%,
-      #04070b 56%,
-      #111924 88%,
-      #293647 100%
-    ) !important;
-
-  border:
-    1px solid rgba(52, 112, 190, .46) !important;
-
-  box-shadow:
-    0 55px 105px rgba(0,0,0,.56),
-    0 20px 42px rgba(0,0,0,.35),
-    0 0 0 1px rgba(21,101,220,.18),
-    0 0 36px rgba(17,99,255,.09),
-    inset 1px 0 rgba(255,255,255,.065),
-    inset -1px 0 rgba(255,255,255,.02) !important;
-}
-
-
-/* Weiße Seitenkante bleibt weg */
-
-.plaqa-device__edge {
-  display: none !important;
-}
-
-
-/* =========================================================
-   POSITIONEN
-   ========================================================= */
-
-/* ---------- LINKER PLATZ ---------- */
-
-.plaqa-showcase[data-focus="center"] .plaqa-device--left,
-.plaqa-showcase[data-focus="right"] .plaqa-device--left {
-
-  z-index: 2 !important;
-
-  transform:
-    translate3d(
-      calc(-50% - var(--device-lane)),
-      -45%,
-      -135px
-    )
-    rotateY(20deg)
-    rotateX(2deg)
-    rotateZ(-3deg)
-    scale(.95) !important;
-
-  filter:
-    brightness(.99)
-    saturate(.98) !important;
-}
-
-
-/* ---------- MITTLERER PLATZ ---------- */
-
-.plaqa-showcase[data-focus="center"] .plaqa-device--center {
-
-  z-index: 10 !important;
-
-  transform:
-    translate3d(
-      -50%,
-      -53%,
-      115px
-    )
-    rotateY(0deg)
-    rotateX(.5deg)
-    rotateZ(0deg)
-    scale(1.14) !important;
-
-  filter:
-    brightness(1.04)
-    saturate(1.03) !important;
-}
-
-
-/* ---------- RECHTER PLATZ ---------- */
-
-.plaqa-showcase[data-focus="center"] .plaqa-device--right,
-.plaqa-showcase[data-focus="left"] .plaqa-device--right {
-
-  z-index: 2 !important;
-
-  transform:
-    translate3d(
-      calc(-50% + var(--device-lane)),
-      -45%,
-      -135px
-    )
-    rotateY(-20deg)
-    rotateX(2deg)
-    rotateZ(3deg)
-    scale(.95) !important;
-
-  filter:
-    brightness(.99)
-    saturate(.98) !important;
-}
-
-
-/* =========================================================
-   LINKES HANDY WIRD AUSGEWÄHLT
-   Melden fährt in die Mitte.
-   Suche weicht nach links zurück.
-   ========================================================= */
-
-.plaqa-showcase[data-focus="left"] .plaqa-device--left {
-
-  z-index: 10 !important;
-
-  transform:
-    translate3d(
-      -50%,
-      -53%,
-      120px
-    )
-    rotateY(0deg)
-    rotateX(.5deg)
-    rotateZ(0deg)
-    scale(1.14) !important;
-
-  filter:
-    brightness(1.04)
-    saturate(1.03) !important;
-}
-
-
-.plaqa-showcase[data-focus="left"] .plaqa-device--center {
-
-  z-index: 2 !important;
-
-  transform:
-    translate3d(
-      calc(-50% - var(--device-lane)),
-      -45%,
-      -135px
-    )
-    rotateY(20deg)
-    rotateX(2deg)
-    rotateZ(-3deg)
-    scale(.95) !important;
-
-  filter:
-    brightness(.99)
-    saturate(.98) !important;
-}
-
-
-/* =========================================================
-   RECHTES HANDY WIRD AUSGEWÄHLT
-   Anfrage fährt in die Mitte.
-   Suche weicht nach rechts zurück.
-   ========================================================= */
-
-.plaqa-showcase[data-focus="right"] .plaqa-device--right {
-
-  z-index: 10 !important;
-
-  transform:
-    translate3d(
-      -50%,
-      -53%,
-      120px
-    )
-    rotateY(0deg)
-    rotateX(.5deg)
-    rotateZ(0deg)
-    scale(1.14) !important;
-
-  filter:
-    brightness(1.04)
-    saturate(1.03) !important;
-}
-
-
-.plaqa-showcase[data-focus="right"] .plaqa-device--center {
-
-  z-index: 2 !important;
-
-  transform:
-    translate3d(
-      calc(-50% + var(--device-lane)),
-      -45%,
-      -135px
-    )
-    rotateY(-20deg)
-    rotateX(2deg)
-    rotateZ(3deg)
-    scale(.95) !important;
-
-  filter:
-    brightness(.99)
-    saturate(.98) !important;
-}
-
-
-/* =========================================================
-   VORDERES HANDY — MEHR LICHT UND TIEFE
-   ========================================================= */
-
-.plaqa-showcase[data-focus="left"]
-.plaqa-device--left .plaqa-device__body,
-
-.plaqa-showcase[data-focus="center"]
-.plaqa-device--center .plaqa-device__body,
-
-.plaqa-showcase[data-focus="right"]
-.plaqa-device--right .plaqa-device__body {
-
-  box-shadow:
-    0 74px 135px rgba(0,0,0,.66),
-    0 26px 48px rgba(0,0,0,.42),
-
-    0 0 0 1px rgba(38,126,255,.50),
-
-    0 0 58px rgba(22,108,255,.19),
-
-    inset 1px 0 rgba(255,255,255,.075),
-    inset -1px 0 rgba(255,255,255,.025) !important;
-}
-
-
-/* leichter Hover-Lift des bereits vorderen Gerätes */
-
-@media (hover:hover) and (pointer:fine) {
-
-  .plaqa-showcase[data-focus="left"]
-  .plaqa-device--left:hover,
-
-  .plaqa-showcase[data-focus="center"]
-  .plaqa-device--center:hover,
-
-  .plaqa-showcase[data-focus="right"]
-  .plaqa-device--right:hover {
-
-    filter:
-      brightness(1.07)
-      saturate(1.04) !important;
-  }
-
-}
-
-
-/* =========================================================
-   4. HANDY — "SO FUNKTIONIERT"
-   heller + klarer + schärfer
-   ========================================================= */
-
-.how-device__glass img {
-  image-rendering: auto;
-
-  filter:
-    brightness(1.15)
-    contrast(1.065)
-    saturate(1.06) !important;
-
-  backface-visibility: hidden;
-}
-
-
-.how-device__reflection {
-  opacity: .28 !important;
-}
-
-
-.how-device__frame {
-  background:
-    linear-gradient(
-      135deg,
-      #354152 0%,
-      #17202b 7%,
-      #080c12 20%,
-      #04070b 60%,
-      #151e29 90%,
-      #2d3948 100%
-    ) !important;
-
-  border:
-    1px solid rgba(48,105,181,.50) !important;
-
-  box-shadow:
-    0 52px 105px rgba(0,0,0,.57),
-    0 0 38px rgba(18,102,255,.11),
-    inset 1px 0 rgba(255,255,255,.065),
-    inset -1px 0 rgba(255,255,255,.02) !important;
-}
-
-
-/* =========================================================
-   LAPTOP
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 900px) {
-
-  .plaqa-showcase {
-    --device-lane: clamp(215px, 17vw, 290px);
-  }
-
-  .plaqa-showcase .plaqa-device {
-    width: clamp(190px, 12.4vw, 220px) !important;
-  }
-
-}
-
-
-/* =========================================================
-   MOBILE/TABLET:
-   Hover-Tausch deaktivieren; dort bleibt die stabile Anordnung.
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .plaqa-showcase .plaqa-device {
-    cursor: default;
-  }
-
-}
-
-
-/* ===== PLAQA INTERACTIVE DEVICES END ===== */
-
-
-/* ===== PLAQA DEVICE UX V3 START ===== */
-
-
-/* =========================================================
-   HERO — MEHR PLATZ UND DEUTLICH GRÖSSERE SCREENS
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  .plaqa-showcase {
-    --device-lane: clamp(250px, 18.5vw, 335px);
-
-    height: min(680px, 69vh) !important;
-    min-height: 560px !important;
-
-    perspective: 1700px !important;
-
-    overflow: visible !important;
-  }
-
-
-  /*
-    Bewegte Geräte selbst bestimmen NICHT mehr den Hover.
-    Die gesamte Bühne verarbeitet die Mausposition.
-  */
-
-  .plaqa-showcase .plaqa-device {
-    pointer-events: none !important;
-
-    left: 50% !important;
-    right: auto !important;
-    top: 50% !important;
-
-    width: clamp(235px, 14.5vw, 270px) !important;
-
-    transition:
-      transform .62s cubic-bezier(.16,.84,.22,1),
-      opacity .36s ease,
-      filter .36s ease !important;
-
-    transform-origin: center center !important;
-
-    will-change: transform;
-  }
-
-
-  /* =======================================================
-     ORIGINAL-SCREEN — SO SCHARF WIE MÖGLICH
-     ======================================================= */
-
-  .plaqa-device__screen {
-    overflow: hidden !important;
-  }
-
-  .plaqa-device__screen img {
-    display: block !important;
-
-    width: 100% !important;
-    height: auto !important;
-
-    max-width: none !important;
-
-    image-rendering: auto !important;
-
-    /*
-      Keine zusätzliche 3D-Transformation direkt auf dem Bild.
-      Das Gehäuse übernimmt die Perspektive.
-    */
-    transform: none !important;
-
-    filter:
-      brightness(1.10)
-      contrast(1.10)
-      saturate(1.04) !important;
-
-    opacity: 1 !important;
-
-    backface-visibility: visible !important;
-  }
-
-
-  /*
-    Glasreflex stark reduzieren.
-    Vorher lag eine transparente Fläche über dem Screenshot.
-  */
-
-  .plaqa-device__shine {
-    opacity: .13 !important;
-
-    background:
-      linear-gradient(
-        120deg,
-        rgba(255,255,255,.07),
-        rgba(255,255,255,.018) 11%,
-        transparent 28%,
-        transparent 100%
-      ) !important;
-  }
-
-
-  /* =======================================================
-     HINTERE HANDYS
-     ======================================================= */
-
-  .plaqa-showcase[data-focus="center"] .plaqa-device--left,
-  .plaqa-showcase[data-focus="right"] .plaqa-device--left {
-
-    z-index: 2 !important;
-
-    transform:
-      translate3d(
-        calc(-50% - var(--device-lane)),
-        -46%,
-        -150px
-      )
-      rotateY(18deg)
-      rotateX(1deg)
-      rotateZ(-2.7deg)
-      scale(.96) !important;
-
-    filter:
-      brightness(.95)
-      saturate(.97) !important;
-  }
-
-
-  .plaqa-showcase[data-focus="center"] .plaqa-device--right,
-  .plaqa-showcase[data-focus="left"] .plaqa-device--right {
-
-    z-index: 2 !important;
-
-    transform:
-      translate3d(
-        calc(-50% + var(--device-lane)),
-        -46%,
-        -150px
-      )
-      rotateY(-18deg)
-      rotateX(1deg)
-      rotateZ(2.7deg)
-      scale(.96) !important;
-
-    filter:
-      brightness(.95)
-      saturate(.97) !important;
-  }
-
-
-  /* =======================================================
-     MITTLERES / AUSGEWÄHLTES HANDY
-     deutlich größer = Screen wirklich lesbar
-     ======================================================= */
-
-  .plaqa-showcase[data-focus="center"] .plaqa-device--center,
-  .plaqa-showcase[data-focus="left"] .plaqa-device--left,
-  .plaqa-showcase[data-focus="right"] .plaqa-device--right {
-
-    z-index: 12 !important;
-
-    width: clamp(325px, 20.8vw, 380px) !important;
-
-    transform:
-      translate3d(
-        -50%,
-        -53%,
-        145px
-      )
-      rotateY(0deg)
-      rotateX(0deg)
-      rotateZ(0deg)
-      scale(1) !important;
-
-    filter:
-      brightness(1)
-      saturate(1) !important;
-  }
-
-
-  /*
-    Wenn links gewählt wird, muss das ursprüngliche
-    Center-Handy nach links.
-  */
-
-  .plaqa-showcase[data-focus="left"] .plaqa-device--center {
-
-    z-index: 2 !important;
-
-    width: clamp(235px, 14.5vw, 270px) !important;
-
-    transform:
-      translate3d(
-        calc(-50% - var(--device-lane)),
-        -46%,
-        -150px
-      )
-      rotateY(18deg)
-      rotateX(1deg)
-      rotateZ(-2.7deg)
-      scale(.96) !important;
-
-    filter:
-      brightness(.95)
-      saturate(.97) !important;
-  }
-
-
-  /*
-    Wenn rechts gewählt wird, muss das ursprüngliche
-    Center-Handy nach rechts.
-  */
-
-  .plaqa-showcase[data-focus="right"] .plaqa-device--center {
-
-    z-index: 2 !important;
-
-    width: clamp(235px, 14.5vw, 270px) !important;
-
-    transform:
-      translate3d(
-        calc(-50% + var(--device-lane)),
-        -46%,
-        -150px
-      )
-      rotateY(-18deg)
-      rotateX(1deg)
-      rotateZ(2.7deg)
-      scale(.96) !important;
-
-    filter:
-      brightness(.95)
-      saturate(.97) !important;
-  }
-
-
-  /* =======================================================
-     VORDERES GERÄT — KLARERER RAHMEN
-     ======================================================= */
-
-  .plaqa-showcase[data-focus="center"]
-  .plaqa-device--center .plaqa-device__body,
-
-  .plaqa-showcase[data-focus="left"]
-  .plaqa-device--left .plaqa-device__body,
-
-  .plaqa-showcase[data-focus="right"]
-  .plaqa-device--right .plaqa-device__body {
-
-    box-shadow:
-      0 76px 135px rgba(0,0,0,.62),
-      0 24px 50px rgba(0,0,0,.38),
-
-      0 0 0 1px rgba(31,119,255,.48),
-
-      0 0 52px rgba(21,108,255,.16),
-
-      inset 1px 0 rgba(255,255,255,.05) !important;
-  }
-
-
-  /*
-    Weißer Seitenrand vollständig weg.
-  */
-
-  .plaqa-device__edge {
-    display: none !important;
-  }
-
-}
-
-
-/* =========================================================
-   VISUELLER HINWEIS:
-   leichte Beleuchtung auf der gewählten Zone
-   ========================================================= */
-
-.plaqa-showcase::after {
-  transition:
-    left .55s cubic-bezier(.16,.84,.22,1),
-    opacity .35s ease !important;
-}
-
-
-/* =========================================================
-   4. HANDY — SO FUNKTIONIERT PLAQA
-   größer + heller + deutlich lesbarer
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  .how-device {
-    height:
-      min(
-        650px,
-        calc(100svh - 205px)
-      ) !important;
-
-    width: auto !important;
-
-    max-height: none !important;
-
-    aspect-ratio: 921 / 2048 !important;
-
-    transform:
-      rotateY(-3deg)
-      rotateX(.5deg)
-      translateZ(36px) !important;
-  }
-
-
-  .how-device__glass img {
-    width: 100% !important;
-    height: 100% !important;
-
-    object-fit: cover !important;
-    object-position: top center !important;
-
-    image-rendering: auto !important;
-
-    transform: none !important;
-
-    filter:
-      brightness(1.11)
-      contrast(1.10)
-      saturate(1.04) !important;
-  }
-
-
-  .how-device__reflection {
-    opacity: .12 !important;
-  }
-
-}
-
-
-/* Laptop mit geringerer Höhe */
-
-@media (min-width: 1100px) and (max-height: 850px) {
-
-  .plaqa-showcase[data-focus="center"] .plaqa-device--center,
-  .plaqa-showcase[data-focus="left"] .plaqa-device--left,
-  .plaqa-showcase[data-focus="right"] .plaqa-device--right {
-
-    width: clamp(290px, 18.5vw, 335px) !important;
-  }
-
-
-  .plaqa-showcase .plaqa-device,
-  .plaqa-showcase[data-focus="left"] .plaqa-device--center,
-  .plaqa-showcase[data-focus="right"] .plaqa-device--center {
-
-    width: clamp(210px, 13vw, 240px) !important;
-  }
-
-
-  .how-device {
-    height:
-      min(
-        565px,
-        calc(100svh - 195px)
-      ) !important;
-  }
-
-}
-
-
-/* ===== PLAQA DEVICE UX V3 END ===== */
-/* =========================================================
-   plaqa — HERO FRONT PHONE SAFE POSITION
-   Navigation bleibt immer frei
-   ========================================================= */
-
-@media (min-width: 1100px) {
-
-  /* Jedes Handy, das gerade vorne in der Mitte steht */
-  .plaqa-showcase[data-focus="center"] .plaqa-device--center,
-  .plaqa-showcase[data-focus="left"] .plaqa-device--left,
-  .plaqa-showcase[data-focus="right"] .plaqa-device--right {
-
-    /* etwas kleiner */
-    width: clamp(285px, 18.2vw, 330px) !important;
-
-    /* deutlich tiefer, damit Sicherheit / FAQ frei bleiben */
-    transform:
-      translate3d(
-        -50%,
-        -46%,
-        135px
-      )
-      rotateY(0deg)
-      rotateX(0deg)
-      rotateZ(0deg)
-      scale(1) !important;
-  }
-
-
-  /* Mittleres Standard-Handy zusätzlich minimal tiefer */
-  .plaqa-showcase[data-focus="center"] .plaqa-device--center {
-    transform:
-      translate3d(
-        -50%,
-        -44%,
-        135px
-      )
-      rotateY(0deg)
-      rotateX(0deg)
-      rotateZ(0deg)
-      scale(1) !important;
-  }
-
-}
-
-
-/* Bei niedrigeren Laptop-Displays nochmals etwas kompakter */
-@media (min-width: 1100px) and (max-height: 900px) {
-
-  .plaqa-showcase[data-focus="center"] .plaqa-device--center,
-  .plaqa-showcase[data-focus="left"] .plaqa-device--left,
-  .plaqa-showcase[data-focus="right"] .plaqa-device--right {
-
-    width: clamp(270px, 17vw, 305px) !important;
-  }
-
-}
-
-
-/* ===== PLAQA VEHICLE SECTION CSS START ===== */
-
-.vehicle-section {
-  position: relative;
-
-  width: min(calc(100% - 80px), var(--max));
-  height: 100svh;
-  min-height: 720px;
-
-  margin: 0 auto;
-  padding: 55px 0;
-
-  box-sizing: border-box;
-
-  display: grid;
-  grid-template-columns:
-    minmax(500px, .88fr)
-    minmax(520px, 1.12fr);
-
-  gap: clamp(65px, 7vw, 120px);
-
-  align-items: center;
-
-  overflow: hidden;
-}
-
-
-.vehicle-copy {
-  position: relative;
-  z-index: 2;
-
-  max-width: 680px;
-}
-
-
-.vehicle-copy h2 {
-  margin: 0;
-
-  font-size: clamp(52px, 4.4vw, 76px);
-  line-height: .99;
-
-  letter-spacing: -.05em;
-}
-
-
-.vehicle-copy h2 span {
-  display: block;
-
-  margin-top: 7px;
-
-  color: #8491a5;
-}
-
-
-.vehicle-intro {
-  max-width: 625px;
-
-  margin: 28px 0 0;
-
-  color: #a1adbd;
-
-  font-size: 17px;
-  line-height: 1.58;
-}
-
-
-/* ---------- Tabs ---------- */
-
-.vehicle-tabs {
-  display: grid;
-
-  gap: 10px;
-
-  margin-top: 34px;
-}
-
-
-.vehicle-tab {
-  width: 100%;
-
-  display: flex;
-  align-items: center;
-
-  gap: 15px;
-
-  padding: 16px 19px;
-
-  border:
-    1px solid rgba(112, 136, 168, .17);
-
-  border-radius: 18px;
-
-  background:
-    rgba(10, 15, 22, .58);
-
-  color: #8995a6;
-
-  font: inherit;
-  font-size: 15px;
-  font-weight: 750;
-
-  text-align: left;
-
-  cursor: pointer;
-
-  transition:
-    color .25s ease,
-    border-color .25s ease,
-    background .25s ease,
-    transform .25s ease;
-}
-
-
-.vehicle-tab span {
-  display: grid;
-  place-items: center;
-
-  width: 38px;
-  height: 38px;
-
-  flex: 0 0 38px;
-
-  border:
-    1px solid rgba(31, 121, 255, .40);
-
-  border-radius: 50%;
-
-  color: #2481ff;
-
-  font-size: 12px;
-}
-
-
-.vehicle-tab.is-active {
-  color: #f5f7fb;
-
-  border-color:
-    rgba(31, 121, 255, .66);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(18, 30, 47, .96),
-      rgba(9, 15, 24, .90)
-    );
-}
-
-
-.vehicle-tab:hover {
-  transform: translateX(4px);
-}
-
-
-/* ---------- Benefits ---------- */
-
-.vehicle-benefits {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-
-  gap: 14px;
-
-  margin-top: 24px;
-}
-
-
-.vehicle-benefits > div {
-  padding-top: 16px;
-
-  border-top:
-    1px solid rgba(112, 136, 168, .17);
-}
-
-
-.vehicle-benefits strong {
-  display: block;
-
-  margin-bottom: 6px;
-
-  color: #eef3fa;
-
-  font-size: 13px;
-}
-
-
-.vehicle-benefits span {
-  display: block;
-
-  color: #7f8b9c;
-
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-
-/* =========================================================
-   ECHTER APP-SCREEN
-   ========================================================= */
-
-.vehicle-visual {
-  position: relative;
-
-  height: min(710px, 78vh);
-
-  display: grid;
-  place-items: center;
-
-  isolation: isolate;
-}
-
-
-.vehicle-glow {
-  position: absolute;
-  z-index: -2;
-
-  width: 570px;
-  height: 570px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      circle,
-      rgba(25, 112, 255, .23),
-      rgba(15, 78, 190, .08) 45%,
-      transparent 72%
-    );
-
-  filter: blur(44px);
-}
-
-
-.vehicle-screen-frame {
-  position: relative;
-
-  width: min(575px, 92%);
-  height: min(660px, 74vh);
-
-  display: grid;
-  place-items: center;
-
-  overflow: hidden;
-
-  border:
-    1px solid rgba(35, 119, 238, .40);
-
-  border-radius: 34px;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(17, 24, 35, .96),
-      rgba(5, 8, 13, .98)
-    );
-
-  box-shadow:
-    0 52px 110px rgba(0,0,0,.54),
-    0 0 50px rgba(16, 99, 255, .10);
-
-  transform:
-    perspective(1400px)
-    rotateY(-4deg)
-    rotateX(1deg);
-
-  transition:
-    transform .4s cubic-bezier(.2,.8,.2,1);
-}
-
-
-.vehicle-screen-frame:hover {
-  transform:
-    perspective(1400px)
-    rotateY(-1deg)
-    rotateX(0deg)
-    translateY(-5px);
-}
-
-
-.vehicle-screen-frame img {
-  display: block;
-
-  width: 100%;
-  height: 100%;
-
-  object-fit: contain;
-
-  background: #080b10;
-
-  filter:
-    brightness(1.08)
-    contrast(1.06)
-    saturate(1.035);
-
-  transition:
-    opacity .22s ease,
-    transform .32s ease;
-}
-
-
-.vehicle-screen-frame img.is-switching {
-  opacity: .08;
-  transform: scale(.985);
-}
-
-
-/* =========================================================
-   LAPTOP
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 850px) {
-
-  .vehicle-section {
-    min-height: 0;
-
-    padding-top: 32px;
-    padding-bottom: 32px;
-  }
-
-
-  .vehicle-copy h2 {
-    font-size:
-      clamp(46px, 3.8vw, 62px);
-  }
-
-
-  .vehicle-intro {
-    margin-top: 19px;
-
-    font-size: 15px;
-  }
-
-
-  .vehicle-tabs {
-    margin-top: 23px;
-  }
-
-
-  .vehicle-tab {
-    padding: 12px 16px;
-  }
-
-
-  .vehicle-benefits {
-    margin-top: 17px;
-  }
-
-
-  .vehicle-visual {
-    height: 610px;
-  }
-
-
-  .vehicle-screen-frame {
-    width: min(510px, 90%);
-    height: min(570px, 68vh);
-  }
-
-}
-
-
-/* =========================================================
-   MOBILE / TABLET
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .vehicle-section {
-    width: calc(100% - 36px);
-
-    height: auto;
-    min-height: 0;
-
-    padding: 90px 0;
-
-    grid-template-columns: 1fr;
-  }
-
-
-  .vehicle-copy {
-    max-width: 720px;
-  }
-
-
-  .vehicle-visual {
-    height: 650px;
-  }
-
-}
-
-
-@media (max-width: 640px) {
-
-  .vehicle-section {
-    width: calc(100% - 28px);
-
-    padding: 70px 0;
-  }
-
-
-  .vehicle-copy h2 {
-    font-size:
-      clamp(42px, 11vw, 55px);
-  }
-
-
-  .vehicle-intro {
-    font-size: 16px;
-  }
-
-
-  .vehicle-benefits {
-    grid-template-columns: 1fr;
-  }
-
-
-  .vehicle-visual {
-    height: 560px;
-  }
-
-
-  .vehicle-screen-frame {
-    width: 100%;
-    height: 520px;
-
-    border-radius: 26px;
-  }
-
-}
-
-/* ===== PLAQA VEHICLE SECTION CSS END ===== */
-
-
-/* ===== PLAQA HINTS SECTION CSS START ===== */
-
-.hints-section {
-  position: relative;
-
-  width: min(calc(100% - 80px), var(--max));
-  height: 100svh;
-  min-height: 720px;
-
-  margin: 0 auto;
-  padding: 45px 0;
-
-  box-sizing: border-box;
-
-  display: grid;
-
-  grid-template-columns:
-    minmax(430px, .88fr)
-    minmax(600px, 1.12fr);
-
-  gap: clamp(70px, 7vw, 125px);
-
-  align-items: center;
-
-  overflow: hidden;
-}
-
-
-/* =========================================================
-   LINKES SMARTPHONE
-   ========================================================= */
-
-.hints-visual {
-  position: relative;
-
-  height: min(720px, 78vh);
-
-  display: grid;
-  place-items: center;
-
-  isolation: isolate;
-}
-
-
-.hints-glow {
-  position: absolute;
-  z-index: -2;
-
-  width: 520px;
-  height: 560px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      circle,
-      rgba(24, 111, 255, .23),
-      rgba(15, 76, 185, .08) 46%,
-      transparent 73%
-    );
-
-  filter: blur(45px);
-}
-
-
-.hints-phone {
-  width: min(330px, 72%);
-  margin: 0;
-
-  overflow: hidden;
-
-  border:
-    1px solid rgba(39, 116, 220, .48);
-
-  border-radius: 42px;
-
-  background: #05080c;
-
-  box-shadow:
-    0 55px 110px rgba(0,0,0,.59),
-    0 0 45px rgba(17, 98, 255, .11);
-
-  transform:
-    perspective(1350px)
-    rotateY(5deg)
-    rotateX(1deg);
-}
-
-
-.hints-phone img {
-  display: block;
-
-  width: 100%;
-  height: auto;
-
-  filter:
-    brightness(1.10)
-    contrast(1.07)
-    saturate(1.035);
-}
-
-
-/* =========================================================
-   TEXT
-   ========================================================= */
-
-.hints-content {
-  position: relative;
-  z-index: 2;
-}
-
-
-.hints-content h2 {
-  max-width: 760px;
-
-  margin: 0;
-
-  font-size: clamp(50px, 4.25vw, 72px);
-  line-height: .99;
-
-  letter-spacing: -.05em;
-}
-
-
-.hints-content h2 span {
-  display: block;
-
-  margin-top: 6px;
-
-  color: #8592a5;
-}
-
-
-.hints-lead {
-  max-width: 710px;
-
-  margin: 24px 0 0;
-
-  color: #a0acbc;
-
-  font-size: 17px;
-  line-height: 1.58;
-}
-
-
-/* =========================================================
-   KATEGORIEN
-   ========================================================= */
-
-.hint-categories {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-
-  gap: 10px;
-
-  margin-top: 28px;
-}
-
-
-.hint-category {
-  min-width: 0;
-
-  display: flex;
-  align-items: center;
-
-  gap: 13px;
-
-  padding: 13px 15px;
-
-  border:
-    1px solid rgba(111, 136, 169, .17);
-
-  border-radius: 17px;
-
-  background:
-    rgba(9, 14, 21, .62);
-
-  color: #8b97a7;
-
-  text-align: left;
-  font: inherit;
-
-  cursor: pointer;
-
-  transition:
-    border-color .22s ease,
-    background .22s ease,
-    color .22s ease,
-    transform .22s ease;
-}
-
-
-.hint-category:hover {
-  transform: translateY(-2px);
-}
-
-
-.hint-category.is-active {
-  color: #f3f6fb;
-
-  border-color:
-    rgba(31, 121, 255, .64);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(17, 29, 46, .96),
-      rgba(8, 14, 23, .92)
-    );
-}
-
-
-.hint-category__icon {
-  width: 35px;
-  height: 35px;
-
-  flex: 0 0 35px;
-
-  display: grid;
-  place-items: center;
-
-  border:
-    1px solid rgba(31, 121, 255, .38);
-
-  border-radius: 11px;
-
-  color: #2482ff;
-
-  font-size: 11px;
-  font-weight: 800;
-}
-
-
-.hint-category strong {
-  display: block;
-
-  margin-bottom: 3px;
-
-  font-size: 14px;
-}
-
-
-.hint-category small {
-  display: block;
-
-  color: #778395;
-
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-
-/* =========================================================
-   DEMO-BENACHRICHTIGUNG
-   ========================================================= */
-
-.hint-preview {
-  display: grid;
-  grid-template-columns: 46px 1fr;
-
-  gap: 15px;
-
-  align-items: center;
-
-  margin-top: 20px;
-  padding: 16px 18px;
-
-  border:
-    1px solid rgba(255, 116, 23, .25);
-
-  border-radius: 19px;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(30, 21, 14, .55),
-      rgba(9, 13, 19, .90)
-    );
-}
-
-
-.hint-preview__mark {
-  width: 42px;
-  height: 42px;
-
-  display: grid;
-  place-items: center;
-
-  border:
-    1px solid rgba(255, 116, 23, .55);
-
-  border-radius: 13px;
-
-  color: #ff7417;
-
-  font-size: 21px;
-  font-weight: 800;
-}
-
-
-.hint-preview small {
-  display: block;
-
-  margin-bottom: 3px;
-
-  color: #7f8b9c;
-
-  font-size: 11px;
-}
-
-
-.hint-preview strong {
-  display: block;
-
-  color: #f5f7fa;
-
-  font-size: 15px;
-}
-
-
-.hint-preview p {
-  margin: 4px 0 0;
-
-  color: #939faf;
-
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-
-.hints-privacy {
-  max-width: 700px;
-
-  margin: 14px 0 0;
-
-  color: #687486;
-
-  font-size: 11px;
-  line-height: 1.5;
-}
-
-
-/* =========================================================
-   KLEINERE LAPTOP-HÖHEN
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 850px) {
-
-  .hints-section {
-    min-height: 0;
-
-    padding-top: 28px;
-    padding-bottom: 28px;
-  }
-
-
-  .hints-content h2 {
-    font-size:
-      clamp(44px, 3.6vw, 60px);
-  }
-
-
-  .hints-lead {
-    margin-top: 17px;
-
-    font-size: 15px;
-  }
-
-
-  .hint-categories {
-    margin-top: 19px;
-  }
-
-
-  .hint-category {
-    padding: 10px 13px;
-  }
-
-
-  .hint-preview {
-    margin-top: 14px;
-    padding: 12px 15px;
-  }
-
-
-  .hints-visual {
-    height: 610px;
-  }
-
-
-  .hints-phone {
-    width: min(280px, 68%);
-  }
-
-}
-
-
-/* =========================================================
-   TABLET / MOBILE
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .hints-section {
-    width: calc(100% - 36px);
-
-    height: auto;
-    min-height: 0;
-
-    padding: 90px 0;
-
-    grid-template-columns: 1fr;
-  }
-
-
-  .hints-visual {
-    order: 2;
-
-    height: 650px;
-  }
-
-}
-
-
-@media (max-width: 640px) {
-
-  .hints-section {
-    width: calc(100% - 28px);
-
-    padding: 70px 0;
-  }
-
-
-  .hints-content h2 {
-    font-size:
-      clamp(42px, 11vw, 55px);
-  }
-
-
-  .hints-lead {
-    font-size: 16px;
-  }
-
-
-  .hint-categories {
-    grid-template-columns: 1fr;
-  }
-
-
-  .hints-visual {
-    height: 580px;
-  }
-
-
-  .hints-phone {
-    width: min(290px, 76%);
-  }
-
-}
-
-/* ===== PLAQA HINTS SECTION CSS END ===== */
-
-
-/* ===== PLAQA COMMUNITY CSS START ===== */
-
-.community-section {
-  width: min(calc(100% - 80px), var(--max));
-  height: 100svh;
-  min-height: 720px;
-
-  margin: 0 auto;
-  padding: 48px 0;
-
-  box-sizing: border-box;
-
-  display: grid;
-  grid-template-columns:
-    minmax(520px, .95fr)
-    minmax(480px, 1.05fr);
-
-  gap: clamp(80px, 8vw, 140px);
-
-  align-items: center;
-
-  overflow: hidden;
-}
-
-
-/* =========================================================
-   TEXT
-   ========================================================= */
-
-.community-content {
-  max-width: 720px;
-}
-
-
-.community-content h2 {
-  margin: 0;
-
-  font-size: clamp(50px, 4.15vw, 72px);
-  line-height: .99;
-
-  letter-spacing: -.05em;
-}
-
-
-.community-content h2 span {
-  display: block;
-
-  margin-top: 7px;
-
-  color: #8793a6;
-}
-
-
-.community-lead {
-  max-width: 650px;
-
-  margin: 24px 0 0;
-
-  color: #a1acbb;
-
-  font-size: 17px;
-  line-height: 1.58;
-}
-
-
-/* =========================================================
-   TABS
-   ========================================================= */
-
-.community-tabs {
-  display: grid;
-
-  gap: 11px;
-
-  margin-top: 30px;
-}
-
-
-.community-tab {
-  display: grid;
-  grid-template-columns: 45px 1fr;
-
-  align-items: center;
-
-  gap: 15px;
-
-  width: 100%;
-
-  padding: 14px 17px;
-
-  border:
-    1px solid rgba(105, 130, 165, .17);
-
-  border-radius: 18px;
-
-  background:
-    rgba(9, 14, 21, .61);
-
-  color: #8490a1;
-
-  font: inherit;
-  text-align: left;
-
-  cursor: pointer;
-
-  transition:
-    transform .22s ease,
-    color .22s ease,
-    border-color .22s ease,
-    background .22s ease;
-}
-
-
-.community-tab:hover {
-  transform: translateX(4px);
-}
-
-
-.community-tab.is-active {
-  color: #f4f7fb;
-
-  border-color:
-    rgba(31, 121, 255, .64);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(18, 29, 45, .96),
-      rgba(8, 14, 23, .94)
-    );
-}
-
-
-.community-tab > span {
-  width: 38px;
-  height: 38px;
-
-  display: grid;
-  place-items: center;
-
-  border:
-    1px solid rgba(31, 121, 255, .40);
-
-  border-radius: 50%;
-
-  color: #2682ff;
-
-  font-size: 11px;
-  font-weight: 800;
-}
-
-
-.community-tab strong {
-  display: block;
-
-  margin-bottom: 3px;
-
-  font-size: 15px;
-}
-
-
-.community-tab small {
-  color: #768294;
-
-  font-size: 11px;
-}
-
-
-/* =========================================================
-   AKTUELLER TAB
-   ========================================================= */
-
-.community-current {
-  margin-top: 21px;
-  padding-top: 18px;
-
-  border-top:
-    1px solid rgba(107, 132, 165, .15);
-}
-
-
-.community-current strong {
-  color: #f2f5fa;
-
-  font-size: 14px;
-}
-
-
-.community-current p {
-  max-width: 580px;
-
-  margin: 5px 0 0;
-
-  color: #7e8a9b;
-
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-
-/* =========================================================
-   NUR EIN SAUBERES SMARTPHONE
-   ========================================================= */
-
-.community-visual {
-  position: relative;
-
-  height: min(700px, 76vh);
-
-  display: grid;
-  place-items: center;
-
-  isolation: isolate;
-}
-
-
-.community-glow {
-  position: absolute;
-  z-index: -3;
-
-  width: 520px;
-  height: 590px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(24, 112, 255, .22),
-      rgba(15, 78, 190, .075) 45%,
-      transparent 73%
-    );
-
-  filter: blur(46px);
-}
-
-
-.community-phone {
-  position: relative;
-
-  height: min(660px, 73vh);
-
-  aspect-ratio: 921 / 2048;
-
-  margin: 0;
-}
-
-
-.community-phone__frame {
-  position: relative;
-
-  width: 100%;
-  height: 100%;
-
-  padding: 6px;
-
-  box-sizing: border-box;
-
-  border:
-    1px solid rgba(45, 107, 190, .48);
-
-  border-radius: 43px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #313b49,
-      #101720 7%,
-      #04070b 28%,
-      #030509 70%,
-      #19212c
-    );
-
-  box-shadow:
-    0 58px 115px rgba(0,0,0,.60),
-    0 0 48px rgba(18,101,255,.12);
-}
-
-
-.community-phone__screen {
-  width: 100%;
-  height: 100%;
-
-  overflow: hidden;
-
-  border-radius: 37px;
-
-  background: #05080c;
-}
-
-
-.community-phone__screen img {
-  display: block;
-
-  width: 100%;
-  height: 100%;
-
-  object-fit: cover;
-  object-position: top center;
-
-  filter:
-    brightness(1.08)
-    contrast(1.07)
-    saturate(1.035);
-
-  transition:
-    opacity .20s ease,
-    transform .28s ease;
-}
-
-
-.community-phone__screen img.is-switching {
-  opacity: .08;
-
-  transform: scale(.985);
-}
-
-
-.community-phone__reflection {
-  position: absolute;
-
-  inset: 7px;
-
-  border-radius: 36px;
-
-  pointer-events: none;
-
-  opacity: .12;
-
-  background:
-    linear-gradient(
-      115deg,
-      rgba(255,255,255,.08),
-      transparent 24%
-    );
-}
-
-
-.community-phone__shadow {
-  position: absolute;
-
-  z-index: -4;
-
-  left: 4%;
-  bottom: -34px;
-
-  width: 92%;
-  height: 55px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(0,0,0,.70),
-      rgba(0,0,0,.25) 45%,
-      transparent 72%
-    );
-
-  filter: blur(15px);
-}
-
-
-/* =========================================================
-   LAPTOP
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 850px) {
-
-  .community-section {
-    min-height: 0;
-
-    padding-top: 30px;
-    padding-bottom: 30px;
-  }
-
-
-  .community-content h2 {
-    font-size:
-      clamp(44px, 3.55vw, 59px);
-  }
-
-
-  .community-lead {
-    margin-top: 17px;
-
-    font-size: 15px;
-  }
-
-
-  .community-tabs {
-    margin-top: 20px;
-  }
-
-
-  .community-tab {
-    padding: 11px 15px;
-  }
-
-
-  .community-current {
-    margin-top: 14px;
-    padding-top: 13px;
-  }
-
-
-  .community-phone {
-    height: min(565px, 66vh);
-  }
-
-}
-
-
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .community-section {
-    width: calc(100% - 36px);
-
-    height: auto;
-    min-height: 0;
-
-    padding: 90px 0;
-
-    grid-template-columns: 1fr;
-  }
-
-
-  .community-visual {
-    height: 650px;
-  }
-
-}
-
-
-@media (max-width: 640px) {
-
-  .community-section {
-    width: calc(100% - 28px);
-
-    padding: 70px 0;
-  }
-
-
-  .community-content h2 {
-    font-size:
-      clamp(42px, 11vw, 55px);
-  }
-
-
-  .community-lead {
-    font-size: 16px;
-  }
-
-
-  .community-phone {
-    height: 550px;
-  }
-
-}
-
-/* ===== PLAQA COMMUNITY CSS END ===== */
-/* =========================================================
-   plaqa BRAND WORD FIX
-   verhindert vertikal gestapelte Logo-Buchstaben
-   ========================================================= */
-
-.plaqa-word {
-  display: inline-flex !important;
-  flex-direction: row !important;
-  align-items: baseline !important;
-
-  width: auto !important;
-  height: auto !important;
-
-  margin: 0 !important;
-  padding: 0 !important;
-
-  line-height: inherit !important;
-  letter-spacing: inherit !important;
-
-  white-space: nowrap !important;
-  vertical-align: baseline !important;
-}
-
-
-/*
-  Sehr wichtig:
-  Überschriften-Regeln wie ".community-content h2 span"
-  dürfen die einzelnen Buchstaben nicht zu Blockelementen machen.
-*/
-
-.plaqa-word > span {
-  display: inline !important;
-
-  margin: 0 !important;
-  padding: 0 !important;
-
-  width: auto !important;
-  height: auto !important;
-
-  line-height: inherit !important;
-}
-
-
-/* Markenfarben immer erzwingen */
-
-.plaqa-word > .plaqa-blue {
-  color: #1671ff !important;
-}
-
-.plaqa-word > .plaqa-orange {
-  color: #ff7417 !important;
-}
-
-
-/*
-  Falls plaqa innerhalb einer zweiten Headline-Zeile steht,
-  bleibt nur die komplette Zeile blockartig.
-  Das Markenwort selbst bleibt inline.
-*/
-
-h1 .plaqa-word,
-h2 .plaqa-word,
-h3 .plaqa-word,
-p .plaqa-word,
-button .plaqa-word,
-a .plaqa-word {
-  display: inline-flex !important;
-  margin: 0 !important;
-}
-
-
-/* ===== PLAQA SECURITY CSS START ===== */
-
-.security-section {
-  position: relative;
-
-  width: min(calc(100% - 80px), var(--max));
-
-  height: 100svh;
-  min-height: 720px;
-
-  margin: 0 auto;
-  padding: 44px 0;
-
-  box-sizing: border-box;
-
-  display: grid;
-
-  grid-template-columns:
-    minmax(590px, 1.08fr)
-    minmax(430px, .92fr);
-
-  gap: clamp(70px, 7vw, 125px);
-
-  align-items: center;
-
-  overflow: hidden;
-}
-
-
-/* =========================================================
-   TEXT
-   ========================================================= */
-
-.security-content {
-  position: relative;
-  z-index: 3;
-
-  max-width: 790px;
-}
-
-
-.security-content h2 {
-  margin: 0;
-
-  max-width: 790px;
-
-  font-size: clamp(49px, 4vw, 70px);
-  line-height: .99;
-
-  letter-spacing: -.05em;
-}
-
-
-.security-content h2 > span {
-  display: block;
-
-  margin-top: 7px;
-
-  color: #8592a5;
-}
-
-
-.security-lead {
-  max-width: 690px;
-
-  margin: 23px 0 0;
-
-  color: #a0acbc;
-
-  font-size: 16px;
-  line-height: 1.58;
-}
-
-
-/* =========================================================
-   SECURITY TABS
-   ========================================================= */
-
-.security-tabs {
-  display: grid;
-
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
-
-  gap: 10px;
-
-  margin-top: 27px;
-}
-
-
-.security-tab {
-  display: grid;
-
-  grid-template-columns:
-    42px 1fr;
-
-  gap: 13px;
-
-  align-items: center;
-
-  min-width: 0;
-
-  padding: 13px 15px;
-
-  border:
-    1px solid rgba(105,130,165,.17);
-
-  border-radius: 17px;
-
-  background:
-    rgba(9,14,21,.60);
-
-  color: #8591a2;
-
-  font: inherit;
-  text-align: left;
-
-  cursor: pointer;
-
-  transition:
-    transform .22s ease,
-    color .22s ease,
-    border-color .22s ease,
-    background .22s ease;
-}
-
-
-.security-tab:hover {
-  transform: translateY(-2px);
-}
-
-
-.security-tab.is-active {
-  color: #f4f7fb;
-
-  border-color:
-    rgba(31,121,255,.63);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(18,29,45,.97),
-      rgba(8,14,23,.93)
-    );
-}
-
-
-.security-tab > span {
-  width: 36px;
-  height: 36px;
-
-  display: grid;
-  place-items: center;
-
-  border:
-    1px solid rgba(31,121,255,.38);
-
-  border-radius: 50%;
-
-  color: #2582ff;
-
-  font-size: 11px;
-  font-weight: 800;
-}
-
-
-.security-tab strong {
-  display: block;
-
-  margin-bottom: 3px;
-
-  font-size: 14px;
-}
-
-
-.security-tab small {
-  display: block;
-
-  color: #748092;
-
-  font-size: 10.5px;
-  line-height: 1.3;
-}
-
-
-/* =========================================================
-   AKTIVE INFO
-   ========================================================= */
-
-.security-current {
-  display: grid;
-
-  grid-template-columns:
-    45px 1fr;
-
-  gap: 14px;
-
-  align-items: center;
-
-  margin-top: 17px;
-
-  padding: 14px 16px;
-
-  border:
-    1px solid rgba(37,130,255,.20);
-
-  border-radius: 17px;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(11,23,39,.78),
-      rgba(7,12,20,.70)
-    );
-}
-
-
-.security-current__icon {
-  width: 40px;
-  height: 40px;
-
-  display: grid;
-  place-items: center;
-
-  border-radius: 50%;
-
-  border:
-    1px solid rgba(40,184,101,.43);
-
-  color: #2dcc70;
-
-  font-size: 18px;
-  font-weight: 800;
-}
-
-
-.security-current strong {
-  display: block;
-
-  color: #f3f6fa;
-
-  font-size: 14px;
-}
-
-
-.security-current p {
-  max-width: 620px;
-
-  margin: 4px 0 0;
-
-  color: #8491a2;
-
-  font-size: 11.5px;
-  line-height: 1.45;
-}
-
-
-/* =========================================================
-   TRUST GRID
-   ========================================================= */
-
-.security-trust-grid {
-  display: grid;
-
-  grid-template-columns:
-    repeat(4, minmax(0, 1fr));
-
-  gap: 12px;
-
-  margin-top: 18px;
-}
-
-
-.security-trust-grid > div {
-  padding-top: 13px;
-
-  border-top:
-    1px solid rgba(106,132,165,.15);
-}
-
-
-.security-trust-grid strong {
-  display: block;
-
-  margin-bottom: 5px;
-
-  color: #e9eef5;
-
-  font-size: 11px;
-}
-
-
-.security-trust-grid span {
-  display: block;
-
-  color: #697687;
-
-  font-size: 9.5px;
-  line-height: 1.42;
-}
-
-
-/* =========================================================
-   PHONE
-   ========================================================= */
-
-.security-visual {
-  position: relative;
-
-  height: min(700px, 76vh);
-
-  display: grid;
-  place-items: center;
-
-  perspective: 1450px;
-
-  isolation: isolate;
-}
-
-
-.security-glow {
-  position: absolute;
-  z-index: -4;
-
-  width: 520px;
-  height: 570px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(22,109,255,.23),
-      rgba(15,76,185,.075) 45%,
-      transparent 73%
-    );
-
-  filter: blur(46px);
-}
-
-
-.security-phone {
-  position: relative;
-
-  height: min(650px, 71vh);
-
-  aspect-ratio: 921 / 2048;
-
-  margin: 0;
-
-  transform:
-    rotateY(-3deg)
-    rotateX(.6deg)
-    translateZ(35px);
-
-  transition:
-    transform .40s cubic-bezier(.2,.8,.2,1);
-}
-
-
-.security-phone:hover {
-  transform:
-    rotateY(-1deg)
-    rotateX(0deg)
-    translateY(-5px)
-    translateZ(52px);
-}
-
-
-.security-phone__frame {
-  position: relative;
-
-  width: 100%;
-  height: 100%;
-
-  padding: 6px;
-
-  box-sizing: border-box;
-
-  border:
-    1px solid rgba(45,107,190,.48);
-
-  border-radius: 43px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #303a48,
-      #111820 7%,
-      #04070b 27%,
-      #030509 70%,
-      #18212c
-    );
-
-  box-shadow:
-    0 58px 115px rgba(0,0,0,.60),
-    0 0 48px rgba(18,101,255,.12);
-}
-
-
-.security-phone__screen {
-  width: 100%;
-  height: 100%;
-
-  overflow: hidden;
-
-  border-radius: 37px;
-
-  background: #05080c;
-}
-
-
-.security-phone__screen img {
-  display: block;
-
-  width: 100%;
-  height: 100%;
-
-  object-fit: cover;
-  object-position: top center;
-
-  filter:
-    brightness(1.08)
-    contrast(1.07)
-    saturate(1.035);
-
-  transition:
-    opacity .20s ease,
-    transform .28s ease;
-}
-
-
-.security-phone__screen img.is-switching {
-  opacity: .08;
-
-  transform: scale(.985);
-}
-
-
-.security-phone__reflection {
-  position: absolute;
-
-  inset: 7px;
-
-  border-radius: 36px;
-
-  pointer-events: none;
-
-  opacity: .11;
-
-  background:
-    linear-gradient(
-      115deg,
-      rgba(255,255,255,.08),
-      transparent 24%
-    );
-}
-
-
-.security-phone__shadow {
-  position: absolute;
-
-  z-index: -4;
-
-  left: 4%;
-  bottom: -34px;
-
-  width: 92%;
-  height: 55px;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(0,0,0,.70),
-      rgba(0,0,0,.25) 45%,
-      transparent 72%
-    );
-
-  filter: blur(15px);
-}
-
-
-/* =========================================================
-   SUBTILE ORBITS
-   ========================================================= */
-
-.security-orbit {
-  position: absolute;
-
-  z-index: -2;
-
-  border:
-    1px solid rgba(27,108,245,.12);
-
-  border-radius: 50%;
-
-  pointer-events: none;
-}
-
-
-.security-orbit--one {
-  width: 470px;
-  height: 470px;
-
-  transform:
-    rotateX(66deg)
-    rotateZ(-12deg);
-}
-
-
-.security-orbit--two {
-  width: 590px;
-  height: 590px;
-
-  opacity: .45;
-
-  transform:
-    rotateX(69deg)
-    rotateZ(17deg);
-}
-
-
-/* =========================================================
-   LAPTOP
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 850px) {
-
-  .security-section {
-    min-height: 0;
-
-    padding-top: 26px;
-    padding-bottom: 26px;
-  }
-
-
-  .security-content h2 {
-    font-size:
-      clamp(43px, 3.45vw, 58px);
-  }
-
-
-  .security-lead {
-    margin-top: 16px;
-
-    font-size: 14.5px;
-  }
-
-
-  .security-tabs {
-    margin-top: 18px;
-  }
-
-
-  .security-tab {
-    padding: 10px 13px;
-  }
-
-
-  .security-current {
-    margin-top: 12px;
-    padding: 10px 13px;
-  }
-
-
-  .security-trust-grid {
-    margin-top: 12px;
-  }
-
-
-  .security-phone {
-    height: min(550px, 64vh);
-  }
-
-}
-
-
-/* =========================================================
-   TABLET / MOBILE
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .security-section {
-    width: calc(100% - 36px);
-
-    height: auto;
-    min-height: 0;
-
-    padding: 90px 0;
-
-    grid-template-columns: 1fr;
-  }
-
-
-  .security-trust-grid {
-    grid-template-columns:
-      repeat(2, minmax(0,1fr));
-  }
-
-
-  .security-visual {
-    height: 650px;
-  }
-
-}
-
-
-@media (max-width: 640px) {
-
-  .security-section {
-    width: calc(100% - 28px);
-
-    padding: 70px 0;
-  }
-
-
-  .security-content h2 {
-    font-size:
-      clamp(41px, 10.8vw, 54px);
-  }
-
-
-  .security-lead {
-    font-size: 16px;
-  }
-
-
-  .security-tabs {
-    grid-template-columns: 1fr;
-  }
-
-
-  .security-trust-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-
-  .security-phone {
-    height: 540px;
-  }
-
-}
-
-/* ===== PLAQA SECURITY CSS END ===== */
-
-
-/* ===== PLAQA FAQ CSS START ===== */
-
-.faq-section {
-  position: relative;
-
-  width: min(calc(100% - 80px), var(--max));
-
-  height: 100svh;
-  min-height: 720px;
-
-  margin: 0 auto;
-  padding: 50px 0;
-
-  box-sizing: border-box;
-
-  display: grid;
-
-  grid-template-columns:
-    minmax(430px, .80fr)
-    minmax(650px, 1.20fr);
-
-  gap: clamp(75px, 8vw, 145px);
-
-  align-items: center;
-
-  overflow: hidden;
-}
-
-
-/* =========================================================
-   LINKE SEITE
-   ========================================================= */
-
-.faq-intro {
-  max-width: 610px;
-}
-
-
-.faq-intro h2 {
-  margin: 0;
-
-  font-size: clamp(50px, 4.15vw, 72px);
-  line-height: .99;
-
-  letter-spacing: -.05em;
-}
-
-
-.faq-intro h2 > span {
-  display: block;
-
-  margin-top: 7px;
-
-  color: #8592a5;
-}
-
-
-.faq-lead {
-  max-width: 570px;
-
-  margin: 25px 0 0;
-
-  color: #9fabbc;
-
-  font-size: 16px;
-  line-height: 1.58;
 }
-
-
-/* Support Hinweis */
-
-.faq-side-note {
-  display: grid;
-
-  grid-template-columns:
-    48px 1fr;
-
-  gap: 16px;
-
-  align-items: start;
-
-  margin-top: 34px;
-  padding: 19px;
-
-  border:
-    1px solid rgba(31,121,255,.22);
-
-  border-radius: 20px;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(15,25,40,.78),
-      rgba(7,12,19,.72)
-    );
-}
-
-
-.faq-side-note__icon {
-  width: 44px;
-  height: 44px;
-
-  display: grid;
-  place-items: center;
-
-  border:
-    1px solid rgba(31,121,255,.45);
-
-  border-radius: 14px;
-
-  color: #2582ff;
-
-  font-size: 20px;
-  font-weight: 800;
-}
-
-
-.faq-side-note strong {
-  display: block;
-
-  color: #f2f5fa;
-
-  font-size: 14px;
-}
-
-
-.faq-side-note p {
-  max-width: 390px;
-
-  margin: 5px 0 8px;
-
-  color: #7e8b9d;
-
-  font-size: 11.5px;
-  line-height: 1.5;
-}
-
-
-.faq-side-note a {
-  color: #2683ff;
-
-  font-size: 12px;
-  font-weight: 700;
 
+a {
+  color: inherit;
   text-decoration: none;
 }
 
-
-.faq-side-note a:hover {
-  text-decoration: underline;
-}
-
-
-/* =========================================================
-   FAQ LISTE
-   ========================================================= */
-
-.faq-list {
-  display: grid;
-
-  gap: 8px;
-
-  align-self: center;
-}
-
-
-.faq-item {
-  overflow: hidden;
-
-  border:
-    1px solid rgba(104,129,162,.16);
-
-  border-radius: 18px;
-
-  background:
-    rgba(8,13,20,.58);
-
-  transition:
-    border-color .24s ease,
-    background .24s ease,
-    box-shadow .24s ease;
-}
-
-
-.faq-item.is-open {
-  border-color:
-    rgba(31,121,255,.52);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(17,29,46,.94),
-      rgba(8,14,23,.91)
-    );
-
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.19);
-}
-
-
-/* =========================================================
-   FRAGE
-   ========================================================= */
-
-.faq-question {
-  width: 100%;
-
-  min-height: 60px;
-
-  display: grid;
-
-  grid-template-columns:
-    38px 1fr 24px;
-
-  gap: 14px;
-
-  align-items: center;
-
-  padding: 12px 16px;
-
-  border: 0;
-
-  background: transparent;
-
-  color: #a2adbd;
-
+button {
   font: inherit;
-
-  text-align: left;
-
-  cursor: pointer;
 }
 
-
-.faq-item.is-open .faq-question {
-  color: #f4f7fb;
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
 
+:focus-visible {
+  outline: 3px solid rgba(8, 105, 255, 0.55);
+  outline-offset: 4px;
+}
 
-.faq-number {
-  width: 34px;
-  height: 34px;
-
-  display: grid;
-  place-items: center;
-
-  border:
-    1px solid rgba(31,121,255,.33);
-
-  border-radius: 50%;
-
-  color: #2582ff;
-
-  font-size: 10px;
+.skip-link {
+  position: fixed;
+  z-index: 200;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  transform: translateY(-150%);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--text-dark);
   font-weight: 800;
 }
 
-
-.faq-question__text {
-  font-size: 14px;
-  font-weight: 720;
-
-  line-height: 1.35;
+.skip-link:focus {
+  transform: translateY(0);
 }
 
+.site-header {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  right: 0;
+  left: 0;
+  border-bottom: 1px solid transparent;
+  background: rgba(7, 10, 15, 0.88);
+  backdrop-filter: blur(18px);
+  transition: border-color 180ms ease, background 180ms ease;
+}
 
-/* Chevron */
+.site-header.is-scrolled {
+  border-bottom-color: var(--line);
+  background: rgba(7, 10, 15, 0.96);
+}
 
-.faq-chevron {
+.site-header__inner {
+  width: min(var(--max), calc(100% - 48px));
+  height: 78px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+  gap: 30px;
+}
+
+.brand {
+  width: 132px;
+}
+
+.brand img {
+  width: 100%;
+}
+
+.desktop-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(20px, 3vw, 42px);
+}
+
+.desktop-nav a,
+.header-action {
   position: relative;
-
-  width: 18px;
-  height: 18px;
-
-  justify-self: end;
-
-  transition:
-    transform .28s cubic-bezier(.2,.8,.2,1);
+  color: #d5dce6;
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
-
-.faq-chevron::before,
-.faq-chevron::after {
-  content: "";
-
+.desktop-nav a::after {
   position: absolute;
-
-  top: 8px;
-
-  width: 9px;
-  height: 1.5px;
-
-  border-radius: 2px;
-
-  background: #748194;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  height: 2px;
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left;
+  background: var(--blue);
+  transition: transform 180ms ease;
 }
 
+.desktop-nav a:hover::after,
+.desktop-nav a.is-active::after {
+  transform: scaleX(1);
+}
 
-.faq-chevron::before {
-  left: 1px;
+.header-action {
+  min-height: 42px;
+  padding: 9px 17px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(8, 105, 255, 0.75);
+  border-radius: 5px;
+  color: #ffffff;
+  transition: background 180ms ease, border-color 180ms ease;
+}
 
+.header-action:hover {
+  border-color: var(--orange);
+  background: rgba(255, 114, 31, 0.08);
+}
+
+.menu-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: none;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: white;
+  cursor: pointer;
+}
+
+.menu-button span {
+  position: absolute;
+  width: 19px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transition: transform 180ms ease;
+}
+
+.menu-button span:first-child {
+  transform: translateY(-4px);
+}
+
+.menu-button span:last-child {
+  transform: translateY(4px);
+}
+
+.menu-button[aria-expanded="true"] span:first-child {
   transform: rotate(45deg);
 }
 
-
-.faq-chevron::after {
-  right: 1px;
-
+.menu-button[aria-expanded="true"] span:last-child {
   transform: rotate(-45deg);
 }
 
-
-.faq-item.is-open .faq-chevron {
-  transform: rotate(180deg);
+.mobile-nav {
+  width: min(100% - 32px, 520px);
+  margin: 0 auto 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0b1017;
 }
 
+.mobile-nav a {
+  min-height: 48px;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 750;
+}
 
-/* =========================================================
-   ANTWORT
-   ========================================================= */
+.mobile-nav a:last-child {
+  border-bottom: 0;
+  color: #71a7ff;
+}
+
+.hero {
+  min-height: 100svh;
+  padding: 132px 0 0;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(8, 105, 255, 0.12) 1px, transparent 1px) 0 0 / 116px 116px,
+    linear-gradient(rgba(8, 105, 255, 0.09) 1px, transparent 1px) 0 0 / 116px 116px,
+    var(--ink);
+}
+
+.hero__inner {
+  width: min(var(--max), calc(100% - 48px));
+  min-height: 690px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
+  align-items: center;
+  gap: clamp(48px, 7vw, 110px);
+}
+
+.hero__copy {
+  max-width: 710px;
+  padding: 40px 0 80px;
+}
+
+.hero h1 {
+  max-width: 780px;
+  margin: 0;
+  font-size: clamp(4.4rem, 7.4vw, 7.7rem);
+  line-height: 0.9;
+  font-weight: 860;
+}
+
+.hero h1 span {
+  display: block;
+  color: var(--orange);
+}
+
+.hero__lead {
+  max-width: 660px;
+  margin: 34px 0 0;
+  color: #b9c3d1;
+  font-size: clamp(1.05rem, 1.4vw, 1.27rem);
+  line-height: 1.65;
+}
+
+.hero__actions {
+  margin-top: 34px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+}
+
+.button {
+  min-height: 50px;
+  padding: 12px 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-weight: 800;
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+}
+
+.button--primary {
+  border-color: #2a85ff;
+  background: var(--blue);
+  color: white;
+}
+
+.button--primary:hover {
+  border-color: var(--orange);
+  background: var(--blue-dark);
+}
+
+.button--light {
+  border-color: #d7dee7;
+  background: white;
+  color: var(--text-dark);
+}
+
+.text-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #eef3f9;
+  font-weight: 800;
+}
+
+.text-link span {
+  color: var(--orange);
+  font-size: 1.1em;
+}
+
+.text-link--dark {
+  color: var(--text-dark);
+}
+
+.country-list {
+  margin-top: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 24px;
+  color: #c4ceda;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.country-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.country-list b {
+  font-size: 1.05rem;
+  font-weight: 400;
+}
+
+.hero__visual {
+  position: relative;
+  min-width: 0;
+  align-self: end;
+  padding-top: 14px;
+}
+
+.hero__visual::before {
+  position: absolute;
+  z-index: 0;
+  top: 10%;
+  right: -18%;
+  width: 52%;
+  height: 72%;
+  content: "";
+  border-right: 2px solid rgba(255, 114, 31, 0.7);
+  border-bottom: 2px solid rgba(8, 105, 255, 0.65);
+  pointer-events: none;
+}
+
+.hero__media {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 480px);
+  max-height: 650px;
+  margin-left: auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius);
+  background: #02050a;
+  box-shadow: var(--shadow);
+}
+
+.hero__media img {
+  width: 100%;
+}
+
+.hero__media-note {
+  position: relative;
+  z-index: 2;
+  width: fit-content;
+  margin: -52px 0 36px -34px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #0a0f16;
+  color: #dce4ee;
+  font-size: 0.87rem;
+  font-weight: 750;
+}
+
+.hero__media-note span {
+  margin-right: 10px;
+  color: var(--orange);
+}
+
+.hero__rail {
+  width: 100%;
+  min-height: 116px;
+  padding: 0 max(24px, calc((100vw - var(--max)) / 2));
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line);
+  background: #0a0f16;
+}
+
+.hero__rail article {
+  min-width: 0;
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-right: 1px solid var(--line);
+}
+
+.hero__rail article:first-child {
+  border-left: 1px solid var(--line);
+}
+
+.hero__rail strong,
+.hero__rail small {
+  display: block;
+}
+
+.hero__rail strong {
+  font-size: 0.94rem;
+}
+
+.hero__rail small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.rail-number {
+  color: var(--blue);
+  font-size: 1.5rem;
+  font-weight: 850;
+}
+
+.rail-number--orange {
+  color: var(--orange);
+}
+
+.section-shell {
+  width: min(var(--max), calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.light-section {
+  background: var(--paper);
+  color: var(--text-dark);
+}
+
+.dark-section {
+  background: var(--ink-soft);
+  color: var(--text);
+}
+
+.section-heading {
+  max-width: 700px;
+}
+
+.section-heading--wide {
+  max-width: 940px;
+}
+
+.section-label {
+  margin: 0 0 18px;
+  color: var(--blue);
+  font-size: 0.77rem;
+  font-weight: 850;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.section-heading h2 {
+  margin: 0;
+  color: var(--text-dark);
+  font-size: clamp(2.7rem, 5vw, 5rem);
+  line-height: 0.98;
+  font-weight: 850;
+}
+
+.section-heading > p:last-child {
+  max-width: 680px;
+  margin: 24px 0 0;
+  color: var(--muted-dark);
+  font-size: 1.08rem;
+}
+
+.section-heading--dark h2 {
+  color: var(--text);
+}
+
+.section-heading--dark > p:last-child {
+  color: var(--muted);
+}
+
+.product-section {
+  padding: 132px 0;
+}
+
+.product-layout {
+  margin-top: 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 470px);
+  align-items: center;
+  gap: clamp(50px, 8vw, 120px);
+}
+
+.workflow-list {
+  border-top: 1px solid var(--line-dark);
+}
+
+.workflow-item {
+  width: 100%;
+  padding: 26px 0;
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 20px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line-dark);
+  background: transparent;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.workflow-item > span {
+  padding-top: 3px;
+  color: #8b96a5;
+  font-weight: 850;
+}
+
+.workflow-item strong {
+  font-size: 1.25rem;
+}
+
+.workflow-item p {
+  max-width: 600px;
+  margin: 6px 0 0;
+  color: var(--muted-dark);
+}
+
+.workflow-item.is-active > span,
+.workflow-item.is-active strong {
+  color: var(--blue);
+}
+
+.product-preview {
+  width: min(100%, 430px);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: var(--radius);
+  box-shadow: 22px 28px 0 #e9eef4, var(--shadow);
+}
+
+.product-preview img {
+  width: 100%;
+}
+
+.community-section {
+  padding: 124px 0 136px;
+  overflow: hidden;
+}
+
+.community-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+  align-items: end;
+  gap: 60px;
+}
+
+.community-intro > p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 1.08rem;
+}
+
+.community-media {
+  margin-top: 70px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(250px, 0.7fr) 190px;
+  align-items: end;
+  gap: 22px;
+}
+
+.community-media figure {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #04070c;
+}
+
+.community-media__large {
+  max-height: 690px;
+}
+
+.community-media__small {
+  max-height: 520px;
+}
+
+.community-media img {
+  width: 100%;
+}
+
+.community-copy {
+  padding-bottom: 18px;
+  display: grid;
+}
+
+.community-copy span {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line);
+  color: #d8e1ec;
+  font-weight: 750;
+}
+
+.community-copy span:nth-child(2n) {
+  color: var(--orange);
+}
+
+.vehicle-section {
+  padding: 132px 0;
+}
+
+.vehicle-layout {
+  display: grid;
+  grid-template-columns: minmax(390px, 1fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(70px, 9vw, 140px);
+}
+
+.vehicle-collage {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 0.76fr;
+  align-items: end;
+  gap: 18px;
+}
+
+.vehicle-collage figure {
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.vehicle-collage__secondary {
+  margin-bottom: 52px !important;
+}
+
+.vehicle-collage img {
+  width: 100%;
+}
+
+.feature-list {
+  margin: 46px 0 0;
+  border-top: 1px solid var(--line-dark);
+}
+
+.feature-list > div {
+  padding: 22px 0;
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 24px;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.feature-list dt {
+  color: var(--text-dark);
+  font-weight: 850;
+}
+
+.feature-list dd {
+  margin: 0;
+  color: var(--muted-dark);
+}
+
+.safety-section {
+  padding: 130px 0;
+  overflow: hidden;
+  background: var(--paper-soft);
+  color: var(--text-dark);
+}
+
+.safety-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 470px);
+  align-items: center;
+  gap: clamp(60px, 9vw, 140px);
+}
+
+.safety-points {
+  margin: 44px 0 32px;
+  border-top: 1px solid var(--line-dark);
+}
+
+.safety-points article {
+  padding: 20px 0;
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 18px;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.safety-points article > span {
+  color: var(--blue);
+  font-weight: 850;
+}
+
+.safety-points strong {
+  font-size: 1.05rem;
+}
+
+.safety-points p {
+  margin: 4px 0 0;
+  color: var(--muted-dark);
+}
+
+.safety-media {
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  box-shadow: 28px 30px 0 #dfe6ee, var(--shadow);
+}
+
+.safety-media img {
+  width: 100%;
+}
+
+.insights-section {
+  padding: 124px 0 136px;
+}
+
+.insights-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.gallery-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.gallery-controls button {
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: white;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.gallery-controls button:hover {
+  border-color: var(--blue);
+  background: rgba(8, 105, 255, 0.1);
+}
+
+.preview-track {
+  width: 100%;
+  margin-top: 58px;
+  padding-bottom: 18px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(230px, 26vw, 320px);
+  gap: 18px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: #31588b #121923;
+}
+
+.preview-track figure {
+  margin: 0;
+  scroll-snap-align: start;
+}
+
+.preview-track img {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.preview-track figcaption {
+  padding-top: 12px;
+  color: #c6d0dc;
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.faq-section {
+  padding: 124px 0 132px;
+}
+
+.faq-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.66fr) minmax(0, 1.34fr);
+  gap: clamp(60px, 9vw, 140px);
+}
+
+.faq-intro a {
+  color: var(--blue);
+  font-weight: 750;
+}
+
+.faq-list {
+  border-top: 1px solid var(--line-dark);
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.faq-item > button {
+  width: 100%;
+  min-height: 74px;
+  padding: 19px 0;
+  display: grid;
+  grid-template-columns: 1fr 26px;
+  align-items: center;
+  gap: 20px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dark);
+  text-align: left;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.faq-item i {
+  position: relative;
+  width: 18px;
+  height: 18px;
+}
+
+.faq-item i::before,
+.faq-item i::after {
+  position: absolute;
+  top: 8px;
+  right: 0;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: var(--blue);
+}
+
+.faq-item i::after {
+  transform: rotate(90deg);
+  transition: transform 180ms ease;
+}
+
+.faq-item.is-open i::after {
+  transform: rotate(0deg);
+}
 
 .faq-answer {
   display: grid;
-
   grid-template-rows: 0fr;
-
-  opacity: 0;
-
-  transition:
-    grid-template-rows .32s cubic-bezier(.2,.8,.2,1),
-    opacity .24s ease;
+  transition: grid-template-rows 220ms ease;
 }
 
-
-.faq-answer > div {
+.faq-answer > p {
+  min-height: 0;
+  margin: 0;
   overflow: hidden;
+  color: var(--muted-dark);
 }
-
 
 .faq-item.is-open .faq-answer {
   grid-template-rows: 1fr;
-
-  opacity: 1;
 }
 
-
-.faq-answer p {
-  max-width: 690px;
-
-  margin: 0;
-
-  padding:
-    0 58px 17px 68px;
-
-  color: #8793a4;
-
-  font-size: 12px;
-  line-height: 1.55;
+.faq-item.is-open .faq-answer > p {
+  padding: 0 46px 24px 0;
 }
 
-
-/* =========================================================
-   LAPTOP
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 850px) {
-
-  .faq-section {
-    min-height: 0;
-
-    padding-top: 28px;
-    padding-bottom: 28px;
-  }
-
-
-  .faq-intro h2 {
-    font-size:
-      clamp(43px, 3.5vw, 58px);
-  }
-
-
-  .faq-lead {
-    margin-top: 17px;
-
-    font-size: 14.5px;
-  }
-
-
-  .faq-side-note {
-    margin-top: 23px;
-
-    padding: 15px;
-  }
-
-
-  .faq-list {
-    gap: 6px;
-  }
-
-
-  .faq-question {
-    min-height: 50px;
-
-    padding: 9px 14px;
-  }
-
-
-  .faq-number {
-    width: 30px;
-    height: 30px;
-  }
-
-
-  .faq-question__text {
-    font-size: 12.5px;
-  }
-
-
-  .faq-answer p {
-    padding:
-      0 54px 12px 64px;
-
-    font-size: 11px;
-  }
-
+.faq-answer a {
+  color: var(--blue);
+  font-weight: 750;
 }
 
-
-/* =========================================================
-   TABLET / MOBILE
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .faq-section {
-    width: calc(100% - 36px);
-
-    height: auto;
-    min-height: 0;
-
-    padding: 90px 0;
-
-    grid-template-columns: 1fr;
-  }
-
-
-  .faq-intro {
-    max-width: 720px;
-  }
-
+.release-section {
+  padding: 80px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--ink);
 }
 
-
-@media (max-width: 640px) {
-
-  .faq-section {
-    width: calc(100% - 28px);
-
-    padding: 70px 0;
-  }
-
-
-  .faq-intro h2 {
-    font-size:
-      clamp(42px, 11vw, 55px);
-  }
-
-
-  .faq-lead {
-    font-size: 16px;
-  }
-
-
-  .faq-question {
-    grid-template-columns:
-      34px 1fr 20px;
-
-    gap: 10px;
-
-    padding: 12px 13px;
-  }
-
-
-  .faq-question__text {
-    font-size: 13px;
-  }
-
-
-  .faq-answer p {
-    padding:
-      0 42px 15px 57px;
-
-    font-size: 11.5px;
-  }
-
-
-  .faq-side-note {
-    margin-bottom: 25px;
-  }
-
-}
-
-/* ===== PLAQA FAQ CSS END ===== */
-
-
-/* ===== PLAQA DOWNLOAD CSS START ===== */
-
-.download-section {
-  position: relative;
-
-  width: min(calc(100% - 80px), var(--max));
-
-  height: 100svh;
-  min-height: 720px;
-
+.release-section__inner {
+  width: min(var(--max), calc(100% - 48px));
   margin: 0 auto;
-  padding: 55px 0;
-
-  box-sizing: border-box;
-
   display: grid;
-  place-items: center;
-
-  overflow: hidden;
-
-  isolation: isolate;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 30px;
 }
 
-
-/* =========================================================
-   HINTERGRUND
-   ========================================================= */
-
-.download-background-glow {
-  position: absolute;
-  z-index: -5;
-
-  width: 950px;
-  height: 700px;
-
-  left: 50%;
-  top: 50%;
-
-  border-radius: 50%;
-
-  transform:
-    translate(-50%, -50%);
-
-  background:
-    radial-gradient(
-      ellipse,
-      rgba(23,111,255,.20),
-      rgba(14,74,182,.075) 38%,
-      rgba(7,37,93,.025) 58%,
-      transparent 74%
-    );
-
-  filter: blur(60px);
-}
-
-
-/* =========================================================
-   ORBITS
-   ========================================================= */
-
-.download-orbit {
-  position: absolute;
-  z-index: -3;
-
-  left: 50%;
-  top: 50%;
-
-  border:
-    1px solid rgba(34,115,236,.11);
-
-  border-radius: 50%;
-
-  pointer-events: none;
-}
-
-
-.download-orbit--one {
-  width: 680px;
-  height: 680px;
-
-  transform:
-    translate(-50%, -50%)
-    rotateX(68deg)
-    rotateZ(-14deg);
-}
-
-
-.download-orbit--two {
-  width: 920px;
-  height: 920px;
-
-  opacity: .50;
-
-  transform:
-    translate(-50%, -50%)
-    rotateX(72deg)
-    rotateZ(18deg);
-}
-
-
-/* =========================================================
-   CONTENT
-   ========================================================= */
-
-.download-content {
-  position: relative;
-  z-index: 5;
-
-  width: min(760px, 100%);
-
-  text-align: center;
-}
-
-
-/* =========================================================
-   APP ICON
-   ========================================================= */
-
-.download-app-icon {
+.release-section__inner > img {
   width: 92px;
   height: 92px;
-
-  margin: 0 auto 26px;
-
-  overflow: hidden;
-
-  border-radius: 24px;
-
-  box-shadow:
-    0 20px 55px rgba(0,0,0,.44),
-    0 0 36px rgba(20,106,255,.20);
+  border-radius: 20px;
 }
 
-
-.download-app-icon img {
-  display: block;
-
-  width: 100%;
-  height: 100%;
-
-  object-fit: cover;
-}
-
-
-/* =========================================================
-   HEADLINE
-   ========================================================= */
-
-.download-content .section-kicker {
-  margin-bottom: 14px;
-}
-
-
-.download-content h2 {
+.release-section h2 {
   margin: 0;
-
-  font-size: clamp(54px, 5vw, 82px);
-  line-height: .98;
-
-  letter-spacing: -.055em;
+  font-size: clamp(1.7rem, 3vw, 2.7rem);
+  line-height: 1.08;
 }
 
-
-.download-content h2 > span {
-  display: block;
-
-  margin-top: 8px;
-
-  color: #8793a6;
+.release-section p {
+  max-width: 780px;
+  margin: 10px 0 0;
+  color: var(--muted);
 }
-
-
-.download-lead {
-  max-width: 650px;
-
-  margin: 27px auto 0;
-
-  color: #9faaba;
-
-  font-size: 17px;
-  line-height: 1.6;
-}
-
-
-/* =========================================================
-   STORE BUTTONS / STATUS
-   ========================================================= */
-
-.download-platforms {
-  display: grid;
-
-  grid-template-columns:
-    repeat(2, minmax(0,1fr));
-
-  gap: 12px;
-
-  max-width: 670px;
-
-  margin: 35px auto 0;
-}
-
-
-.download-platform {
-  min-width: 0;
-
-  display: grid;
-
-  grid-template-columns:
-    45px 1fr auto;
-
-  gap: 14px;
-
-  align-items: center;
-
-  padding: 15px 17px;
-
-  border:
-    1px solid rgba(104,130,165,.18);
-
-  border-radius: 19px;
-
-  text-align: left;
-
-  background:
-    rgba(8,13,20,.72);
-}
-
-
-.download-platform--primary {
-  border-color:
-    rgba(31,121,255,.47);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(16,28,45,.96),
-      rgba(8,14,22,.92)
-    );
-
-  box-shadow:
-    0 18px 45px rgba(0,0,0,.20);
-}
-
-
-.download-platform__icon {
-  width: 42px;
-  height: 42px;
-
-  display: grid;
-  place-items: center;
-
-  border:
-    1px solid rgba(31,121,255,.30);
-
-  border-radius: 13px;
-
-  color: #2783ff;
-}
-
-
-.download-platform__icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-
-.download-platform small {
-  display: block;
-
-  margin-bottom: 2px;
-
-  color: #748194;
-
-  font-size: 10px;
-}
-
-
-.download-platform strong {
-  display: block;
-
-  color: #f3f6fa;
-
-  font-size: 15px;
-}
-
-
-.download-platform__status {
-  padding: 7px 9px;
-
-  border:
-    1px solid rgba(31,121,255,.28);
-
-  border-radius: 999px;
-
-  color: #2783ff;
-
-  font-size: 9px;
-  font-weight: 800;
-
-  white-space: nowrap;
-}
-
-
-.download-platform__status--muted {
-  border-color:
-    rgba(121,137,159,.18);
-
-  color: #6f7b8c;
-}
-
-
-/* =========================================================
-   RELEASE STATUS
-   ========================================================= */
-
-.download-release-note {
-  display: flex;
-
-  justify-content: center;
-  align-items: center;
-
-  gap: 10px;
-
-  margin-top: 24px;
-}
-
-
-.download-release-dot {
-  width: 7px;
-  height: 7px;
-
-  flex: 0 0 7px;
-
-  border-radius: 50%;
-
-  background: #2dcc70;
-
-  box-shadow:
-    0 0 13px rgba(45,204,112,.42);
-}
-
-
-.download-release-note p {
-  margin: 0;
-
-  color: #727f91;
-
-  font-size: 11px;
-}
-
-
-/* =========================================================
-   LINKS
-   ========================================================= */
-
-.download-links {
-  display: flex;
-
-  justify-content: center;
-  align-items: center;
-
-  gap: 12px;
-
-  margin-top: 20px;
-}
-
-
-.download-links a {
-  color: #8895a6;
-
-  font-size: 11px;
-
-  text-decoration: none;
-
-  transition:
-    color .20s ease;
-}
-
-
-.download-links a:hover {
-  color: #2783ff;
-}
-
-
-.download-links span {
-  color: #3e4857;
-}
-
-
-/* =========================================================
-   WATERMARK
-   ========================================================= */
-
-.download-brand-watermark {
-  position: absolute;
-
-  z-index: -4;
-
-  left: 50%;
-  bottom: -55px;
-
-  transform:
-    translateX(-50%);
-
-  font-size: clamp(170px, 22vw, 370px);
-  font-weight: 900;
-
-  letter-spacing: -.08em;
-
-  color:
-    rgba(255,255,255,.012);
-
-  white-space: nowrap;
-
-  pointer-events: none;
-}
-
-
-/* =========================================================
-   LAPTOP
-   ========================================================= */
-
-@media (min-width: 1100px) and (max-height: 850px) {
-
-  .download-section {
-    min-height: 0;
-
-    padding-top: 28px;
-    padding-bottom: 28px;
-  }
-
-
-  .download-app-icon {
-    width: 72px;
-    height: 72px;
-
-    margin-bottom: 18px;
-
-    border-radius: 19px;
-  }
-
-
-  .download-content h2 {
-    font-size:
-      clamp(47px, 4.2vw, 68px);
-  }
-
-
-  .download-lead {
-    margin-top: 18px;
-
-    font-size: 15px;
-  }
-
-
-  .download-platforms {
-    margin-top: 24px;
-  }
-
-
-  .download-release-note {
-    margin-top: 17px;
-  }
-
-}
-
-
-/* =========================================================
-   TABLET / MOBILE
-   ========================================================= */
-
-@media (max-width: 1099px) {
-
-  .download-section {
-    width: calc(100% - 36px);
-
-    height: auto;
-    min-height: 720px;
-
-    padding: 90px 0;
-  }
-
-}
-
-
-@media (max-width: 640px) {
-
-  .download-section {
-    width: calc(100% - 28px);
-
-    min-height: 0;
-
-    padding: 80px 0;
-  }
-
-
-  .download-content h2 {
-    font-size:
-      clamp(43px, 11vw, 57px);
-  }
-
-
-  .download-lead {
-    font-size: 16px;
-  }
-
-
-  .download-platforms {
-    grid-template-columns: 1fr;
-  }
-
-
-  .download-release-note {
-    align-items: flex-start;
-
-    text-align: left;
-  }
-
-}
-
-/* ===== PLAQA DOWNLOAD CSS END ===== */
-
-
-/* ===== PLAQA FOOTER LEGAL CSS START ===== */
-
-
-/* =========================================================
-   FOOTER
-   ========================================================= */
 
 .site-footer {
-  width: min(calc(100% - 80px), var(--max));
-
-  margin: 0 auto;
-
-  padding:
-    75px 0 30px;
-
-  border-top:
-    1px solid rgba(101,128,163,.15);
+  padding: 88px max(24px, calc((100vw - var(--max)) / 2)) 30px;
+  background: #05070b;
+  color: var(--text);
 }
 
-
-.site-footer__main {
+.site-footer__top {
   display: grid;
-
-  grid-template-columns:
-    minmax(260px, 1.45fr)
-    repeat(4, minmax(130px, 1fr));
-
-  gap: clamp(35px, 4vw, 70px);
+  grid-template-columns: minmax(240px, 1.5fr) repeat(3, minmax(140px, 0.65fr));
+  gap: 54px;
 }
 
-
-.site-footer__logo {
-  display: inline-block;
+.site-footer__brand img {
+  width: 148px;
 }
-
-
-.site-footer__logo img {
-  width: 145px;
-  height: auto;
-}
-
 
 .site-footer__brand p {
-  max-width: 300px;
-
-  margin: 22px 0 17px;
-
-  color: #778496;
-
-  font-size: 13px;
-  line-height: 1.55;
+  margin: 22px 0 0;
+  color: var(--muted);
 }
 
-
-.footer-contact-main {
-  color: #2783ff;
-
-  font-size: 12px;
-  font-weight: 700;
-
-  text-decoration: none;
+.footer-column {
+  display: grid;
+  align-content: start;
+  gap: 11px;
 }
 
-
-.site-footer__column {
-  display: flex;
-
-  flex-direction: column;
-
-  align-items: flex-start;
-
-  gap: 12px;
+.footer-column strong {
+  margin-bottom: 7px;
+  font-size: 0.88rem;
 }
 
-
-.site-footer__column > strong {
-  margin-bottom: 6px;
-
-  color: #eef2f7;
-
-  font-size: 12px;
+.footer-column a {
+  color: var(--muted);
+  font-size: 0.86rem;
 }
 
-
-.site-footer__column a {
-  color: #748194;
-
-  font-size: 11px;
-
-  line-height: 1.35;
-
-  text-decoration: none;
-
-  transition:
-    color .18s ease;
+.footer-column a:hover {
+  color: white;
 }
 
-
-.site-footer__column a:hover {
-  color: #2783ff;
+.contact-grid {
+  margin-top: 72px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
+.contact-grid a {
+  min-width: 0;
+  padding: 24px 20px;
+  border-right: 1px solid var(--line);
+}
 
-.site-footer__column small {
+.contact-grid a:first-child {
+  padding-left: 0;
+}
+
+.contact-grid a:last-child {
+  border-right: 0;
+}
+
+.contact-grid span,
+.contact-grid strong {
   display: block;
-
-  margin-top: 2px;
-
-  color: #505c6c;
-
-  font-size: 9px;
 }
 
+.contact-grid span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.contact-grid strong {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  color: var(--blue);
+  font-size: clamp(0.84rem, 1.25vw, 1rem);
+}
+
+.contact-grid a:nth-child(even) strong {
+  color: var(--orange);
+}
 
 .site-footer__bottom {
+  padding-top: 26px;
   display: flex;
-
   justify-content: space-between;
-  align-items: center;
-
-  gap: 30px;
-
-  margin-top: 65px;
-  padding-top: 20px;
-
-  border-top:
-    1px solid rgba(101,128,163,.12);
-
-  color: #536071;
-
-  font-size: 10px;
+  gap: 20px;
+  color: #768393;
+  font-size: 0.76rem;
 }
 
-
-.site-footer__bottom > div {
-  display: flex;
-
-  gap: 19px;
-}
-
-
-/* =========================================================
-   UNTERSEITEN
-   ========================================================= */
-
+/* Shared subpages */
 .subpage-body {
-  margin: 0;
-
   min-height: 100vh;
-
-  background:
-    radial-gradient(
-      circle at 70% 10%,
-      rgba(18,94,225,.08),
-      transparent 35%
-    ),
-    #05080d;
-
-  color: #f2f5fa;
+  background: var(--paper-soft);
+  color: var(--text-dark);
 }
-
 
 .subpage-header {
-  width: min(calc(100% - 60px), 1180px);
-
+  width: min(1120px, calc(100% - 48px));
+  height: 96px;
   margin: 0 auto;
-
-  min-height: 100px;
-
   display: flex;
-
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
+  border-bottom: 1px solid var(--line-dark);
 }
 
+.subpage-logo {
+  display: inline-flex;
+}
 
 .subpage-logo img {
-  width: 135px;
+  width: 136px;
 }
-
 
 .subpage-back {
-  color: #7f8c9e;
-
-  font-size: 12px;
-
-  text-decoration: none;
+  min-height: 42px;
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-dark);
+  border-radius: 4px;
+  color: var(--muted-dark);
+  font-size: 0.84rem;
+  font-weight: 750;
 }
-
 
 .subpage-back:hover {
-  color: #2783ff;
-}
-
-
-.legal-page {
-  width: min(calc(100% - 60px), 900px);
-
-  margin: 70px auto 130px;
-}
-
-
-.legal-page__intro {
-  margin-bottom: 65px;
-}
-
-
-.legal-page__intro h1 {
-  margin: 0;
-
-  font-size: clamp(48px, 6vw, 78px);
-
-  line-height: 1;
-
-  letter-spacing: -.05em;
-}
-
-
-.legal-page__intro > p:last-child {
-  max-width: 650px;
-
-  margin: 23px 0 0;
-
-  color: #8995a6;
-
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-
-.legal-page__content {
-  display: grid;
-
-  gap: 45px;
-}
-
-
-.legal-page__content section {
-  padding-top: 28px;
-
-  border-top:
-    1px solid rgba(104,130,164,.15);
-}
-
-
-.legal-page__content h2 {
-  margin: 0 0 17px;
-
-  font-size: 24px;
-
-  letter-spacing: -.025em;
-}
-
-
-.legal-page__content p {
-  max-width: 760px;
-
-  color: #8995a6;
-
-  font-size: 14px;
-  line-height: 1.72;
-}
-
-
-.legal-page__content a {
-  color: #2783ff;
-
-  text-decoration: none;
-}
-
-
-.legal-page__content a:hover {
-  text-decoration: underline;
-}
-
-
-/* Warnungen / Platzhalter */
-
-.legal-warning,
-.legal-placeholder {
-  padding:
-    22px 24px !important;
-
-  border:
-    1px solid rgba(255,116,23,.22) !important;
-
-  border-radius: 18px;
-
-  background:
-    rgba(40,24,12,.20);
-}
-
-
-.legal-warning > strong,
-.legal-placeholder > strong {
-  color: #ff7417;
-
-  font-size: 13px;
-}
-
-
-/* Support */
-
-.support-options {
-  display: grid;
-
-  grid-template-columns:
-    repeat(3, minmax(0,1fr));
-
-  gap: 14px;
-}
-
-
-.support-option {
-  min-height: 155px;
-
-  padding: 22px;
-
-  box-sizing: border-box;
-
-  display: flex;
-
-  flex-direction: column;
-
-  border:
-    1px solid rgba(107,132,164,.18);
-
-  border-radius: 20px;
-
-  background:
-    rgba(10,15,22,.63);
-
-  text-decoration: none !important;
-
-  transition:
-    border-color .22s ease,
-    transform .22s ease;
-}
-
-
-.support-option:hover {
-  transform: translateY(-3px);
-
-  border-color:
-    rgba(31,121,255,.55);
-}
-
-
-.support-option strong {
-  color: #f1f5fa;
-
-  font-size: 15px;
-}
-
-
-.support-option span {
-  margin-top: 9px;
-
-  color: #7d899a;
-
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-
-.support-option small {
-  margin-top: auto;
-  padding-top: 20px;
-
-  color: #2783ff;
-
-  font-size: 10px;
-}
-
-
-/* CTA auf Unterseiten */
-
-.legal-primary-action {
-  display: inline-flex;
-
-  min-height: 48px;
-
-  align-items: center;
-
-  padding: 0 20px;
-
-  border:
-    1px solid rgba(31,121,255,.55);
-
-  border-radius: 14px;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(17,29,46,.96),
-      rgba(8,14,22,.94)
-    );
-
-  color: #2783ff !important;
-
-  font-size: 12px;
-  font-weight: 750;
-
-  text-decoration: none !important;
-}
-
-
-/* Kontolöschung */
-
-.deletion-body {
-  background:
-    linear-gradient(145deg, rgba(15, 52, 103, .12), transparent 34%),
-    #05080d;
-}
-
-.deletion-header {
-  min-height: 88px;
-  border-bottom: 1px solid rgba(104, 130, 164, .13);
+  border-color: var(--blue);
+  color: var(--blue);
 }
 
 .deletion-header__brand {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
 }
 
 .deletion-header__brand > span {
-  padding-left: 20px;
-  border-left: 1px solid rgba(123, 148, 181, .2);
-  color: #7f8c9e;
-  font-size: 12px;
-  font-weight: 650;
+  color: var(--muted-dark);
+  font-size: 0.78rem;
+  font-weight: 750;
 }
 
-.deletion-header .subpage-logo {
-  display: inline-flex;
-  align-items: center;
+.legal-page {
+  width: min(1120px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 90px 0 120px;
 }
 
-.deletion-header .subpage-logo img {
-  width: 150px;
-  height: auto;
-  display: block;
+.legal-page__intro {
+  max-width: 820px;
+  padding-bottom: 48px;
+  border-bottom: 1px solid var(--line-dark);
 }
 
-.account-deletion-page {
-  width: min(calc(100% - 60px), 1080px);
-  margin-top: 48px;
-}
-
-.deletion-hero {
-  min-height: 310px;
-  padding: 48px 0 52px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px;
-  gap: 72px;
-  align-items: center;
-  border-bottom: 1px solid rgba(104, 130, 164, .16);
-}
-
-.deletion-hero__copy {
-  min-width: 0;
-}
-
+.legal-page__intro .section-kicker,
 .deletion-hero .section-kicker,
+.privacy-hero .section-kicker,
 .deletion-section-heading .section-kicker,
 .deletion-help .section-kicker,
 .deletion-contact .section-kicker {
-  margin: 0 0 12px;
-  color: #2783ff;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .09em;
+  margin: 0 0 16px;
+  color: var(--blue);
+  font-size: 0.75rem;
+  font-weight: 850;
   text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-.deletion-hero h1 {
-  max-width: 720px;
+.legal-page__intro h1,
+.deletion-hero h1,
+.privacy-hero h1 {
   margin: 0;
-  font-size: clamp(42px, 5vw, 62px);
-  line-height: 1.06;
-  letter-spacing: 0;
+  color: var(--text-dark);
+  font-size: clamp(2.8rem, 6vw, 5.6rem);
+  line-height: 0.98;
+  font-weight: 850;
+  overflow-wrap: anywhere;
 }
 
-.deletion-hero__copy > p:not(.section-kicker) {
-  max-width: 670px;
+.legal-page__intro > p:last-child,
+.deletion-hero__copy > p:not(.section-kicker),
+.privacy-hero > div:first-child > p:not(.section-kicker) {
+  max-width: 760px;
   margin: 22px 0 0;
-  color: #9aa6b7;
-  font-size: 16px;
-  line-height: 1.65;
+  color: var(--muted-dark);
+  font-size: 1.06rem;
 }
 
-.deletion-meta {
-  margin-top: 28px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 11px 24px;
-}
-
-.deletion-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: #c0c9d6;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.deletion-meta span::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #2783ff;
-  box-shadow: 0 0 12px rgba(39, 131, 255, .65);
-}
-
-.deletion-hero__mark {
-  width: 164px;
-  aspect-ratio: 1;
+.legal-page__content {
+  margin-top: 44px;
   display: grid;
-  place-items: center;
-  border: 1px solid rgba(39, 131, 255, .38);
-  border-radius: 8px;
-  background:
-    linear-gradient(145deg, rgba(26, 104, 219, .16), rgba(8, 13, 21, .78));
-  box-shadow: 0 22px 60px rgba(0, 0, 0, .24);
+  gap: 18px;
 }
 
-.deletion-hero__mark img {
-  width: 112px;
-  height: 112px;
-  object-fit: contain;
+.legal-page__content > section,
+.legal-page__content > article,
+.privacy-section {
+  padding: 32px 0;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.legal-page__content h2,
+.deletion-section-heading h2,
+.deletion-help h2,
+.deletion-contact h2,
+.privacy-section__body h2 {
+  margin: 0 0 14px;
+  color: var(--text-dark);
+  font-size: clamp(1.45rem, 2.8vw, 2.1rem);
+  line-height: 1.18;
+}
+
+.legal-page__content h3,
+.privacy-section__body h3 {
+  margin: 26px 0 8px;
+  color: var(--text-dark);
+  font-size: 1.08rem;
+}
+
+.legal-page__content p,
+.legal-page__content li,
+.privacy-section__body p {
+  color: var(--muted-dark);
+}
+
+.legal-page__content a,
+.privacy-section__body a {
+  color: var(--blue-dark);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-warning,
+.legal-placeholder,
+.deletion-notice {
+  padding: 22px 24px;
+  border-left: 4px solid var(--orange);
+  background: #fff4ec;
+  color: #6f3611;
+}
+
+.legal-warning > strong,
+.legal-placeholder > strong,
+.deletion-notice strong,
+.deletion-notice span {
   display: block;
 }
 
-
-.deletion-notice {
-  margin: 28px 0 68px;
-  padding: 20px 22px;
-
-  display: grid;
-  grid-template-columns: minmax(210px, .35fr) minmax(0, 1fr);
-  gap: 26px;
+.legal-primary-action {
+  width: fit-content;
+  min-height: 48px;
+  margin-top: 20px;
+  padding: 11px 18px;
+  display: inline-flex;
   align-items: center;
-
-  border: 1px solid rgba(223, 73, 86, .38);
-  border-radius: 8px;
-
-  background: rgba(43, 12, 18, .2);
+  border-radius: 4px;
+  background: var(--blue);
+  color: white !important;
+  text-decoration: none !important;
 }
 
-
-.deletion-notice strong {
-  color: #ff6b78;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-
-.deletion-notice span {
-  color: #9da8b8;
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.deletion-content {
-  gap: 76px;
-}
-
-.deletion-content > section {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.deletion-section-heading {
-  margin-bottom: 25px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.deletion-section-heading h2,
-.deletion-help h2,
-.deletion-contact h2 {
-  margin: 0;
-  font-size: clamp(23px, 2.8vw, 32px);
-  line-height: 1.18;
-  letter-spacing: 0;
-}
-
-.deletion-section-heading > span {
-  padding-bottom: 4px;
-  color: #778497;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-
-.deletion-steps {
-  margin: 0;
-  padding: 0;
-
+.support-options {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-
-  list-style: none;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
 }
 
-
-.deletion-steps li {
+.support-option {
   min-width: 0;
-  min-height: 154px;
-  padding: 22px;
-
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 17px;
-
-  border: 1px solid rgba(104, 130, 164, .17);
-  border-radius: 8px;
-  background: rgba(12, 17, 25, .64);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-dark);
+  border-radius: 6px;
+  background: white;
+  color: var(--text-dark) !important;
+  text-decoration: none !important;
 }
 
-
-.deletion-steps li:last-child {
-  border-bottom: 1px solid rgba(104, 130, 164, .17);
+.support-option:hover {
+  border-color: var(--blue);
 }
 
+.support-option strong,
+.support-option span,
+.support-option small {
+  display: block;
+}
 
-.deletion-steps li > span {
-  width: 38px;
-  height: 38px;
+.support-option span {
+  margin-top: 10px;
+  color: var(--muted-dark);
+}
 
-  display: grid;
-  place-items: center;
-
-  border: 1px solid rgba(39, 131, 255, .48);
-  border-radius: 8px;
-
-  color: #2783ff;
-  font-size: 12px;
+.support-option small {
+  margin-top: auto;
+  padding-top: 24px;
+  color: var(--blue);
   font-weight: 800;
 }
 
+.deletion-hero,
+.privacy-hero {
+  padding: 10px 0 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  align-items: center;
+  gap: 60px;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.deletion-hero__mark,
+.privacy-hero__mark {
+  width: 150px;
+  height: 150px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-dark);
+  border-radius: var(--radius);
+  background: white;
+}
+
+.deletion-hero__mark img,
+.privacy-hero__mark img {
+  width: 92px;
+}
+
+.deletion-meta,
+.privacy-meta {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.deletion-meta span,
+.privacy-meta span {
+  padding: 6px 9px;
+  border: 1px solid var(--line-dark);
+  border-radius: 4px;
+  color: var(--muted-dark);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.deletion-content,
+.privacy-content {
+  margin-top: 34px;
+}
+
+.deletion-content > section,
+.privacy-content > .privacy-section {
+  padding: 36px 0;
+  border-bottom: 1px solid var(--line-dark);
+}
+
+.deletion-section-heading,
+.privacy-section {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 44px;
+}
+
+.deletion-section-heading > span,
+.privacy-section__number,
+.deletion-data-index {
+  color: var(--blue);
+  font-weight: 850;
+}
+
+.deletion-steps,
+.deletion-data-list,
+.deletion-retention,
+.privacy-list,
+.privacy-data-grid,
+.privacy-provider-list {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deletion-steps li,
+.deletion-data-list li,
+.deletion-retention > div,
+.privacy-list li,
+.privacy-data-grid article,
+.privacy-provider-list article {
+  padding: 18px 0;
+  border-top: 1px solid var(--line-dark);
+}
+
+.deletion-steps li,
+.deletion-data-list li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.deletion-steps li > span {
+  color: var(--blue);
+  font-weight: 850;
+}
 
 .deletion-steps strong,
 .deletion-data-list strong,
 .deletion-retention strong {
-  color: #f1f5fa;
-  font-size: 14px;
+  color: var(--text-dark);
 }
 
-
-.deletion-steps p {
-  margin: 6px 0 0;
-}
-
-
-.deletion-path {
-  margin: 14px 0 0 !important;
-  max-width: none !important;
-  padding: 15px 18px;
-
-  border: 1px solid rgba(39, 131, 255, .24);
-  border-left: 3px solid #2783ff;
-  border-radius: 0 6px 6px 0;
-
-  background: rgba(17, 29, 46, .42);
-  color: #c8d2df !important;
-
-  font-size: 12px !important;
-  font-weight: 700;
-}
-
-
-.deletion-data-list {
-  margin: 0;
-  padding: 0;
-
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 36px;
-
-  list-style: none;
-}
-
-
-.deletion-data-list li {
-  min-width: 0;
-  min-height: 132px;
-  padding: 22px 0;
-
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-
-  border-top: 1px solid rgba(104, 130, 164, .16);
-}
-
-.deletion-data-list li > div {
-  min-width: 0;
-  display: grid;
-  gap: 7px;
-}
-
-.deletion-data-index {
-  color: #2783ff !important;
-  font-size: 10px !important;
-  font-weight: 800;
-  line-height: 1.5 !important;
-}
-
-.deletion-data-list li > div > span {
-  color: #8995a6;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-
-.deletion-retention {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-
-.deletion-retention > div {
-  min-width: 0;
-  padding: 24px;
-
-  border: 1px solid rgba(104, 130, 164, .17);
-  border-radius: 8px;
-  background: rgba(12, 17, 25, .64);
-}
-
-
+.deletion-steps p,
+.deletion-data-list p,
 .deletion-retention p {
-  margin: 8px 0 0;
+  margin: 5px 0 0;
 }
 
-.deletion-retention-section > p {
-  max-width: 920px;
-  margin: 20px 0 0;
+.deletion-path,
+.privacy-address {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--line-dark);
+  border-radius: 4px;
+  background: white;
+  color: var(--text-dark);
+  overflow-wrap: anywhere;
 }
 
-.deletion-help {
-  padding: 28px !important;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 32px;
-  align-items: center;
-  border: 1px solid rgba(39, 131, 255, .34) !important;
-  border-radius: 8px;
-  background: rgba(12, 23, 39, .58);
-}
-
-.deletion-help__copy {
-  min-width: 0;
-}
-
-.deletion-help p:not(.section-kicker) {
-  max-width: 720px;
-  margin: 12px 0 0;
-}
-
-.deletion-help .legal-primary-action {
-  flex: 0 0 auto;
-  min-width: 190px;
-  justify-content: center;
-  border-radius: 6px;
-}
-
+.deletion-help,
 .deletion-contact {
-  padding: 24px 0 !important;
-  display: grid;
-  grid-template-columns: minmax(210px, .35fr) minmax(0, 1fr);
-  gap: 38px;
-  align-items: center;
-  border-top: 1px solid rgba(104, 130, 164, .16) !important;
-  border-bottom: 1px solid rgba(104, 130, 164, .16) !important;
-}
-
-.deletion-contact p:not(.section-kicker) {
-  margin: 0;
-}
-
-
-/* Datenschutzerklärung */
-
-.privacy-body {
-  background:
-    linear-gradient(145deg, rgba(15, 52, 103, .1), transparent 31%),
-    #05080d;
-}
-
-.privacy-page {
-  width: min(calc(100% - 60px), 1080px);
-  margin-top: 48px;
-}
-
-.privacy-hero {
-  min-height: 290px;
-  padding: 46px 0 50px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
-  gap: 72px;
-  align-items: center;
-  border-bottom: 1px solid rgba(104, 130, 164, .16);
-}
-
-.privacy-hero h1 {
-  max-width: 760px;
-  margin: 0;
-  font-size: clamp(42px, 5vw, 62px);
-  line-height: 1.06;
-  letter-spacing: 0;
-}
-
-.privacy-hero > div:first-child > p:not(.section-kicker) {
-  max-width: 710px;
-  margin: 22px 0 0;
-  color: #9aa6b7;
-  font-size: 16px;
-  line-height: 1.65;
-}
-
-.privacy-hero .section-kicker {
-  margin-bottom: 12px;
-  font-size: 11px;
-  letter-spacing: 0;
-}
-
-.privacy-hero__mark {
-  width: 140px;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(39, 131, 255, .35);
-  border-radius: 8px;
-  background: linear-gradient(145deg, rgba(26, 104, 219, .14), rgba(8, 13, 21, .8));
-}
-
-.privacy-hero__mark img {
-  width: 92px;
-  height: 92px;
-  object-fit: contain;
-}
-
-.privacy-meta {
-  margin-top: 28px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 24px;
-}
-
-.privacy-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: #c0c9d6;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.privacy-meta span::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #2783ff;
+  margin-top: 38px;
+  padding: 30px;
+  border: 1px solid var(--line-dark);
+  border-radius: var(--radius);
+  background: white;
 }
 
 .privacy-jump {
-  margin: 26px 0 72px;
-  padding: 17px 0;
+  margin: 28px 0 0;
+  padding: 16px 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 9px 28px;
-  border-top: 1px solid rgba(104, 130, 164, .13);
-  border-bottom: 1px solid rgba(104, 130, 164, .13);
+  gap: 10px;
+  border-top: 1px solid var(--line-dark);
+  border-bottom: 1px solid var(--line-dark);
 }
 
 .privacy-jump a {
-  color: #8c98a9;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.privacy-jump a:hover {
-  color: #2783ff;
-}
-
-.privacy-content {
-  gap: 0;
-}
-
-.privacy-content > .privacy-section {
-  padding: 44px 0;
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  gap: 22px;
-  border-top: 1px solid rgba(104, 130, 164, .16);
-}
-
-.privacy-section__number {
-  padding-top: 5px;
-  color: #2783ff;
-  font-size: 10px;
-  font-weight: 800;
+  padding: 5px 8px;
+  border-radius: 3px;
+  background: #e8f0ff;
+  color: var(--blue-dark);
+  font-size: 0.78rem;
+  font-weight: 750;
 }
 
 .privacy-section__body {
   min-width: 0;
 }
 
-.privacy-section__body h2 {
-  margin: 0 0 18px;
-  font-size: clamp(23px, 2.8vw, 31px);
-  line-height: 1.18;
-  letter-spacing: 0;
-}
-
-.privacy-section__body h3 {
-  margin: 0 0 9px;
-  color: #edf2f9;
-  font-size: 14px;
-  line-height: 1.4;
-  letter-spacing: 0;
-}
-
-.privacy-section__body > h3 {
-  margin-top: 28px;
-}
-
-.privacy-section__body p {
-  max-width: 900px;
-  margin: 12px 0 0;
-  color: #909cad;
-  font-size: 14px;
-  line-height: 1.72;
-}
-
-.privacy-address {
-  margin: 18px 0;
-  padding: 18px 20px;
-  border-left: 3px solid #2783ff;
-  background: rgba(17, 29, 46, .34);
-  color: #aab5c4;
-  font-size: 14px;
-  font-style: normal;
-  line-height: 1.7;
-}
-
-.privacy-address strong {
-  color: #eef3fa;
-}
-
 .privacy-data-grid,
 .privacy-provider-list {
-  margin-top: 28px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 36px;
-}
-
-.privacy-data-grid article,
-.privacy-provider-list article {
-  min-width: 0;
-  padding: 22px 0;
-  border-top: 1px solid rgba(104, 130, 164, .16);
+  gap: 0 24px;
 }
 
 .privacy-data-grid article > span {
-  display: block;
-  margin-bottom: 10px;
-  color: #2783ff;
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.privacy-data-grid p,
-.privacy-provider-list p {
-  margin-top: 0;
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.privacy-list {
-  margin: 20px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 12px;
-  list-style: none;
+  color: var(--blue);
+  font-size: 0.75rem;
+  font-weight: 850;
 }
 
 .privacy-list li {
   position: relative;
-  padding-left: 20px;
-  color: #909cad;
-  font-size: 14px;
-  line-height: 1.68;
+  padding-left: 22px;
 }
 
 .privacy-list li::before {
-  content: "";
   position: absolute;
-  top: .72em;
-  left: 0;
-  width: 5px;
-  height: 5px;
+  top: 28px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #2783ff;
+  background: var(--blue);
+  content: "";
 }
-
-.privacy-deletion-link .legal-primary-action {
-  margin-top: 22px;
-  border-radius: 6px;
-}
-
-
-/* Unterseiten Footer */
 
 .subpage-footer {
-  width: min(calc(100% - 60px), 1180px);
-
+  width: min(1120px, calc(100% - 48px));
   margin: 0 auto;
-
-  padding: 25px 0 35px;
-
+  padding: 28px 0 44px;
   display: flex;
-
+  align-items: flex-start;
   justify-content: space-between;
-
-  border-top:
-    1px solid rgba(104,130,164,.13);
-
-  color: #586475;
-
-  font-size: 10px;
+  gap: 30px;
+  border-top: 1px solid var(--line-dark);
+  color: var(--muted-dark);
+  font-size: 0.78rem;
 }
-
 
 .subpage-footer nav {
   display: flex;
-
-  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px 20px;
 }
 
-
-.subpage-footer a {
-  color: #697688;
-
-  text-decoration: none;
+.subpage-footer a:hover {
+  color: var(--blue);
 }
 
-
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 900px) {
-
-  .site-footer__main {
-    grid-template-columns:
-      repeat(2, minmax(0,1fr));
+@media (max-width: 1020px) {
+  .site-header__inner {
+    grid-template-columns: 160px 1fr auto;
   }
 
+  .desktop-nav {
+    gap: 18px;
+  }
+
+  .hero__inner {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 44px;
+  }
+
+  .hero h1 {
+    font-size: clamp(4rem, 8vw, 6rem);
+  }
+
+  .community-media {
+    grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.75fr);
+  }
+
+  .community-copy {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, 1fr);
+    padding-bottom: 0;
+  }
+
+  .community-copy span {
+    padding-right: 12px;
+  }
+
+  .vehicle-layout,
+  .safety-layout {
+    gap: 58px;
+  }
+
+  .site-footer__top {
+    grid-template-columns: 1.4fr repeat(3, 1fr);
+    gap: 30px;
+  }
+
+  .contact-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .contact-grid a:nth-child(2) {
+    border-right: 0;
+  }
+
+  .contact-grid a:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .contact-grid a:nth-child(3) {
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 820px) {
+  .site-header__inner {
+    width: calc(100% - 32px);
+    max-width: 720px;
+    height: 70px;
+    grid-template-columns: 1fr auto;
+  }
+
+  .brand {
+    width: 116px;
+  }
+
+  .desktop-nav,
+  .header-action {
+    display: none;
+  }
+
+  .menu-button {
+    display: grid;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-top: 106px;
+  }
+
+  .hero__inner {
+    width: calc(100% - 32px);
+    max-width: 720px;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .hero__copy {
+    padding: 46px 0 20px;
+  }
+
+  .hero h1 {
+    font-size: clamp(4rem, 16vw, 6.4rem);
+  }
+
+  .hero__visual {
+    width: min(100%, 500px);
+    margin: 0 auto;
+  }
+
+  .hero__media {
+    margin: 0 auto;
+  }
+
+  .hero__media-note {
+    margin: -36px 0 28px 12px;
+  }
+
+  .hero__rail {
+    padding: 0 16px;
+  }
+
+  .hero__rail article {
+    padding: 20px 14px;
+    gap: 10px;
+  }
+
+  .hero__rail small {
+    display: none;
+  }
+
+  .section-shell,
+  .release-section__inner {
+    width: calc(100% - 32px);
+    max-width: 720px;
+  }
+
+  .product-section,
+  .community-section,
+  .vehicle-section,
+  .safety-section,
+  .insights-section,
+  .faq-section {
+    padding: 92px 0;
+  }
+
+  .product-layout,
+  .vehicle-layout,
+  .safety-layout,
+  .faq-layout {
+    grid-template-columns: 1fr;
+    gap: 58px;
+  }
+
+  .product-preview,
+  .safety-media {
+    width: min(100%, 480px);
+  }
+
+  .community-intro {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .community-media {
+    grid-template-columns: 1fr 0.72fr;
+  }
+
+  .feature-list > div {
+    grid-template-columns: 130px 1fr;
+  }
+
+  .faq-layout {
+    gap: 44px;
+  }
+
+  .release-section__inner {
+    grid-template-columns: 72px 1fr;
+  }
+
+  .release-section__inner > img {
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+  }
+
+  .release-section .button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .site-footer__top {
+    grid-template-columns: 1.5fr repeat(2, 1fr);
+  }
 
   .site-footer__brand {
     grid-column: 1 / -1;
   }
 
-
-  .support-options {
-    grid-template-columns: 1fr;
-  }
-
-
-  .deletion-hero {
-    grid-template-columns: minmax(0, 1fr) 138px;
-    gap: 34px;
-  }
-
-
-  .deletion-hero__mark {
-    width: 132px;
-  }
-
-
-  .deletion-hero__mark img {
-    width: 88px;
-    height: 88px;
-  }
-
-
-  .deletion-notice,
-  .deletion-contact {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-
-  .deletion-help {
-    grid-template-columns: 1fr;
-    gap: 22px;
-  }
-
-
-  .deletion-help .legal-primary-action {
-    justify-self: start;
-  }
-
-
-  .privacy-hero {
-    grid-template-columns: minmax(0, 1fr) 116px;
-    gap: 34px;
-  }
-
-
-  .privacy-hero__mark {
-    width: 108px;
-  }
-
-
-  .privacy-hero__mark img {
-    width: 72px;
-    height: 72px;
-  }
-
-}
-
-
-@media (max-width: 640px) {
-
-  .site-footer {
-    width: calc(100% - 28px);
-
-    padding-top: 55px;
-  }
-
-
-  .site-footer__main {
-    grid-template-columns: 1fr;
-
-    gap: 35px;
-  }
-
-
-  .site-footer__brand {
-    grid-column: auto;
-  }
-
-
-  .site-footer__bottom {
-    align-items: flex-start;
-
-    flex-direction: column;
-
-    margin-top: 45px;
-  }
-
-
   .subpage-header,
   .legal-page,
   .subpage-footer {
     width: calc(100% - 32px);
+    max-width: 720px;
   }
 
-
-  .account-deletion-page {
-    width: calc(100% - 32px);
-    margin-top: 28px;
+  .legal-page {
+    padding: 70px 0 90px;
   }
 
-
-  .deletion-notice {
-    margin-top: 20px;
-    margin-bottom: 42px;
-    padding: 18px;
+  .deletion-section-heading,
+  .privacy-section {
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 26px;
   }
 
+  .support-options {
+    grid-template-columns: 1fr;
+  }
+}
 
-  .deletion-data-list,
-  .deletion-retention,
-  .deletion-steps {
+@media (max-width: 600px) {
+  html {
+    scroll-padding-top: 76px;
+  }
+
+  .hero__copy {
+    padding-top: 28px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.42rem, 12.2vw, 3.1rem);
+  }
+
+  .hero__lead {
+    margin-top: 24px;
+    font-size: 1rem;
+  }
+
+  .hero__actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .hero__actions .button,
+  .hero__actions .text-link {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .country-list {
+    margin-top: 30px;
+    gap: 8px 14px;
+    font-size: 0.76rem;
+  }
+
+  .hero__media-note {
+    margin-left: 6px;
+    font-size: 0.76rem;
+  }
+
+  .hero__rail {
+    grid-template-columns: 1fr;
+    padding: 0 16px;
+  }
+
+  .hero__rail article,
+  .hero__rail article:first-child {
+    padding: 16px 0;
+    border-right: 0;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .hero__rail article:last-child {
+    border-bottom: 0;
+  }
+
+  .hero__rail small {
+    display: block;
+  }
+
+  .section-heading h2 {
+    font-size: clamp(2.4rem, 12vw, 3.7rem);
+  }
+
+  .workflow-item {
+    grid-template-columns: 36px 1fr;
+    gap: 12px;
+  }
+
+  .product-preview,
+  .safety-media {
+    box-shadow: 12px 14px 0 #e2e8ef, 0 20px 48px rgba(2, 7, 16, 0.18);
+  }
+
+  .community-media {
     grid-template-columns: 1fr;
   }
 
-
-  .deletion-steps li {
-    grid-template-columns: 38px minmax(0, 1fr);
-    gap: 13px;
-    min-height: 0;
-    padding: 19px;
+  .community-media__small {
+    width: 76%;
+    margin-left: auto !important;
   }
 
-
-  .deletion-header {
-    min-height: 74px;
+  .community-copy {
+    grid-template-columns: repeat(2, 1fr);
   }
 
+  .vehicle-collage {
+    gap: 10px;
+  }
+
+  .vehicle-collage__secondary {
+    margin-bottom: 28px !important;
+  }
+
+  .feature-list > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .gallery-controls {
+    display: none;
+  }
+
+  .preview-track {
+    grid-auto-columns: min(78vw, 300px);
+  }
+
+  .release-section__inner {
+    grid-template-columns: 58px 1fr;
+    gap: 18px;
+  }
+
+  .release-section__inner > img {
+    width: 58px;
+    height: 58px;
+    border-radius: 13px;
+  }
+
+  .release-section h2 {
+    font-size: 1.55rem;
+  }
+
+  .site-footer {
+    padding: 64px 16px 26px;
+  }
+
+  .site-footer__top {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 36px 24px;
+  }
+
+  .footer-column:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-grid a,
+  .contact-grid a:first-child,
+  .contact-grid a:nth-child(3) {
+    padding: 17px 0;
+    border-right: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .contact-grid a:first-child {
+    border-top: 0;
+  }
+
+  .contact-grid strong {
+    font-size: 1rem;
+  }
+
+  .site-footer__bottom,
+  .subpage-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .site-footer__bottom {
+    display: flex;
+  }
+
+  .subpage-header {
+    height: 82px;
+  }
+
+  .subpage-logo img {
+    width: 112px;
+  }
+
+  .subpage-back {
+    padding: 7px 10px;
+    font-size: 0.75rem;
+  }
 
   .deletion-header__brand > span {
     display: none;
   }
 
-
-  .deletion-header .subpage-logo img {
-    width: 124px;
+  .legal-page {
+    padding-top: 56px;
   }
 
-
-  .deletion-hero {
-    min-height: 0;
-    padding: 28px 0 36px;
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-
-
-  .deletion-hero__mark {
-    width: 82px;
-    grid-row: 1;
-  }
-
-
-  .deletion-hero__mark img {
-    width: 56px;
-    height: 56px;
-  }
-
-
-  .deletion-hero h1 {
-    font-size: clamp(34px, 11vw, 46px);
-  }
-
-
-  .deletion-hero__copy > p:not(.section-kicker) {
-    font-size: 14px;
-  }
-
-
-  .deletion-meta {
-    display: grid;
-    gap: 10px;
-  }
-
-
-  .deletion-content {
-    gap: 56px;
-  }
-
-
-  .deletion-section-heading {
-    align-items: flex-start;
-  }
-
-
-  .deletion-section-heading > span {
-    padding-top: 7px;
-    white-space: nowrap;
-  }
-
-
-  .deletion-data-list li {
-    min-height: 0;
-  }
-
-
-  .deletion-path {
-    overflow-wrap: anywhere;
-  }
-
-
-  .deletion-help {
-    padding: 22px !important;
-  }
-
-
-  .deletion-help .legal-primary-action {
-    width: 100%;
-  }
-
-
-  .deletion-contact {
-    padding: 22px 0 !important;
-    gap: 16px;
-  }
-
-
-  .privacy-page {
-    width: calc(100% - 32px);
-    margin-top: 28px;
-  }
-
-
-  .privacy-hero {
-    min-height: 0;
-    padding: 28px 0 36px;
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-
-
-  .privacy-hero__mark {
-    width: 82px;
-    grid-row: 1;
-  }
-
-
-  .privacy-hero__mark img {
-    width: 56px;
-    height: 56px;
-  }
-
-
+  .legal-page__intro h1,
+  .deletion-hero h1,
   .privacy-hero h1 {
-    font-size: clamp(30px, 9vw, 34px);
+    font-size: clamp(2.4rem, 12vw, 3.7rem);
   }
 
-
-  .privacy-hero > div:first-child {
-    min-width: 0;
+  .deletion-hero,
+  .privacy-hero {
+    grid-template-columns: 1fr;
+    gap: 26px;
   }
 
-
-  .privacy-hero > div:first-child > p:not(.section-kicker) {
-    font-size: 14px;
+  .deletion-hero__mark,
+  .privacy-hero__mark {
+    width: 104px;
+    height: 104px;
   }
 
-
-  .privacy-meta {
-    display: grid;
-    gap: 10px;
+  .deletion-hero__mark img,
+  .privacy-hero__mark img {
+    width: 66px;
   }
 
-
-  .privacy-jump {
-    margin-bottom: 42px;
-    gap: 12px 22px;
-  }
-
-
-  .privacy-content > .privacy-section {
-    padding: 34px 0;
-    grid-template-columns: 32px minmax(0, 1fr);
+  .deletion-section-heading,
+  .privacy-section {
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 
+  .deletion-steps li,
+  .deletion-data-list li {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 10px;
+  }
 
   .privacy-data-grid,
   .privacy-provider-list {
     grid-template-columns: 1fr;
   }
 
-
-  .legal-page {
-    margin-top: 45px;
+  .deletion-help,
+  .deletion-contact {
+    padding: 22px;
   }
 
+  .subpage-footer nav {
+    justify-content: flex-start;
+  }
+}
 
-  .subpage-footer {
-    gap: 18px;
-
-    flex-direction: column;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 
-}
-
-/* ===== PLAQA FOOTER LEGAL CSS END ===== */
-
-
-/* ===== PLAQA GLASS HARD OVERRIDE START ===== */
-
-
-/* ---------------------------------------------------------
-   GLOBAL
-   --------------------------------------------------------- */
-
-html,
-body {
-  background: #03060b !important;
-}
-
-body.plaqa-future {
-  background:
-    radial-gradient(
-      circle at 75% 8%,
-      rgba(0, 116, 255, .23),
-      transparent 27%
-    ),
-    radial-gradient(
-      circle at 80% 34%,
-      rgba(255, 103, 16, .11),
-      transparent 21%
-    ),
-    radial-gradient(
-      circle at 13% 61%,
-      rgba(0, 102, 255, .10),
-      transparent 29%
-    ),
-    #03060b !important;
-}
-
-
-/* ---------------------------------------------------------
-   NAVIGATION
-   --------------------------------------------------------- */
-
-body.plaqa-future header {
-  position: sticky !important;
-  top: 14px !important;
-
-  z-index: 999 !important;
-
-  width: min(calc(100% - 44px), 1500px) !important;
-
-  margin:
-    14px auto 0 !important;
-
-  padding:
-    0 22px !important;
-
-  border:
-    1px solid rgba(61, 139, 255, .25) !important;
-
-  border-radius:
-    22px !important;
-
-  background:
-    rgba(5, 11, 20, .72) !important;
-
-  box-shadow:
-    0 25px 80px rgba(0,0,0,.40),
-    0 0 35px rgba(0,105,255,.08),
-    inset 0 1px rgba(255,255,255,.04) !important;
-
-  backdrop-filter:
-    blur(25px) saturate(150%) !important;
-
-  -webkit-backdrop-filter:
-    blur(25px) saturate(150%) !important;
-}
-
-
-/* ---------------------------------------------------------
-   ALLE HAUPT-SECTIONS = GLASS PANELS
-   --------------------------------------------------------- */
-
-body.plaqa-future main > section:not(:first-child),
-body.plaqa-future section.vehicle-section,
-body.plaqa-future section.hints-section,
-body.plaqa-future section.community-section,
-body.plaqa-future section.security-section,
-body.plaqa-future section.faq-section,
-body.plaqa-future section.download-section {
-
-  position: relative !important;
-
-  width:
-    min(calc(100% - 64px), 1500px) !important;
-
-  margin:
-    26px auto !important;
-
-  padding-left:
-    clamp(32px, 4vw, 68px) !important;
-
-  padding-right:
-    clamp(32px, 4vw, 68px) !important;
-
-  border:
-    1px solid rgba(74, 140, 231, .19) !important;
-
-  border-radius:
-    32px !important;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(14, 25, 42, .72),
-      rgba(5, 11, 20, .76)
-    ) !important;
-
-  box-shadow:
-    0 35px 100px rgba(0,0,0,.32),
-    0 0 60px rgba(12,91,220,.06),
-    inset 0 1px rgba(255,255,255,.035) !important;
-
-  backdrop-filter:
-    blur(22px) !important;
-
-  -webkit-backdrop-filter:
-    blur(22px) !important;
-
-  overflow: hidden !important;
-}
-
-
-/* Blaue Neon-Lichtkante */
-
-body.plaqa-future main > section:not(:first-child)::before {
-  content: "" !important;
-
-  position: absolute !important;
-
-  z-index: 0 !important;
-
-  top: -1px !important;
-  left: 10% !important;
-
-  width: 45% !important;
-  height: 1px !important;
-
-  background:
-    linear-gradient(
-      90deg,
-      transparent,
-      #1680ff,
-      transparent
-    ) !important;
-
-  box-shadow:
-    0 0 22px rgba(22,128,255,.7) !important;
-
-  pointer-events: none !important;
-}
-
-
-/* ---------------------------------------------------------
-   HERO
-   --------------------------------------------------------- */
-
-body.plaqa-future .hero-section {
-
-  width:
-    min(calc(100% - 64px), 1500px) !important;
-
-  min-height:
-    calc(100vh - 100px) !important;
-
-  margin:
-    0 auto !important;
-
-  padding:
-    40px 0 !important;
-}
-
-
-body.plaqa-future .hero-section h1 {
-  font-size:
-    clamp(62px, 5.6vw, 92px) !important;
-
-  line-height:
-    .94 !important;
-
-  letter-spacing:
-    -.06em !important;
-}
-
-
-body.plaqa-future .hero-section h1 span {
-  color:
-    #8796aa !important;
-}
-
-
-/* Hero Screens bekommen echten Glass Container */
-
-body.plaqa-future
-:is(
-  .plaqa-showcase,
-  .device-stage
-) {
-  border:
-    1px solid rgba(52,136,255,.24) !important;
-
-  border-radius:
-    32px !important;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(13,25,43,.66),
-      rgba(4,10,18,.64)
-    ) !important;
-
-  box-shadow:
-    0 45px 120px rgba(0,0,0,.43),
-    0 0 90px rgba(0,102,255,.11),
-    inset 0 1px rgba(255,255,255,.035) !important;
-
-  backdrop-filter:
-    blur(24px) !important;
-
-  -webkit-backdrop-filter:
-    blur(24px) !important;
-}
-
-
-/* ---------------------------------------------------------
-   BENTO SYSTEM
-   --------------------------------------------------------- */
-
-body.plaqa-future
-:is(
-  .rail-item,
-  .vehicle-tab,
-  .community-tab,
-  .security-tab,
-  .faq-item,
-  .download-platform,
-  .support-option
-) {
-  border:
-    1px solid rgba(83,137,211,.20) !important;
-
-  border-radius:
-    19px !important;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(16,29,48,.76),
-      rgba(6,13,23,.83)
-    ) !important;
-
-  box-shadow:
-    0 15px 42px rgba(0,0,0,.22),
-    inset 0 1px rgba(255,255,255,.025) !important;
-
-  backdrop-filter:
-    blur(17px) !important;
-
-  -webkit-backdrop-filter:
-    blur(17px) !important;
-
-  transition:
-    transform .22s ease,
-    border-color .22s ease,
-    box-shadow .22s ease !important;
-}
-
-
-body.plaqa-future
-:is(
-  .rail-item,
-  .vehicle-tab,
-  .community-tab,
-  .security-tab,
-  .faq-item,
-  .download-platform,
-  .support-option
-):hover {
-
-  transform:
-    translateY(-4px) !important;
-
-  border-color:
-    rgba(41,132,255,.58) !important;
-
-  box-shadow:
-    0 22px 55px rgba(0,0,0,.28),
-    0 0 35px rgba(20,110,255,.10) !important;
-}
-
-
-/* ACTIVE BLUE */
-
-body.plaqa-future
-:is(
-  .vehicle-tab.is-active,
-  .community-tab.is-active,
-  .security-tab.is-active,
-  .faq-item.is-open
-) {
-  border-color:
-    rgba(42,137,255,.68) !important;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(15,50,96,.82),
-      rgba(6,15,27,.92)
-    ) !important;
-
-  box-shadow:
-    0 0 42px rgba(20,112,255,.12),
-    inset 0 1px rgba(255,255,255,.05) !important;
-}
-
-
-/* ---------------------------------------------------------
-   ORANGE ACCENT – HINWEISE
-   --------------------------------------------------------- */
-
-body.plaqa-future
-.hints-section button.is-active {
-
-  border-color:
-    rgba(255,116,23,.65) !important;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(75,35,14,.74),
-      rgba(12,15,21,.88)
-    ) !important;
-
-  box-shadow:
-    0 0 35px rgba(255,116,23,.10) !important;
-}
-
-
-/* ---------------------------------------------------------
-   HEADINGS
-   --------------------------------------------------------- */
-
-body.plaqa-future
-section h2 {
-
-  color:
-    #f5f8fd !important;
-
-  letter-spacing:
-    -.05em !important;
-}
-
-
-body.plaqa-future
-.section-kicker {
-
-  color:
-    #2788ff !important;
-
-  text-shadow:
-    0 0 18px rgba(39,136,255,.45) !important;
-
-  letter-spacing:
-    .19em !important;
-}
-
-
-/* ---------------------------------------------------------
-   BUTTONS
-   --------------------------------------------------------- */
-
-body.plaqa-future
-.primary-cta {
-
-  border:
-    1px solid #2080ff !important;
-
-  border-radius:
-    14px !important;
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(11,57,128,.96),
-      rgba(5,25,52,.96)
-    ) !important;
-
-  box-shadow:
-    0 0 32px rgba(26,113,255,.28),
-    inset 0 1px rgba(255,255,255,.08) !important;
-}
-
-
-body.plaqa-future
-.primary-cta:hover {
-
-  box-shadow:
-    0 0 48px rgba(26,113,255,.42),
-    inset 0 1px rgba(255,255,255,.10) !important;
-}
-
-
-/* ---------------------------------------------------------
-   SMARTPHONES
-   --------------------------------------------------------- */
-
-body.plaqa-future
-:is(
-  .plaqa-device__body,
-  .how-device__frame,
-  .community-phone__frame,
-  .security-phone__frame
-) {
-
-  border:
-    1px solid rgba(62,133,230,.52) !important;
-
-  box-shadow:
-    0 45px 105px rgba(0,0,0,.55),
-    0 0 50px rgba(20,105,255,.13) !important;
-}
-
-
-
-/* ---------------------------------------------------------
-   FOOTER
-   --------------------------------------------------------- */
-
-body.plaqa-future .site-footer {
-
-  width:
-    min(calc(100% - 64px), 1500px) !important;
-
-  margin:
-    28px auto 20px !important;
-
-  padding:
-    52px 40px 28px !important;
-
-  border:
-    1px solid rgba(78,137,217,.18) !important;
-
-  border-radius:
-    30px !important;
-
-  background:
-    linear-gradient(
-      145deg,
-      rgba(13,24,40,.75),
-      rgba(5,11,19,.82)
-    ) !important;
-
-  box-shadow:
-    0 30px 90px rgba(0,0,0,.28) !important;
-
-  backdrop-filter:
-    blur(20px) !important;
-
-  -webkit-backdrop-filter:
-    blur(20px) !important;
-}
-
-
-/* ---------------------------------------------------------
-   DESKTOP BENTO SPACING
-   --------------------------------------------------------- */
-
-@media (min-width: 1100px) {
-
-  body.plaqa-future .security-trust-grid {
-    gap:
-      10px !important;
-  }
-
-
-  body.plaqa-future .security-trust-grid > div {
-
-    padding:
-      16px !important;
-
-    border:
-      1px solid rgba(83,137,211,.16) !important;
-
-    border-radius:
-      17px !important;
-
-    background:
-      linear-gradient(
-        145deg,
-        rgba(14,25,42,.64),
-        rgba(6,12,21,.76)
-      ) !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 
 }
-
-
-/* ---------------------------------------------------------
-   MOBILE
-   --------------------------------------------------------- */
-
-@media (max-width: 1099px) {
-
-  body.plaqa-future main > section:not(:first-child),
-  body.plaqa-future section.vehicle-section,
-  body.plaqa-future section.hints-section,
-  body.plaqa-future section.community-section,
-  body.plaqa-future section.security-section,
-  body.plaqa-future section.faq-section,
-  body.plaqa-future section.download-section {
-
-    width:
-      calc(100% - 28px) !important;
-
-    height:
-      auto !important;
-
-    min-height:
-      0 !important;
-
-    border-radius:
-      25px !important;
-
-    padding-left:
-      22px !important;
-
-    padding-right:
-      22px !important;
-  }
-
-
-  body.plaqa-future .site-footer {
-
-    width:
-      calc(100% - 28px) !important;
-
-    padding:
-      38px 22px 24px !important;
-  }
-
-}
-
-
-/* ===== PLAQA GLASS HARD OVERRIDE END ===== */
