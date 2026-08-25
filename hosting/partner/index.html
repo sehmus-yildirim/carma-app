@@ -14,6 +14,8 @@
     name="description"
     content="Kooperationen und Partnerschaften mit plaqa."
   >
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://plaqa.de/partner">
 
   <link
     rel="icon"
@@ -23,6 +25,10 @@
   <link
     rel="stylesheet"
     href="/site.css?v=2026082503"
+  >
+  <link
+    rel="stylesheet"
+    href="/contact-form.css?v=2026082501"
   >
 </head>
 
@@ -85,23 +91,137 @@
   </p>
 </section>
 
-<section>
-  <a
-    class="legal-primary-action"
-    href="mailto:partners@plaqa.de?subject=Partnerschaft%20mit%20plaqa"
-  >
-    Partneranfrage senden
-  </a>
-</section>
+      <section class="contact-section" aria-labelledby="partners-form-title">
+        <div class="contact-section__layout">
+          <div class="contact-section__intro">
+            <h2 id="partners-form-title">Partnerschaft anfragen</h2>
+            <p>
+              Erzähle uns kurz von deiner Organisation und der gewünschten
+              Zusammenarbeit. Eine Eingangsbestätigung ist noch keine Zusage
+              oder vertragliche Vereinbarung.
+            </p>
 
-<section>
-  <p>
-    Kontakt:
-    <a href="mailto:partners@plaqa.de">
-      partners@plaqa.de
-    </a>
-  </p>
-</section>
+            <div class="contact-section__fallback">
+              <span>Alternativ per E-Mail</span>
+              <a href="mailto:partners@plaqa.de?subject=Partnerschaft%20mit%20plaqa">
+                partners@plaqa.de
+              </a>
+            </div>
+          </div>
+
+          <div class="contact-form-region">
+            <form class="contact-form" data-contact-form="partners" novalidate>
+              <div class="contact-form__row">
+                <div class="contact-field">
+                  <label for="partners-name">Name</label>
+                  <input
+                    id="partners-name"
+                    name="name"
+                    type="text"
+                    autocomplete="name"
+                    minlength="2"
+                    maxlength="100"
+                    aria-describedby="partners-name-error"
+                    required
+                  >
+                  <p class="contact-field__error" id="partners-name-error" data-field-error="name"></p>
+                </div>
+
+                <div class="contact-field">
+                  <label for="partners-organization">
+                    Unternehmen oder Organisation <span class="contact-field__optional">optional</span>
+                  </label>
+                  <input
+                    id="partners-organization"
+                    name="organization"
+                    type="text"
+                    autocomplete="organization"
+                    maxlength="160"
+                    aria-describedby="partners-organization-error"
+                  >
+                  <p class="contact-field__error" id="partners-organization-error" data-field-error="organization"></p>
+                </div>
+              </div>
+
+              <div class="contact-form__row">
+                <div class="contact-field">
+                  <label for="partners-email">E-Mail-Adresse</label>
+                  <input
+                    id="partners-email"
+                    name="email"
+                    type="email"
+                    inputmode="email"
+                    autocomplete="email"
+                    maxlength="254"
+                    aria-describedby="partners-email-error"
+                    required
+                  >
+                  <p class="contact-field__error" id="partners-email-error" data-field-error="email"></p>
+                </div>
+
+                <div class="contact-field">
+                  <label for="partners-type">Art der Partnerschaft</label>
+                  <select
+                    id="partners-type"
+                    name="partnershipType"
+                    aria-describedby="partners-type-error"
+                    required
+                  >
+                    <option value="">Bitte auswählen</option>
+                    <option value="strategic">Strategische Partnerschaft</option>
+                    <option value="business">Geschäftliche Kooperation</option>
+                    <option value="technology">Technologie und Integration</option>
+                    <option value="media">Medien und Kommunikation</option>
+                    <option value="community">Community und Veranstaltung</option>
+                    <option value="other">Andere Partnerschaft</option>
+                  </select>
+                  <p class="contact-field__error" id="partners-type-error" data-field-error="partnershipType"></p>
+                </div>
+              </div>
+
+              <div class="contact-field">
+                <label for="partners-message">Nachricht</label>
+                <textarea
+                  id="partners-message"
+                  name="message"
+                  minlength="20"
+                  maxlength="5000"
+                  data-character-field
+                  aria-describedby="partners-message-hint partners-message-error"
+                  required
+                ></textarea>
+                <div class="contact-field__meta">
+                  <span class="contact-field__hint" id="partners-message-hint">Mindestens 20 Zeichen</span>
+                  <span class="contact-field__count" data-character-count="message">0 / 5000</span>
+                </div>
+                <p class="contact-field__error" id="partners-message-error" data-field-error="message"></p>
+              </div>
+
+              <div class="contact-form__honeypot" aria-hidden="true">
+                <label for="partners-website">Dieses Feld leer lassen</label>
+                <input id="partners-website" name="honeypot" type="text" tabindex="-1" autocomplete="off">
+              </div>
+              <input name="startedAt" type="hidden" value="">
+
+              <div class="contact-form__actions">
+                <button class="contact-submit" type="submit" data-label="Partnerschaft anfragen">
+                  <span data-submit-label>Partnerschaft anfragen</span>
+                </button>
+                <p class="contact-form__privacy">
+                  Es gilt unsere <a href="/datenschutz/">Datenschutzerklärung</a>.
+                </p>
+              </div>
+            </form>
+
+            <div class="contact-status" data-contact-status role="status" aria-live="polite" tabindex="-1" hidden>
+              <h3 data-status-title></h3>
+              <p data-status-message></p>
+              <p class="contact-status__request" data-status-request hidden></p>
+              <button class="contact-status__action" type="button" data-contact-retry hidden>Erneut versuchen</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
     </div>
 
@@ -119,6 +239,8 @@
     </nav>
 
   </footer>
+
+  <script src="/contact-form.js?v=2026082501" defer></script>
 
 </body>
 

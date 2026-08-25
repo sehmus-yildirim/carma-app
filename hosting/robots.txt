@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /auth/action
+Disallow: /email-templates/
+
+Sitemap: https://plaqa.de/sitemap.xml

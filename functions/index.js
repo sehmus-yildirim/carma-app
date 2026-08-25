@@ -11,7 +11,7 @@ const {getStorage} = require("firebase-admin/storage");
 const {logger} = require("firebase-functions");
 const {defineSecret} = require("firebase-functions/params");
 const {setGlobalOptions} = require("firebase-functions/v2");
-const {HttpsError, onCall} = require("firebase-functions/v2/https");
+const {HttpsError, onCall, onRequest} = require("firebase-functions/v2/https");
 const {
   onDocumentUpdated,
   onDocumentWritten,
@@ -60,6 +60,9 @@ const {
   mailboxConfigs,
   runMailboxAutoReplies,
 } = require("./mailbox_auto_reply");
+const {
+  handleWebsiteContactRequest,
+} = require("./website_contact");
 
 initializeApp();
 
@@ -83,6 +86,9 @@ const maxVehicleHeroRequestsPerWindow = 3;
 const maxVehicleHeroImageBytes = 15 * 1024 * 1024;
 const vehicleHeroRequestTimeoutMs = 90 * 1000;
 const noReplySmtpPassword = defineSecret("PLAQA_NOREPLY_SMTP_PASSWORD");
+const websiteContactRateLimitKey = defineSecret(
+  "PLAQA_WEBSITE_CONTACT_RATE_LIMIT_KEY",
+);
 const supportMailboxPassword = defineSecret("PLAQA_SUPPORT_MAILBOX_PASSWORD");
 const privacyMailboxPassword = defineSecret("PLAQA_PRIVACY_MAILBOX_PASSWORD");
 const partnersMailboxPassword = defineSecret(
@@ -98,6 +104,23 @@ const brandedEmailAppCheckOptions = {
   enforceAppCheck: false,
   consumeAppCheckToken: false,
 };
+
+exports.submitWebsiteContact = onRequest(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    cors: false,
+    secrets: [noReplySmtpPassword, websiteContactRateLimitKey],
+  },
+  async (request, response) => handleWebsiteContactRequest({
+    request,
+    response,
+    firestore: db,
+    transportFactory: () => createSmtpTransport(noReplySmtpPassword.value()),
+    rateLimitSecret: websiteContactRateLimitKey.value(),
+    logger,
+  }),
+);
 
 exports.syncProfilePhotoReferences = onDocumentUpdated(
   "public_profiles/{userId}",

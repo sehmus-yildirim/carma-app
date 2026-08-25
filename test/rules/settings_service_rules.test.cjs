@@ -178,3 +178,28 @@ describe('app preference rules', () => {
     );
   });
 });
+
+describe('website contact system metadata rules', () => {
+  test('deny reads and writes for anonymous and authenticated clients', async () => {
+    const anonymous = testEnv.unauthenticatedContext().firestore();
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const paths = [
+      ['_system_website_contact_rate_limits', 'rate-test'],
+      ['_system_website_contact_duplicates', 'duplicate-test'],
+      ['_system_website_contact_submissions', 'submission-test'],
+    ];
+
+    for (const pathParts of paths) {
+      const payload = {
+        requestId: 'request-test',
+        channel: 'support',
+        count: 1,
+        expiresAt: serverTimestamp(),
+      };
+      await assertFails(getDoc(doc(anonymous, ...pathParts)));
+      await assertFails(setDoc(doc(anonymous, ...pathParts), payload));
+      await assertFails(getDoc(doc(owner, ...pathParts)));
+      await assertFails(setDoc(doc(owner, ...pathParts), payload));
+    }
+  });
+});

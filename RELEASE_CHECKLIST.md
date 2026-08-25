@@ -39,8 +39,13 @@ Firebase-Projekt: `carma-a84e4`
 - [x] Vollstaendiger Flutter-Lauf am 2026-08-25: 207 Tests bestanden.
 - [x] Letzter dokumentierter Analyze-Lauf: `flutter analyze --no-pub` ohne
   Befund.
-- [x] Functions-Lauf am 2026-08-25: Syntaxchecks der 11 produktiven
-  JavaScript-Dateien und 8 Testdateien mit 86 Tests bestanden.
+- [x] Functions-Lauf am 2026-08-25: Syntaxchecks der 12 produktiven
+  JavaScript-Dateien und 9 Testdateien mit 98 Tests bestanden.
+- [x] Gezielter Rules-Lauf fuer Website-Kontaktmetadaten am 2026-08-25:
+  3 Suites und 6 Tests im Firestore-/Storage-Emulator bestanden.
+- [x] Gerenderte Website-QA am 2026-08-25: Startseite, Supportformular,
+  Auth-Aktionsseite und eigene 404 auf Desktop und Smartphone ohne
+  horizontalen Ueberlauf oder relevante Browserkonsolenmeldungen.
 - [x] Letzter dokumentierter Rules-Lauf: 11 Testdateien, 14 Suites, 97 Tests
   bestanden.
 - [x] Debug-APK und signiertes Release-AAB erfolgreich erzeugt.
@@ -137,8 +142,9 @@ Firebase-Projekt: `carma-a84e4`
 
 ## Lokal fertig
 
-- [x] 29 Functions-Exports in `functions/index.js`, global
-  `europe-west3`, Node.js 22.
+- [x] 30 lokale Functions-Exports in `functions/index.js`, global
+  `europe-west3`, Node.js 22. Davon sind 29 live; die neue
+  `submitWebsiteContact` bleibt bis zur gesonderten Freigabe lokal.
 - [x] Gebrandete HTML- und Text-E-Mail-Vorlagen fuer Konto, Support,
   Datenschutz und Partnerschaften liegen lokal im gemeinsamen plaqa-Design vor.
 - [x] Drei gebrandete Auth-E-Mail-Functions mit sicheren Firebase-Aktionslinks,
@@ -222,10 +228,45 @@ Postfach-End-to-End-Tests bleiben offen.
 - [x] Firebase-Hosting-Site `carma-a84e4` ist live.
 - [x] Startseite, Datenschutz, Kinderschutz, Community-Richtlinien,
   Nutzungsbedingungen, Kontoloeschung, Impressum, Meldestelle, Support,
-  Partner und `https://auth.plaqa.de/auth/action` liefern HTTP 200 und stimmen
-  nach dem Hosting-Deploy vom 2026-08-25 mit den lokalen HTML-Dateien ueberein.
+  Partner und `https://auth.plaqa.de/auth/action` lieferten nach dem
+  Hosting-Deploy vom 2026-08-25 HTTP 200 und stimmten damals mit lokal ueberein.
+  Der aktuelle lokale Website-Stand ist neuer und bewusst noch nicht deployt.
 - [ ] Inhaltliche Gleichheit der live Firestore- und Storage-Rules mit lokalem
   Stand erneut pruefen; die CLI bietet hier keinen sicheren Direktvergleich.
+- [x] Das Hybridmodell fuer die oeffentlichen Kontaktwege ist in
+  `docs/website_support_channels.md` verbindlich festgelegt: vier Webformulare
+  mit sichtbarem E-Mail-Fallback, zentraler serverseitiger Verarbeitung und
+  ohne Anhaenge oder Anmeldung.
+- [x] `submitWebsiteContact` ist lokal mit fester Empfaengerzuordnung,
+  Validierung, Bestaetigungsmails, HMAC-Rate-Limits und Deduplizierung
+  implementiert. Alle Functions-Tests und der serverexklusive Rules-Test
+  bestehen; die Function ist nicht deployt.
+- [ ] Das HMAC-Secret kontrolliert anlegen und die vorgeschlagene
+  48-Stunden-Aufbewahrung der technischen Metadaten rechtlich sowie
+  betrieblich freigeben. Eine TTL-Policy ist noch nicht eingerichtet.
+- [x] Vier sichtbare Formular-UIs mit gemeinsamer Browserlogik und gemeinsamem
+  responsivem Design lokal implementiert. Zwoelf UI-/Vertragstests sowie
+  Browser-QA auf Desktop und Smartphone bestaetigen Labels, Fokussteuerung,
+  Fehler- und Erfolgszustaende, Mail-Fallbacks, fehlenden Horizontal-Overflow
+  und eine fehlerfreie Browserkonsole.
+- [x] Eigene responsive plaqa-404-Seite, `robots.txt` und eine XML-gepruefte
+  Sitemap mit exakt zehn kanonischen oeffentlichen URLs sind lokal vorhanden.
+- [x] Der verbindliche URL-Vertrag erhaelt alle Rechts-, Support-, Partner-,
+  Melde-, Loesch- und Auth-Aktionsrouten beim spaeteren Neudesign.
+- [x] Store-Verhalten ist zentral auf `pre_release` festgelegt; es werden weder
+  interne Testerlinks noch leere oder irrefuehrende Downloadziele ausgegeben.
+- [x] 23 Hosting-Bilder sind vollstaendig inventarisiert: zehn behalten, fuenf
+  fuer das Neudesign pruefen und acht erst nach dem Neudesign entfernen.
+- [x] `npm run test:website` umfasst 24 lokale Tests fuer Formulare, Seiten,
+  404, Navigation, Links, Assets, Robots, Sitemap, Storestatus, mobile
+  Layoutvertraege und sichere Auth-Weiterleitungen.
+- [x] Testanleitung in `docs/website_testing.md` dokumentiert; lokale Server
+  werden nach dem Lauf beendet und Produktionsendpunkte nicht aufgerufen.
+- [ ] Vor dem oeffentlichen Einsatz Datenschutz, Meldestelle und einen
+  optionalen CAPTCHA-/App-Check-Schutz freigeben.
+- [ ] Neue Website-Formulare und zugehoerige Backend-Ressourcen erst nach
+  separater Zustimmung gezielt deployen; bis dahin bleibt die oeffentliche
+  Website unveraendert.
 
 ## Blaze und Functions-Deploy
 

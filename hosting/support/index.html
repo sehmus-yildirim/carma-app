@@ -14,6 +14,8 @@
     name="description"
     content="Hilfe und Unterstützung rund um plaqa."
   >
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://plaqa.de/support">
 
   <link
     rel="icon"
@@ -23,6 +25,10 @@
   <link
     rel="stylesheet"
     href="/site.css?v=2026082503"
+  >
+  <link
+    rel="stylesheet"
+    href="/contact-form.css?v=2026082501"
   >
 </head>
 
@@ -130,6 +136,158 @@
   </div>
 </section>
 
+      <section class="contact-section" aria-labelledby="support-form-title">
+        <div class="contact-section__layout">
+          <div class="contact-section__intro">
+            <h2 id="support-form-title">Support kontaktieren</h2>
+            <p>
+              Beschreibe dein Anliegen so genau wie möglich. Wir prüfen deine
+              Anfrage und antworten an die angegebene E-Mail-Adresse.
+            </p>
+
+            <div class="contact-section__fallback">
+              <span>Alternativ per E-Mail</span>
+              <a href="mailto:support@plaqa.de?subject=plaqa%20Support">
+                support@plaqa.de
+              </a>
+            </div>
+          </div>
+
+          <div class="contact-form-region">
+            <form class="contact-form" data-contact-form="support" novalidate>
+              <div class="contact-form__row">
+                <div class="contact-field">
+                  <label for="support-category">Kategorie</label>
+                  <select
+                    id="support-category"
+                    name="category"
+                    aria-describedby="support-category-error"
+                    required
+                  >
+                    <option value="">Bitte auswählen</option>
+                    <option value="technical_issue">Technisches Problem</option>
+                    <option value="account_access">Konto und Anmeldung</option>
+                    <option value="verification">Verifizierung</option>
+                    <option value="feedback">Feedback und Verbesserung</option>
+                    <option value="other">Anderes Anliegen</option>
+                  </select>
+                  <p class="contact-field__error" id="support-category-error" data-field-error="category"></p>
+                </div>
+
+                <div class="contact-field">
+                  <label for="support-email">E-Mail-Adresse</label>
+                  <input
+                    id="support-email"
+                    name="email"
+                    type="email"
+                    inputmode="email"
+                    autocomplete="email"
+                    maxlength="254"
+                    aria-describedby="support-email-error"
+                    required
+                  >
+                  <p class="contact-field__error" id="support-email-error" data-field-error="email"></p>
+                </div>
+              </div>
+
+              <div class="contact-field">
+                <label for="support-subject">Betreff</label>
+                <input
+                  id="support-subject"
+                  name="subject"
+                  type="text"
+                  autocomplete="off"
+                  minlength="5"
+                  maxlength="120"
+                  aria-describedby="support-subject-error"
+                  required
+                >
+                <p class="contact-field__error" id="support-subject-error" data-field-error="subject"></p>
+              </div>
+
+              <div class="contact-field">
+                <label for="support-message">Nachricht</label>
+                <textarea
+                  id="support-message"
+                  name="message"
+                  minlength="20"
+                  maxlength="5000"
+                  data-character-field
+                  aria-describedby="support-message-hint support-message-error"
+                  required
+                ></textarea>
+                <div class="contact-field__meta">
+                  <span class="contact-field__hint" id="support-message-hint">Mindestens 20 Zeichen</span>
+                  <span class="contact-field__count" data-character-count="message">0 / 5000</span>
+                </div>
+                <p class="contact-field__error" id="support-message-error" data-field-error="message"></p>
+              </div>
+
+              <div class="contact-form__row">
+                <div class="contact-field">
+                  <label for="support-version">
+                    App-Version <span class="contact-field__optional">optional</span>
+                  </label>
+                  <input
+                    id="support-version"
+                    name="appVersion"
+                    type="text"
+                    autocomplete="off"
+                    maxlength="40"
+                    placeholder="z. B. 1.0.0"
+                    aria-describedby="support-version-error"
+                  >
+                  <p class="contact-field__error" id="support-version-error" data-field-error="appVersion"></p>
+                </div>
+
+                <div class="contact-field">
+                  <label for="support-device">
+                    Gerät oder Plattform <span class="contact-field__optional">optional</span>
+                  </label>
+                  <input
+                    id="support-device"
+                    name="device"
+                    type="text"
+                    autocomplete="off"
+                    maxlength="120"
+                    placeholder="z. B. Android oder iOS"
+                    aria-describedby="support-device-error"
+                  >
+                  <p class="contact-field__error" id="support-device-error" data-field-error="device"></p>
+                </div>
+              </div>
+
+              <p class="contact-form__notice">
+                Sende niemals Passwörter, Anmeldecodes oder vertrauliche
+                Dokumente über dieses Formular.
+              </p>
+
+              <div class="contact-form__honeypot" aria-hidden="true">
+                <label for="support-company">Dieses Feld leer lassen</label>
+                <input id="support-company" name="honeypot" type="text" tabindex="-1" autocomplete="off">
+              </div>
+              <input name="startedAt" type="hidden" value="">
+
+              <div class="contact-form__actions">
+                <button class="contact-submit" type="submit" data-label="Supportanfrage senden">
+                  <span data-submit-label>Supportanfrage senden</span>
+                </button>
+                <p class="contact-form__privacy">
+                  Es gilt unsere <a href="/datenschutz/">Datenschutzerklärung</a>.
+                </p>
+              </div>
+            </form>
+
+            <div class="contact-status" data-contact-status role="status" aria-live="polite" tabindex="-1" hidden>
+              <h3 data-status-title></h3>
+              <p data-status-message></p>
+              <p class="contact-status__request" data-status-request hidden></p>
+              <button class="contact-status__action" type="button" data-contact-retry hidden>Erneut versuchen</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div>
 
   </main>
@@ -147,6 +305,8 @@
     </nav>
 
   </footer>
+
+  <script src="/contact-form.js?v=2026082501" defer></script>
 
 </body>
 

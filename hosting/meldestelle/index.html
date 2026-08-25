@@ -14,6 +14,8 @@
     name="description"
     content="Melde problematische Inhalte oder Verhalten im Zusammenhang mit plaqa."
   >
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://plaqa.de/meldestelle">
 
   <link
     rel="icon"
@@ -23,6 +25,10 @@
   <link
     rel="stylesheet"
     href="/site.css?v=2026082503"
+  >
+  <link
+    rel="stylesheet"
+    href="/contact-form.css?v=2026082501"
   >
 </head>
 
@@ -82,32 +88,137 @@
   </p>
 </section>
 
-<section>
-  <a
-    class="legal-primary-action"
-    href="mailto:support@plaqa.de?subject=Meldung%20über%20plaqa"
-  >
-    Meldung per E-Mail senden
-  </a>
-</section>
-
 <section class="legal-warning">
   <strong>Keine Notfallstelle</strong>
 
   <p>
-    Bei akuten Gefahren oder Notfällen sind die zuständigen
-    Behörden bzw. Notrufstellen zu kontaktieren.
+    Bei akuter Gefahr wende dich sofort an Polizei, Rettungsdienst oder eine
+    andere zuständige Stelle. Die plaqa Meldestelle ersetzt keinen Notruf.
   </p>
 </section>
 
-<section>
-  <p>
-    Kontakt:
-    <a href="mailto:support@plaqa.de">
-      support@plaqa.de
-    </a>
-  </p>
-</section>
+      <section class="contact-section" aria-labelledby="report-form-title">
+        <div class="contact-section__layout">
+          <div class="contact-section__intro">
+            <h2 id="report-form-title">Hinweis übermitteln</h2>
+            <p>
+              Deine Meldung wird nicht öffentlich angezeigt. Eine
+              Kontaktadresse ist freiwillig und wird nur für notwendige
+              Rückfragen verwendet.
+            </p>
+
+            <div class="contact-section__fallback">
+              <span>Alternativ per E-Mail</span>
+              <a href="mailto:support@plaqa.de?subject=Meldung%20über%20plaqa">
+                support@plaqa.de
+              </a>
+            </div>
+          </div>
+
+          <div class="contact-form-region">
+            <form class="contact-form" data-contact-form="report" novalidate>
+              <div class="contact-field">
+                <label for="report-category">Meldekategorie</label>
+                <select
+                  id="report-category"
+                  name="category"
+                  aria-describedby="report-category-error"
+                  required
+                >
+                  <option value="">Bitte auswählen</option>
+                  <option value="content">Problematischer Inhalt</option>
+                  <option value="profile">Profil oder Konto</option>
+                  <option value="harassment">Belästigung oder Bedrohung</option>
+                  <option value="minor_safety">Schutz von Minderjährigen</option>
+                  <option value="fraud">Betrug oder Täuschung</option>
+                  <option value="other">Andere Meldung</option>
+                </select>
+                <p class="contact-field__error" id="report-category-error" data-field-error="category"></p>
+              </div>
+
+              <div class="contact-field">
+                <label for="report-reference">
+                  Bezug zu Inhalt oder Profil <span class="contact-field__optional">optional</span>
+                </label>
+                <input
+                  id="report-reference"
+                  name="reference"
+                  type="text"
+                  autocomplete="off"
+                  maxlength="300"
+                  placeholder="z. B. Profilname oder kurze Beschreibung"
+                  aria-describedby="report-reference-error"
+                >
+                <p class="contact-field__error" id="report-reference-error" data-field-error="reference"></p>
+              </div>
+
+              <div class="contact-field">
+                <label for="report-description">Beschreibung</label>
+                <textarea
+                  id="report-description"
+                  name="description"
+                  minlength="20"
+                  maxlength="5000"
+                  data-character-field
+                  aria-describedby="report-description-hint report-description-error"
+                  required
+                ></textarea>
+                <div class="contact-field__meta">
+                  <span class="contact-field__hint" id="report-description-hint">Mindestens 20 Zeichen</span>
+                  <span class="contact-field__count" data-character-count="description">0 / 5000</span>
+                </div>
+                <p class="contact-field__error" id="report-description-error" data-field-error="description"></p>
+              </div>
+
+              <div class="contact-field">
+                <label for="report-email">
+                  Kontaktadresse <span class="contact-field__optional">optional</span>
+                </label>
+                <input
+                  id="report-email"
+                  name="contactEmail"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  maxlength="254"
+                  aria-describedby="report-email-hint report-email-error"
+                >
+                <div class="contact-field__meta">
+                  <span class="contact-field__hint" id="report-email-hint">Ohne Kontaktadresse erhältst du keine E-Mail-Bestätigung.</span>
+                </div>
+                <p class="contact-field__error" id="report-email-error" data-field-error="contactEmail"></p>
+              </div>
+
+              <p class="contact-form__notice contact-form__notice--warning">
+                Keine Notfallstelle: Bei akuter Gefahr kontaktiere sofort
+                Polizei, Rettungsdienst oder eine andere zuständige Stelle.
+              </p>
+
+              <div class="contact-form__honeypot" aria-hidden="true">
+                <label for="report-company">Dieses Feld leer lassen</label>
+                <input id="report-company" name="honeypot" type="text" tabindex="-1" autocomplete="off">
+              </div>
+              <input name="startedAt" type="hidden" value="">
+
+              <div class="contact-form__actions">
+                <button class="contact-submit" type="submit" data-label="Meldung übermitteln">
+                  <span data-submit-label>Meldung übermitteln</span>
+                </button>
+                <p class="contact-form__privacy">
+                  Es gilt unsere <a href="/datenschutz/">Datenschutzerklärung</a>.
+                </p>
+              </div>
+            </form>
+
+            <div class="contact-status" data-contact-status role="status" aria-live="polite" tabindex="-1" hidden>
+              <h3 data-status-title></h3>
+              <p data-status-message></p>
+              <p class="contact-status__request" data-status-request hidden></p>
+              <button class="contact-status__action" type="button" data-contact-retry hidden>Erneut versuchen</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
     </div>
 
@@ -127,6 +238,8 @@
     </nav>
 
   </footer>
+
+  <script src="/contact-form.js?v=2026082501" defer></script>
 
 </body>
 

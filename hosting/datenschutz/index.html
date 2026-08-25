@@ -14,6 +14,8 @@
     name="description"
     content="Datenschutzerklärung für die plaqa App und die Website plaqa.de."
   >
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://plaqa.de/datenschutz">
 
   <link
     rel="icon"
@@ -23,6 +25,10 @@
   <link
     rel="stylesheet"
     href="/site.css?v=2026082503"
+  >
+  <link
+    rel="stylesheet"
+    href="/contact-form.css?v=2026082501"
   >
 </head>
 
@@ -510,8 +516,121 @@
         </div>
       </section>
 
-      <section class="privacy-section">
+      <section id="datenschutz-kontakt" class="privacy-section privacy-section--wide contact-section" aria-labelledby="privacy-form-title">
         <div class="privacy-section__number">12</div>
+
+        <div class="contact-section__layout">
+          <div class="contact-section__intro">
+            <h2 id="privacy-form-title">Datenschutzanfrage senden</h2>
+            <p>
+              Nutze dieses Formular für Auskunft, Berichtigung und weitere
+              Datenschutzrechte. Die Kontolöschung bleibt ein eigener,
+              geschützter Ablauf.
+            </p>
+
+            <a class="legal-primary-action" href="/konto-loeschen/">
+              Kontolöschung ansehen
+            </a>
+
+            <div class="contact-section__fallback">
+              <span>Alternativ per E-Mail</span>
+              <a href="mailto:privacy@plaqa.de">
+                privacy@plaqa.de
+              </a>
+            </div>
+          </div>
+
+          <div class="contact-form-region">
+            <form class="contact-form" data-contact-form="privacy" novalidate>
+              <div class="contact-form__row">
+                <div class="contact-field">
+                  <label for="privacy-request-type">Anfrageart</label>
+                  <select
+                    id="privacy-request-type"
+                    name="requestType"
+                    aria-describedby="privacy-request-type-error"
+                    required
+                  >
+                    <option value="">Bitte auswählen</option>
+                    <option value="access">Auskunft</option>
+                    <option value="correction">Berichtigung</option>
+                    <option value="deletion">Löschung</option>
+                    <option value="restriction">Einschränkung der Verarbeitung</option>
+                    <option value="objection">Widerspruch</option>
+                    <option value="portability">Datenübertragbarkeit</option>
+                    <option value="other">Andere Datenschutzanfrage</option>
+                  </select>
+                  <p class="contact-field__error" id="privacy-request-type-error" data-field-error="requestType"></p>
+                </div>
+
+                <div class="contact-field">
+                  <label for="privacy-email">E-Mail-Adresse</label>
+                  <input
+                    id="privacy-email"
+                    name="email"
+                    type="email"
+                    inputmode="email"
+                    autocomplete="email"
+                    maxlength="254"
+                    aria-describedby="privacy-email-error"
+                    required
+                  >
+                  <p class="contact-field__error" id="privacy-email-error" data-field-error="email"></p>
+                </div>
+              </div>
+
+              <div class="contact-field">
+                <label for="privacy-message">Nachricht</label>
+                <textarea
+                  id="privacy-message"
+                  name="message"
+                  minlength="20"
+                  maxlength="5000"
+                  data-character-field
+                  aria-describedby="privacy-message-hint privacy-message-error"
+                  required
+                ></textarea>
+                <div class="contact-field__meta">
+                  <span class="contact-field__hint" id="privacy-message-hint">Mindestens 20 Zeichen</span>
+                  <span class="contact-field__count" data-character-count="message">0 / 5000</span>
+                </div>
+                <p class="contact-field__error" id="privacy-message-error" data-field-error="message"></p>
+              </div>
+
+              <p class="contact-form__notice contact-form__notice--warning">
+                Sende keine Ausweis- oder Verifizierungsdokumente
+                unaufgefordert. Falls eine Identitätsprüfung erforderlich ist,
+                teilen wir dir einen sicheren Ablauf mit.
+              </p>
+
+              <div class="contact-form__honeypot" aria-hidden="true">
+                <label for="privacy-company">Dieses Feld leer lassen</label>
+                <input id="privacy-company" name="honeypot" type="text" tabindex="-1" autocomplete="off">
+              </div>
+              <input name="startedAt" type="hidden" value="">
+
+              <div class="contact-form__actions">
+                <button class="contact-submit" type="submit" data-label="Datenschutzanfrage senden">
+                  <span data-submit-label>Datenschutzanfrage senden</span>
+                </button>
+                <p class="contact-form__privacy">
+                  Die Verarbeitung ist in dieser Datenschutzerklärung beschrieben.
+                </p>
+              </div>
+            </form>
+
+            <div class="contact-status" data-contact-status role="status" aria-live="polite" tabindex="-1" hidden>
+              <h3 data-status-title></h3>
+              <p data-status-message></p>
+              <p class="contact-status__request" data-status-request hidden></p>
+              <button class="contact-status__action" type="button" data-contact-retry hidden>Erneut versuchen</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="privacy-section">
+        <div class="privacy-section__number">13</div>
         <div class="privacy-section__body">
           <h2>Änderungen dieser Erklärung</h2>
           <p>
@@ -537,6 +656,7 @@
       <a href="/impressum/">Impressum</a>
     </nav>
   </footer>
+  <script src="/contact-form.js?v=2026082501" defer></script>
 </body>
 
 </html>
