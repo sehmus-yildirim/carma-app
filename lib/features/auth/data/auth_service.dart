@@ -150,13 +150,27 @@ class AuthService implements AccountAuthGateway {
   }
 
   Future<void> sendPasswordResetEmail({required String email}) async {
-    await _firebaseAuth.setLanguageCode('de');
-    await _firebaseAuth.sendPasswordResetEmail(email: email);
+    try {
+      await _firebaseFunctions
+          .httpsCallable('sendBrandedPasswordResetEmail')
+          .call({'email': email.trim()});
+    } on FirebaseFunctionsException catch (error) {
+      throw _authExceptionFromFunctions(error);
+    }
   }
 
   Future<void> sendEmailVerification(User user) async {
-    await _firebaseAuth.setLanguageCode('de');
-    await user.sendEmailVerification();
+    if (_firebaseAuth.currentUser?.uid != user.uid) {
+      throw FirebaseAuthException(code: 'missing-user');
+    }
+    await user.getIdToken(true);
+    try {
+      await _firebaseFunctions
+          .httpsCallable('sendBrandedEmailVerification')
+          .call();
+    } on FirebaseFunctionsException catch (error) {
+      throw _authExceptionFromFunctions(error);
+    }
   }
 
   @override
@@ -225,8 +239,14 @@ class AuthService implements AccountAuthGateway {
       password: currentPassword,
     );
     await user.reauthenticateWithCredential(credential);
-    await _firebaseAuth.setLanguageCode('de');
-    await user.verifyBeforeUpdateEmail(normalizedNewEmail);
+    await user.getIdToken(true);
+    try {
+      await _firebaseFunctions
+          .httpsCallable('sendBrandedEmailChangeVerification')
+          .call({'newEmail': normalizedNewEmail});
+    } on FirebaseFunctionsException catch (error) {
+      throw _authExceptionFromFunctions(error);
+    }
   }
 
   @override
@@ -356,8 +376,16 @@ class AuthService implements AccountAuthGateway {
     final reason = details is Map ? details['reason'] as String? : null;
     final code = switch (reason) {
       'requires-recent-login' => 'requires-recent-login',
+      'invalid-email' => 'invalid-email',
+      'missing-email' => 'missing-email',
+      'email-unchanged' => 'email-unchanged',
+      'email-already-in-use' => 'email-already-in-use',
+      'too-many-requests' => 'too-many-requests',
       _ when error.code == 'unauthenticated' => 'missing-user',
       _ when error.code == 'failed-precondition' => 'requires-recent-login',
+      _ when error.code == 'invalid-argument' => 'invalid-email',
+      _ when error.code == 'already-exists' => 'email-already-in-use',
+      _ when error.code == 'resource-exhausted' => 'too-many-requests',
       _ => 'server-account-action-failed',
     };
     return FirebaseAuthException(code: code);

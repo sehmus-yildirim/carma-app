@@ -7,27 +7,44 @@
     <meta name="theme-color" content="#0a0d12">
     <title>plaqa Konto</title>
     <link rel="icon" href="/assets/plaqa_app_icon.png">
-    <link rel="stylesheet" href="/auth/action/styles.css">
+    <link rel="stylesheet" href="/auth/action/styles.css?v=2026082503">
   </head>
   <body>
     <main class="page-shell">
       <section class="auth-panel" aria-live="polite">
-        <img class="brand-logo" src="/assets/plaqa_logo_transparent.png" alt="plaqa">
+        <div class="top-accent" aria-hidden="true"></div>
+        <header class="brand-header">
+          <img class="brand-logo" src="/assets/plaqa_logo_transparent.png" alt="plaqa">
+          <span>Konto und Sicherheit</span>
+        </header>
+
+        <p id="preview-note" class="preview-note hidden">
+          Designvorschau: Es wird keine Kontoaktion ausgeführt.
+        </p>
 
         <div id="loading-state" class="state-view">
+          <p class="eyebrow">Sichere Weiterleitung</p>
           <span class="spinner" aria-hidden="true"></span>
           <h1>Aktion wird geprüft</h1>
-          <p>Bitte warte einen Moment.</p>
+          <p class="state-copy">Bitte warte einen Moment. Wir prüfen den Link sicher für dich.</p>
         </div>
 
         <div id="message-state" class="state-view hidden">
-          <span id="message-icon" class="state-icon" aria-hidden="true">✓</span>
+          <div class="status-line">
+            <p id="message-eyebrow" class="eyebrow">Bestätigung abgeschlossen</p>
+            <span id="message-icon" class="state-icon" aria-hidden="true">✓</span>
+          </div>
           <h1 id="message-title"></h1>
-          <p id="message-text"></p>
+          <p id="message-text" class="state-copy"></p>
           <a id="continue-link" class="primary-action hidden" href="https://plaqa.de">Weiter</a>
+          <p id="message-notice" class="security-notice"></p>
         </div>
 
         <form id="password-form" class="state-view hidden" novalidate>
+          <div class="status-line">
+            <p class="eyebrow">Sichere plaqa Seite</p>
+            <span class="state-icon" aria-hidden="true">✓</span>
+          </div>
           <h1>Neues Passwort festlegen</h1>
           <p id="reset-account" class="account-hint"></p>
           <label for="new-password">Neues Passwort</label>
@@ -42,12 +59,20 @@
           </div>
           <p id="form-error" class="form-error hidden"></p>
           <button id="password-submit" class="primary-action" type="submit">Passwort speichern</button>
+          <p class="security-notice">
+            Verwende ein einzigartiges Passwort und teile es niemals per E-Mail oder Nachricht.
+          </p>
         </form>
 
         <footer>
-          <a href="mailto:support@plaqa.de">Support</a>
-          <span aria-hidden="true">•</span>
-          <a href="mailto:privacy@plaqa.de">Datenschutz</a>
+          <span>Diese sichere Seite gehört zu plaqa.</span>
+          <nav aria-label="Hilfe und Datenschutz">
+            <a href="https://plaqa.de/support/">Support</a>
+            <span aria-hidden="true">•</span>
+            <a href="https://plaqa.de/datenschutz/">Datenschutz</a>
+            <span aria-hidden="true">•</span>
+            <a href="https://plaqa.de/impressum/">Impressum</a>
+          </nav>
         </footer>
       </section>
     </main>

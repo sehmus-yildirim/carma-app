@@ -1131,6 +1131,31 @@ a {
   letter-spacing: 0.1em;
 }
 
+.subpage-status-line {
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.subpage-status-line .section-kicker {
+  margin: 0;
+}
+
+.subpage-status-icon {
+  flex: 0 0 auto;
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #23c875;
+  border-radius: 50%;
+  color: #31d98a;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .legal-page__intro h1,
 .deletion-hero h1,
 .privacy-hero h1 {
@@ -1928,6 +1953,100 @@ a {
   .subpage-footer nav {
     justify-content: flex-start;
   }
+}
+
+/* Dark plaqa system for every public destination reached from an email. */
+.subpage-body {
+  --paper: #05080d;
+  --paper-soft: #000000;
+  --text-dark: #f7f9fc;
+  --muted-dark: #aeb9c9;
+  --line-dark: #13223a;
+  --blue-dark: #6da6ff;
+  background: #000000;
+  color: var(--text-dark);
+}
+
+.subpage-body .subpage-header,
+.subpage-body .legal-page__intro,
+.subpage-body .legal-page__content > section,
+.subpage-body .legal-page__content > article,
+.subpage-body .privacy-section,
+.subpage-body .deletion-hero,
+.subpage-body .privacy-hero,
+.subpage-body .deletion-content > section,
+.subpage-body .privacy-content > .privacy-section,
+.subpage-body .deletion-steps li,
+.subpage-body .deletion-data-list li,
+.subpage-body .deletion-retention > div,
+.subpage-body .privacy-list li,
+.subpage-body .privacy-data-grid article,
+.subpage-body .privacy-provider-list article,
+.subpage-body .subpage-footer {
+  border-color: var(--line-dark);
+}
+
+.subpage-body .subpage-back,
+.subpage-body .deletion-meta span,
+.subpage-body .privacy-meta span {
+  border-color: #223654;
+  color: #aeb9c9;
+}
+
+.subpage-body .subpage-back:hover,
+.subpage-body .subpage-back:focus-visible {
+  border-color: var(--blue);
+  color: var(--blue-soft);
+}
+
+.subpage-body .support-option,
+.subpage-body .deletion-hero__mark,
+.subpage-body .privacy-hero__mark,
+.subpage-body .deletion-path,
+.subpage-body .privacy-address,
+.subpage-body .deletion-help,
+.subpage-body .deletion-contact {
+  border-color: var(--line-dark);
+  background: #05080d;
+}
+
+.subpage-body .support-option:hover,
+.subpage-body .support-option:focus-visible {
+  border-color: var(--blue);
+}
+
+.subpage-body .legal-warning,
+.subpage-body .legal-placeholder,
+.subpage-body .deletion-notice {
+  border-left-color: var(--orange);
+  background: #070a0f;
+  color: #dce4f0;
+}
+
+.subpage-body .privacy-jump {
+  border-color: var(--line-dark);
+}
+
+.subpage-body .privacy-jump a {
+  background: #0a1730;
+  color: #8bb7ff;
+}
+
+.subpage-body .legal-primary-action {
+  border: 1px solid var(--blue);
+  border-radius: 6px;
+  background: var(--blue);
+}
+
+.subpage-body .legal-primary-action:hover,
+.subpage-body .legal-primary-action:focus-visible {
+  border-color: #2e82ff;
+  background: #2e82ff;
+}
+
+.subpage-body .subpage-footer a:hover,
+.subpage-body .subpage-footer a:focus-visible {
+  color: var(--blue-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {

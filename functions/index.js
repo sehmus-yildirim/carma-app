@@ -9,6 +9,7 @@ const {
 } = require("firebase-admin/firestore");
 const {getStorage} = require("firebase-admin/storage");
 const {logger} = require("firebase-functions");
+const {defineSecret} = require("firebase-functions/params");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {HttpsError, onCall} = require("firebase-functions/v2/https");
 const {
@@ -49,6 +50,16 @@ const {
   requestMfaRecovery,
   reviewMfaRecovery,
 } = require("./mfa_recovery");
+const {
+  createSmtpTransport,
+  sendEmailChangeVerification,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+} = require("./branded_email");
+const {
+  mailboxConfigs,
+  runMailboxAutoReplies,
+} = require("./mailbox_auto_reply");
 
 initializeApp();
 
@@ -71,8 +82,19 @@ const vehicleHeroRequestWindowMs = 24 * 60 * 60 * 1000;
 const maxVehicleHeroRequestsPerWindow = 3;
 const maxVehicleHeroImageBytes = 15 * 1024 * 1024;
 const vehicleHeroRequestTimeoutMs = 90 * 1000;
+const noReplySmtpPassword = defineSecret("PLAQA_NOREPLY_SMTP_PASSWORD");
+const supportMailboxPassword = defineSecret("PLAQA_SUPPORT_MAILBOX_PASSWORD");
+const privacyMailboxPassword = defineSecret("PLAQA_PRIVACY_MAILBOX_PASSWORD");
+const partnersMailboxPassword = defineSecret(
+  "PLAQA_PARTNERS_MAILBOX_PASSWORD",
+);
 // Keep disabled until Android debug/release providers are verified in Firebase.
 const mfaRecoveryAppCheckOptions = {
+  enforceAppCheck: false,
+  consumeAppCheckToken: false,
+};
+// App Check remains in monitoring mode until device metrics have been reviewed.
+const brandedEmailAppCheckOptions = {
   enforceAppCheck: false,
   consumeAppCheckToken: false,
 };
@@ -252,6 +274,95 @@ exports.revokeAccountSessions = onCall(
     authContext: request.auth,
     input: request.data,
   }),
+);
+
+exports.sendBrandedPasswordResetEmail = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    secrets: [noReplySmtpPassword],
+    ...brandedEmailAppCheckOptions,
+  },
+  async (request) => {
+    try {
+      return await sendPasswordResetEmail({
+        firestore: db,
+        authAdmin: getAuth(),
+        transport: createSmtpTransport(noReplySmtpPassword.value()),
+        input: request.data,
+        rawRequest: request.rawRequest,
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      logger.error("Branded password reset email failed", {
+        errorType: errorType(error),
+      });
+      throw new HttpsError(
+        "unavailable",
+        "Die E-Mail konnte gerade nicht gesendet werden.",
+        {reason: "email-service-unavailable"},
+      );
+    }
+  },
+);
+
+exports.sendBrandedEmailVerification = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    secrets: [noReplySmtpPassword],
+    ...brandedEmailAppCheckOptions,
+  },
+  async (request) => {
+    try {
+      return await sendEmailVerification({
+        firestore: db,
+        authAdmin: getAuth(),
+        transport: createSmtpTransport(noReplySmtpPassword.value()),
+        authContext: request.auth,
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      logger.error("Branded verification email failed", {
+        errorType: errorType(error),
+      });
+      throw new HttpsError(
+        "unavailable",
+        "Die E-Mail konnte gerade nicht gesendet werden.",
+        {reason: "email-service-unavailable"},
+      );
+    }
+  },
+);
+
+exports.sendBrandedEmailChangeVerification = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    secrets: [noReplySmtpPassword],
+    ...brandedEmailAppCheckOptions,
+  },
+  async (request) => {
+    try {
+      return await sendEmailChangeVerification({
+        firestore: db,
+        authAdmin: getAuth(),
+        transport: createSmtpTransport(noReplySmtpPassword.value()),
+        authContext: request.auth,
+        input: request.data,
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      logger.error("Branded email change verification failed", {
+        errorType: errorType(error),
+      });
+      throw new HttpsError(
+        "unavailable",
+        "Die E-Mail konnte gerade nicht gesendet werden.",
+        {reason: "email-service-unavailable"},
+      );
+    }
+  },
 );
 
 exports.submitProfileVerification = onCall(
@@ -784,6 +895,66 @@ exports.cleanupProfileVerificationDocuments = onSchedule(
     logger.info("Verification document cleanup completed", result);
   },
 );
+
+exports.processSupportMailboxAutoReplies = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    secrets: [supportMailboxPassword],
+  },
+  async () => runScheduledMailboxAutoReplies(
+    mailboxConfigs.support,
+    supportMailboxPassword.value(),
+  ),
+);
+
+exports.processPrivacyMailboxAutoReplies = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    secrets: [privacyMailboxPassword],
+  },
+  async () => runScheduledMailboxAutoReplies(
+    mailboxConfigs.privacy,
+    privacyMailboxPassword.value(),
+  ),
+);
+
+exports.processPartnersMailboxAutoReplies = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    secrets: [partnersMailboxPassword],
+  },
+  async () => runScheduledMailboxAutoReplies(
+    mailboxConfigs.partners,
+    partnersMailboxPassword.value(),
+  ),
+);
+
+async function runScheduledMailboxAutoReplies(mailbox, password) {
+  try {
+    const result = await runMailboxAutoReplies({
+      firestore: db,
+      mailbox,
+      password,
+    });
+    logger.info("Mailbox auto-reply run completed", {
+      mailboxId: mailbox.id,
+      ...result,
+    });
+    return result;
+  } catch (error) {
+    logger.error("Mailbox auto-reply run failed", {
+      mailboxId: mailbox.id,
+      errorType: errorType(error),
+    });
+    throw error;
+  }
+}
 
 async function backfillStoryActivity(now) {
   const stateSnapshot = await maintenanceState.get();

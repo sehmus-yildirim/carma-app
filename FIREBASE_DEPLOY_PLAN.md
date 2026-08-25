@@ -11,10 +11,11 @@ Functions: Cloud Functions 2nd Gen, Node.js 22, globale Region `europe-west3`
 ## Zweck und Statusregeln
 
 Dieser Plan trennt den lokalen Quellstand vom nachweisbaren Live-Stand. Er ist
-keine Deploy-Freigabe. In diesem Aktualisierungsschritt wurden die ausdruecklich
-freigegebenen iOS-App-Check-, DeviceCheck- und APNs-Einstellungen in Firebase
-konfiguriert. Es wurden keine Functions, Rules, Indexes oder Hosting-Ressourcen
-deployt, keine Builds hochgeladen und keine App veroeffentlicht.
+keine Deploy-Freigabe. Am 2026-08-25 wurden nach ausdruecklicher Freigabe nur
+die drei gebrandeten Auth-E-Mail-Functions deployt und das zugehoerige
+SMTP-Secret sicher angebunden. Es wurden keine Rules, Indexes oder
+Hosting-Ressourcen deployt, keine Builds hochgeladen und keine App
+veroeffentlicht.
 
 - **Live bestaetigt**: Name und grundlegender Ressourcentyp wurden zuletzt am
   2026-08-23 direkt mit der Firebase-CLI, Firebase Console oder per HTTPS
@@ -29,21 +30,21 @@ deployt, keine Builds hochgeladen und keine App veroeffentlicht.
   einen aktiven Billing-/Blaze-Plan. Ein vorhandener Live-Name beweist nicht,
   dass ein erneuter Deploy ohne Blaze moeglich ist.
 
-## Nachweise vom 2026-08-23
+## Nachweise vom 2026-08-25
 
 | Bereich | Nachweis | Ergebnis |
 |---|---|---|
 | Git | `git status`, Branch und Upstream read-only | `main` und `origin/main` zeigen vor dieser Dokumentaktualisierung auf `8ec13b1f1c00023a3e4dc6cd5b1fff9bd54c27a0`; der Arbeitsbaum war sauber |
 | Projekt | `.firebaserc`, `firebase.json` | Zielprojekt exakt `carma-a84e4`; Functions, Firestore, Storage und Hosting korrekt zugeordnet |
 | Android | Firebase SDK-Konfiguration read-only | Firebase Android-App fuer `de.plaqa.app` vorhanden; lokale Konfiguration zeigt auf die passende App; Debug- und Release-Zertifikate sind registriert, Werte werden nicht dokumentiert |
-| Functions | `firebase functions:list --json` | Alle 23 lokalen Exports sind live, aktiv, v2 / Node.js 22 / `europe-west3`; Triggerarten stimmen mit dem lokalen Inventar ueberein |
+| Functions | `firebase functions:list --json` | Alle 26 Exports sind live und aktiv; die drei gebrandeten E-Mail-Functions laufen als Callable Functions, v2, Node.js 22 in `europe-west3` |
 | Indexes | `firebase firestore:indexes` | Alle sechs lokalen Composite Indexes sind live vorhanden, einschliesslich `social_posts` mit `isArchived` |
 | Hosting | `firebase hosting:sites:list` und HTTPS | Site `carma-a84e4` live; `plaqa.de` und `auth.plaqa.de` erreichbar |
 | Hosting-Inhalt | Bytevergleich lokal gegen HTTPS | Gleich: Startseite, Kontoloeschung, Impressum, Meldestelle, Support, Partner, Auth-Action. Abweichend: Datenschutz, Kinderschutz, Community-Richtlinien, Nutzungsbedingungen |
 | Rules | CLI-Moeglichkeiten | Firestore-/Storage-Rules sind live in Benutzung, der veroeffentlichte Inhalt ist mit der CLI nicht sicher gegen lokal vergleichbar |
 | Auth/App Check | lokaler Code und Firebase Console | Android-App `de.plaqa.app` nutzt Play Integrity; iOS-App `de.plaqa.app` ist mit App Attest und DeviceCheck registriert; Firestore, Storage und Authentication bleiben nicht erzwungen, Functions erzwingen App Check lokal nicht |
 | iOS Push | Apple Developer und Firebase Cloud Messaging | Kombinierter Apple-Schluessel fuer APNs/DeviceCheck liegt ausserhalb von Git; APNs-Authentifizierungsschluessel fuer Entwicklung und Produktion hinterlegt; keine Push-Nachricht getestet |
-| Auth-E-Mail | Firebase Authentication, IONOS und Apple Relay | benutzerdefiniertes SMTP aktiv; tatsaechlicher Absender `no-reply@plaqa.de`; Testmail im normalen Posteingang; Quelle bei Apple Private Email Relay registriert |
+| Auth-E-Mail | Firebase Authentication, Secret Manager, IONOS und Apple Relay | benutzerdefiniertes SMTP aktiv; Secret-Version 1 an die drei Auth-E-Mail-Functions gebunden; tatsaechlicher Absender `no-reply@plaqa.de`; Testmail im normalen Posteingang; Quelle bei Apple Private Email Relay registriert; Text-Eingangsbestaetigungen fuer Support, Datenschutz und Partnerschaften in IONOS aktiv |
 | Play Console | vom Nutzer freigegebene Console-Aktion und anschliessende Geraetebestaetigung | Signierter Release `1 (1.0.0)` mit Versionscode `1` ist ausschliesslich im internen Track aktiv; Liste `plaqa interne Tester` enthaelt einen freigegebenen Tester; Teilnahme-Link und Redmi-Installation sind bestaetigt; keine Produktion |
 | App Store Connect | read-only Kontrolle und freigegebene Entwurfsreihenfolge | Version `1.0.0` bleibt in Vorbereitung; je acht iPhone- und iPad-Screenshots verarbeitet und geordnet; Privacy Labels mit 19 Datentypen unveroeffentlicht; kein Build, TestFlight, Review oder Release |
 
@@ -51,10 +52,10 @@ deployt, keine Builds hochgeladen und keine App veroeffentlicht.
 
 Aktueller dokumentierter Stand:
 
-- Vollstaendiger Flutter-Testlauf am 2026-08-23, 188 Tests: bestanden.
-- `flutter analyze --no-pub`: ohne Befund.
-- 9 produktive Functions-JavaScript-Dateien: Syntaxcheck bestanden.
-- 6 Functions-Testdateien, zuletzt dokumentiert 71 Tests: bestanden.
+- Vollstaendiger Flutter-Testlauf am 2026-08-25, 207 Tests: bestanden.
+- `flutter analyze --no-pub` am 2026-08-25: ohne Befund.
+- 10 produktive Functions-JavaScript-Dateien: Syntaxcheck bestanden.
+- 7 Functions-Testdateien, zuletzt dokumentiert 78 Tests: bestanden.
 - 11 Rules-Testdateien, 14 Suites, 97 Tests: bestanden.
 - Debug-APK und signiertes Release-AAB: erfolgreich gebaut.
 - AAB-Signatur und Upload-Keystore: erfolgreich abgeglichen.
@@ -64,12 +65,12 @@ Codeaenderungen erneut auszufuehren.
 
 ## Lokales Functions-Inventar
 
-Alle 23 Exports stehen in `functions/index.js`. Die Tabelle und die
+Alle 26 Exports stehen in `functions/index.js`. Die Tabelle und die
 Deploy-Gruppen darunter bilden gemeinsam die Deploy-Matrix: jede Function ist
 hier einzeln erfasst; Befehl, Abhaengigkeiten, Live-Test, Risiko und Rueckfall
 stehen in der referenzierten Gruppe.
 
-| Ressource | Typ / lokaler Trigger | Quelle / lokaler Test | Live-Status 2026-08-23 | Blaze | Console / App Check | Gruppe |
+| Ressource | Typ / lokaler Trigger | Quelle / lokaler Test | Live-Status 2026-08-25 | Blaze | Console / App Check | Gruppe |
 |---|---|---|---|---|---|---|
 | `syncProfilePhotoReferences` | Firestore Update `public_profiles/{userId}` | `profile_photo_sync.js` / Test vorhanden | live und aktiv; Firestore-Update-Trigger bestaetigt | Ja | kein App-Check-Token bei Event-Trigger | F1 |
 | `syncProfileVisibilityReferences` | Firestore Write `users/{userId}/settings/visibility` | `profile_vehicle_management.js` / Test vorhanden | live und aktiv; Firestore-Write-Trigger bestaetigt | Ja | kein App-Check-Token bei Event-Trigger | F1 |
@@ -78,6 +79,9 @@ stehen in der referenzierten Gruppe.
 | `submitPlateHint` | Callable | `report_submission.js` / Rules-Tests, kein eigener Function-Test | live und aktiv | Ja | Storage/Rules und App Check abgleichen | F3 |
 | `requestAccountDeletion` | Callable | `account_security.js` / Test vorhanden | live, Versionsgleichheit offen | Ja | Auth-Reauth und App Check pruefen | F4 |
 | `revokeAccountSessions` | Callable | `account_security.js` / Test vorhanden | live, Versionsgleichheit offen | Ja | Auth-Reauth und App Check pruefen | F4 |
+| `sendBrandedPasswordResetEmail` | Callable | `branded_email.js` / Test vorhanden | live und aktiv; v2, Node.js 22, `europe-west3`; Secret-Version 1 | Ja | SMTP-Secret; App Check bleibt Monitoring | F10 |
+| `sendBrandedEmailVerification` | Callable | `branded_email.js` / Test vorhanden | live und aktiv; v2, Node.js 22, `europe-west3`; Secret-Version 1 | Ja | SMTP-Secret; Auth erforderlich; App Check bleibt Monitoring | F10 |
+| `sendBrandedEmailChangeVerification` | Callable | `branded_email.js` / Test vorhanden | live und aktiv; v2, Node.js 22, `europe-west3`; Secret-Version 1 | Ja | SMTP-Secret; frische Reauth; App Check bleibt Monitoring | F10 |
 | `submitProfileVerification` | Callable | `profile_verification.js` / Test vorhanden | live und aktiv | Ja | Admin-/Dokumentenprozess und App Check | F5 |
 | `reviewProfileVerification` | Callable | `profile_verification.js` / Test vorhanden | live und aktiv | Ja | vertrauenswuerdiger Admin-Claim erforderlich | F5 |
 | `saveProfileVehicle` | Callable | `profile_vehicle_management.js` / Test vorhanden | live und aktiv | Ja | App Check vor Erzwingung testen | F6 |
@@ -116,9 +120,9 @@ stehen in der referenzierten Gruppe.
 
 ## Deploy-Gruppen und Rueckfallplan
 
-Die Befehle sind Referenz und wurden in dieser Aktualisierung nicht ausgefuehrt.
-Alle 23 Functions sind bereits live; erneute Deploys erfolgen nur bei einem
-nachgewiesenen Quellunterschied und mit gesonderter Freigabe.
+Die Befehle sind Referenz. F10 wurde am 2026-08-25 nach sicherer
+Secret-Einrichtung und gesonderter Freigabe ausgefuehrt. Alle 26 Functions sind
+live; die funktionalen Auth-E-Mail-Livetests bleiben getrennt offen.
 
 | Gruppe | Geplanter Befehl | Abhaengigkeiten | Anschliessender Live-Test | Risiko / Rueckfall |
 |---|---|---|---|---|
@@ -131,6 +135,7 @@ nachgewiesenen Quellunterschied und mit gesonderter Freigabe.
 | F7 MFA-Recovery | `firebase deploy --project carma-a84e4 --only functions:requestMfaRecovery,functions:getMfaRecoveryStatus,functions:listMfaRecoveryCases,functions:openMfaRecoveryCase,functions:markMfaRecoveryIdentityVerified,functions:reviewMfaRecovery` | Blaze, Identity Platform/SMS-MFA, Admin-Claims, vertrauenswuerdige Admin-Umgebung, App Check im Monitoring | Antrag, Pruefung, Genehmigung/Ablehnung, Token-Widerruf, Audit | Konto-Uebernahme-Risiko; App Check nicht blind erzwingen, Recovery sperren und vorherige Version redeployen |
 | F8 KI-Fahrzeugbild | `firebase deploy --project carma-a84e4 --only functions:requestVehicleHeroImage` | Blaze, Google-AI-/Vertex-AI-API, Budget/Quota, Storage Rules | Rate-Limit, Kosten, Bildpfad, Wiederholung und Loeschung | Kosten oder falsche Medien; Function deaktivieren/alte Version redeployen, keine Massenanforderung |
 | F9 Story-Cleanup | `firebase deploy --project carma-a84e4 --only functions:maintainChatStories` | Blaze, Scheduler API, Story-Indexes | Ablauf nach 24 Stunden, Backfill, geloeschte Medien/Docs | zu fruehe Loeschung; Scheduler stoppen und vorherige Version redeployen |
+| F10 Gebrandete Auth-E-Mails | `firebase deploy --project carma-a84e4 --only functions:sendBrandedPasswordResetEmail,functions:sendBrandedEmailVerification,functions:sendBrandedEmailChangeVerification` | Blaze, Secret `PLAQA_NOREPLY_SMTP_PASSWORD`, IONOS SMTP, Auth-Action-Domain | Reset ohne Kontenoffenlegung, Verifizierung und E-Mail-Wechsel mit freigegebenem Testkonto; Zustellung und Linkwirkung einzeln pruefen | Versandstoerung; App-Client erst nach Function-Deploy ausrollen, bei Fehler vorherigen App-Stand beziehungsweise Firebase-Fallback verwenden |
 
 ## Nicht-Function-Ressourcen
 
@@ -143,14 +148,14 @@ nachgewiesenen Quellunterschied und mit gesonderter Freigabe.
 | App Check | `firebase_app_check`; Debug nutzt Debug-Provider, Android Release Play Integrity, iOS Release App Attest mit DeviceCheck-Fallback | gezielte Tests und kompletter Flutter-Testlauf bestanden | Android und iOS `de.plaqa.app` registriert; iOS App Attest/DeviceCheck aktiv; Firestore, Storage und Authentication nicht erzwungen; Functions lokal ohne Enforcement | Functions-Aktualisierung: Ja | Android- und iOS-Geraete-/Metriktest bleibt offen | kein CLI-Deploy; Debug-Token, Play Integrity und App Attest/DeviceCheck live pruefen, erst danach pro Produkt erzwingen; bei legitimen Blockaden Enforcement sofort deaktivieren |
 | Authentication | E-Mail/Passwort und Google lokal implementiert; Android-App `de.plaqa.app` registriert | statisch vorhanden | Providerstatus erneut in Console pruefen | Nein, Identity-Platform-Funktionen koennen Billing erfordern | Google-Provider, E-Mail-Provider, autorisierte Domains, SHA und OAuth-Branding | Console-Aenderungen einzeln; Registrierung/Login/Reset/Emailwechsel testen; alte Android-Clients bis zum Abschluss behalten |
 | SMS-MFA | Enrollment, Login, Entfernen und Recovery lokal implementiert | lokale MFA-Tests vorhanden; Live-Flows frueher begonnen | Identity-Platform-/SMS-MFA-, Quota- und Billingstatus erneut pruefen | voraussichtlich ja fuer produktiven Umfang | SMS-Regionen, Quota, SHA, Testnummern, Datenschutz | kein Firebase-Deploy fuer Provider; alle E-Mail-/Google-MFA-Flows mit Testkonto pruefen; bei Fehler MFA nicht freigeben |
-| Auth-E-Mails / Action-Domain | deutsche Sprache im App-Code; `auth.plaqa.de/auth/action` lokal und live erreichbar | HTTPS 200; SMTP-Testmail von `no-reply@plaqa.de` zugestellt | Custom SMTP ueber IONOS und Action-Domain aktiv; Apple-Relay-Quelle registriert | Nein | Supportadresse, Templates und autorisierte Domain vor Release erneut pruefen | keine pauschale CLI-Aenderung; Verifikation, Reset, E-Mail-Wechsel, Wiederherstellung und Apple-Relay einzeln testen; bei Fehler Firebase-Standardhandler voruebergehend nutzen |
+| Auth-E-Mails / Action-Domain | gebrandete HTML-/Textvorlagen und drei Callable Functions; `auth.plaqa.de/auth/action` live erreichbar | Rendering-, Rate-Limit- und Functions-Tests bestanden; fruehere SMTP-Testmail von `no-reply@plaqa.de` zugestellt | Firebase-Custom-SMTP und Action-Domain aktiv; F10 live und an Secret-Version 1 gebunden; Apple-Relay-Quelle registriert | Functions: Ja | jeden Kontofluss mit freigegebenem Testkonto pruefen; App Check bleibt Monitoring | bei Fehler keine neue App-Version ausrollen und den bisherigen Firebase-Versand als Fallback beibehalten |
 
 ## Sichere Reihenfolge
 
 1. Blaze ist aktiv; Billing-Budgetwarnungen, Kosten und benoetigte APIs weiter
    kontrollieren.
-2. Alle 23 Functions sind live; erneute Deploys nur bei nachgewiesenem
-   Quellunterschied und mit gesonderter Freigabe ausfuehren.
+2. Alle 26 Functions sind live. F10 ist an das geschuetzte SMTP-Secret gebunden;
+   vor einer App-Freigabe bleiben die drei Auth-E-Mail-Flows einzeln zu testen.
 3. Firestore- und Storage-Rules nach erneutem Emulatorlauf gezielt deployen;
    sechs Indexe sind bereits live und werden nicht erneut deployed.
 4. Die live vorhandenen Functions erst mit ausdruecklich freigegebenen

@@ -37,11 +37,11 @@ Firebase-Projekt: `carma-a84e4`
   Android-App.
 - [x] Debug- und Release-Zertifikate sind bei der neuen Android-App registriert;
   vollstaendige Fingerprints werden nicht dokumentiert.
-- [x] Vollstaendiger Flutter-Lauf am 2026-08-23: 188 Tests bestanden.
+- [x] Vollstaendiger Flutter-Lauf am 2026-08-25: 207 Tests bestanden.
 - [x] Letzter dokumentierter Analyze-Lauf: `flutter analyze --no-pub` ohne
   Befund.
-- [x] Letzter dokumentierter Functions-Lauf: Syntaxchecks der 9 produktiven
-  JavaScript-Dateien und 6 Testdateien mit 71 Tests bestanden.
+- [x] Letzter dokumentierter Functions-Lauf: Syntaxchecks der 10 produktiven
+  JavaScript-Dateien und 7 Testdateien mit 78 Tests bestanden.
 - [x] Letzter dokumentierter Rules-Lauf: 11 Testdateien, 14 Suites, 97 Tests
   bestanden.
 - [x] Debug-APK und signiertes Release-AAB erfolgreich erzeugt.
@@ -138,8 +138,13 @@ Firebase-Projekt: `carma-a84e4`
 
 ## Lokal fertig
 
-- [x] 23 Functions-Exports in `functions/index.js`, global
+- [x] 26 Functions-Exports in `functions/index.js`, global
   `europe-west3`, Node.js 22.
+- [x] Gebrandete HTML- und Text-E-Mail-Vorlagen fuer Konto, Support,
+  Datenschutz und Partnerschaften liegen lokal im gemeinsamen plaqa-Design vor.
+- [x] Drei gebrandete Auth-E-Mail-Functions mit sicheren Firebase-Aktionslinks,
+  IONOS-SMTP, gehashten Versandlimits und App Check im Monitoring sind lokal
+  implementiert und getestet.
 - [x] Account-Security-Code fuer Kontoloeschung und Sitzungswiderruf.
 - [x] MFA-Enrollment, MFA-Login fuer E-Mail/Google, Entfernen und Recovery-Code.
 - [x] Profilbild- und Anzeigenamen-Synchronisierung einschliesslich Social-
@@ -189,8 +194,18 @@ Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
 - [x] `maintainPlateHints`
 - [x] `cleanupProfileVerificationDocuments`
 
-Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
-`europe-west3` gelistet.
+Die 23 oben gelisteten bisherigen Exports sind live, aktiv, v2, Node.js 22 und
+in `europe-west3` gelistet.
+
+- [x] `sendBrandedPasswordResetEmail`
+- [x] `sendBrandedEmailVerification`
+- [x] `sendBrandedEmailChangeVerification`
+
+Damit sind alle 26 Exports live und aktiv. Die drei gebrandeten
+E-Mail-Functions wurden am 2026-08-25 gezielt als v2/Node.js-22-Functions in
+`europe-west3` deployt und an Version 1 des geschuetzten
+`PLAQA_NOREPLY_SMTP_PASSWORD`-Secrets gebunden. Die funktionalen Livetests der
+drei Kontofluesse bleiben offen.
 
 ### Indexes und Hosting
 
@@ -209,7 +224,10 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
 ## Blaze und Functions-Deploy
 
 - [x] Blaze/Billing ist aktiv.
-- [x] Alle 23 lokalen Functions sind live und aktiv.
+- [x] Alle 26 Functions sind live und aktiv.
+- [x] SMTP-Secret `PLAQA_NOREPLY_SMTP_PASSWORD` ist sicher angelegt; ausschliesslich
+  `sendBrandedPasswordResetEmail`, `sendBrandedEmailVerification` und
+  `sendBrandedEmailChangeVerification` wurden nach separater Freigabe deployt.
 - [ ] Budgetwarnungen und laufende Kosten vor weiteren Function-Updates
   weiterhin kontrollieren.
 - [ ] Versionsgleichheit bleibt je Function durch gezielte Live-Tests zu
@@ -229,9 +247,12 @@ Alle 23 lokalen Exports sind live, aktiv, v2, Node.js 22 und in
   OAuth-Branding fuer `de.plaqa.app` erneut kontrollieren.
 - [CONSOLE] Identity Platform/SMS-MFA, SMS-Regionen, Kontingent, Billing und
   Testnummern erneut kontrollieren.
-- [CONSOLE] Firebase-E-Mail-Vorlagen, Absender, Supportadresse, deutsche Texte,
-  Action-URL und Custom-SMTP-Status vor Release erneut kontrollieren; Custom
-  SMTP und der Absender `no-reply@plaqa.de` sind aktuell bestaetigt.
+- [x] Custom SMTP, `no-reply@plaqa.de`, Supportadresse, Action-Domain,
+  SMTP-Secret und die drei gebrandeten E-Mail-Functions sind bestaetigt.
+  Vor einer neuen App-Version jeden Kontofluss einzeln pruefen.
+- [x] IONOS-Text-Eingangsbestaetigungen fuer `support@plaqa.de`,
+  `privacy@plaqa.de` und `partners@plaqa.de` sind aktiv; Mail Basic unterstuetzt
+  fuer diesen Versandweg kein HTML-Design.
 - [CONSOLE] `auth.plaqa.de` als Auth-/Action-Domain beibehalten und alle
   E-Mail-Aktionsarten testen.
 - [x] Store-Name, deutsche Beschreibungen, 512-x-512-App-Icon,
