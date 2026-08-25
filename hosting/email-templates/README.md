@@ -57,8 +57,8 @@ Für die echten IONOS-Postfächer sind jeweils HTML- und Textfassungen vorhanden
 | `privacy@plaqa.de` | `mailboxes/privacy-auto-reply.html` | `mailboxes/privacy-auto-reply.txt` |
 | `partners@plaqa.de` | `mailboxes/partners-auto-reply.html` | `mailboxes/partners-auto-reply.txt` |
 
-Die frueheren IONOS-Textantworten sind deaktiviert. Drei geplante Cloud
-Functions lesen die Postfaecher kontrolliert aus und versenden die gestalteten
+Die frueheren IONOS-Textantworten sind deaktiviert. Drei live bereitgestellte
+Cloud Functions lesen die Postfaecher kontrolliert aus und versenden die gestalteten
 HTML-Eingangsbestaetigungen mit Textfallback. Die Functions laufen alle fuenf
 Minuten und verwenden jeweils ein eigenes Secret fuer das Postfachpasswort:
 

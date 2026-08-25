@@ -1,6 +1,6 @@
 # plaqa Release Checklist
 
-Stand: 2026-08-24 CEST
+Stand: 2026-08-25 CEST
 App: `plaqa`
 Android-Paket: `de.plaqa.app`
 Version: `1.0.0+1`
@@ -21,9 +21,8 @@ Firebase-Projekt: `carma-a84e4`
 
 - [x] Aktueller Branch: `main`.
 - [x] `main` und `origin/main` zeigen vor dieser Dokumentaktualisierung auf
-  Commit `41fa6fc5a9bf2f9ad4744f0fa650bc756f71afa0`.
-- [x] Bereits vorhandene uncommittete Store-Dokumentation und acht
-  Screenshot-Dateien werden in diesem Schritt kontrolliert fortgefuehrt.
+  Commit `9db509fb93ab48ffb64a547bf01d558eb60cae4c`.
+- [x] Der Arbeitsbaum war vor dieser Dokumentaktualisierung sauber.
 - [x] Keine History wurde umgeschrieben; kein Force-Push.
 
 ## Abgeschlossen
@@ -40,8 +39,8 @@ Firebase-Projekt: `carma-a84e4`
 - [x] Vollstaendiger Flutter-Lauf am 2026-08-25: 207 Tests bestanden.
 - [x] Letzter dokumentierter Analyze-Lauf: `flutter analyze --no-pub` ohne
   Befund.
-- [x] Letzter dokumentierter Functions-Lauf: Syntaxchecks der 10 produktiven
-  JavaScript-Dateien und 7 Testdateien mit 78 Tests bestanden.
+- [x] Functions-Lauf am 2026-08-25: Syntaxchecks der 11 produktiven
+  JavaScript-Dateien und 8 Testdateien mit 86 Tests bestanden.
 - [x] Letzter dokumentierter Rules-Lauf: 11 Testdateien, 14 Suites, 97 Tests
   bestanden.
 - [x] Debug-APK und signiertes Release-AAB erfolgreich erzeugt.
@@ -138,13 +137,16 @@ Firebase-Projekt: `carma-a84e4`
 
 ## Lokal fertig
 
-- [x] 26 Functions-Exports in `functions/index.js`, global
+- [x] 29 Functions-Exports in `functions/index.js`, global
   `europe-west3`, Node.js 22.
 - [x] Gebrandete HTML- und Text-E-Mail-Vorlagen fuer Konto, Support,
   Datenschutz und Partnerschaften liegen lokal im gemeinsamen plaqa-Design vor.
 - [x] Drei gebrandete Auth-E-Mail-Functions mit sicheren Firebase-Aktionslinks,
   IONOS-SMTP, gehashten Versandlimits und App Check im Monitoring sind lokal
   implementiert und getestet.
+- [x] Drei gebrandete Postfach-Antwort-Functions fuer Support, Datenschutz und
+  Partnerschaften sind mit sicherer Absenderpruefung, Deduplizierung und
+  getrennten Secret-Manager-Passwoertern implementiert und getestet.
 - [x] Account-Security-Code fuer Kontoloeschung und Sitzungswiderruf.
 - [x] MFA-Enrollment, MFA-Login fuer E-Mail/Google, Entfernen und Recovery-Code.
 - [x] Profilbild- und Anzeigenamen-Synchronisierung einschliesslich Social-
@@ -166,7 +168,7 @@ Firebase-Projekt: `carma-a84e4`
 
 ### Functions
 
-Am 2026-08-23 mit `firebase functions:list --json` read-only nachgewiesen. Die
+Am 2026-08-25 mit `firebase functions:list --json` read-only nachgewiesen. Die
 Namens-/Triggerexistenz beweist nicht die Gleichheit mit dem lokalen Code.
 
 - [x] `searchPlate`
@@ -200,34 +202,38 @@ in `europe-west3` gelistet.
 - [x] `sendBrandedPasswordResetEmail`
 - [x] `sendBrandedEmailVerification`
 - [x] `sendBrandedEmailChangeVerification`
+- [x] `processSupportMailboxAutoReplies`
+- [x] `processPrivacyMailboxAutoReplies`
+- [x] `processPartnersMailboxAutoReplies`
 
-Damit sind alle 26 Exports live und aktiv. Die drei gebrandeten
-E-Mail-Functions wurden am 2026-08-25 gezielt als v2/Node.js-22-Functions in
-`europe-west3` deployt und an Version 1 des geschuetzten
-`PLAQA_NOREPLY_SMTP_PASSWORD`-Secrets gebunden. Die funktionalen Livetests der
-drei Kontofluesse bleiben offen.
+Damit sind alle 29 Exports live und aktiv. Die drei gebrandeten Auth-E-Mail-
+Functions und die drei Postfach-Antwort-Functions wurden am 2026-08-25 gezielt
+als v2/Node.js-22-Functions in `europe-west3` deployt. Sie sind an die
+geschuetzten Secrets `PLAQA_NOREPLY_SMTP_PASSWORD`,
+`PLAQA_SUPPORT_MAILBOX_PASSWORD`, `PLAQA_PRIVACY_MAILBOX_PASSWORD` und
+`PLAQA_PARTNERS_MAILBOX_PASSWORD` gebunden. Die Designs wurden mit
+Testnachrichten in Outlook geprueft; die funktionalen Konto- und
+Postfach-End-to-End-Tests bleiben offen.
 
 ### Indexes und Hosting
 
 - [x] Alle sechs lokalen Firestore-Composite-Indexes sind live, darunter beide
   `social_posts`-Varianten und beide `follow_relationships`-Indexe.
 - [x] Firebase-Hosting-Site `carma-a84e4` ist live.
-- [x] `https://plaqa.de/`, Kontoloeschung, Impressum, Meldestelle, Support,
+- [x] Startseite, Datenschutz, Kinderschutz, Community-Richtlinien,
+  Nutzungsbedingungen, Kontoloeschung, Impressum, Meldestelle, Support,
   Partner und `https://auth.plaqa.de/auth/action` liefern HTTP 200 und stimmen
-  byteweise mit den lokalen HTML-Dateien ueberein.
-- [ ] Datenschutz, Kinderschutz, Community-Richtlinien und
-  Nutzungsbedingungen sind live erreichbar, aber lokal neuer als die aktuell
-  ausgelieferten HTML-Dateien.
+  nach dem Hosting-Deploy vom 2026-08-25 mit den lokalen HTML-Dateien ueberein.
 - [ ] Inhaltliche Gleichheit der live Firestore- und Storage-Rules mit lokalem
   Stand erneut pruefen; die CLI bietet hier keinen sicheren Direktvergleich.
 
 ## Blaze und Functions-Deploy
 
 - [x] Blaze/Billing ist aktiv.
-- [x] Alle 26 Functions sind live und aktiv.
-- [x] SMTP-Secret `PLAQA_NOREPLY_SMTP_PASSWORD` ist sicher angelegt; ausschliesslich
-  `sendBrandedPasswordResetEmail`, `sendBrandedEmailVerification` und
-  `sendBrandedEmailChangeVerification` wurden nach separater Freigabe deployt.
+- [x] Alle 29 Functions sind live und aktiv.
+- [x] Die vier E-Mail-Secrets sind sicher angelegt; ausschliesslich die drei
+  gebrandeten Auth-E-Mail-Functions und die drei Postfach-Antwort-Functions
+  wurden nach separater Freigabe gezielt deployt.
 - [ ] Budgetwarnungen und laufende Kosten vor weiteren Function-Updates
   weiterhin kontrollieren.
 - [ ] Versionsgleichheit bleibt je Function durch gezielte Live-Tests zu
@@ -250,9 +256,10 @@ drei Kontofluesse bleiben offen.
 - [x] Custom SMTP, `no-reply@plaqa.de`, Supportadresse, Action-Domain,
   SMTP-Secret und die drei gebrandeten E-Mail-Functions sind bestaetigt.
   Vor einer neuen App-Version jeden Kontofluss einzeln pruefen.
-- [x] IONOS-Text-Eingangsbestaetigungen fuer `support@plaqa.de`,
-  `privacy@plaqa.de` und `partners@plaqa.de` sind aktiv; Mail Basic unterstuetzt
-  fuer diesen Versandweg kein HTML-Design.
+- [x] Die frueheren IONOS-Text-Eingangsbestaetigungen fuer
+  `support@plaqa.de`, `privacy@plaqa.de` und `partners@plaqa.de` sind
+  deaktiviert. Die drei gebrandeten HTML-Postfach-Antwort-Functions sind live;
+  ihre Designs wurden mit Testnachrichten geprueft.
 - [CONSOLE] `auth.plaqa.de` als Auth-/Action-Domain beibehalten und alle
   E-Mail-Aktionsarten testen.
 - [x] Store-Name, deutsche Beschreibungen, 512-x-512-App-Icon,
@@ -274,6 +281,8 @@ drei Kontofluesse bleiben offen.
   Session-Neustart.
 - [LIVE] Passwort-Reset, E-Mail-Aenderung und Wiederherstellung ueber
   `auth.plaqa.de`.
+- [LIVE] Reale Eingangsmails an Support, Datenschutz und Partnerschaften samt
+  Scheduler, Antwortthread und Deduplizierung Ende-zu-Ende pruefen.
 - [LIVE] SMS-MFA aktivieren, E-Mail-/Google-MFA-Login, Abmelden und Faktor
   entfernen.
 - [LIVE] MFA-Recovery mit vertrauenswuerdigem Admin-Claim, Genehmigung,
@@ -341,11 +350,12 @@ drei Kontofluesse bleiben offen.
 
 ## Blockiert Release
 
-- [BLOCKER] Vier lokal neuere Rechtsseiten fachlich/rechtlich freigeben und
-  danach Hosting gezielt deployen.
+- [BLOCKER] Die bereits live erreichbaren Rechtsseiten fachlich/rechtlich
+  freigeben und nach daraus entstehenden Korrekturen Hosting erneut gezielt
+  deployen.
 - [BLOCKER] Firestore- und Storage-Rules gegen den Live-Stand pruefen,
   erforderlichen Stand deployen und Berechtigungstests bestehen.
-- [BLOCKER] Die 23 live Functions mit freigegebenen Testkonten gruppenweise
+- [BLOCKER] Die 29 live Functions mit freigegebenen Testkonten gruppenweise
   funktional pruefen.
 - [BLOCKER] `cleanupProfileVerificationDocuments` live pruefen, bevor die
   Dokumentenverifizierung produktiv freigegeben wird.
@@ -376,8 +386,8 @@ drei Kontofluesse bleiben offen.
 
 ## Nächste sichere Reihenfolge
 
-1. Externe Legal-Pruefung und neue Anschrift einarbeiten; vier abweichende
-   Rechtsseiten anschliessend gezielt hosten.
+1. Externe Legal-Pruefung und neue Anschrift einarbeiten; geaenderte
+   Rechtsseiten anschliessend erneut gezielt hosten.
 2. Budgetwarnungen und erforderliche APIs weiter beobachten.
 3. Rules nach erneutem Emulatorlauf deployen; Indexes derzeit nicht erneut
    deployen, da alle sechs live sind.
