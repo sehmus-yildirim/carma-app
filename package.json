@@ -28,7 +28,8 @@
   },
   "homepage": "https://github.com/sehmus-yildirim/carma-app#readme",
   "dependencies": {
-    "firebase-admin": "^14.1.0"
+    "firebase-admin": "^14.1.0",
+    "three": "0.180.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1"

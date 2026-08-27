@@ -35,6 +35,23 @@ body {
   color: var(--text);
 }
 
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 12px;
+  left: 12px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  background: #fff;
+  color: #000;
+  font-weight: 800;
+  transform: translateY(-180%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 button,
 input {
   font: inherit;

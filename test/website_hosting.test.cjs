@@ -45,7 +45,7 @@ test("returns the custom plaqa page with a real 404 status", async () => {
     assert.equal(response.status, 404);
     assert.match(html, /Hier führt gerade kein Weg weiter\./);
     assert.match(html, /<meta name="robots" content="noindex,follow">/);
-    assert.match(html, /plaqa_logo_transparent\.png/);
+    assert.match(html, /plaqa_logo_512\.png/);
     assert.match(html, /href="\/"/);
     assert.match(html, /href="\/support\/"/);
   } finally {
@@ -66,6 +66,80 @@ test("keeps every public page indexable with one exact canonical URL", () => {
     );
     assert.match(html, /<h1(?:\s[^>]*)?>[\s\S]+?<\/h1>/i);
   }
+});
+
+test("every public page exposes consistent social metadata and keyboard access", () => {
+  for (const [route, relativePath] of publicRoutes) {
+    const html = read(relativePath);
+    const expectedUrl = route === "/" ? "https://plaqa.de/" : `https://plaqa.de${route}/`;
+    assert.match(html, /<meta property="og:title" content="[^"]+">/, relativePath);
+    assert.match(html, /<meta property="og:description" content="[^"]+">/, relativePath);
+    assert.match(html, new RegExp(`<meta property="og:url" content="${escapeRegExp(expectedUrl)}">`));
+    assert.match(html, /<meta property="og:image" content="https:\/\/plaqa\.de\/assets\/social\/plaqa-social-card\.png">/);
+    assert.match(html, /<meta name="twitter:card" content="summary_large_image">/);
+    assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+    assert.match(html, /class="skip-link"[^>]*href="#main-content"/);
+    assert.match(html, /<main\b[^>]*id="main-content"/);
+  }
+});
+
+test("homepage publishes structured organization, app, FAQ and contact data", () => {
+  const html = read("index.html");
+  assert.match(html, /<script type="application\/ld\+json">/);
+  for (const schemaType of ["Organization", "SoftwareApplication", "FAQPage", "ContactPoint"]) {
+    assert.match(html, new RegExp(`"@type": "${schemaType}"`), schemaType);
+  }
+});
+
+test("manifest, icons and responsive screen formats are present", () => {
+  const manifest = JSON.parse(read("manifest.webmanifest"));
+  assert.equal(manifest.name, "plaqa");
+  assert.equal(manifest.display, "standalone");
+  for (const icon of manifest.icons) {
+    assert.ok(fs.existsSync(path.join(hostingRoot, icon.src.replace(/^\//, ""))), icon.src);
+  }
+
+  const homepage = read("index.html");
+  assert.match(homepage, /<div class="detail-phone">[\s\S]*?<picture>/);
+  assert.match(homepage, /type="image\/avif"/);
+  assert.match(homepage, /type="image\/webp"/);
+  for (const extension of ["avif", "webp"]) {
+    assert.equal(
+      fs.readdirSync(path.join(hostingRoot, "assets", "site")).filter((name) => name.endsWith(`.${extension}`)).length,
+      8,
+      extension,
+    );
+  }
+});
+
+test("hosting enables restrictive security policies and versioned asset caching", () => {
+  const firebase = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "firebase.json"), "utf8"));
+  const headerGroups = firebase.hosting.headers;
+  const globalHeaders = Object.fromEntries(headerGroups[0].headers.map(({key, value}) => [key, value]));
+  assert.match(globalHeaders["Content-Security-Policy"], /default-src 'self'/);
+  assert.match(globalHeaders["Content-Security-Policy"], /frame-ancestors 'none'/);
+  assert.match(globalHeaders["Content-Security-Policy"], /https:\/\/www\.gstatic\.com/);
+  assert.match(globalHeaders["Permissions-Policy"], /camera=\(\)/);
+  assert.match(globalHeaders["Permissions-Policy"], /geolocation=\(\)/);
+  assert.ok(headerGroups.some(({source}) => source === "**/*.@(css|js)"));
+  assert.ok(headerGroups.some(({source}) => source.includes("avif")));
+});
+
+test("all versioned CSS and JavaScript references share one release token", () => {
+  const versions = new Set();
+  for (const relativePath of publicRoutes.values()) {
+    const html = read(relativePath);
+    for (const match of html.matchAll(/\/(?:[^"']+\.(?:css|js))\?v=([0-9-]+)/g)) {
+      versions.add(match[1]);
+    }
+  }
+  for (const relativePath of ["404.html", "auth/action/index.html"]) {
+    const html = read(relativePath);
+    for (const match of html.matchAll(/\/(?:[^"']+\.(?:css|js))\?v=([0-9-]+)/g)) {
+      versions.add(match[1]);
+    }
+  }
+  assert.deepEqual([...versions], ["20260827-2"]);
 });
 
 test("robots and sitemap describe exactly the public URL contract", () => {

@@ -28,7 +28,20 @@ test("all public pages declare a mobile viewport and responsive content", () => 
     );
     assert.match(html, /<h1(?:\s[^>]*)?>[\s\S]+?<\/h1>/i, relativePath);
     assert.doesNotMatch(html, /style="[^"]*min-width:\s*(?:[4-9]\d{2}|\d{4,})px/i, relativePath);
+    assert.match(html, /class="skip-link"[^>]*href="#main-content"/, relativePath);
+    assert.match(html, /<main\b[^>]*id="main-content"/, relativePath);
   }
+});
+
+test("premium homepage keeps the two-view navigation and accessible carousel controls", () => {
+  const html = read("index.html");
+  assert.match(html, /href="#start"[^>]*data-section-link>App</);
+  assert.match(html, /href="#service"[^>]*data-section-link>Service</);
+  assert.doesNotMatch(html, /href="#(?:faq|release|funktionen)"[^>]*data-section-link/i);
+  assert.match(html, /data-carousel-prev[^>]*aria-label="Vorherige App-Ansicht"/s);
+  assert.match(html, /data-carousel-next[^>]*aria-label="Nächste App-Ansicht"/s);
+  assert.match(html, /data-close-detail[^>]*aria-label="Detailansicht schließen"/s);
+  assert.match(html, /data-current-label/);
 });
 
 test("shared styles guard the page shell against horizontal viewport drift", () => {

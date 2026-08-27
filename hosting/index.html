@@ -3,332 +3,219 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#070a0f">
+    <meta name="theme-color" content="#000000">
     <meta name="description" content="plaqa verbindet Fahrer über Kennzeichen: Fahrzeuge finden, kontrolliert Kontakt aufnehmen, Hinweise senden und eine Community rund ums Auto erleben.">
     <meta name="robots" content="index,follow">
     <meta property="og:title" content="plaqa – Dein Kennzeichen verbindet">
-    <meta property="og:description" content="Kennzeichensuche, Fahrzeugprofile, Community und kontrollierte Kontaktanfragen für Deutschland, Österreich und die Schweiz.">
+    <meta property="og:description" content="Kennzeichensuche, sichere Hinweise, kontrollierte Kontakte und eine Community rund ums Fahrzeug.">
     <meta property="og:type" content="website">
+    <meta property="og:locale" content="de_DE">
+    <meta property="og:site_name" content="plaqa">
     <meta property="og:url" content="https://plaqa.de/">
-    <meta property="og:image" content="https://plaqa.de/assets/site/store-01-kennzeichensuche.jpeg">
+    <meta property="og:image" content="https://plaqa.de/assets/social/plaqa-social-card.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="plaqa – Fahrzeugkommunikation, bewusst verbunden">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="plaqa – Dein Kennzeichen verbindet">
+    <meta name="twitter:description" content="Fahrzeuge finden, Hinweise senden und Kontakte bewusst freigeben.">
+    <meta name="twitter:image" content="https://plaqa.de/assets/social/plaqa-social-card.png">
     <link rel="canonical" href="https://plaqa.de/">
-    <link rel="icon" href="/assets/plaqa_app_icon.png">
-    <link rel="stylesheet" href="/site.css?v=2026082503">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preload" href="/assets/plaqa_logo_512.png" as="image">
+    <link rel="preload" href="/assets/site/screen-suche.jpeg" as="image">
+    <link rel="stylesheet" href="/site.css?v=20260827-2">
     <title>plaqa – Dein Kennzeichen verbindet</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://plaqa.de/#organization",
+            "name": "plaqa",
+            "url": "https://plaqa.de/",
+            "logo": "https://plaqa.de/assets/plaqa_app_icon.png",
+            "email": "info@plaqa.de",
+            "contactPoint": [
+              {"@type": "ContactPoint", "contactType": "customer support", "email": "support@plaqa.de", "availableLanguage": ["de"]},
+              {"@type": "ContactPoint", "contactType": "privacy", "email": "privacy@plaqa.de", "availableLanguage": ["de"]}
+            ]
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://plaqa.de/#app",
+            "name": "plaqa",
+            "applicationCategory": "SocialNetworkingApplication",
+            "operatingSystem": "Android, iOS",
+            "description": "plaqa verbindet Fahrer kontrolliert über Kennzeichen, Hinweise, Fahrzeugprofile und Community-Funktionen.",
+            "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
+            "publisher": {"@id": "https://plaqa.de/#organization"}
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://plaqa.de/#faq",
+            "mainEntity": [
+              {"@type": "Question", "name": "Öffnet eine Kennzeichensuche sofort einen Chat?", "acceptedAnswer": {"@type": "Answer", "text": "Nein. Eine Suche zeigt nur freigegebene Fahrzeuginformationen. Ein privater Chat entsteht erst nach einer angenommenen Kontaktanfrage."}},
+              {"@type": "Question", "name": "Kann ich einen wichtigen Hinweis ohne Kontakt senden?", "acceptedAnswer": {"@type": "Answer", "text": "Ja. Hinweise zu offenen Türen, Licht, Schäden oder Gefahren können ohne persönlichen Chat übermittelt werden."}},
+              {"@type": "Question", "name": "Wer entscheidet über eine Kontaktanfrage?", "acceptedAnswer": {"@type": "Answer", "text": "Die empfangende Person entscheidet selbst, ob sie eine Anfrage annimmt oder ablehnt."}},
+              {"@type": "Question", "name": "Wie schützt plaqa meine Daten?", "acceptedAnswer": {"@type": "Answer", "text": "plaqa trennt öffentliche Fahrzeug- und Community-Inhalte von privaten Konto- und Sicherheitsdaten und bietet Melde-, Blockier- und Löschmöglichkeiten."}}
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
-  <body>
+  <body class="home-body">
     <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
 
     <header class="site-header" data-site-header>
       <div class="site-header__inner">
         <a class="brand" href="#start" aria-label="plaqa Startseite">
-          <img src="/assets/plaqa_logo_transparent.png" alt="plaqa">
+          <img src="/assets/plaqa_logo_512.png" srcset="/assets/plaqa_logo_256.png 256w, /assets/plaqa_logo_512.png 512w" sizes="118px" alt="plaqa" width="512" height="256" decoding="async">
         </a>
-
         <nav class="desktop-nav" aria-label="Hauptnavigation">
-          <a href="#produkt">Produkt</a>
-          <a href="#community">Community</a>
-          <a href="#fahrzeug">Fahrzeuge</a>
-          <a href="#sicherheit">Sicherheit</a>
-          <a href="#faq">Hilfe</a>
+          <a class="is-active" href="#start" data-section-link>App</a>
+          <a href="#service" data-section-link>Service</a>
         </nav>
-
-        <a class="header-action" href="#release">Release-Status</a>
-
+        <span class="site-header__balance" aria-hidden="true"></span>
         <button class="menu-button" type="button" aria-expanded="false" aria-controls="mobile-navigation" aria-label="Menü öffnen">
-          <span></span>
-          <span></span>
+          <span></span><span></span>
         </button>
       </div>
-
       <nav class="mobile-nav" id="mobile-navigation" aria-label="Mobile Navigation" hidden>
-        <a href="#produkt">Produkt</a>
-        <a href="#community">Community</a>
-        <a href="#fahrzeug">Fahrzeuge</a>
-        <a href="#sicherheit">Sicherheit</a>
-        <a href="#faq">Hilfe</a>
-        <a href="#release">Release-Status</a>
+        <a class="is-active" href="#start" data-section-link>App</a>
+        <a href="#service" data-section-link>Service</a>
       </nav>
     </header>
 
     <main id="main-content">
-      <section class="hero" id="start" aria-labelledby="hero-title">
-        <div class="hero__inner">
-          <div class="hero__copy">
-            <h1 id="hero-title">Dein Kennzeichen <span>verbindet.</span></h1>
-            <p class="hero__lead">
-              Finde registrierte Fahrzeuge, stelle kontrollierte Kontaktanfragen
-              oder sende einen hilfreichen Hinweis. Mit plaqa entscheidest du,
-              wann aus einem Kennzeichen eine Verbindung wird.
-            </p>
-
-            <div class="hero__actions">
-              <a class="button button--primary" href="#produkt">plaqa entdecken</a>
-              <a class="text-link" href="#einblicke">App ansehen <span aria-hidden="true">↓</span></a>
-            </div>
-
-            <div class="country-list" aria-label="Unterstützte Länder">
-              <span><b aria-hidden="true">🇩🇪</b> Deutschland</span>
-              <span><b aria-hidden="true">🇦🇹</b> Österreich</span>
-              <span><b aria-hidden="true">🇨🇭</b> Schweiz</span>
-            </div>
-          </div>
-
-          <div class="hero__visual" aria-label="plaqa Kennzeichensuche in der App">
-            <div class="hero__media">
-              <img src="/assets/site/store-01-kennzeichensuche.jpeg" alt="plaqa App-Vorschau der Kennzeichensuche" width="900" height="1600">
-            </div>
-            <p class="hero__media-note"><span>01</span> Kennzeichen suchen. Fahrzeug finden.</p>
-          </div>
+      <section class="showcase" id="start" aria-labelledby="hero-title">
+        <div class="showcase__copy">
+          <p class="showcase__eyebrow">Fahrzeugkommunikation. Bewusst verbunden.</p>
+          <h1 id="hero-title">
+            <img class="showcase__logo" src="/assets/plaqa_logo_512.png" srcset="/assets/plaqa_logo_256.png 256w, /assets/plaqa_logo_512.png 512w" sizes="(max-width: 720px) 170px, 268px" alt="plaqa" width="512" height="256" decoding="async" fetchpriority="high">
+          </h1>
+          <p>Finde Fahrzeuge. Sende wichtige Hinweise. Verbinde dich erst, wenn beide Seiten zustimmen.</p>
+          <a class="showcase__link" href="#service">Service und Sicherheit <span aria-hidden="true">↓</span></a>
         </div>
 
-        <div class="hero__rail" aria-label="Die drei Kernwege in plaqa">
-          <article>
-            <span class="rail-number">01</span>
-            <div><strong>Kennzeichen suchen</strong><small>Registrierte Fahrzeuge finden</small></div>
-          </article>
-          <article>
-            <span class="rail-number rail-number--orange">02</span>
-            <div><strong>Kontakt anfragen</strong><small>Erst nach Zustimmung chatten</small></div>
-          </article>
-          <article>
-            <span class="rail-number">03</span>
-            <div><strong>Anonym hinweisen</strong><small>Helfen, ohne Kontakt aufzunehmen</small></div>
-          </article>
+        <div class="showcase__architecture" aria-hidden="true"><span></span><span></span><span></span></div>
+
+        <div class="phone-stage" data-phone-stage>
+          <canvas class="phone-stage__canvas" data-phone-canvas role="img" aria-label="Acht dreidimensionale Smartphones zeigen die Funktionen der plaqa App"></canvas>
+          <div class="phone-stage__fallback" data-phone-fallback hidden>
+            <button type="button" data-fallback-open aria-label="Kennzeichensuche im Detail öffnen">
+              <span class="fallback-phone"><img src="/assets/site/screen-suche.jpeg" alt="Kennzeichensuche in der plaqa App" width="921" height="2048" decoding="async" data-fallback-image></span>
+            </button>
+          </div>
+          <button class="phone-stage__hit" type="button" data-open-current aria-label="Ausgewählte App-Ansicht öffnen"></button>
         </div>
+
+        <div class="carousel-ui" aria-label="App-Ansichten auswählen">
+          <button class="icon-button" type="button" data-carousel-prev aria-label="Vorherige App-Ansicht">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="carousel-dots" data-carousel-dots></div>
+          <button class="icon-button" type="button" data-carousel-next aria-label="Nächste App-Ansicht">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+        <p class="showcase__index"><span data-current-index>01</span> / 08 <b data-current-label>Kennzeichensuche</b></p>
       </section>
 
-      <section class="product-section light-section" id="produkt" aria-labelledby="product-title">
-        <div class="section-shell">
-          <div class="section-heading section-heading--wide">
-            <p class="section-label">So funktioniert plaqa</p>
-            <h2 id="product-title">Vom Kennzeichen zur richtigen Aktion.</h2>
-            <p>Eine Suche öffnet nicht automatisch den Kontakt. Der Halter behält die Kontrolle.</p>
-          </div>
-
-          <div class="product-layout">
-            <div class="workflow-list" data-workflow-list>
-              <button class="workflow-item is-active" type="button" data-image="store-01-kennzeichensuche.jpeg" data-alt="Kennzeichensuche in plaqa">
-                <span>01</span>
-                <div><strong>Fahrzeug finden</strong><p>Land, Zulassungsregion und Kennzeichen führen zum registrierten Fahrzeugprofil.</p></div>
-              </button>
-              <button class="workflow-item" type="button" data-image="store-03-kontaktanfragen.jpeg" data-alt="Kontaktanfragen in plaqa">
-                <span>02</span>
-                <div><strong>Anfrage stellen</strong><p>Der Empfänger sieht den Anlass und entscheidet selbst über Annahme oder Ablehnung.</p></div>
-              </button>
-              <button class="workflow-item" type="button" data-image="store-02-fahrzeug-melden.jpeg" data-alt="Fahrzeughinweis in plaqa">
-                <span>03</span>
-                <div><strong>Direkt helfen</strong><p>Für wichtige Hinweise ist keine persönliche Verbindung oder Chatfreigabe nötig.</p></div>
-              </button>
-            </div>
-
-            <figure class="product-preview">
-              <img data-workflow-image src="/assets/site/store-01-kennzeichensuche.jpeg" alt="Kennzeichensuche in plaqa" width="900" height="1600">
-            </figure>
+      <dialog class="screen-detail" data-screen-detail aria-labelledby="screen-detail-title">
+        <div class="screen-detail__pattern" aria-hidden="true"></div>
+        <button class="screen-detail__close icon-button" type="button" data-close-detail aria-label="Detailansicht schließen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <div class="screen-detail__visual">
+          <div class="detail-phone">
+            <span class="detail-phone__island" aria-hidden="true"></span>
+            <picture>
+              <source data-detail-avif type="image/avif" srcset="/assets/site/screen-suche.avif">
+              <source data-detail-webp type="image/webp" srcset="/assets/site/screen-suche.webp">
+              <img data-detail-image src="/assets/site/screen-suche.jpeg" alt="Kennzeichensuche in plaqa" width="921" height="2048" loading="lazy" decoding="async">
+            </picture>
           </div>
         </div>
-      </section>
-
-      <section class="community-section dark-section" id="community" aria-labelledby="community-title">
-        <div class="section-shell">
-          <div class="community-intro">
-            <div class="section-heading section-heading--dark">
-              <p class="section-label">Community</p>
-              <h2 id="community-title">Was auf der Straße beginnt, geht auf plaqa weiter.</h2>
-            </div>
-            <p>
-              Teile Fahrzeugmomente, entdecke neue Beiträge und bleibe nach einer
-              angenommenen Kontaktanfrage direkt verbunden.
-            </p>
+        <article class="screen-detail__copy">
+          <p data-detail-number>01 / 08</p>
+          <h2 id="screen-detail-title" data-detail-title>Kennzeichen suchen</h2>
+          <div class="screen-detail__description" data-detail-description>
+            <p>Finde registrierte Fahrzeuge anhand von Land, Zulassungsregion und Kennzeichen.</p>
           </div>
-
-          <div class="community-media">
-            <figure class="community-media__large">
-              <img src="/assets/site/store-05-storys-feed.jpeg" alt="Storys und Beiträge in der plaqa Community" width="900" height="1600" loading="lazy">
-            </figure>
-            <figure class="community-media__small">
-              <img src="/assets/site/store-06-profil-beitraege.jpeg" alt="Beiträge in einem plaqa Fahrzeugprofil" width="900" height="1600" loading="lazy">
-            </figure>
-            <div class="community-copy">
-              <span>Storys</span>
-              <span>Beiträge</span>
-              <span>Kommentare</span>
-              <span>Private Chats</span>
-            </div>
+          <ul class="screen-detail__features" data-detail-features aria-label="Funktionen dieser Ansicht"></ul>
+          <div class="screen-detail__navigation" aria-label="Zwischen App-Ansichten wechseln">
+            <button type="button" data-detail-prev>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+              <span>Vorherige Ansicht</span>
+            </button>
+            <button type="button" data-detail-next>
+              <span>Nächste Ansicht</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
           </div>
-        </div>
-      </section>
+        </article>
+      </dialog>
 
-      <section class="vehicle-section light-section" id="fahrzeug" aria-labelledby="vehicle-title">
-        <div class="section-shell vehicle-layout">
-          <div class="vehicle-collage" aria-label="plaqa Fahrzeugprofil und Fahrzeugdaten">
-            <figure class="vehicle-collage__primary">
-              <img src="/assets/site/store-07-fahrzeugprofil.jpeg" alt="Fahrzeugprofil in plaqa" width="900" height="1600" loading="lazy">
-            </figure>
-            <figure class="vehicle-collage__secondary">
-              <img src="/assets/site/store-08-fahrzeugdaten.jpeg" alt="Fahrzeugdaten in plaqa" width="900" height="1600" loading="lazy">
-            </figure>
-          </div>
-
-          <div class="vehicle-content">
-            <div class="section-heading">
-              <p class="section-label">Dein Fahrzeugprofil</p>
-              <h2 id="vehicle-title">Ein Ort für dein Auto und seine Geschichte.</h2>
-              <p>Von den Grunddaten bis zum Umbau bleibt alles strukturiert an einem Ort.</p>
-            </div>
-
-            <dl class="feature-list">
-              <div><dt>Fahrzeugdaten</dt><dd>Marke, Modell, Leistung, Erstzulassung und weitere Angaben.</dd></div>
-              <div><dt>Galerie & Beiträge</dt><dd>Zeige Bilder, Details und besondere Momente rund um dein Fahrzeug.</dd></div>
-              <div><dt>Umbauten & Timeline</dt><dd>Dokumentiere Veränderungen und wichtige Stationen nachvollziehbar.</dd></div>
-            </dl>
-          </div>
-        </div>
-      </section>
-
-      <section class="safety-section" id="sicherheit" aria-labelledby="safety-title">
-        <div class="section-shell safety-layout">
-          <div class="safety-content">
-            <div class="section-heading">
-              <p class="section-label">Sicherheit</p>
-              <h2 id="safety-title">Kontakt entsteht erst, wenn beide Seiten es wollen.</h2>
-              <p>plaqa trennt öffentliche Profile, private Daten und direkte Kommunikation klar voneinander.</p>
-            </div>
-
-            <div class="safety-points">
-              <article><span>01</span><div><strong>Bewusste Zustimmung</strong><p>Eine Suchanfrage ist noch kein Chat. Der Empfänger entscheidet.</p></div></article>
-              <article><span>02</span><div><strong>Melden und blockieren</strong><p>Unerwünschte Kontakte und problematische Inhalte lassen sich kontrollieren.</p></div></article>
-              <article><span>03</span><div><strong>Mehr Vertrauen</strong><p>Fahrzeug- und Identitätsbestätigung schaffen zusätzliche Orientierung.</p></div></article>
-            </div>
-
-            <a class="text-link text-link--dark" href="/datenschutz/">Datenschutz bei plaqa <span aria-hidden="true">→</span></a>
-          </div>
-
-          <figure class="safety-media">
-            <img src="/assets/site/store-03-kontaktanfragen.jpeg" alt="Kontrollierte Kontaktanfrage in plaqa" width="900" height="1600" loading="lazy">
-          </figure>
-        </div>
-      </section>
-
-      <section class="insights-section dark-section" id="einblicke" aria-labelledby="insights-title">
-        <div class="section-shell">
-          <div class="insights-header">
-            <div class="section-heading section-heading--dark">
-              <p class="section-label">App-Einblicke</p>
-              <h2 id="insights-title">plaqa im Einsatz.</h2>
-            </div>
-            <div class="gallery-controls" aria-label="Vorschauen bewegen">
-              <button type="button" data-gallery-prev aria-label="Vorherige Vorschauen">←</button>
-              <button type="button" data-gallery-next aria-label="Nächste Vorschauen">→</button>
-            </div>
-          </div>
-
-          <div class="preview-track" data-preview-track tabindex="0" aria-label="Acht plaqa App-Vorschauen">
-            <figure><img src="/assets/site/store-01-kennzeichensuche.jpeg" alt="Kennzeichen einfach suchen" loading="lazy"><figcaption>Suche</figcaption></figure>
-            <figure><img src="/assets/site/store-02-fahrzeug-melden.jpeg" alt="Wichtige Fahrzeughinweise melden" loading="lazy"><figcaption>Hinweise</figcaption></figure>
-            <figure><img src="/assets/site/store-03-kontaktanfragen.jpeg" alt="Kontaktanfragen empfangen" loading="lazy"><figcaption>Anfragen</figcaption></figure>
-            <figure><img src="/assets/site/store-04-private-chats.jpeg" alt="Private Chats in plaqa" loading="lazy"><figcaption>Chats</figcaption></figure>
-            <figure><img src="/assets/site/store-05-storys-feed.jpeg" alt="Storys und Community-Feed" loading="lazy"><figcaption>Community</figcaption></figure>
-            <figure><img src="/assets/site/store-06-profil-beitraege.jpeg" alt="Profil und Beiträge" loading="lazy"><figcaption>Beiträge</figcaption></figure>
-            <figure><img src="/assets/site/store-07-fahrzeugprofil.jpeg" alt="Fahrzeugprofil" loading="lazy"><figcaption>Fahrzeugprofil</figcaption></figure>
-            <figure><img src="/assets/site/store-08-fahrzeugdaten.jpeg" alt="Fahrzeugdaten" loading="lazy"><figcaption>Fahrzeugdaten</figcaption></figure>
-          </div>
-        </div>
-      </section>
-
-      <section class="faq-section light-section" id="faq" aria-labelledby="faq-title">
-        <div class="section-shell faq-layout">
-          <div class="faq-intro">
-            <div class="section-heading">
-              <p class="section-label">Häufige Fragen</p>
-              <h2 id="faq-title">Kurz erklärt.</h2>
-              <p>Weitere Hilfe erhältst du direkt unter <a href="mailto:support@plaqa.de">support@plaqa.de</a>.</p>
-            </div>
-          </div>
-
-          <div class="faq-list">
-            <article class="faq-item is-open">
-              <button type="button" aria-expanded="true"><span>Kann jeder über mein Kennzeichen Kontakt aufnehmen?</span><i aria-hidden="true"></i></button>
-              <div class="faq-answer"><p>Nein. Eine Kennzeichensuche führt nicht automatisch zu einem direkten Kontakt. Der Empfänger kann eine Anfrage annehmen oder ablehnen.</p></div>
-            </article>
-            <article class="faq-item">
-              <button type="button" aria-expanded="false"><span>Welche Daten sehen andere Nutzer?</span><i aria-hidden="true"></i></button>
-              <div class="faq-answer"><p>Öffentliche Profil- und Fahrzeuginformationen sind von privaten Kontodaten getrennt. Sichtbarkeiten werden in den Privatsphäre-Einstellungen gesteuert.</p></div>
-            </article>
-            <article class="faq-item">
-              <button type="button" aria-expanded="false"><span>Wie funktionieren anonyme Hinweise?</span><i aria-hidden="true"></i></button>
-              <div class="faq-answer"><p>Hinweise informieren einen Fahrzeughalter über eine wichtige Situation, ohne automatisch eine persönliche Verbindung oder einen Chat zu öffnen.</p></div>
-            </article>
-            <article class="faq-item">
-              <button type="button" aria-expanded="false"><span>Welche Länder unterstützt plaqa?</span><i aria-hidden="true"></i></button>
-              <div class="faq-answer"><p>plaqa ist für Kennzeichen aus Deutschland, Österreich und der Schweiz vorbereitet.</p></div>
-            </article>
-            <article class="faq-item">
-              <button type="button" aria-expanded="false"><span>Wie kann ich problematische Inhalte melden?</span><i aria-hidden="true"></i></button>
-              <div class="faq-answer"><p>In der App stehen Melde- und Blockierfunktionen bereit. Zusätzlich ist die öffentliche <a href="/meldestelle/">Meldestelle</a> erreichbar.</p></div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="release-section" id="release" aria-labelledby="release-title">
-        <div class="release-section__inner">
-          <img src="/assets/plaqa_app_icon.png" alt="plaqa App-Icon" width="144" height="144">
+      <section class="service" id="service" aria-label="Service und Kontakt">
+        <div class="service__head section-shell">
           <div>
-            <h2 id="release-title">plaqa wird für den Release vorbereitet.</h2>
-            <p>Die App befindet sich aktuell in kontrollierten Store- und Gerätetests. Öffentliche Downloadlinks folgen erst mit der offiziellen Freigabe.</p>
+            <p class="section-kicker">Direkt erreichbar</p>
+            <h2>Service, Datenschutz<br>und Verantwortung.</h2>
           </div>
-          <a class="button button--light" href="/support/">Fragen zur App</a>
+          <p>Alles Wichtige rund um dein Konto, deine Daten, Partnerschaften und sichere Meldungen an einem klaren Ort.</p>
         </div>
+
+        <div class="service__workspace section-shell">
+          <nav class="service-links" aria-label="Kontakt und Hilfe">
+            <a href="/support/"><span>01</span><strong>Support</strong><small>Fragen zur App und zum Konto</small><b aria-hidden="true">↗</b></a>
+            <a href="/datenschutz/"><span>02</span><strong>Datenschutz</strong><small>Verarbeitung und deine Rechte</small><b aria-hidden="true">↗</b></a>
+            <a href="/partner/"><span>03</span><strong>Partnerschaften</strong><small>Ideen und Kooperationen</small><b aria-hidden="true">↗</b></a>
+            <a href="/meldestelle/"><span>04</span><strong>Meldestelle</strong><small>Probleme vertraulich melden</small><b aria-hidden="true">↗</b></a>
+          </nav>
+
+          <section class="service-faq" aria-labelledby="service-faq-title">
+            <div class="service-faq__intro">
+              <p class="section-kicker">Kurz erklärt</p>
+              <h3 id="service-faq-title">Du behältst die Kontrolle.</h3>
+            </div>
+            <div class="service-faq__items">
+              <details><summary>Öffnet eine Kennzeichensuche sofort einen Chat?</summary><p>Nein. Ein privater Chat entsteht erst, nachdem eine Kontaktanfrage angenommen wurde.</p></details>
+              <details><summary>Kann ich einen wichtigen Hinweis ohne Kontakt senden?</summary><p>Ja. Hinweise zu offenen Türen, Licht, Schäden oder Gefahren funktionieren ohne persönlichen Chat.</p></details>
+              <details><summary>Wer entscheidet über eine Kontaktanfrage?</summary><p>Die empfangende Person entscheidet selbst, ob sie eine Anfrage annimmt oder ablehnt.</p></details>
+              <details><summary>Wie schützt plaqa meine Daten?</summary><p>Öffentliche Inhalte bleiben von privaten Konto- und Sicherheitsdaten getrennt. Zusätzlich stehen Melde-, Blockier- und Löschwege bereit.</p></details>
+            </div>
+          </section>
+        </div>
+
+        <footer class="site-footer">
+          <div class="site-footer__brand">
+            <img src="/assets/plaqa_logo_512.png" srcset="/assets/plaqa_logo_256.png 256w, /assets/plaqa_logo_512.png 512w" sizes="134px" alt="plaqa" width="512" height="256" loading="lazy">
+            <p>Dein Kennzeichen verbindet.<br><span class="text-nowrap">Du entscheidest, mit wem.</span></p>
+          </div>
+          <nav class="footer-column" aria-label="Hilfelinks">
+            <strong>Hilfe</strong><a href="/support/">Support</a><a href="/meldestelle/">Meldestelle</a><a href="/kinderschutz/">Kinderschutz</a><a href="/partner/">Partner</a>
+          </nav>
+          <nav class="footer-column" aria-label="Rechtliche Links">
+            <strong>Rechtliches</strong><a href="/datenschutz/">Datenschutz</a><a href="/nutzungsbedingungen/">Nutzungsbedingungen</a><a href="/community-richtlinien/">Community-Richtlinien</a><a href="/konto-loeschen/">Konto löschen</a><a href="/impressum/">Impressum</a>
+          </nav>
+          <div class="contact-grid" aria-label="plaqa Kontaktadressen">
+            <a href="mailto:info@plaqa.de"><span>Allgemein</span><strong><i>info@</i><b>pla</b><em>q</em><b>a</b><i>.de</i></strong></a>
+            <a href="mailto:support@plaqa.de"><span>Support</span><strong><i>support@</i><b>pla</b><em>q</em><b>a</b><i>.de</i></strong></a>
+            <a href="mailto:privacy@plaqa.de"><span>Datenschutz</span><strong><i>privacy@</i><b>pla</b><em>q</em><b>a</b><i>.de</i></strong></a>
+            <a href="mailto:partners@plaqa.de"><span>Partnerschaften</span><strong><i>partners@</i><b>pla</b><em>q</em><b>a</b><i>.de</i></strong></a>
+          </div>
+          <div class="site-footer__bottom"><span>© 2026 plaqa. Alle Rechte vorbehalten.</span><span>Deutschland · Österreich · Schweiz</span></div>
+        </footer>
       </section>
     </main>
 
-    <footer class="site-footer">
-      <div class="site-footer__top">
-        <div class="site-footer__brand">
-          <img src="/assets/plaqa_logo_transparent.png" alt="plaqa">
-          <p>Dein Kennzeichen verbindet.<br>Du entscheidest, mit wem.</p>
-        </div>
-
-        <nav class="footer-column" aria-label="Produktlinks">
-          <strong>Produkt</strong>
-          <a href="#produkt">So funktioniert's</a>
-          <a href="#community">Community</a>
-          <a href="#fahrzeug">Fahrzeuge</a>
-          <a href="#sicherheit">Sicherheit</a>
-        </nav>
-
-        <nav class="footer-column" aria-label="Hilfelinks">
-          <strong>Hilfe</strong>
-          <a href="/support/">Support</a>
-          <a href="/meldestelle/">Meldestelle</a>
-          <a href="/kinderschutz/">Kinderschutz</a>
-          <a href="/partner/">Partner</a>
-        </nav>
-
-        <nav class="footer-column" aria-label="Rechtliche Links">
-          <strong>Rechtliches</strong>
-          <a href="/datenschutz/">Datenschutz</a>
-          <a href="/nutzungsbedingungen/">Nutzungsbedingungen</a>
-          <a href="/community-richtlinien/">Community-Richtlinien</a>
-          <a href="/konto-loeschen/">Konto löschen</a>
-          <a href="/impressum/">Impressum</a>
-        </nav>
-      </div>
-
-      <div class="contact-grid" aria-label="plaqa Kontaktadressen">
-        <a href="mailto:info@plaqa.de"><span>Allgemein</span><strong>info@plaqa.de</strong></a>
-        <a href="mailto:support@plaqa.de"><span>Support</span><strong>support@plaqa.de</strong></a>
-        <a href="mailto:privacy@plaqa.de"><span>Datenschutz</span><strong>privacy@plaqa.de</strong></a>
-        <a href="mailto:partners@plaqa.de"><span>Partnerschaften</span><strong>partners@plaqa.de</strong></a>
-      </div>
-
-      <div class="site-footer__bottom">
-        <span>© 2026 plaqa. Alle Rechte vorbehalten.</span>
-        <span>Deutschland · Österreich · Schweiz</span>
-      </div>
-    </footer>
-
-    <script src="/site.js?v=2026082502" defer></script>
+    <script src="/store-links.js?v=20260827-2" defer></script>
+    <script type="module" src="/site.js?v=20260827-2"></script>
   </body>
 </html>
