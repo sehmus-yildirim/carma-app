@@ -27,7 +27,7 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preload" href="/assets/plaqa_logo_512.png" as="image">
     <link rel="preload" href="/assets/site/screen-suche.jpeg" as="image">
-    <link rel="stylesheet" href="/site.css?v=20260827-2">
+    <link rel="stylesheet" href="/site.css?v=20260827-9">
     <title>plaqa – Dein Kennzeichen verbindet</title>
     <script type="application/ld+json">
       {
@@ -94,16 +94,7 @@
 
     <main id="main-content">
       <section class="showcase" id="start" aria-labelledby="hero-title">
-        <div class="showcase__copy">
-          <p class="showcase__eyebrow">Fahrzeugkommunikation. Bewusst verbunden.</p>
-          <h1 id="hero-title">
-            <img class="showcase__logo" src="/assets/plaqa_logo_512.png" srcset="/assets/plaqa_logo_256.png 256w, /assets/plaqa_logo_512.png 512w" sizes="(max-width: 720px) 170px, 268px" alt="plaqa" width="512" height="256" decoding="async" fetchpriority="high">
-          </h1>
-          <p>Finde Fahrzeuge. Sende wichtige Hinweise. Verbinde dich erst, wenn beide Seiten zustimmen.</p>
-          <a class="showcase__link" href="#service">Service und Sicherheit <span aria-hidden="true">↓</span></a>
-        </div>
-
-        <div class="showcase__architecture" aria-hidden="true"><span></span><span></span><span></span></div>
+        <h1 class="visually-hidden" id="hero-title">plaqa Fahrzeugkommunikation</h1>
 
         <div class="phone-stage" data-phone-stage>
           <canvas class="phone-stage__canvas" data-phone-canvas role="img" aria-label="Acht dreidimensionale Smartphones zeigen die Funktionen der plaqa App"></canvas>
@@ -162,38 +153,7 @@
         </article>
       </dialog>
 
-      <section class="service" id="service" aria-label="Service und Kontakt">
-        <div class="service__head section-shell">
-          <div>
-            <p class="section-kicker">Direkt erreichbar</p>
-            <h2>Service, Datenschutz<br>und Verantwortung.</h2>
-          </div>
-          <p>Alles Wichtige rund um dein Konto, deine Daten, Partnerschaften und sichere Meldungen an einem klaren Ort.</p>
-        </div>
-
-        <div class="service__workspace section-shell">
-          <nav class="service-links" aria-label="Kontakt und Hilfe">
-            <a href="/support/"><span>01</span><strong>Support</strong><small>Fragen zur App und zum Konto</small><b aria-hidden="true">↗</b></a>
-            <a href="/datenschutz/"><span>02</span><strong>Datenschutz</strong><small>Verarbeitung und deine Rechte</small><b aria-hidden="true">↗</b></a>
-            <a href="/partner/"><span>03</span><strong>Partnerschaften</strong><small>Ideen und Kooperationen</small><b aria-hidden="true">↗</b></a>
-            <a href="/meldestelle/"><span>04</span><strong>Meldestelle</strong><small>Probleme vertraulich melden</small><b aria-hidden="true">↗</b></a>
-          </nav>
-
-          <section class="service-faq" aria-labelledby="service-faq-title">
-            <div class="service-faq__intro">
-              <p class="section-kicker">Kurz erklärt</p>
-              <h3 id="service-faq-title">Du behältst die Kontrolle.</h3>
-            </div>
-            <div class="service-faq__items">
-              <details><summary>Öffnet eine Kennzeichensuche sofort einen Chat?</summary><p>Nein. Ein privater Chat entsteht erst, nachdem eine Kontaktanfrage angenommen wurde.</p></details>
-              <details><summary>Kann ich einen wichtigen Hinweis ohne Kontakt senden?</summary><p>Ja. Hinweise zu offenen Türen, Licht, Schäden oder Gefahren funktionieren ohne persönlichen Chat.</p></details>
-              <details><summary>Wer entscheidet über eine Kontaktanfrage?</summary><p>Die empfangende Person entscheidet selbst, ob sie eine Anfrage annimmt oder ablehnt.</p></details>
-              <details><summary>Wie schützt plaqa meine Daten?</summary><p>Öffentliche Inhalte bleiben von privaten Konto- und Sicherheitsdaten getrennt. Zusätzlich stehen Melde-, Blockier- und Löschwege bereit.</p></details>
-            </div>
-          </section>
-        </div>
-
-        <footer class="site-footer">
+        <footer class="site-footer" id="service">
           <div class="site-footer__brand">
             <img src="/assets/plaqa_logo_512.png" srcset="/assets/plaqa_logo_256.png 256w, /assets/plaqa_logo_512.png 512w" sizes="134px" alt="plaqa" width="512" height="256" loading="lazy">
             <p>Dein Kennzeichen verbindet.<br><span class="text-nowrap">Du entscheidest, mit wem.</span></p>
@@ -212,10 +172,9 @@
           </div>
           <div class="site-footer__bottom"><span>© 2026 plaqa. Alle Rechte vorbehalten.</span><span>Deutschland · Österreich · Schweiz</span></div>
         </footer>
-      </section>
     </main>
 
-    <script src="/store-links.js?v=20260827-2" defer></script>
-    <script type="module" src="/site.js?v=20260827-2"></script>
+    <script src="/store-links.js?v=20260827-9" defer></script>
+    <script type="module" src="/site.js?v=20260827-9"></script>
   </body>
 </html>

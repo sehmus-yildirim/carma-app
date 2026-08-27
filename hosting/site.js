@@ -427,14 +427,15 @@ function initializePhoneStage({reduceMotion}) {
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
-      alpha: false,
+      alpha: true,
       powerPreference: 'high-performance',
     });
+    renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.34;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
+    scene.background = null;
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
     const carousel = new THREE.Group();
     scene.add(carousel);
@@ -456,47 +457,6 @@ function initializePhoneStage({reduceMotion}) {
     lowerFill.position.set(-1, -4, 7);
     scene.add(lowerFill);
 
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(40, 24),
-      new THREE.MeshStandardMaterial({color: 0x060a10, metalness: 0.7, roughness: 0.26}),
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -3.45;
-    scene.add(floor);
-
-    const floorGrid = new THREE.GridHelper(38, 38, 0x155ec4, 0x172231);
-    floorGrid.position.y = -3.42;
-    floorGrid.material.transparent = true;
-    floorGrid.material.opacity = 0.24;
-    floorGrid.material.depthWrite = false;
-    scene.add(floorGrid);
-
-    const rearWall = new THREE.Mesh(
-      new THREE.PlaneGeometry(34, 18),
-      new THREE.MeshBasicMaterial({color: 0x03070c}),
-    );
-    rearWall.position.set(0, 4.9, -8.2);
-    scene.add(rearWall);
-
-    const horizon = new THREE.Mesh(
-      new THREE.BoxGeometry(34, 0.018, 0.025),
-      new THREE.MeshBasicMaterial({color: 0x19406d, transparent: true, opacity: 0.68}),
-    );
-    horizon.position.set(0, -0.72, -8.05);
-    scene.add(horizon);
-
-    const studioBlue = new THREE.Mesh(
-      new THREE.BoxGeometry(0.035, 11.5, 0.025),
-      new THREE.MeshBasicMaterial({color: 0x0869ff, transparent: true, opacity: 0.62}),
-    );
-    studioBlue.position.set(-8.7, 2.2, -8.02);
-    scene.add(studioBlue);
-
-    const studioOrange = studioBlue.clone();
-    studioOrange.material = new THREE.MeshBasicMaterial({color: 0xff6a1a, transparent: true, opacity: 0.55});
-    studioOrange.position.x = 9.2;
-    scene.add(studioOrange);
-
     const anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
     let carouselRadius = 5.5;
     screens.forEach((screen, index) => {
@@ -505,7 +465,7 @@ function initializePhoneStage({reduceMotion}) {
       phone.userData.carouselAngle = angle;
       phone.position.set(Math.sin(angle) * carouselRadius, -0.16, Math.cos(angle) * carouselRadius);
       phone.rotation.y = angle;
-      phone.scale.setScalar(0.72);
+      phone.scale.setScalar(0.66);
       carousel.add(phone);
     });
 
@@ -514,7 +474,7 @@ function initializePhoneStage({reduceMotion}) {
     let lastFrame = performance.now();
     let sampleTime = 0;
     let sampleFrames = 0;
-    let vectorScale = new THREE.Vector3(0.72, 0.72, 0.72);
+    let vectorScale = new THREE.Vector3(0.66, 0.66, 0.66);
     let stageVisible = true;
 
     if ('IntersectionObserver' in window) {
@@ -531,17 +491,17 @@ function initializePhoneStage({reduceMotion}) {
       renderer.setPixelRatio(pixelRatio);
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
-      camera.fov = width < 720 ? 34 : width < 1100 ? 31 : 28;
+      camera.fov = width < 720 ? 33 : width < 1100 ? 29 : 26;
       camera.updateProjectionMatrix();
-      carouselRadius = width < 720 ? 3 : width < 1100 ? 5 : 5.5;
+      carouselRadius = width < 720 ? 3.2 : width < 1100 ? 5.6 : 6.7;
       carousel.children.forEach((phone) => {
         const angle = phone.userData.carouselAngle;
         phone.position.set(Math.sin(angle) * carouselRadius, -0.16, Math.cos(angle) * carouselRadius);
       });
-      cameraBaseZ = width < 720 ? 15.5 : width < 1100 ? 18.7 : 18.4;
-      carousel.scale.setScalar(width < 720 ? 0.98 : width < 1100 ? 0.92 : 1);
-      carousel.position.x = width >= 1100 ? 1.35 : width >= 800 ? 0.65 : 0;
-      carousel.position.y = width < 720 ? -0.4 : -0.18;
+      cameraBaseZ = width < 720 ? 15.5 : width < 1100 ? 18.2 : 18.4;
+      carousel.scale.setScalar(width < 720 ? 1 : width < 1100 ? 1.02 : 1.08);
+      carousel.position.x = 0;
+      carousel.position.y = width < 720 ? 0.46 : width < 1100 ? 0.34 : 0.34;
     };
     resize();
     window.addEventListener('resize', resize);
@@ -562,7 +522,8 @@ function initializePhoneStage({reduceMotion}) {
       camera.position.set(0, 0.1, cameraBaseZ - focusProgress * 8.1);
       camera.lookAt(carousel.position.x * 0.42, -0.12, carouselRadius * focusProgress);
       carousel.children.forEach((phone, index) => {
-        const desired = 0.72 + (index === activeIndex ? focusProgress * 0.1 : 0);
+        const baseScale = window.innerWidth < 720 ? 0.72 : window.innerWidth < 1100 ? 0.58 : 0.53;
+        const desired = baseScale + (index === activeIndex ? focusProgress * 0.08 : 0);
         vectorScale.set(desired, desired, desired);
         phone.scale.lerp(vectorScale, 0.1);
       });

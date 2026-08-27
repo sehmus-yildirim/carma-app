@@ -38,6 +38,10 @@ test("premium homepage keeps the two-view navigation and accessible carousel con
   assert.match(html, /href="#start"[^>]*data-section-link>App</);
   assert.match(html, /href="#service"[^>]*data-section-link>Service</);
   assert.doesNotMatch(html, /href="#(?:faq|release|funktionen)"[^>]*data-section-link/i);
+  assert.doesNotMatch(html, /class="service__(?:head|workspace)"/);
+  assert.doesNotMatch(html, /class="service-faq"/);
+  assert.doesNotMatch(html, /class="showcase__architecture"/);
+  assert.match(html, /<footer\b[^>]*class="site-footer"[^>]*id="service"/);
   assert.match(html, /data-carousel-prev[^>]*aria-label="Vorherige App-Ansicht"/s);
   assert.match(html, /data-carousel-next[^>]*aria-label="Nächste App-Ansicht"/s);
   assert.match(html, /data-close-detail[^>]*aria-label="Detailansicht schließen"/s);

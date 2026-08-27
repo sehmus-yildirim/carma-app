@@ -139,7 +139,7 @@ test("all versioned CSS and JavaScript references share one release token", () =
       versions.add(match[1]);
     }
   }
-  assert.deepEqual([...versions], ["20260827-2"]);
+  assert.deepEqual([...versions], ["20260827-9"]);
 });
 
 test("robots and sitemap describe exactly the public URL contract", () => {
