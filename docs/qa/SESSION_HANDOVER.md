@@ -11,6 +11,8 @@ Repository: `C:\Projects\plaqa`
 - Block 2, Functions- und Firebase-Rules-Tests, ist vollständig abgeschlossen.
 - Block 3, Flutter-Integrationstests gegen lokale Firebase-Emulatoren, ist
   vollständig abgeschlossen.
+- Block 4, ausgewählte Maestro-Black-box-Flows auf dem lokalen Android-AVD, ist
+  vollständig abgeschlossen.
 - Ein bestätigter Produktfehler wurde minimal korrigiert: Die Kennzeichensuche
   respektiert nun auch in der UI die deaktivierte Monatsbegrenzung und blendet
   den Kontingentstatus im Launch-Modus aus.
@@ -23,7 +25,7 @@ Repository: `C:\Projects\plaqa`
 ## Git-Basis
 
 - Branch: `main`
-- Commit: `e6946630d47e474f731c1b7a50c46470d9c5cfd1`
+- Commit: `dd619a9e9fe3da06258cfc0d0b2ddf8d143e21fd`
 - `main` und `origin/main` waren synchron.
 - Der Arbeitsbaum enthält die bewusst noch nicht committeten Toolchain-, Test-,
   Dokumentations- und Fehlerkorrekturen dieses Blocks.
@@ -46,12 +48,18 @@ Repository: `C:\Projects\plaqa`
   sowie Registrierung und Login über die echte Flutter-Oberfläche bestanden
 - vollständige Flutter-Regression nach Block 3 mit 234 von 234 Tests bestanden
 - abschließendes `flutter analyze --no-pub` ohne Befund
-- lokale Firebase-Suite und dedizierter Test-AVD beendet; Emulatorports frei und
-  das angeschlossene Redmi nicht verwendet
+- Maestro-Kaltstart, Fehlanmeldung und vollständige Registrierung mit
+  Kennzeicheneingabe und zentraler Navigation als 3 von 3 Flows bestanden
+- gemeinsamer Maestro-Abschlusslauf in 4 Minuten 12 Sekunden bestanden
+- vollständige Flutter-Regression nach Block 4 mit 234 von 234 Tests bestanden
+- lokaler Profile-Build gegen die vollständige Firebase Emulator Suite genutzt;
+  Release-Konfiguration, Produktionsdaten und App Check blieben unverändert
+- lokale Firebase-Suite und dedizierter Test-AVD beendet; Ports 9099, 8080,
+  9199, 5001, 4400 und 9150 frei; das angeschlossene Redmi nicht verwendet
 
 ## Laufender Workstream
 
-- Keiner; Block 1 bis Block 3 sind abgeschlossen. Block 4 wurde nicht gestartet.
+- Keiner; Block 1 bis Block 4 sind abgeschlossen. Block 5 wurde nicht gestartet.
 
 ## Testergebnisse
 
@@ -62,10 +70,11 @@ Repository: `C:\Projects\plaqa`
 - Functions-Tests: `PASS` - 98/98 aus neun Testdateien
 - Firestore-/Storage-Rules-Tests: `PASS` - 104/104 aus elf Testdateien
 - Flutter-Integrationstests: `PASS` - 4/4 Dateien auf lokalem Android-AVD
-- Flutter-Gesamtregression: `PASS` - 234/234 nach Block-3-Korrektur
+- Maestro UI-Automation: `PASS` - 3/3 dauerhafte Flows in 4m 12s
+- Flutter-Gesamtregression: `PASS` - 234/234 nach Block 4
 - Website-Tests: `NOT RUN`
 - Android Debug-/Release-Build: `NOT RUN`
-- Maestro-/Mehrkonten-/echte Gerätetests: `NOT RUN`
+- Mehrkonten-/echte Gerätetests: `NOT RUN`
 - iOS-Build: `BLOCKED` bis Mac/Xcode verfügbar und freigegeben ist
 
 ## Bekannte priorisierte Risiken
@@ -82,12 +91,11 @@ Repository: `C:\Projects\plaqa`
 
 ## Nächste konkrete Aktion
 
-Den Abschluss von Block 3 gemeinsam besprechen. Erst danach und nur nach
-ausdrücklicher Fortsetzung mit Block 4 beginnen: ausgewählte Maestro-Flows auf
-der lokalen Testumgebung. Keine Mehrkonten-, echten Geräte- oder Livetests
-vorziehen.
+Den Abschluss von Block 4 gemeinsam besprechen. Erst danach und nur nach
+ausdrücklicher Fortsetzung mit Block 5 beginnen: kontrollierte Mehrkonten- und
+echte Redmi-Gerätetests mit isolierten Testdaten. Keine Livetests vorziehen.
 
 ## Erforderliche Entscheidung
 
-Der Nutzer entscheidet, wann Block 4 startet. Bis dahin werden keine weiteren
+Der Nutzer entscheidet, wann Block 5 startet. Bis dahin werden keine weiteren
 Tests, Builds, Deployments oder Veröffentlichungen gestartet.

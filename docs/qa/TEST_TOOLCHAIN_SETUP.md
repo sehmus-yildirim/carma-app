@@ -19,7 +19,8 @@ Status: 2026-08-28
 - Unit and widget tests: `test/`
 - Flutter integration tests: `integration_test/`
 - Firebase Rules tests: `test/rules/`
-- Maestro smoke flow: `.maestro/app_startup.yaml`
+- Maestro smoke flows: `.maestro/app_startup.yaml`, `.maestro/auth_error.yaml`
+  und `.maestro/registration_navigation.yaml`
 
 ## Windows environment
 
@@ -34,7 +35,7 @@ already open before setup must be restarted once.
 ## Verification status
 
 - `flutter pub get`: passed
-- `flutter analyze`: passed without findings after Block 3
+- `flutter analyze`: passed without findings after Block 4
 - Flutter unit and widget suite: 231 of 231 passed
 - Flutter coverage run: 231 of 231 passed; 19.9 percent line coverage
 - Functions syntax with isolated Node 22: 21 of 21 own JavaScript files passed
@@ -50,12 +51,19 @@ already open before setup must be restarted once.
 - Flutter integration runner: 4 of 4 files passed on the dedicated Android AVD
   against local Authentication, Firestore, and Storage emulators
 - Flutter regression after the integration fixes: 234 of 234 passed
-- Maestro launch flow: open because Maestro's internal DADB connection can
-  intermittently report an online emulator as `device offline` on Windows
+- Android profile APK with local Firebase emulator defines: built and installed
+- Profile-only cleartext access for the emulator host `10.0.2.2`: passed;
+  release manifest unchanged
+- Maestro startup, login-error, registration, plate entry, and core navigation:
+  3 of 3 flows passed in one 4 minute 12 second final run
+- Flutter regression after Block 4: 234 of 234 passed
+- Final emulator cleanup: AVD stopped and ports 9099, 8080, 9199, 5001, 4400,
+  and 9150 free
 
-The remaining Maestro item belongs to Block 4 and does not indicate a plaqa
-compile, analysis, or integration failure. Maestro 2.5.1 is pinned because newer
-Windows releases also have a known file-lock regression.
+Maestro 2.5.1 remains pinned because newer Windows releases also have a known
+file-lock regression. On this 8 GB Windows host the AVD runs with constrained
+memory and nonessential emulator background apps are stopped before long flows;
+this affects only the virtual device.
 
 ## Safety rules
 

@@ -1,0 +1,33 @@
+appId: de.plaqa.app
+name: plaqa login error smoke test
+tags:
+  - block4
+  - auth
+env:
+  TEST_EMAIL: "maestro.missing@plaqa.test"
+  TEST_PASSWORD: "Plaqa-Test-2026!"
+---
+- launchApp:
+    clearState: true
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "E-Mail-Adresse"
+    timeout: 60000
+- tapOn: "E-Mail-Adresse"
+- setClipboard: ${TEST_EMAIL}
+- tapOn: "E-Mail-Adresse"
+- pasteText
+- assertVisible: ${TEST_EMAIL}
+- tapOn: "Passwort"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Einloggen"
+    enabled: true
+- extendedWaitUntil:
+    visible: "E-Mail oder Passwort ist falsch."
+    timeout: 20000
+- assertVisible: "E-Mail oder Passwort ist falsch."
+- assertVisible: "Passwort vergessen.*"
+- assertNotVisible: "Suchen"
+- assertNotVisible: ".*isn't responding.*"

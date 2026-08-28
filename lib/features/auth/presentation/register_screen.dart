@@ -705,6 +705,7 @@ class _RegistrationLegalCard extends StatelessWidget {
           _ConsentRow(
             value: acceptedTerms,
             onChanged: onTermsChanged,
+            semanticLabel: 'AGB akzeptieren',
             text: 'Ich akzeptiere die',
             linkLabel: 'AGB.',
             onLinkPressed: onTermsPressed,
@@ -712,6 +713,7 @@ class _RegistrationLegalCard extends StatelessWidget {
           _ConsentRow(
             value: acceptedPrivacy,
             onChanged: onPrivacyChanged,
+            semanticLabel: 'Datenschutzerklärung akzeptieren',
             text: 'Ich akzeptiere die',
             linkLabel: 'Datenschutzerklärung.',
             onLinkPressed: onPrivacyPressed,
@@ -719,6 +721,7 @@ class _RegistrationLegalCard extends StatelessWidget {
           _ConsentRow(
             value: acceptedResponsibleUse,
             onChanged: onResponsibleUseChanged,
+            semanticLabel: 'Verantwortungsvolle Nutzung bestätigen',
             text: 'Ich nutze plaqa verantwortungsvoll.',
           ),
         ],
@@ -731,6 +734,7 @@ class _ConsentRow extends StatelessWidget {
   const _ConsentRow({
     required this.value,
     required this.onChanged,
+    required this.semanticLabel,
     required this.text,
     this.linkLabel,
     this.onLinkPressed,
@@ -738,6 +742,7 @@ class _ConsentRow extends StatelessWidget {
 
   final bool value;
   final ValueChanged<bool> onChanged;
+  final String semanticLabel;
   final String text;
   final String? linkLabel;
   final VoidCallback? onLinkPressed;
@@ -755,6 +760,7 @@ class _ConsentRow extends StatelessWidget {
               scale: 0.88,
               child: Checkbox(
                 value: value,
+                semanticLabel: semanticLabel,
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 activeColor: CaRismaDesignTokens.bluePrimary,

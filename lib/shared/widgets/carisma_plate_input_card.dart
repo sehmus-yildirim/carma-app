@@ -306,52 +306,58 @@ class _PlateInputField extends StatelessWidget {
               selectionHandleColor: Colors.transparent,
             ),
           ),
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            enabled: enabled,
-            maxLength: maxLength,
-            keyboardType: TextInputType.text,
-            textInputAction: textInputAction,
-            textAlign: TextAlign.center,
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: inputFormatters,
-            onChanged: onChanged,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: CaRismaDesignTokens.textPrimary,
-              fontWeight: FontWeight.w900,
-              fontSize: 23,
-              letterSpacing: 0.8,
-            ),
-            decoration: InputDecoration(
-              counterText: '',
-              filled: true,
-              fillColor: CaRismaDesignTokens.controlSurface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 19,
+          child: Semantics(
+            label: '$label Kennzeichenfeld',
+            textField: true,
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: enabled,
+              maxLength: maxLength,
+              keyboardType: TextInputType.text,
+              textInputAction: textInputAction,
+              textAlign: TextAlign.center,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: inputFormatters,
+              onChanged: onChanged,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: CaRismaDesignTokens.textPrimary,
+                fontWeight: FontWeight.w900,
+                fontSize: 23,
+                letterSpacing: 0.8,
               ),
-              disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.065,
+              decoration: InputDecoration(
+                counterText: '',
+                filled: true,
+                fillColor: CaRismaDesignTokens.controlSurface,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 19,
+                ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide(
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.065,
+                    ),
                   ),
                 ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.07,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide(
+                    color: CaRismaDesignTokens.textPrimary.withValues(
+                      alpha: 0.07,
+                    ),
                   ),
                 ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(
-                  color: CaRismaDesignTokens.blueBright.withValues(alpha: 0.92),
-                  width: 1.4,
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide(
+                    color: CaRismaDesignTokens.blueBright.withValues(
+                      alpha: 0.92,
+                    ),
+                    width: 1.4,
+                  ),
                 ),
               ),
             ),

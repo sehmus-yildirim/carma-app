@@ -1,8 +1,8 @@
 # plaqa Master-Test-, QA- und Release-Plan
 
 Stand: 2026-08-28
-Planbasis: `main` / `e6946630d47e474f731c1b7a50c46470d9c5cfd1`
-Status: Umsetzung begonnen; Block 1 bis Block 3 abgeschlossen
+Planbasis: `main` / `dd619a9e9fe3da06258cfc0d0b2ddf8d143e21fd`
+Status: Umsetzung begonnen; Block 1 bis Block 4 abgeschlossen
 
 ## 1. Zweck und oberstes Ziel
 
@@ -47,8 +47,9 @@ Die App darf erst als Release-Candidate bezeichnet werden, wenn die in diesem Do
 Die Live-Deployments bleiben in dieser Testphase ungeprüft. Flutter-Unit- und
 Widget-Testbasis, `flutter analyze`, Functions-Tests sowie Firestore-/Storage-
 Rules-Tests wurden am 2026-08-27 erneut verifiziert. Die vorhandenen Flutter-
-Integrationstests wurden am 2026-08-28 abgeschlossen; alle späteren Test- und
-Buildblöcke behalten bis zu ihrer tatsächlichen Ausführung den Status `NOT RUN`.
+Integrationstests und die ausgewählten Maestro-Black-box-Flows wurden am
+2026-08-28 abgeschlossen; alle späteren Test- und Buildblöcke behalten bis zu
+ihrer tatsächlichen Ausführung den Status `NOT RUN`.
 
 ## 4. Architekturübersicht
 
@@ -148,7 +149,7 @@ Buildblöcke behalten bis zu ihrer tatsächlichen Ausführung den Status `NOT RU
 - Vorhanden: `flutter_test`, `test`, Firebase Rules Unit Testing und Firebase Emulator Suite
 - Eingerichtet: Flutter `integration_test`
 - Bei konkretem Bedarf zu prüfen: `mocktail` und `fake_async`
-- Optional: Maestro für Black-box-Smoke-Tests
+- Eingerichtet: Maestro 2.5.1 für ausgewählte Black-box-Smoke-Tests
 - Manuell: Flutter DevTools und Android Profiler
 - CI: GitHub Actions oder eine vergleichbare vorhandene Plattform
 - Optional kostenpflichtig: Firebase Test Lab für Gerätefragmentierung
@@ -260,7 +261,7 @@ plaqa gilt nur dann als Release-Candidate, wenn ein benannter Commit vollständi
 
 ## 20. Aktueller Ausführungsstand
 
-Am 2026-08-28 wurden Block 1 bis Block 3 der Testausführung abgeschlossen:
+Am 2026-08-28 wurden Block 1 bis Block 4 der Testausführung abgeschlossen:
 
 - 40 vorhandene Flutter-Testdateien inventarisiert
 - Ausgangslauf: 207 von 207 Tests bestanden
@@ -289,8 +290,20 @@ Am 2026-08-28 wurden Block 1 bis Block 3 der Testausführung abgeschlossen:
   alleiniger Besitzer der Bereitstellung
 - vollständige Flutter-Regression nach der Korrektur: 234 von 234 Tests
   bestanden; `flutter analyze --no-pub` ohne Befund
+- drei dauerhafte Maestro-Flows auf dem dedizierten Android-AVD gegen die
+  vollständige lokale Firebase Emulator Suite bestanden: App-Kaltstart,
+  verständlicher Fehlanmeldungszustand sowie Registrierung mit Einwilligungen,
+  Kennzeicheneingabe und Navigation durch Profil, Chats, Melden und Einstellungen
+- abschließender gemeinsamer Maestro-Lauf: 3 von 3 Flows in 4 Minuten 12 Sekunden
+- Profile-APK ausschließlich für lokale Emulatorprüfungen mit
+  `PLAQA_USE_FIREBASE_EMULATORS=true` und Host `10.0.2.2`; die
+  Release-Netzwerksicherheit wurde nicht gelockert
+- erneute Abschlussregression nach Block 4: 234 von 234 Flutter-Tests bestanden,
+  `flutter analyze --no-pub` ohne Befund
+- Firebase-Suite und Test-AVD kontrolliert beendet; Ports 9099, 8080, 9199,
+  5001, 4400 und 9150 frei; das angeschlossene Redmi blieb unberührt
 
-Maestro-, Mehrkonten-, echte Geräte- und Livetests wurden noch nicht gestartet.
-Der nächste Block beginnt erst nach gemeinsamer Besprechung und ausdrücklicher
+Mehrkonten-, echte Geräte- und Livetests wurden noch nicht gestartet. Der
+nächste Block beginnt erst nach gemeinsamer Besprechung und ausdrücklicher
 Fortsetzung durch den Nutzer. Es wurde nichts deployt, hochgeladen oder
 veröffentlicht.

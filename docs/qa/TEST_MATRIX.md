@@ -10,7 +10,7 @@ Branch: `main`
 | 1 | Flutter Unit- und Widget-Tests | PASS | 231/231 Tests, Analyze ohne Befund |
 | 2 | Functions- und Rules-Tests im Emulator | PASS | 98/98 Functions-Tests, 104/104 Rules-Tests |
 | 3 | Flutter-Integrationstests | PASS | 4/4 Integrationsdateien; 234/234 Flutter-Regressionstests |
-| 4 | Maestro UI-Automation | NOT RUN | Noch nicht gestartet |
+| 4 | Maestro UI-Automation | PASS | 3/3 Flows in 4m 12s; 234/234 Flutter-Regressionstests |
 | 5 | Mehrkonten- und echte Gerätetests | NOT RUN | Noch nicht gestartet |
 
 ## Block 1
@@ -77,11 +77,37 @@ Der UI-Ablauf deckt ein einzelnes künstliches Konto ab. Mehrkonten-, Push-,
 App-Check-Metrik-, native Geräte- und produktive Backendprüfungen gehören nicht
 zu Block 3 und bleiben in den späteren Blöcken offen.
 
+## Block 4
+
+Laufzeitumgebung: Maestro CLI 2.5.1, dedizierter Android-AVD
+`plaqa_pixel_6_api_35`, Profile-APK und vollständige lokale Firebase Emulator
+Suite mit Authentication, Functions, Firestore und Storage. Die App erhielt die
+lokalen Defines `PLAQA_USE_FIREBASE_EMULATORS=true` und
+`PLAQA_FIREBASE_EMULATOR_HOST=10.0.2.2`. Klartextzugriff ist nur im Android-
+Profile-Manifest erlaubt; die Release-Konfiguration blieb unverändert. Das
+angeschlossene Redmi wurde nicht verwendet.
+
+| ID | Bereich | Testart | Ergebnis | Status |
+|---|---|---|---|---|
+| MST-START-001 | Frischer App-Start | Maestro Black-box | Anmeldung innerhalb von 60 Sekunden sichtbar; keine Null-, Layout- oder ANR-Meldung | PASS |
+| MST-AUTH-001 | Fehlanmeldung | Maestro Black-box/Firebase Auth Emulator | Eingabe bestätigt; sichere Meldung `E-Mail oder Passwort ist falsch.`; keine Navigation | PASS |
+| MST-REGISTER-001 | Registrierung und Kernnavigation | Maestro Black-box/Firebase Emulator Suite | Ein Konto, 3 Einwilligungen, Profilanlage, Kennzeichen `HH CR 2026`, Profil, Chats, Melden und Einstellungen bestanden | PASS |
+| MST-SUITE-001 | Abschlusslauf aller Flows | Maestro Black-box | 3/3 Flows in 4m 12s bestanden | PASS |
+| FL-REGRESSION-003 | Vollständige Flutter-Regression | Unit/Widget | 234/234 bestanden | PASS |
+| FL-ANALYZE-003 | Flutter Analyze | Statisch | Keine Befunde | PASS |
+| MST-CLOSE-001 | Lokale Testumgebung | Abschlusskontrolle | Firebase-Suite und AVD beendet; Ports 9099, 8080, 9199, 5001, 4400 und 9150 frei; Redmi unberührt | PASS |
+
+Der optionale Android-Dialog `No thanks` war im Abschlusslauf nicht vorhanden
+und wurde deshalb erwartungsgemäß als optionale Warnung protokolliert. Das ist
+kein Produktfehler. Mehrkonten-, Push-, App-Check-, Kamera-, GPS-, Performance-
+und echte Gerätetests bleiben Bestandteil von Block 5.
+
 ## Abgrenzung
 
 Block 1 prüft isolierte Dart-Logik und Flutter-Widgets. Block 2 prüft Functions
 und Firebase-Regeln reproduzierbar mit künstlichen lokalen Emulator-Daten. Block
 3 prüft die vorhandenen Flutter-Integrationsabläufe mit einem künstlichen Konto.
-Keiner dieser Blöcke ist ein Nachweis für echte Mehrkonten-, Geräte- oder
-produktive Backend-Abläufe. Diese Nachweise folgen ausschließlich in den späteren,
-getrennten Blöcken.
+Block 4 bedient ausgewählte Kernreisen als Black-box über die gerenderte
+Android-Oberfläche. Keiner dieser Blöcke ist ein Nachweis für echte Mehrkonten-,
+Geräte- oder produktive Backend-Abläufe. Diese Nachweise folgen ausschließlich
+in den späteren, getrennten Blöcken.
