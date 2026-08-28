@@ -1,0 +1,7 @@
+appId: de.plaqa.app
+name: plaqa startup smoke test
+---
+- launchApp
+- waitForAnimationToEnd
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"

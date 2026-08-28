@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/models/search_credit.dart';
 import '../../../shared/plate/plate_country_config.dart';
 import '../../../shared/plate/plate_speech_parser.dart';
@@ -111,7 +112,10 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
     return _position != null && !_isLoadingLocation && _hasSearchCredit;
   }
 
-  bool get _hasSearchCredit => _searchCredit?.hasRemaining ?? false;
+  bool get _hasSearchCredit {
+    return !CaRismaAppConfig.enforceMonthlyContactRequestLimit ||
+        (_searchCredit?.hasRemaining ?? false);
+  }
 
   @override
   void initState() {
@@ -1050,12 +1054,14 @@ class _SearchFormCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _SearchCreditStatus(
-            searchCredit: searchCredit,
-            isLoading: isLoadingSearchCredit,
-            errorMessage: searchCreditError,
-          ),
-          const SizedBox(height: 16),
+          if (CaRismaAppConfig.enforceMonthlyContactRequestLimit) ...[
+            _SearchCreditStatus(
+              searchCredit: searchCredit,
+              isLoading: isLoadingSearchCredit,
+              errorMessage: searchCreditError,
+            ),
+            const SizedBox(height: 16),
+          ],
           _PlateSegmentFields(
             config: config,
             regionController: regionController,

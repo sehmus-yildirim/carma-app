@@ -63,4 +63,19 @@ void main() {
     expect(brandCard, contains('alignment: Alignment.center'));
     expect(brandCard, isNot(contains('decoration: BoxDecoration')));
   });
+
+  test('plate search screen follows the disabled launch quota', () {
+    final source = File(
+      'lib/features/plate_search/presentation/plate_search_screen.dart',
+    ).readAsStringSync();
+
+    expect(
+      source,
+      contains('!CaRismaAppConfig.enforceMonthlyContactRequestLimit ||'),
+    );
+    expect(
+      source,
+      contains('if (CaRismaAppConfig.enforceMonthlyContactRequestLimit) ...['),
+    );
+  });
 }

@@ -11,12 +11,7 @@ import '../../../shared/widgets/carisma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../legal/presentation/privacy_policy_screen.dart';
 import '../../legal/presentation/terms_screen.dart';
-import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
-import '../data/legal_consent_repository.dart';
-import '../data/user_profile_repository.dart';
-import '../data/search_credit_repository.dart';
-import '../domain/registration_legal_consent_builder.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
@@ -36,12 +31,6 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final AuthService _authService = AuthService();
-  final UserProfileRepository _userProfileRepository = UserProfileRepository();
-  final ProfileRepository _profileRepository = ProfileRepository();
-  final LegalConsentRepository _legalConsentRepository =
-      LegalConsentRepository();
-  final SearchCreditRepository _searchCreditRepository =
-      SearchCreditRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -109,25 +98,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = value.trim();
 
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
-  }
-
-  Future<void> _prepareFirestoreUser(User user) async {
-    await _userProfileRepository.createProfileForUser(user);
-    await _profileRepository.createProfileIfMissing(user);
-    await _searchCreditRepository.createSearchCreditIfMissing(userId: user.uid);
-  }
-
-  Future<int> _saveRegistrationConsents(User user) async {
-    final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
-      userId: user.uid,
-    );
-
-    await _legalConsentRepository.saveRegistrationConsents(
-      userId: user.uid,
-      consents: legalConsents,
-    );
-
-    return legalConsents.length;
   }
 
   Future<void> _submitRegister() async {
@@ -213,17 +183,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       final verificationMessage = await _sendVerificationEmailIfNeeded(user);
-      await _prepareFirestoreUser(user);
-      final consentCount = await _saveRegistrationConsents(user);
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _successMessage =
-            'Konto erstellt. $consentCount Zustimmungen wurden gespeichert.'
-            '$verificationMessage';
+        _successMessage = 'Konto erstellt.$verificationMessage';
       });
 
       ScaffoldMessenger.of(
@@ -301,16 +267,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
 
-      await _prepareFirestoreUser(user);
-      final consentCount = await _saveRegistrationConsents(user);
-
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _successMessage =
-            'Google-Registrierung erfolgreich. $consentCount Zustimmungen wurden gespeichert.';
+        _successMessage = 'Google-Registrierung erfolgreich.';
       });
 
       ScaffoldMessenger.of(
@@ -383,13 +345,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         throw FirebaseAuthException(code: 'missing-user');
       }
 
-      await _prepareFirestoreUser(user);
-      final consentCount = await _saveRegistrationConsents(user);
       if (!mounted) return;
 
       setState(() {
-        _successMessage =
-            'Apple-Registrierung erfolgreich. $consentCount Zustimmungen wurden gespeichert.';
+        _successMessage = 'Apple-Registrierung erfolgreich.';
       });
       ScaffoldMessenger.of(
         context,

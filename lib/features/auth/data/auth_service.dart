@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../../shared/firebase/firebase_emulator_configuration.dart';
 import '../../../shared/notifications/push_notification_service.dart';
 
 enum AuthLoginProvider { password, google, apple, unknown }
@@ -150,6 +151,11 @@ class AuthService implements AccountAuthGateway {
   }
 
   Future<void> sendPasswordResetEmail({required String email}) async {
+    if (kPlaqaUseFirebaseEmulators) {
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+      return;
+    }
+
     try {
       await _firebaseFunctions
           .httpsCallable('sendBrandedPasswordResetEmail')
@@ -164,6 +170,12 @@ class AuthService implements AccountAuthGateway {
       throw FirebaseAuthException(code: 'missing-user');
     }
     await user.getIdToken(true);
+
+    if (kPlaqaUseFirebaseEmulators) {
+      await user.sendEmailVerification();
+      return;
+    }
+
     try {
       await _firebaseFunctions
           .httpsCallable('sendBrandedEmailVerification')

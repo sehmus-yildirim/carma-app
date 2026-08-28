@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'app/carisma_app.dart';
 import 'firebase_options.dart';
 import 'features/settings/data/app_runtime_preferences.dart';
+import 'shared/firebase/firebase_emulator_configuration.dart';
 import 'shared/notifications/push_notification_service.dart';
 
 Future<void> main() async {
@@ -25,15 +26,21 @@ Future<void> main() async {
   }
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await _activateAppCheck();
-  FirebaseMessaging.onBackgroundMessage(
-    plaqaFirebaseMessagingBackgroundHandler,
-  );
+  if (kPlaqaUseFirebaseEmulators) {
+    await connectToFirebaseEmulators();
+  } else {
+    await _activateAppCheck();
+    FirebaseMessaging.onBackgroundMessage(
+      plaqaFirebaseMessagingBackgroundHandler,
+    );
+  }
 
   runApp(const CaRismaApp());
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    unawaited(PushNotificationService.instance.initialize());
-  });
+  if (!kPlaqaUseFirebaseEmulators) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(PushNotificationService.instance.initialize());
+    });
+  }
 }
 
 Future<void> _activateAppCheck() async {

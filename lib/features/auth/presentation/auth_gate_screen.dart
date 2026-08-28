@@ -273,6 +273,24 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   }
 
   Future<void> _ensureAuthenticatedUserIsReady(User user) async {
+    for (var attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await _provisionAuthenticatedUser(user);
+        return;
+      } on FirebaseException catch (error) {
+        final isLastAttempt = attempt == 2;
+        final isRetryable =
+            error.code == 'unavailable' || error.code == 'deadline-exceeded';
+        if (!isRetryable || isLastAttempt) {
+          rethrow;
+        }
+
+        await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
+      }
+    }
+  }
+
+  Future<void> _provisionAuthenticatedUser(User user) async {
     await _userProfileRepository.createProfileForUser(user);
     await _profileRepository.createProfileIfMissing(user);
     await _searchCreditRepository.createSearchCreditIfMissing(userId: user.uid);

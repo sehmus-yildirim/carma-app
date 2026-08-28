@@ -8,11 +8,8 @@ import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
 import '../../../shared/widgets/carisma_social_auth_button.dart';
 import '../../../shared/widgets/glass_card.dart';
-import '../../profile/data/profile_repository.dart';
 import '../data/auth_service.dart';
 import '../data/mfa_service.dart';
-import '../data/user_profile_repository.dart';
-import '../data/search_credit_repository.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import 'mfa_screens.dart';
 
@@ -37,10 +34,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
   final FirebaseMfaService _mfaService = FirebaseMfaService();
-  final UserProfileRepository _userProfileRepository = UserProfileRepository();
-  final ProfileRepository _profileRepository = ProfileRepository();
-  final SearchCreditRepository _searchCreditRepository =
-      SearchCreditRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -86,12 +79,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isValidEmail(String value) {
     final email = value.trim();
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
-  }
-
-  Future<void> _prepareFirestoreUser(User user) async {
-    await _userProfileRepository.createProfileForUser(user);
-    await _profileRepository.createProfileIfMissing(user);
-    await _searchCreditRepository.createSearchCreditIfMissing(userId: user.uid);
   }
 
   Future<void> _submitLogin() async {
@@ -140,8 +127,6 @@ class _LoginScreenState extends State<LoginScreen> {
           message: 'Das Benutzerkonto konnte nicht geladen werden.',
         );
       }
-
-      await _prepareFirestoreUser(user);
 
       if (!mounted) {
         return;
@@ -237,8 +222,6 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      await _prepareFirestoreUser(user);
-
       if (!mounted) {
         return;
       }
@@ -325,7 +308,6 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      await _prepareFirestoreUser(user);
       if (!mounted) return;
 
       setState(() {
@@ -398,7 +380,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user == null) {
         throw FirebaseAuthException(code: 'missing-user');
       }
-      await _prepareFirestoreUser(user);
       if (!mounted) return;
 
       setState(() {
