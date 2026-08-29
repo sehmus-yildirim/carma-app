@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const {readFileSync} = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 const {
@@ -218,6 +220,71 @@ test("account cleanup removes or anonymizes cross-owner social data", async () =
   assert.equal(comment.isDeleted, true);
 });
 
+test("cross-owner cleanup resumes bounded pages after a failed batch", async () => {
+  const initialDocuments = {};
+  for (let index = 0; index < 425; index += 1) {
+    const postId = String(index).padStart(3, "0");
+    initialDocuments[
+      `users/owner/social_posts/post-${postId}/likes/user-1`
+    ] = {userId: "user-1"};
+  }
+  const firestore = fakeIndexedFirestore(initialDocuments, {
+    failCommitAt: 2,
+  });
+
+  await assert.rejects(
+    cleanupCrossOwnerSocialData({
+      firestore,
+      userId: "user-1",
+      pseudonym: "deleted_hash",
+      now,
+    }),
+    /simulated batch failure/,
+  );
+  await cleanupCrossOwnerSocialData({
+    firestore,
+    userId: "user-1",
+    pseudonym: "deleted_hash",
+    now,
+  });
+
+  const remainingLikes = [...firestore.documents.values()]
+    .filter((document) => document.userId === "user-1");
+  assert.equal(remainingLikes.length, 0);
+  assert.equal(
+    firestore.queryPageSizes.every((size) => size <= 200),
+    true,
+  );
+  assert.equal(firestore.queryPageSizes.includes(200), true);
+  assert.equal(firestore.commitAttempts >= 4, true);
+});
+
+test("account deletion collection-group indexes are configured", () => {
+  const indexConfiguration = JSON.parse(readFileSync(
+    path.join(__dirname, "..", "firestore.indexes.json"),
+    "utf8",
+  ));
+  const requiredIndexes = new Map([
+    ["likes", "userId"],
+    ["comments", "authorUserId"],
+    ["replies", "authorUserId"],
+    ["reactions", "userId"],
+    ["reports", "reporterUserId"],
+  ]);
+
+  for (const [collectionGroup, fieldPath] of requiredIndexes) {
+    const override = indexConfiguration.fieldOverrides.find((candidate) =>
+      candidate.collectionGroup === collectionGroup &&
+      candidate.fieldPath === fieldPath,
+    );
+    assert.ok(override, `missing ${collectionGroup}.${fieldPath} index`);
+    assert.deepEqual(override.indexes, [{
+      order: "ASCENDING",
+      queryScope: "COLLECTION_GROUP",
+    }]);
+  }
+});
+
 test("account cleanup deletes both public encounter mirrors", async () => {
   const encounterPath = "vehicle_encounters/encounter-1";
   const initiatorMirror =
@@ -247,6 +314,15 @@ function fakeCleanupFirestore(recursivelyDeleted) {
   const emptySnapshot = {docs: []};
   const query = {
     where() {
+      return this;
+    },
+    orderBy() {
+      return this;
+    },
+    limit() {
+      return this;
+    },
+    startAfter() {
       return this;
     },
     async get() {
@@ -282,8 +358,11 @@ function fakeCleanupFirestore(recursivelyDeleted) {
   };
 }
 
-function fakeIndexedFirestore(initialDocuments) {
+function fakeIndexedFirestore(initialDocuments, {failCommitAt} = {}) {
   const documents = new Map(Object.entries(initialDocuments));
+  const queryPageSizes = [];
+  let commitAttempts = 0;
+  let pendingCommitFailure = failCommitAt;
 
   function reference(path) {
     return {path};
@@ -293,6 +372,8 @@ function fakeIndexedFirestore(initialDocuments) {
     let field;
     let operator;
     let expected;
+    let maximumResults = Number.POSITIVE_INFINITY;
+    let cursorPath = "";
     return {
       where(nextField, nextOperator, nextExpected) {
         field = nextField;
@@ -300,25 +381,49 @@ function fakeIndexedFirestore(initialDocuments) {
         expected = nextExpected;
         return this;
       },
+      orderBy() {
+        return this;
+      },
+      limit(nextMaximumResults) {
+        maximumResults = nextMaximumResults;
+        return this;
+      },
+      startAfter(document) {
+        cursorPath = document.ref.path;
+        return this;
+      },
       async get() {
         const docs = [];
-        for (const [path, data] of documents) {
+        const sortedDocuments = [...documents.entries()]
+          .sort(([leftPath], [rightPath]) =>
+            leftPath.localeCompare(rightPath),
+          );
+        for (const [path, data] of sortedDocuments) {
           if (!predicate(path)) continue;
+          if (cursorPath.length > 0 && path.localeCompare(cursorPath) <= 0) {
+            continue;
+          }
           const value = data[field];
           const matches = operator === "array-contains" ?
             Array.isArray(value) && value.includes(expected) :
             value === expected;
           if (matches) {
             docs.push({id: path.split("/").at(-1), ref: reference(path), data: () => data});
+            if (docs.length === maximumResults) break;
           }
         }
-        return {docs};
+        queryPageSizes.push(docs.length);
+        return {docs, empty: docs.length === 0};
       },
     };
   }
 
   return {
     documents,
+    queryPageSizes,
+    get commitAttempts() {
+      return commitAttempts;
+    },
     collection(name) {
       return queryFor((path) => {
         const parts = path.split("/");
@@ -345,6 +450,11 @@ function fakeIndexedFirestore(initialDocuments) {
           }));
         },
         async commit() {
+          commitAttempts += 1;
+          if (commitAttempts === pendingCommitFailure) {
+            pendingCommitFailure = null;
+            throw new Error("simulated batch failure");
+          }
           for (const mutation of mutations) mutation();
         },
       };

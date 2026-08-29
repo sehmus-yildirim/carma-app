@@ -1,5 +1,9 @@
 const {createHash, randomUUID} = require("node:crypto");
-const {FieldValue, Timestamp} = require("firebase-admin/firestore");
+const {
+  FieldPath,
+  FieldValue,
+  Timestamp,
+} = require("firebase-admin/firestore");
 const {HttpsError} = require("firebase-functions/v2/https");
 
 const recentAuthenticationWindowSeconds = 5 * 60;
@@ -275,39 +279,22 @@ async function cleanupCrossOwnerSocialData({
   pseudonym,
   now,
 }) {
-  const [likes, comments, replies, reactions, reports] = await Promise.all([
-    uniqueQueryDocuments([
-      firestore.collectionGroup("likes").where("userId", "==", userId),
-    ]),
-    uniqueQueryDocuments([
-      firestore.collectionGroup("comments")
-        .where("authorUserId", "==", userId),
-    ]),
-    uniqueQueryDocuments([
-      firestore.collectionGroup("replies")
-        .where("authorUserId", "==", userId),
-    ]),
-    uniqueQueryDocuments([
-      firestore.collectionGroup("reactions").where("userId", "==", userId),
-    ]),
-    uniqueQueryDocuments([
-      firestore.collectionGroup("reports")
-        .where("reporterUserId", "==", userId),
-    ]),
-  ]);
   const timestamp = Timestamp.fromDate(now);
-  const mutations = [];
 
-  for (const document of [...likes, ...reactions]) {
-    mutations.push({type: "delete", reference: document.ref});
-  }
-  for (const document of reports) {
-    if (document.ref.path.includes("/social_posts/")) {
-      mutations.push({type: "delete", reference: document.ref});
-    }
-  }
-  for (const document of [...comments, ...replies]) {
-    mutations.push({
+  await processQueryInPages({
+    firestore,
+    query: firestore.collectionGroup("likes")
+      .where("userId", "==", userId),
+    mutationForDocument: (document) => ({
+      type: "delete",
+      reference: document.ref,
+    }),
+  });
+  await processQueryInPages({
+    firestore,
+    query: firestore.collectionGroup("comments")
+      .where("authorUserId", "==", userId),
+    mutationForDocument: (document) => ({
       type: "set",
       reference: document.ref,
       data: {
@@ -319,10 +306,69 @@ async function cleanupCrossOwnerSocialData({
         accountDeleted: true,
         updatedAt: timestamp,
       },
-    });
-  }
+    }),
+  });
+  await processQueryInPages({
+    firestore,
+    query: firestore.collectionGroup("replies")
+      .where("authorUserId", "==", userId),
+    mutationForDocument: (document) => ({
+      type: "set",
+      reference: document.ref,
+      data: {
+        authorUserId: pseudonym,
+        authorDisplayName: "Gelöschtes Konto",
+        authorPhotoUrl: "",
+        text: "",
+        isDeleted: true,
+        accountDeleted: true,
+        updatedAt: timestamp,
+      },
+    }),
+  });
+  await processQueryInPages({
+    firestore,
+    query: firestore.collectionGroup("reactions")
+      .where("userId", "==", userId),
+    mutationForDocument: (document) => ({
+      type: "delete",
+      reference: document.ref,
+    }),
+  });
+  await processQueryInPages({
+    firestore,
+    query: firestore.collectionGroup("reports")
+      .where("reporterUserId", "==", userId),
+    mutationForDocument: (document) =>
+      document.ref.path.includes("/social_posts/") ? {
+        type: "delete",
+        reference: document.ref,
+      } : null,
+  });
+}
 
-  await commitMutations(firestore, mutations);
+async function processQueryInPages({
+  firestore,
+  query,
+  mutationForDocument,
+}) {
+  let cursor = null;
+  while (true) {
+    let pageQuery = query.orderBy(FieldPath.documentId())
+      .limit(firestoreBatchSize);
+    if (cursor != null) {
+      pageQuery = pageQuery.startAfter(cursor);
+    }
+    const snapshot = await pageQuery.get();
+    if (snapshot.docs.length === 0) return;
+
+    const mutations = snapshot.docs
+      .map(mutationForDocument)
+      .filter((mutation) => mutation != null);
+    await commitMutations(firestore, mutations);
+    if (snapshot.docs.length < firestoreBatchSize) return;
+    cursor = snapshot.docs.at(-1);
+  }
 }
 
 async function cleanupVehicleEncounters({firestore, userId}) {
