@@ -1,6 +1,6 @@
 # Android Closed Testing Plan
 
-Stand: 2026-07-03
+Stand: 2026-08-29
 
 ## Test-Build
 
@@ -25,8 +25,10 @@ Bitte teste:
 
 Bekannt:
 
-- Story speichern und Testchat/Chat-Sichtbarkeit sind noch offene Blocker und werden gesondert behoben.
-- Der App-Name ist wegen möglicher Namensüberschneidungen noch nicht final.
+- Der lokale Android-Release-Smoke-Test ist bestanden; die Play-interne Spur
+  wurde noch nicht hochgeladen oder veröffentlicht.
+- Produktive Push-Zustellung und App-Check-Metriken sind noch manuell zu prüfen.
+- App-Name, Store-Angaben und Rechtstexte benötigen die finale Freigabe.
 
 ## Tester-Voraussetzungen
 
@@ -126,5 +128,8 @@ Vor breiterem Closed Testing sollten diese Punkte grün sein:
 - Profil speichern funktioniert.
 - Kennzeichen-Suche funktioniert ohne Permission-Fehler.
 - Melden funktioniert ohne Permission-Fehler.
-- Story-Speichern-Blocker ist behoben oder klar als deaktivierter Testbereich markiert.
-- Chat-Testdaten oder echte Anfrage funktionieren zuverlässig.
+- Story- und Chat-Rules-Regressionen sind bestanden.
+- Eine echte lokale Zwei-Konten-Anfrage samt Chat und Blockierung funktioniert zuverlässig.
+- Signatur, AAB, APK und echter Release-Smoke-Test sind bestanden.
+- Play-Console-Angaben und produktive Push-/App-Check-Prüfung sind vor einer
+  breiteren externen Runde freigegeben.

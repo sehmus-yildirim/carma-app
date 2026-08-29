@@ -1,6 +1,6 @@
 # Android Play Console Einreichung
 
-Stand: 2026-07-03
+Stand: 2026-08-29
 
 ## App-Identität
 
@@ -83,10 +83,13 @@ Aktuelle Android-Berechtigungen:
 - Mikrofon: Sprachnachrichten
 - Internet: Firebase und App-Funktionen
 
-Später prüfen:
+Zusätzlich im Release-Manifest geprüft:
 
 - Benachrichtigungen für Push Notifications
-- Kontakte, falls echte Telefonkontakte direkt gelesen werden
+- ausgewählte Medienzugriffe für die implementierten Bild-/Videopfade
+
+Eine direkte Kontakte-Berechtigung ist nicht enthalten. Vor Einreichung werden
+alle Erklärungen nochmals gegen das zusammengeführte Release-Manifest geprüft.
 
 ## Manuelle Play Console Schritte
 
@@ -105,10 +108,11 @@ Später prüfen:
 13. Testfeedback sammeln.
 14. Erst nach stabiler Testphase Closed Testing starten.
 
-## Noch nicht releasebereit
+## Noch nicht öffentlich releasebereit
 
-- Story-Speicherfehler muss behoben werden.
-- Chat/Testchat-Sichtbarkeit muss behoben werden.
-- Rechtstexte müssen final geprüft werden.
-- App-Name/Marke muss final entschieden werden.
-- Push Notifications sind noch offen.
+- Der lokale Android-RC-Gate ist bestanden; ein Upload in die Play Console fand
+  noch nicht statt.
+- Rechtstexte und Data-Safety-Angaben müssen final geprüft werden.
+- App-Name/Marke muss vor Store-Freigabe final bestätigt sein.
+- Produktive Push-Zustellung und App-Check-Metriken sind noch manuell zu prüfen.
+- Interne Testspur, Testerfeedback sowie Gate 7 und Gate 8 stehen noch aus.

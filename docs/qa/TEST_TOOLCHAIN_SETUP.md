@@ -78,6 +78,16 @@ already open before setup must be restarted once.
 - Push and production App Check: manual required; no live systems were changed
 - Final emulator cleanup: AVD stopped and ports 9099, 8080, 9199, 5001, 4400,
   and 9150 free
+- Android Gate 6: R8/Resource Shrinking enabled; signed AAB and APK built,
+  validated and smoke-tested as a release build on the Redmi
+- Gate-6 release APK SHA-256:
+  `9B2816A541515F53D666A854ED91622B4C8ACBAB6AC29D1C30834CAD0B496DAC`
+- Gate-6 release AAB SHA-256:
+  `1382A293107CCD27193CD0D3FFFD01A5B11BE5E5679FCD4CE89827E730B786C6`
+- Gate-6 final regression: Flutter 234/234, Functions 100/100, Rules 109/109,
+  website 30/30 and Analyze without findings
+- Original Redmi debug APK restored byte-for-byte and device locked after the
+  release smoke test
 
 Maestro 2.5.1 remains pinned because newer Windows releases also have a known
 file-lock regression. On this 8 GB Windows host the AVD runs with constrained

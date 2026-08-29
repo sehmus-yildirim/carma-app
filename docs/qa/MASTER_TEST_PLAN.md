@@ -1,8 +1,8 @@
 # plaqa Master-Test-, QA- und Release-Plan
 
 Stand: 2026-08-29
-Planbasis vor Block 5: `main` / `1cdb90afdb377082f9e50ce5d501c5b439e2fead`
-Status: Umsetzung begonnen; Block 1 bis Block 5 im lokal ausführbaren Umfang abgeschlossen
+Planbasis vor Gate 6: `main` / `3ea0dc6d212238c5e55ffb808415e831bc582117`
+Status: Umsetzung begonnen; Gate 1 bis Gate 6 im lokal ausführbaren Umfang abgeschlossen
 
 ## 1. Zweck und oberstes Ziel
 
@@ -226,7 +226,7 @@ Reproduzierbare Seeds erzeugen Nutzer A/B, unverifizierte, verifizierte, blockie
 
 ## 14. Android-Release-Strategie
 
-Paket-ID, Firebase-Client, Version, Signing und Berechtigungen werden erneut geprüft. Danach wird bewusst über R8/Resource Shrinking entschieden, ein AAB aus einem sauberen RC-Commit gebaut, Signatur und Hash werden kontrolliert und der Release-Build wird über die interne Spur auf definierten realen Geräten getestet.
+Paket-ID, Firebase-Client, Version, Signing und Berechtigungen werden erneut geprüft. Danach wird bewusst über R8/Resource Shrinking entschieden, ein AAB aus einem sauberen RC-Commit gebaut, Signatur und Hash werden kontrolliert und der Release-Build auf definierten realen Geräten getestet. Der Upload in eine interne Play-Spur bleibt ein separater, ausdrücklich freizugebender externer Schritt.
 
 ## 15. iOS-Strategie
 
@@ -263,7 +263,7 @@ plaqa gilt nur dann als Release-Candidate, wenn ein benannter Commit vollständi
 ## 20. Aktueller Ausführungsstand
 
 Am 2026-08-28 wurden Block 1 bis Block 4 und am 2026-08-29 der lokal
-ausführbare Umfang von Block 5 abgeschlossen:
+ausführbare Umfang von Block 5 sowie Gate 6 abgeschlossen:
 
 - 40 vorhandene Flutter-Testdateien inventarisiert
 - Ausgangslauf: 207 von 207 Tests bestanden
@@ -330,3 +330,39 @@ Block 5 ist für den sicher lokal ausführbaren Mehrkonten- und Redmi-Umfang
 abgeschlossen. Push im Vorder-/Hintergrund sowie produktive App-Check-Tokens und
 -Metriken bleiben `MANUAL REQUIRED` und werden in einem ausdrücklich freigegebenen
 Staging-/Produktionsschritt geprüft. Es wurde nichts deployt oder veröffentlicht.
+
+## 21. Gate-6-Abschluss: Android Release Candidate
+
+Gate 6 wurde auf Basis von `main` / `3ea0dc6d212238c5e55ffb808415e831bc582117`
+lokal vollständig ausgeführt:
+
+- Paket-ID `de.plaqa.app`, Version `1.0.0+1`, SDK 24/36, Firebase-Projekt
+  `carma-a84e4`, OAuth-Zertifikate, Signing und Berechtigungen geprüft
+- R8, Resource Shrinking und optimiertes Resource Shrinking aktiviert
+- Release-AAB mit 70,70 MiB und SHA-256
+  `1382A293107CCD27193CD0D3FFFD01A5B11BE5E5679FCD4CE89827E730B786C6`
+- Release-APK mit 82,31 MiB und SHA-256
+  `9B2816A541515F53D666A854ED91622B4C8ACBAB6AC29D1C30834CAD0B496DAC`
+- AAB durch `bundletool 1.18.3` validiert; APK-Signatur, ein Signierer,
+  Release-Zertifikat und 16-KiB-Zip-Alignment bestätigt
+- zusammengeführtes Release-Manifest ohne `debuggable` und ohne
+  Klartextfreigabe bestätigt
+- Release-APK auf dem Redmi `2201117TY` installiert und bytegenau mit dem
+  geprüften lokalen Artefakt verglichen
+- Kaltstarts 2.439 ms direkt nach Installation, danach 612 ms und 495 ms;
+  isolierter Kontrollstart 608 ms
+- stabiler Release-Zustand mit 165.052 KB Total PSS, 246.320 KB Total RSS und
+  671 KB Swap PSS
+- Maestro-Release-Kaltstart, visuelle Login-Prüfung und isolierter Runtime-Log
+  ohne Crash, ANR, Null-Check-, RenderFlex- oder unbehandelte Flutter-Ausnahme
+- vorherige Debug-APK nach dem Test per SHA-256 bytegenau wiederhergestellt;
+  App gestoppt und Redmi gesperrt
+- frische Abschlussregression: 234/234 Flutter-Tests, Analyze ohne Befund,
+  100/100 Functions-Tests, 109/109 Rules-Tests und 30/30 Website-Tests
+- Firebase-Emulatoren beendet und Testports wieder frei
+
+Gate 6 trägt den Status `PASS LOCAL`. Der Upload in die interne Play-Spur,
+Play App Signing, Store-Angaben, produktive Push-/App-Check-Prüfungen und jede
+Veröffentlichung bleiben externe, gesondert freizugebende Schritte. Gate 7 und
+Gate 8 stehen weiterhin aus. Details stehen in
+`docs/qa/ANDROID_RELEASE_CHECKLIST.md` und `docs/qa/RELEASE_READINESS.md`.

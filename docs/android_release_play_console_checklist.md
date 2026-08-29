@@ -1,6 +1,6 @@
 # Android Release / Play Console Checkliste
 
-Stand: 2026-07-03
+Stand: 2026-08-29
 
 ## Technischer Stand
 
@@ -8,26 +8,30 @@ Stand: 2026-07-03
 - Firebase Android App: `plaqa Android`
 - Version: `1.0.0+1`
 - Release Bundle: `build/app/outputs/bundle/release/app-release.aab`
+- AAB-SHA-256: `1382A293107CCD27193CD0D3FFFD01A5B11BE5E5679FCD4CE89827E730B786C6`
 - App Icon: vorbereitet
 - Splash Screen: vorbereitet
 - Upload-Keystore: lokal erstellt, nicht im Git
-- `flutter analyze`: sauber
+- R8 und Resource Shrinking: aktiviert
+- `bundletool`, APK-Signatur und 16-KiB-Zip-Alignment: bestanden
+- Release-Smoke-Test auf Redmi/Android 13: bestanden
+- `flutter analyze`: sauber; 234/234 Flutter-Tests bestanden
 
 ## Android Permissions
 
-Aktuell im AndroidManifest:
+Im zusammengeführten Release-Manifest geprüft:
 
 - `ACCESS_FINE_LOCATION`
 - `ACCESS_COARSE_LOCATION`
 - `CAMERA`
 - `INTERNET`
 - `RECORD_AUDIO`
+- `POST_NOTIFICATIONS`
+- ausgewählte Android-13-Medienberechtigungen für die implementierten Medienpfade
 
-Noch nicht im Manifest:
-
-- Kontakte-Berechtigung. Falls echte Telefonkontakte direkt aus der Kontaktliste gelesen werden sollen, muss später geprüft werden, ob `READ_CONTACTS` nötig ist. Wenn nur ein System-Picker genutzt wird, kann es eventuell ohne diese Berechtigung bleiben.
-- Benachrichtigungen. Für Push Notifications ab Android 13 wird später `POST_NOTIFICATIONS` relevant.
-- Medien/Speicher. Aktuell nutzt die App Picker/Kamera; vor einer Play-Einreichung muss final geprüft werden, ob Android 13+ Medienberechtigungen nötig sind.
+Eine direkte Kontakte-Berechtigung ist nicht enthalten. Die endgültigen
+Play-Erklärungen werden gegen die tatsächlich genutzten System-Picker und
+App-Funktionen abgeglichen.
 
 ## Play Console: Datenschutzangaben vorbereiten
 
@@ -90,16 +94,20 @@ Empfohlener Ablauf:
 
 ## Offene Release-Risiken
 
-- Story speichern hat noch bekannten Firebase/Firestore-Blocker.
-- Testchat/Chat-Sichtbarkeit ist noch nicht final gelöst.
-- Rechtstexte sind noch nicht final juristisch geprüft.
-- App-Name/Branding ist wegen bestehender Apps mit ähnlichem Namen noch offen.
-- Push Notifications sind noch nicht final.
+- Rechtstexte und Data-Safety-Angaben sind noch nicht final fachlich/juristisch geprüft.
+- App-Name/Branding muss vor Store-Einreichung markenrechtlich freigegeben sein.
+- Produktive Push-Zustellung und App-Check-Metriken benötigen einen ausdrücklich
+  freigegebenen Staging-/Live-Gerätetest.
+- iOS- und finaler RC-Gate stehen noch aus.
 
 ## Nächste technische Schritte
 
-1. Release-App auf Gerät testen.
-2. Bekannte Story-/Chat-Blocker fixen.
-3. Play Console Store Listing vorbereiten.
-4. Datenschutzangaben final mit echten Rechtstexten abgleichen.
-5. Internen Test veröffentlichen.
+1. Play Console Store Listing vorbereiten.
+2. Datenschutzangaben final mit den tatsächlichen Funktionen und Rechtstexten abgleichen.
+3. AAB nach ausdrücklicher Freigabe in die interne Testspur hochladen.
+4. Play App Signing und Upload-Zertifikat kontrollieren.
+5. Interne Testgruppe ausrollen und Rückmeldungen dokumentieren.
+
+Der lokale Android-RC-Gate ist bestanden. Es wurde noch nichts in die Play
+Console hochgeladen oder veröffentlicht. Der vollständige Nachweis steht in
+`docs/qa/ANDROID_RELEASE_CHECKLIST.md`.

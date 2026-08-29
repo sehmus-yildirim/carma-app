@@ -5,7 +5,10 @@ class CaRismaAppConfig {
 
   static const String appName = 'plaqa';
   static const String appVersion = '1.0.0';
-  static const String buildLabel = 'Lokaler MVP';
+  static const String buildLabel = String.fromEnvironment(
+    'PLAQA_BUILD_LABEL',
+    defaultValue: kReleaseMode ? 'Release' : 'Lokaler MVP',
+  );
 
   static const String websiteUrl = 'https://plaqa.de';
   static const String authActionUrl = 'https://auth.plaqa.de/auth/action';

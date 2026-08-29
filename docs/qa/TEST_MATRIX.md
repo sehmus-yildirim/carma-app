@@ -12,6 +12,7 @@ Branch: `main`
 | 3 | Flutter-Integrationstests | PASS | 4/4 Integrationsdateien; 234/234 Flutter-Regressionstests |
 | 4 | Maestro UI-Automation | PASS | 3/3 Flows in 4m 12s; 234/234 Flutter-Regressionstests |
 | 5 | Mehrkonten- und echte Gerätetests | PASS | Lokaler/Redmi-Umfang bestanden; Push und App Check separat `MANUAL REQUIRED` |
+| 6 | Android Release Candidate | PASS LOCAL | AAB/APK signiert und validiert; Release-Smoke auf Redmi bestanden; kein Upload |
 
 ## Block 1
 
@@ -135,11 +136,44 @@ repräsentativ; die Jank-Endprüfung bleibt deshalb zusätzlich Bestandteil des
 späteren Profiler-/Release-Candidate-Blocks. Das ändert den bestandenen Block-5-
 Geräte-Smoke-Test nicht.
 
+## Gate 6
+
+Laufzeitumgebung: Flutter 3.41.7, Dart 3.11.5, Android Gradle/R8,
+`bundletool 1.18.3`, Android Build Tools und echtes Redmi `2201117TY` mit
+Android 13. Der Release-Build verwendete das lokale Upload-Zertifikat; Keystore
+und Passwörter blieben außerhalb von Git. Es wurde nichts deployt, in die Play
+Console hochgeladen oder veröffentlicht.
+
+| ID | Bereich | Testart | Ergebnis | Status |
+|---|---|---|---|---|
+| RC-ID-001 | Paket/Firebase/Version | Statisch | `de.plaqa.app`, `carma-a84e4`, `1.0.0+1`, Firebase-Zertifikatzuordnung geprüft | PASS |
+| RC-HARDEN-001 | R8 und Ressourcen | Build/Statisch | Minifizierung, Resource Shrinking und optimiertes Shrinking aktiv | PASS |
+| RC-AAB-001 | Release App Bundle | Flutter/Gradle | 70,70 MiB; SHA-256 `1382A293107CCD27193CD0D3FFFD01A5B11BE5E5679FCD4CE89827E730B786C6` | PASS |
+| RC-APK-001 | Release APK | Flutter/Gradle | 82,31 MiB; SHA-256 `9B2816A541515F53D666A854ED91622B4C8ACBAB6AC29D1C30834CAD0B496DAC` | PASS |
+| RC-BUNDLE-001 | AAB-Struktur | bundletool | Bundle validiert | PASS |
+| RC-SIGN-001 | APK/AAB-Signierung | apksigner/keytool | genau ein Signierer; erwartete Release-SHA-1 und SHA-256 | PASS |
+| RC-ALIGN-001 | APK-Alignment | zipalign | 16-KiB-Prüfung erfolgreich | PASS |
+| RC-MANIFEST-001 | Release-Manifest | AAPT/Manifest | Version, SDK 24/36 und Berechtigungen geprüft; weder debuggable noch Cleartext | PASS |
+| RC-DEVICE-001 | Release-Installation | ADB/Redmi | signierte APK installiert; installierte Datei stimmt bytegenau mit dem lokalen APK überein | PASS |
+| RC-START-001 | Release-Kaltstart | ADB | 2.439 ms nach Installation, danach 612/495 ms; isoliert 608 ms | PASS |
+| RC-MEM-001 | Release-Speicher | ADB | 165.052 KB PSS, 246.320 KB RSS, 671 KB Swap PSS | PASS |
+| RC-UI-001 | Release-Anmeldung | Maestro/visuell | Login und Registrierung sichtbar; kein Null-Check, RenderFlex oder ANR | PASS |
+| RC-LOG-001 | Release-Runtime | Logcat | kein App-Crash, ANR oder unbehandelter Flutter-/Layoutfehler | PASS |
+| RC-RESTORE-001 | Redmi-Rückbau | ADB/SHA-256 | ursprüngliche Debug-APK bytegenau wiederhergestellt; Gerät gesperrt | PASS |
+| RC-FN-001 | Functions-Abschlussregression | Node 22 | 100/100 aus zehn Dateien | PASS |
+| RC-RULES-001 | Rules-Abschlussregression | lokale Emulatoren | 109/109 aus elf Dateien; Emulatorports anschließend frei | PASS |
+| RC-WEB-001 | Website-Abschlussregression | Node/Browservertrag | 30/30 bestanden | PASS |
+| RC-ANALYZE-001 | Flutter Analyze | Statisch | keine Befunde; 49,9 Sekunden | PASS |
+| RC-FLUTTER-001 | Flutter-Gesamtregression | Unit/Widget | 234/234; Exit-Code 0 | PASS |
+| RC-PLAY-001 | Interne Play-Testspur | Externer Store-Schritt | nicht hochgeladen; gesonderte Freigabe erforderlich | MANUAL REQUIRED |
+
 ## Abgrenzung
 
 Block 1 prüft isolierte Dart-Logik und Flutter-Widgets. Block 2 prüft Functions
 und Firebase-Regeln reproduzierbar mit künstlichen lokalen Emulator-Daten. Block
 3 prüft die vorhandenen Flutter-Integrationsabläufe mit einem künstlichen Konto.
 Block 4 bedient ausgewählte Kernreisen als Black-box über die gerenderte
-Android-Oberfläche. Block 5 ergänzt lokale Mehrkontenpfade und ein echtes Redmi,
-ist aber kein Nachweis für produktive Push-, App-Check- oder Live-Backend-Abläufe.
+Android-Oberfläche. Block 5 ergänzt lokale Mehrkontenpfade und ein echtes Redmi.
+Gate 6 prüft das gehärtete, signierte Android-Release-Artefakt. Keiner dieser
+lokalen Gates ist ein Nachweis für produktive Push-, App-Check-, Store- oder
+Live-Backend-Abläufe.

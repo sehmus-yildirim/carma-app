@@ -12,7 +12,7 @@ Stand: 2026-08-29
 | BUG-006 | P1 | Lokale Functions-Tests | Die automatisch gestartete Fahrzeugbildgenerierung konnte aus dem Functions-Emulator einen externen Vertex-AI-Aufruf versuchen. | FIXED LOCAL | 100/100 Functions-Tests; authentifizierter Emulator-Aufruf in 62 ms lokal gesperrt |
 | A11Y-001 | P2 | Chat-Composer | Der sichtbare Senden-Knopf hatte keine stabile Semantics-Bezeichnung für Assistenztechnik und UI-Automation. | FIXED LOCAL | Widgettest und echter Nachrichtenaustausch auf dem Redmi bestanden |
 | OBS-001 | P1-Risiko | Firestore Rules | Einzelne erwartete Negativpfade protokollieren im Emulator weiter die Grenze von 1.000 Regelausdrücken. Der zuvor betroffene legitime Zwei-Konten-Blockierpfad ist korrigiert und reproduzierbar grün. | MONITORED | 109/109 Rules-Tests und echter Redmi-Mehrkontenpfad bestanden |
-| OBS-002 | P1-Risiko | Push/App Check | Firebase Messaging besitzt keinen lokalen Emulator; produktive Tokens, Zustellung und App-Check-Metriken wurden in Block 5 aus Sicherheitsgründen nicht verwendet. | MANUAL REQUIRED | Release-Konfiguration statisch getestet; Live-Geräteprüfung offen |
+| OBS-002 | P1-Risiko | Push/App Check | Firebase Messaging besitzt keinen lokalen Emulator; produktive Tokens, Zustellung und App-Check-Metriken wurden aus Sicherheitsgründen nicht verwendet. | MANUAL REQUIRED | Gate-6-Release-Konfiguration und Messaging-Start geprüft; Live-Geräteprüfung offen |
 
 ## BUG-001 Korrektur
 
@@ -42,12 +42,10 @@ dreimal verzögert wiederholt; Berechtigungs- und Datenfehler bleiben sichtbar.
 
 ## Offene Beobachtungen aus Block 2
 
-- `OBS-001` ist kein Anlass, Rules zu lockern. Block 3 hat keinen Fehler in den
-  geprüften legitimen Ein-Konto-Abläufen reproduziert. Im späteren
-  Mehrkontentest wird geprüft, ob legitime Zwei-Konten-Abläufe die
-  Firestore-Auswertungsgrenze erreichen. Erst ein reproduzierbarer legitimer
-  Fehler rechtfertigt eine gezielte Vereinfachung mit vollständiger Rules-
-  Regression.
+- `OBS-001` ist kein Anlass, Rules zu lockern. Die zuvor betroffene legitime
+  Zwei-Konten-Blockierung wurde in Block 5 korrigiert und auf dem Redmi sowie in
+  109/109 Rules-Tests bestätigt. Die verbleibenden Meldungen stammen aus
+  erwarteten Negativpfaden und bleiben überwacht.
 - Der Functions-Einstiegspunkt lädt 30 Exporte unter Node 22 erfolgreich, braucht
   lokal aber rund 30,3 Sekunden. Das ist ein Performancehinweis für spätere
   Deployment-/Cold-Start-Prüfungen, kein fehlgeschlagener Test.
@@ -66,3 +64,10 @@ Die Fahrzeugbild-Function beendet authentifizierte Aufrufe im lokalen Firebase-
 Functions-Emulator jetzt vor Firestore- und Vertex-Zugriffen. Produktion bleibt
 unverändert; der Schutz ist durch Unit-Tests und einen echten lokalen Callable-
 Aufruf nachgewiesen.
+
+## Gate-6-Ergebnis
+
+Gate 6 erzeugte keinen neuen Produktfehler. Signierung, R8, Resource Shrinking,
+AAB/APK-Struktur, Release-Manifest, Installation, Kaltstart, Speicherzustand und
+Release-Runtime bestanden. Die MIUI-Bestätigung beim Wiederherstellen der
+vorherigen Debug-APK war ein Gerätesicherheitsdialog und kein App-Defekt.

@@ -15,6 +15,8 @@ Repository: `C:\Projects\plaqa`
   vollständig abgeschlossen.
 - Block 5, lokale Mehrkontenabläufe und echte Gerätetests auf dem Redmi, ist im
   sicher lokal ausführbaren Umfang vollständig abgeschlossen.
+- Gate 6, gehärteter und signierter Android Release Candidate samt echtem
+  Release-Smoke-Test auf dem Redmi, ist lokal vollständig abgeschlossen.
 - Ein bestätigter Produktfehler wurde minimal korrigiert: Die Kennzeichensuche
   respektiert nun auch in der UI die deaktivierte Monatsbegrenzung und blendet
   den Kontingentstatus im Launch-Modus aus.
@@ -27,9 +29,9 @@ Repository: `C:\Projects\plaqa`
 ## Git-Basis
 
 - Branch: `main`
-- Arbeitsbasis vor Block 5: `1cdb90afdb377082f9e50ce5d501c5b439e2fead`
-- `main` und `origin/main` waren vor Block 5 synchron.
-- Die Block-5-Änderungen werden nach Abschlusskontrolle gemeinsam committet und
+- Arbeitsbasis vor Gate 6: `3ea0dc6d212238c5e55ffb808415e831bc582117`
+- `main` und `origin/main` waren vor Gate 6 synchron.
+- Die Gate-6-Änderungen werden nach Abschlusskontrolle gemeinsam committet und
   zu `origin/main` gepusht.
 
 ## Zuletzt abgeschlossen
@@ -67,10 +69,24 @@ Repository: `C:\Projects\plaqa`
   `flutter analyze --no-pub` ohne Befund
 - authentifizierter Functions-Emulator-Nachweis: lokale Fahrzeugbildgenerierung
   wird in 62 ms abgewiesen und kann keinen externen Vertex-Aufruf auslösen
+- Release-Konfiguration mit R8, Resource Shrinking und 3-GB-Gradle-Grenze auf
+  dem 8-GB-Windows-System erfolgreich gebaut
+- signiertes AAB und APK erzeugt; AAB durch `bundletool`, APK durch
+  `apksigner` und 16-KiB-`zipalign` validiert
+- Release-APK auf dem Redmi installiert, bytegenau geprüft und ohne
+  `DEBUGGABLE`-/Klartextfreigabe gestartet
+- Release-Kaltstarts 2.439/612/495 ms und isoliert 608 ms; stabiler Zustand
+  165.052 KB Total PSS und 246.320 KB Total RSS
+- Maestro-Release-Smoke-Test und isolierter Runtime-Log ohne Crash, ANR,
+  Null-Check-, RenderFlex- oder unbehandelte Flutter-Ausnahme
+- ursprüngliche Debug-APK bytegenau wiederhergestellt und Redmi gesperrt
+- Gate-6-Abschlussregression: Flutter 234/234, Functions 100/100, Rules 109/109,
+  Website 30/30 und Analyze ohne Befund
 
 ## Laufender Workstream
 
-- Keiner; Block 1 bis Block 5 sind im jeweils freigegebenen Umfang abgeschlossen.
+- Keiner; Block 1 bis Gate 6 sind im jeweils freigegebenen lokalen Umfang
+  abgeschlossen.
 
 ## Testergebnisse
 
@@ -87,8 +103,9 @@ Repository: `C:\Projects\plaqa`
 - Kamera/GPS/Lifecycle/Offline: `PASS` - echtes Redmi
 - Push-Zustellung: `MANUAL REQUIRED` - kein lokaler Messaging-Emulator
 - Produktive App-Check-Gerätevalidierung: `MANUAL REQUIRED`
-- Website-Tests: `NOT RUN`
-- Android Debug-/Release-Build: `NOT RUN`
+- Website-Tests: `PASS` - 30/30 in der Gate-6-Abschlussregression
+- Android Release-AAB/APK: `PASS` - signiert, validiert und auf Redmi geprüft
+- Android Release-Smoke: `PASS` - echtes Redmi/Android 13
 - Mehrkonten-/echte Gerätetests: `PASS` - lokaler/Redmi-Umfang
 - iOS-Build: `BLOCKED` bis Mac/Xcode verfügbar und freigegeben ist
 
@@ -99,18 +116,20 @@ Repository: `C:\Projects\plaqa`
 2. Verdächtige Onboarding-Verzweigung, die in beiden Fällen Onboarding als abgeschlossen markiert
 3. Keine CI-Pipeline
 4. Kontolöschung und Verifizierungs-Cleanup noch nicht end-to-end nachgewiesen
-5. Android-Release-Smoke-Test und iOS-Mac-Abnahme offen
+5. iOS-Mac-/Xcode-/iPhone-Abnahme offen
 6. Einzelne erwartete Rules-Negativpfade protokollieren weiterhin die Emulator-
    Grenze von 1.000 Ausdrücken; der legitime Mehrkontenpfad wurde korrigiert und
    besteht auf dem Redmi sowie in der Rules-Regression
 
 ## Nächste konkrete Aktion
 
-Den Abschluss von Block 5 gemeinsam besprechen und danach den nächsten
-freigegebenen Testblock beginnen. Produktive Push-/App-Check-Prüfungen bleiben
-getrennt und dürfen nicht stillschweigend vorgezogen werden.
+Gate 7 unter Windows vorbereiten und alle iOS-Arbeiten sauber von den später
+erforderlichen Mac-/Xcode-/iPhone-/TestFlight-Schritten abgrenzen. Produktive
+Push-/App-Check-Prüfungen und Play-Uploads bleiben getrennt und dürfen nicht
+stillschweigend vorgezogen werden.
 
 ## Erforderliche Entscheidung
 
-Der Nutzer entscheidet über den Start des nächsten Blocks und über jeden
-Staging-/Live-Test. Es wurde in Block 5 nichts deployt oder veröffentlicht.
+Der Nutzer entscheidet über den Start von Gate 7 und über jeden Store-,
+Staging- oder Live-Test. In Gate 6 wurde nichts deployt, hochgeladen oder
+veröffentlicht.
