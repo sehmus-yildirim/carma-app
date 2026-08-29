@@ -30,9 +30,9 @@ Repository: `C:\Projects\plaqa`
 
 - Branch: `main`
 - Arbeitsbasis vor Gate 6: `3ea0dc6d212238c5e55ffb808415e831bc582117`
-- `main` und `origin/main` waren vor Gate 6 synchron.
-- Die Gate-6-Änderungen werden nach Abschlusskontrolle gemeinsam committet und
-  zu `origin/main` gepusht.
+- Gate-6-Abschlusscommit:
+  `7e59e7daeb1d20ee2e9fe90f99c742fd1687e14c`
+- `main` und `origin/main` sind nach dem Gate-6-Push synchron.
 
 ## Zuletzt abgeschlossen
 
