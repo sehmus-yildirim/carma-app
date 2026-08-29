@@ -1,8 +1,8 @@
 # plaqa Master-Test-, QA- und Release-Plan
 
 Stand: 2026-08-29
-Planbasis vor Gate 6: `main` / `3ea0dc6d212238c5e55ffb808415e831bc582117`
-Status: Umsetzung begonnen; Gate 1 bis Gate 6 im lokal ausführbaren Umfang abgeschlossen
+Planbasis vor Gate 7: `main` / `3ad20157b0930e613235e112528d21c35e1860e7`
+Status: Umsetzung begonnen; Gate 1 bis Gate 7 im jeweils lokal ausführbaren Umfang abgeschlossen
 
 ## 1. Zweck und oberstes Ziel
 
@@ -363,6 +363,46 @@ lokal vollständig ausgeführt:
 
 Gate 6 trägt den Status `PASS LOCAL`. Der Upload in die interne Play-Spur,
 Play App Signing, Store-Angaben, produktive Push-/App-Check-Prüfungen und jede
-Veröffentlichung bleiben externe, gesondert freizugebende Schritte. Gate 7 und
-Gate 8 stehen weiterhin aus. Details stehen in
+Veröffentlichung bleiben externe, gesondert freizugebende Schritte. Der unter
+Windows ausführbare Teil von Gate 7 ist inzwischen abgeschlossen; Gate 8 und
+die Mac-/iPhone-Abnahme stehen weiterhin aus. Details stehen in
 `docs/qa/ANDROID_RELEASE_CHECKLIST.md` und `docs/qa/RELEASE_READINESS.md`.
+
+## 22. Gate-7-Abschluss: iOS Readiness unter Windows
+
+Gate 7 wurde auf Basis von `main` /
+`3ad20157b0930e613235e112528d21c35e1860e7` im ausdrücklich vereinbarten
+Windows-Umfang abgeschlossen:
+
+- Bundle-ID `de.plaqa.app`, App-Name `plaqa`, Version `1.0.0+1` und iOS 15.0
+  über Xcode-Projekt, Podfile und Flutter Framework konsistent
+- `GoogleService-Info.plist`, FlutterFire-Konfiguration, Google-URL-Scheme,
+  Firebase-App-, Projekt-, Sender-, Client- und Bundle-ID abgeglichen
+- fünf native Datenschutzhinweise für Kamera, Standort, Mikrofon und Fotos
+  strukturiert validiert
+- APNs-Entitlement und Xcode Push-Capability ergänzt
+- Background fetch und Remote notifications aktiviert; Firebase Method
+  Swizzling bleibt aktiv
+- Sign in with Apple in Entitlement, Xcode-Capability und FlutterFire-Code
+  nachgewiesen
+- App-Attest-Produktionsentitlement ergänzt; Release-Code verwendet App Attest
+  mit DeviceCheck-Fallback, Debug-Code den Debug-Provider
+- AppDelegate, SceneDelegate und Pluginregistrierung geprüft
+- 19 von 19 iPhone-, iPad- und Store-App-Icon-Slots mit exakten Pixelmaßen und
+  ohne Alpha-Kanal bestätigt
+- keine privaten Apple-Schlüssel, Zertifikate oder Provisioning Profiles im
+  iOS-Projekt; kein fremdes Apple-Team fest verdrahtet
+- dauerhafter Validator `npm run test:ios:windows` mit 124 von 124 Prüfungen
+  bestanden
+- frische Gate-7-Abschlussregression: 234/234 Flutter-Tests, Analyze ohne
+  Befund, 100/100 Functions-Tests, 109/109 Firestore-/Storage-Rules und 30/30
+  Website-Tests
+- Firebase-Emulatoren kontrolliert beendet; Ports 8080, 9199, 9150 und 4400
+  wieder frei
+
+Gate 7 trägt damit `PASS WINDOWS / MANUAL REQUIRED`. Apple Developer Portal,
+CocoaPods, Xcode-Build, Signing, Provisioning, endgültige Entitlements, Privacy
+Report, IPA, echte iPhone-Tests, APNs-Zustellung, App-Check-Metriken und
+TestFlight benötigen macOS beziehungsweise externe Konten. Diese Punkte stehen
+verbindlich in `docs/qa/IOS_RELEASE_CHECKLIST.md`. Es wurde nichts deployt,
+hochgeladen oder veröffentlicht.

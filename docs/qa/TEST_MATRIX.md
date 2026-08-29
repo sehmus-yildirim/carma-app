@@ -13,6 +13,7 @@ Branch: `main`
 | 4 | Maestro UI-Automation | PASS | 3/3 Flows in 4m 12s; 234/234 Flutter-Regressionstests |
 | 5 | Mehrkonten- und echte Gerätetests | PASS | Lokaler/Redmi-Umfang bestanden; Push und App Check separat `MANUAL REQUIRED` |
 | 6 | Android Release Candidate | PASS LOCAL | AAB/APK signiert und validiert; Release-Smoke auf Redmi bestanden; kein Upload |
+| 7 | iOS Readiness | PASS WINDOWS / MANUAL REQUIRED | 124/124 Konfigurationschecks; Mac/Xcode/iPhone/TestFlight offen |
 
 ## Block 1
 
@@ -167,6 +168,34 @@ Console hochgeladen oder veröffentlicht.
 | RC-FLUTTER-001 | Flutter-Gesamtregression | Unit/Widget | 234/234; Exit-Code 0 | PASS |
 | RC-PLAY-001 | Interne Play-Testspur | Externer Store-Schritt | nicht hochgeladen; gesonderte Freigabe erforderlich | MANUAL REQUIRED |
 
+## Gate 7
+
+Laufzeitumgebung: Windows 11 und PowerShell mit strukturiertem Plist-/JSON-
+Validator. Xcode, CocoaPods-Auflösung, Code Signing, IPA, iPhone und TestFlight
+sind auf Windows nicht verfügbar. Es wurde nichts hochgeladen oder
+veröffentlicht.
+
+| ID | Bereich | Testart | Ergebnis | Status |
+|---|---|---|---|---|
+| IOS-CONFIG-001 | Vollständige native Konfiguration | PowerShell/XML/JSON | 124/124 Prüfungen bestanden | PASS |
+| IOS-ID-001 | App-ID und Version | Statisch | `de.plaqa.app`, `plaqa`, `1.0.0+1` | PASS |
+| IOS-TARGET-001 | Deployment Target | Plist/Podfile/PBX | überall iOS 15.0 | PASS |
+| IOS-FIREBASE-001 | FlutterFire und Google-Service | strukturierter Plist-/Quellabgleich | Projekt-, App-, Client-, Sender- und Bundle-ID konsistent | PASS |
+| IOS-PERM-001 | Native Datenschutzhinweise | Plist | fünf benötigte Usage Descriptions vorhanden | PASS |
+| IOS-PUSH-001 | APNs/FCM | Entitlement/PBX/Plist | Push, Background fetch, Remote notifications und Swizzling korrekt vorbereitet | PASS WINDOWS |
+| IOS-APPLE-001 | Sign in with Apple | Entitlement/PBX/Dart-Inventar | Capability und Provider vorhanden | PASS WINDOWS |
+| IOS-APPCHECK-001 | App Attest | Entitlement/Dart-Inventar | Production-Entitlement und DeviceCheck-Fallback vorhanden | PASS WINDOWS |
+| IOS-ICON-001 | App-Icon-Katalog | JSON/Bildprüfung | 19/19 Slots, Maße korrekt, kein Alpha | PASS |
+| IOS-SECRET-001 | Apple-Signiermaterial | Dateiinventar | keine privaten Schlüssel, Profile oder Zertifikate im iOS-Baum | PASS |
+| IOS-FLUTTER-001 | Flutter-Gesamtregression | Unit/Widget | 234/234 bestanden | PASS |
+| IOS-ANALYZE-001 | Flutter Analyze | Statisch | keine Befunde; 172,8 Sekunden | PASS |
+| IOS-FUNCTIONS-001 | Functions-Abschlussregression | Node 22 | 100/100 bestanden | PASS |
+| IOS-RULES-001 | Rules-Abschlussregression | lokale Emulatoren | 109/109; Ports 8080, 9199, 9150 und 4400 danach frei | PASS |
+| IOS-WEB-001 | Website-Abschlussregression | Node/Browservertrag | 30/30 bestanden | PASS |
+| IOS-MAC-001 | CocoaPods/Xcode/IPA/Signing | macOS erforderlich | unter Windows nicht ausführbar | MANUAL REQUIRED |
+| IOS-DEVICE-001 | Apple Login, Push, App Check und Berechtigungen | echtes iPhone erforderlich | verbindliche Testliste erstellt | MANUAL REQUIRED |
+| IOS-STORE-001 | TestFlight/App Store Connect | Apple-Konto und Freigabe erforderlich | nicht hochgeladen | MANUAL REQUIRED |
+
 ## Abgrenzung
 
 Block 1 prüft isolierte Dart-Logik und Flutter-Widgets. Block 2 prüft Functions
@@ -174,6 +203,7 @@ und Firebase-Regeln reproduzierbar mit künstlichen lokalen Emulator-Daten. Bloc
 3 prüft die vorhandenen Flutter-Integrationsabläufe mit einem künstlichen Konto.
 Block 4 bedient ausgewählte Kernreisen als Black-box über die gerenderte
 Android-Oberfläche. Block 5 ergänzt lokale Mehrkontenpfade und ein echtes Redmi.
-Gate 6 prüft das gehärtete, signierte Android-Release-Artefakt. Keiner dieser
-lokalen Gates ist ein Nachweis für produktive Push-, App-Check-, Store- oder
-Live-Backend-Abläufe.
+Gate 6 prüft das gehärtete, signierte Android-Release-Artefakt. Gate 7 prüft die
+iOS-Vorbereitung unter Windows, ersetzt aber keinen Xcode-Build und keinen
+iPhone-/TestFlight-Test. Keiner dieser lokalen Gates ist ein Nachweis für
+produktive Push-, App-Check-, Store- oder Live-Backend-Abläufe.

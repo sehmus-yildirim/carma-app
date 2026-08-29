@@ -10,9 +10,11 @@ Stand: 2026-08-29
 | BUG-004 | P1 | Chat-Blockierung/Firestore Rules | Fehlende Follow-Dokumente und die Auswertungsreihenfolge konnten beim legitimen Blockieren die 1.000-Ausdruck-Grenze erreichen. | FIXED LOCAL | Blockierung aus beiden Kontoperspektiven und Rules-Regression bestanden |
 | BUG-005 | P1 | Story-Abfrage/Firestore Rules | Die aktive Story-Abfrage war nicht vollständig mit Ablaufbedingung und Get/List-Regeln vereinbar. | FIXED LOCAL | Story-Query-Regression und 109/109 Rules-Tests |
 | BUG-006 | P1 | Lokale Functions-Tests | Die automatisch gestartete Fahrzeugbildgenerierung konnte aus dem Functions-Emulator einen externen Vertex-AI-Aufruf versuchen. | FIXED LOCAL | 100/100 Functions-Tests; authentifizierter Emulator-Aufruf in 62 ms lokal gesperrt |
+| BUG-007 | P1 | iOS-Push/App Check | Dem iOS-Target fehlten APNs- und App-Attest-Entitlements sowie Background fetch; Push/App Check wären so nicht releasebereit gewesen. | FIXED WINDOWS / MAC VERIFY | 124/124 iOS-Konfigurationschecks; echte iPhone-Abnahme offen |
 | A11Y-001 | P2 | Chat-Composer | Der sichtbare Senden-Knopf hatte keine stabile Semantics-Bezeichnung für Assistenztechnik und UI-Automation. | FIXED LOCAL | Widgettest und echter Nachrichtenaustausch auf dem Redmi bestanden |
 | OBS-001 | P1-Risiko | Firestore Rules | Einzelne erwartete Negativpfade protokollieren im Emulator weiter die Grenze von 1.000 Regelausdrücken. Der zuvor betroffene legitime Zwei-Konten-Blockierpfad ist korrigiert und reproduzierbar grün. | MONITORED | 109/109 Rules-Tests und echter Redmi-Mehrkontenpfad bestanden |
 | OBS-002 | P1-Risiko | Push/App Check | Firebase Messaging besitzt keinen lokalen Emulator; produktive Tokens, Zustellung und App-Check-Metriken wurden aus Sicherheitsgründen nicht verwendet. | MANUAL REQUIRED | Gate-6-Release-Konfiguration und Messaging-Start geprüft; Live-Geräteprüfung offen |
+| OBS-003 | P1-Risiko | iOS-Release | Apple-Team, App-ID-Capabilities, Provisioning, APNs-Schlüssel, Privacy Report, Xcode-Archiv und TestFlight können unter Windows nicht abschließend nachgewiesen werden. | MANUAL REQUIRED | verbindliche Mac-/iPhone-Liste in `IOS_RELEASE_CHECKLIST.md` |
 
 ## BUG-001 Korrektur
 
@@ -71,3 +73,11 @@ Gate 6 erzeugte keinen neuen Produktfehler. Signierung, R8, Resource Shrinking,
 AAB/APK-Struktur, Release-Manifest, Installation, Kaltstart, Speicherzustand und
 Release-Runtime bestanden. Die MIUI-Bestätigung beim Wiederherstellen der
 vorherigen Debug-APK war ein Gerätesicherheitsdialog und kein App-Defekt.
+
+## Gate-7-Ergebnis
+
+`BUG-007` wurde ohne Änderung der App-Funktionen korrigiert: APNs, App Attest,
+Background fetch und die zugehörigen Xcode-Capability-Markierungen sind jetzt
+vorhanden. Ein dauerhafter Windows-Validator schützt 124 iOS-Annahmen. Der
+Mac-/Apple-Portal-/iPhone-Nachweis bleibt als `OBS-003` offen und darf nicht als
+bestanden gewertet werden, bevor er tatsächlich ausgeführt wurde.

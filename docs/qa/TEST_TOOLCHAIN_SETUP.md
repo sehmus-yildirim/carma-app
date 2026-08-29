@@ -28,6 +28,8 @@ Status: 2026-08-29
   `tools/block5_inspect_emulator.js`; both abort unless the expected local
   emulator hosts are explicitly configured
 - External-service guard check: `tools/block5_verify_functions_guard.js`
+- iOS Windows release validator: `tools/test_ios_release_config.ps1` über
+  `npm run test:ios:windows`
 
 ## Windows environment
 
@@ -86,6 +88,13 @@ already open before setup must be restarted once.
   `1382A293107CCD27193CD0D3FFFD01A5B11BE5E5679FCD4CE89827E730B786C6`
 - Gate-6 final regression: Flutter 234/234, Functions 100/100, Rules 109/109,
   website 30/30 and Analyze without findings
+- Gate-7 iOS Windows configuration: 124/124 checks passed for Plists,
+  entitlements, capabilities, Firebase mapping, app icons and signing hygiene
+- Gate-7 final regression: Flutter 234/234, Functions 100/100, Rules 109/109,
+  website 30/30 and Analyze without findings
+- Gate-7 emulator cleanup: ports 8080, 9199, 9150 and 4400 free
+- Xcode, CocoaPods resolution, iOS signing, IPA, iPhone and TestFlight remain
+  manual because Apple requires macOS/Xcode for the release build
 - Original Redmi debug APK restored byte-for-byte and device locked after the
   release smoke test
 

@@ -17,6 +17,8 @@ Repository: `C:\Projects\plaqa`
   sicher lokal ausführbaren Umfang vollständig abgeschlossen.
 - Gate 6, gehärteter und signierter Android Release Candidate samt echtem
   Release-Smoke-Test auf dem Redmi, ist lokal vollständig abgeschlossen.
+- Gate 7, iOS-Readiness, ist im vereinbarten Windows-Umfang vollständig
+  abgeschlossen; Mac/Xcode/iPhone/TestFlight bleiben manuell erforderlich.
 - Ein bestätigter Produktfehler wurde minimal korrigiert: Die Kennzeichensuche
   respektiert nun auch in der UI die deaktivierte Monatsbegrenzung und blendet
   den Kontingentstatus im Launch-Modus aus.
@@ -33,6 +35,8 @@ Repository: `C:\Projects\plaqa`
 - Gate-6-Abschlusscommit:
   `7e59e7daeb1d20ee2e9fe90f99c742fd1687e14c`
 - `main` und `origin/main` sind nach dem Gate-6-Push synchron.
+- Arbeitsbasis vor Gate 7:
+  `3ad20157b0930e613235e112528d21c35e1860e7`
 
 ## Zuletzt abgeschlossen
 
@@ -82,10 +86,20 @@ Repository: `C:\Projects\plaqa`
 - ursprüngliche Debug-APK bytegenau wiederhergestellt und Redmi gesperrt
 - Gate-6-Abschlussregression: Flutter 234/234, Functions 100/100, Rules 109/109,
   Website 30/30 und Analyze ohne Befund
+- iOS-Bundle-ID, Firebase-Mapping, Mindestversion, Usage Descriptions,
+  AppDelegate, SceneDelegate, Apple Login und App Check inventarisiert
+- fehlende APNs-/App-Attest-Entitlements und Background-fetch-Konfiguration
+  ergänzt; Push-, Background- und Apple-Login-Capabilities markiert
+- alle 19 iOS-App-Icon-Slots auf Datei, Pixelmaß und Alpha-Kanal geprüft
+- dauerhafter iOS-Windows-Validator mit 124/124 Prüfungen bestanden
+- vollständige Mac-/Xcode-/iPhone-/TestFlight-Übergabeliste erstellt
+- Gate-7-Abschlussregression: Flutter 234/234, Functions 100/100, Rules 109/109,
+  Website 30/30 und Analyze ohne Befund
+- Firebase-Emulatoren beendet; Ports 8080, 9199, 9150 und 4400 frei
 
 ## Laufender Workstream
 
-- Keiner; Block 1 bis Gate 6 sind im jeweils freigegebenen lokalen Umfang
+- Keiner; Block 1 bis Gate 7 sind im jeweils freigegebenen lokalen Umfang
   abgeschlossen.
 
 ## Testergebnisse
@@ -108,6 +122,13 @@ Repository: `C:\Projects\plaqa`
 - Android Release-Smoke: `PASS` - echtes Redmi/Android 13
 - Mehrkonten-/echte Gerätetests: `PASS` - lokaler/Redmi-Umfang
 - iOS-Build: `BLOCKED` bis Mac/Xcode verfügbar und freigegeben ist
+- iOS-Windows-Konfiguration: `PASS` - 124/124 Prüfungen
+- Gate-7-Flutter-Regression: `PASS` - 234/234
+- Gate-7-Functions-Regression: `PASS` - 100/100
+- Gate-7-Rules-Regression: `PASS` - 109/109
+- Gate-7-Website-Regression: `PASS` - 30/30
+- Gate-7-Analyze: `PASS` - keine Befunde
+- iOS-Mac-Build/Signing/iPhone/TestFlight: `MANUAL REQUIRED`
 
 ## Bekannte priorisierte Risiken
 
@@ -116,20 +137,19 @@ Repository: `C:\Projects\plaqa`
 2. Verdächtige Onboarding-Verzweigung, die in beiden Fällen Onboarding als abgeschlossen markiert
 3. Keine CI-Pipeline
 4. Kontolöschung und Verifizierungs-Cleanup noch nicht end-to-end nachgewiesen
-5. iOS-Mac-/Xcode-/iPhone-Abnahme offen
+5. iOS-Mac-/Xcode-/iPhone-/TestFlight-Abnahme offen; Windows-Vorbereitung grün
 6. Einzelne erwartete Rules-Negativpfade protokollieren weiterhin die Emulator-
    Grenze von 1.000 Ausdrücken; der legitime Mehrkontenpfad wurde korrigiert und
    besteht auf dem Redmi sowie in der Rules-Regression
 
 ## Nächste konkrete Aktion
 
-Gate 7 unter Windows vorbereiten und alle iOS-Arbeiten sauber von den später
-erforderlichen Mac-/Xcode-/iPhone-/TestFlight-Schritten abgrenzen. Produktive
-Push-/App-Check-Prüfungen und Play-Uploads bleiben getrennt und dürfen nicht
-stillschweigend vorgezogen werden.
+Gate 8 planen und dabei die finale Vollregression, offene P0/P1-Risiken,
+Monitoring, Rollback sowie getrennte Android-/iOS-Storefreigaben zusammenführen.
+Die Mac-/Xcode-/iPhone-Liste aus `IOS_RELEASE_CHECKLIST.md` bleibt offen.
 
 ## Erforderliche Entscheidung
 
-Der Nutzer entscheidet über den Start von Gate 7 und über jeden Store-,
-Staging- oder Live-Test. In Gate 6 wurde nichts deployt, hochgeladen oder
-veröffentlicht.
+Der Nutzer entscheidet über den Start von Gate 8 und über jeden Store-,
+Staging-, Apple-Portal- oder Live-Test. In Gate 7 wurde nichts deployt,
+hochgeladen oder veröffentlicht.

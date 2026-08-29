@@ -13,6 +13,7 @@
     "test:website:unit": "node --test --test-concurrency=1 test/website_contact_form.test.cjs test/website_hosting.test.cjs",
     "test:website:browser": "node --test --test-concurrency=1 test/website_browser.test.cjs",
     "test:website": "npm run test:website:unit && npm run test:website:browser",
+    "test:ios:windows": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/test_ios_release_config.ps1",
     "test:rules:reports": "firebase emulators:exec --project carma-a84e4 --only firestore,storage \"node --test --test-concurrency=1 test/rules/report_rules.test.cjs test/rules/report_rate_limit.test.cjs test/rules/report_cleanup.test.cjs\""
   },
   "repository": {
