@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../shared/firebase/carisma_firestore_paths.dart';
-import '../../../shared/firebase/carisma_firestore_schema.dart';
+import '../../../shared/security/trusted_firebase_media_url.dart';
 
 enum ContactRequestStatus {
   pending,
@@ -10,18 +11,6 @@ enum ContactRequestStatus {
   withdrawn,
   expired,
   blocked,
-}
-
-String _contactRequestDocumentId({
-  required String senderUserId,
-  required String countryCode,
-  required String vehicleId,
-}) {
-  return <String>[
-    senderUserId.trim(),
-    countryCode.trim().toUpperCase(),
-    vehicleId.trim(),
-  ].join('_');
 }
 
 String _contactRequestDedupeKey({
@@ -38,14 +27,6 @@ String _contactRequestDedupeKey({
     vehicleId.trim(),
     plateKey.trim().toUpperCase(),
   ].join('|');
-}
-
-FirebaseException _duplicateContactRequestException() {
-  return FirebaseException(
-    plugin: 'plaqa',
-    code: 'already-exists',
-    message: 'Fuer dieses Kennzeichen existiert bereits eine Anfrage.',
-  );
 }
 
 class ContactRequestRecord {
@@ -247,11 +228,13 @@ class ContactRequestRecord {
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data() ?? const <String, dynamic>{};
+    final senderUserId = data['senderUserId'] as String? ?? '';
+    final receiverUserId = data['receiverUserId'] as String? ?? '';
 
     return ContactRequestRecord(
       id: document.id,
-      senderUserId: data['senderUserId'] as String? ?? '',
-      receiverUserId: data['receiverUserId'] as String? ?? '',
+      senderUserId: senderUserId,
+      receiverUserId: receiverUserId,
       countryCode: data['countryCode'] as String? ?? '',
       vehicleId: data['vehicleId'] as String? ?? '',
       plateKey: data['plateKey'] as String? ?? '',
@@ -260,8 +243,14 @@ class ContactRequestRecord {
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       senderDisplayName: data['senderDisplayName'] as String?,
       receiverDisplayName: data['receiverDisplayName'] as String?,
-      senderPhotoUrl: data['senderPhotoUrl'] as String?,
-      receiverPhotoUrl: data['receiverPhotoUrl'] as String?,
+      senderPhotoUrl: trustedProfilePhotoUrl(
+        url: data['senderPhotoUrl'],
+        userId: senderUserId,
+      ),
+      receiverPhotoUrl: trustedProfilePhotoUrl(
+        url: data['receiverPhotoUrl'],
+        userId: receiverUserId,
+      ),
       displayPlate: data['displayPlate'] as String?,
       vehicleBrand: data['vehicleBrand'] as String?,
       vehicleModel: data['vehicleModel'] as String?,
@@ -327,10 +316,15 @@ abstract class ContactRequestRepository {
 }
 
 class FirestoreContactRequestRepository implements ContactRequestRepository {
-  FirestoreContactRequestRepository({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirestoreContactRequestRepository({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions =
+           functions ?? FirebaseFunctions.instanceFor(region: 'europe-west3');
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   CollectionReference<Map<String, dynamic>> get _collection {
     return _firestore.collection(CaRismaFirestoreCollections.contactRequests);
@@ -366,22 +360,6 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
               ? ContactRequestRecord.fromFirestore(snapshot)
               : null,
         );
-  }
-
-  DateTime? _expiryFromValue(Object? value) {
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
-    if (value is DateTime) {
-      return value;
-    }
-
-    if (value is String && value.isNotEmpty) {
-      return DateTime.tryParse(value);
-    }
-
-    return null;
   }
 
   Stream<List<ContactRequestRecord>> watchIncomingRequests({
@@ -462,59 +440,45 @@ class FirestoreContactRequestRepository implements ContactRequestRepository {
     final normalizedPlateKey = plateKey.trim().toUpperCase();
     final normalizedCountryCode = countryCode.trim().toUpperCase();
     final normalizedVehicleId = vehicleId.trim();
-
-    final existingRequests = await _collection
-        .where('senderUserId', isEqualTo: trimmedSenderUserId)
-        .get();
-
-    final hasExistingRequest = existingRequests.docs.any((document) {
-      final data = document.data();
-      final status = data['status'] as String?;
-      final expiresAt = _expiryFromValue(data['expiresAt']);
-      return data['receiverUserId'] == trimmedReceiverUserId &&
-          data['countryCode'] == normalizedCountryCode &&
-          data['vehicleId'] == normalizedVehicleId &&
-          data['plateKey'] == normalizedPlateKey &&
-          data['isDeleted'] != true &&
-          (expiresAt == null || expiresAt.isAfter(DateTime.now())) &&
-          (status == FirestoreContactRequestStatus.pending ||
-              status == FirestoreContactRequestStatus.accepted);
-    });
-
-    if (hasExistingRequest) {
-      throw _duplicateContactRequestException();
+    if (trimmedSenderUserId.isEmpty ||
+        trimmedReceiverUserId.isEmpty ||
+        normalizedCountryCode.isEmpty ||
+        normalizedVehicleId.isEmpty ||
+        normalizedPlateKey.isEmpty ||
+        message.trim().isEmpty) {
+      throw FirebaseException(
+        plugin: 'plaqa',
+        code: 'invalid-argument',
+        message: 'Die Kontaktanfrage ist unvollständig.',
+      );
     }
-
-    final now = DateTime.now();
-    final expiresAt = now.add(
-      const Duration(
-        minutes: FirestoreDocumentDefaults.defaultRequestExpiryMinutes,
-      ),
-    );
-    final document = _collection.doc(
-      _contactRequestDocumentId(
-        senderUserId: trimmedSenderUserId,
-        countryCode: normalizedCountryCode,
-        vehicleId: normalizedVehicleId,
-      ),
-    );
-
-    await document.set({
-      'senderUserId': trimmedSenderUserId,
-      'receiverUserId': trimmedReceiverUserId,
-      'targetUserId': trimmedReceiverUserId,
-      'countryCode': normalizedCountryCode,
-      'vehicleId': normalizedVehicleId,
-      'plateKey': normalizedPlateKey,
-      'message': message.trim(),
-      'status': FirestoreContactRequestStatus.pending,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'expiresAt': Timestamp.fromDate(expiresAt),
-      'isDeleted': false,
-    });
-
-    final snapshot = await document.get();
+    final response = await _functions
+        .httpsCallable('createContactRequest')
+        .call<Map<String, dynamic>>({
+          'targetUserId': trimmedReceiverUserId,
+          'countryCode': normalizedCountryCode,
+          'vehicleId': normalizedVehicleId,
+          'plateKey': normalizedPlateKey,
+          'requestReason': 'vehicle_question',
+          'message': message.trim(),
+        });
+    final data = Map<String, dynamic>.from(response.data);
+    final requestId = data['requestId'] as String? ?? '';
+    if (requestId.isEmpty) {
+      throw FirebaseException(
+        plugin: 'plaqa',
+        code: 'internal',
+        message: 'Die Kontaktanfrage wurde unvollständig beantwortet.',
+      );
+    }
+    final snapshot = await _collection.doc(requestId).get();
+    if (!snapshot.exists) {
+      throw FirebaseException(
+        plugin: 'plaqa',
+        code: 'not-found',
+        message: 'Die Kontaktanfrage konnte nicht geladen werden.',
+      );
+    }
     return ContactRequestRecord.fromFirestore(snapshot);
   }
 

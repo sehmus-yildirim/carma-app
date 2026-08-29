@@ -13,8 +13,8 @@ Stand: 2026-08-29
 | BUG-007 | P1 | iOS-Push/App Check | Dem iOS-Target fehlten APNs- und App-Attest-Entitlements sowie Background fetch; Push/App Check wären so nicht releasebereit gewesen. | FIXED WINDOWS / MAC VERIFY | aktuell 126/126 iOS-Konfigurationschecks; echte iPhone-Abnahme offen |
 | BUG-008 | P1 | iOS-Firebase-Zuordnung | `firebase.json` verwendete für iOS irrtümlich die macOS-Firebase-App-ID. | FIXED LOCAL / MAC VERIFY | 126/126 iOS-Windows-Prüfungen vergleichen jetzt JSON und Plist |
 | BUG-009 | P1 | Onboarding | Neue Konten galten sofort als onboarded; der Ablauf war nicht dauerhaft an den Profilzustand gebunden. | FIXED LOCAL | drei neue Onboardingtests; 237/237 Flutter-Regression |
-| SEC-001 bis SEC-005 | P0 Release | Datenschutz/Kosten/Löschung | Standorttriangulation, vervielfachbare KI-Quote, Orphan-Uploads und unvollständige Fremdpfad-Löschung. | OPEN / PUBLIC NO-GO | versiegelter Gate-8-Security-Scan; Behebung und Regression erforderlich |
-| SEC-006 bis SEC-011 | P1 Release | Missbrauch/Medien/Zugriff | Kontaktlimits/-schema, ungebundene Medien-URLs, native URI-Sinks, Profilfotozugriff und View-Zähler. | OPEN / PUBLIC NO-GO | vor Release beheben oder formal befristet akzeptieren |
+| SEC-001 bis SEC-005 | P0 Release | Datenschutz/Kosten/Löschung | Standorttriangulation, vervielfachbare KI-Quote, Orphan-Uploads und unvollständige Fremdpfad-Löschung. | FIXED LOCAL | High-Security-Remediation, Regression und nachgelagerte Diff-Scans bestanden |
+| SEC-006 bis SEC-011 | P1 Release | Missbrauch/Medien/Zugriff | Kontaktlimits/-schema, ungebundene Medien-URLs, native URI-Sinks, Profilfotozugriff und View-Zähler. | FIXED LOCAL | 245 Flutter, 136 Functions, 110 Rules; finaler Diff-Scan 24/24 und 0 Befunde; echter Redmi-Release-Smoke bestanden |
 | OBS-004 | P2 Umgebung | Android AVD | Der frisch gewischte Gate-8-AVD blieb trotz Start ohne ADB-Dialog `unauthorized`. | OPEN LOCAL ENV | Artefakte vollständig validiert; Redmi-Daten bewusst nicht gelöscht |
 | A11Y-001 | P2 | Chat-Composer | Der sichtbare Senden-Knopf hatte keine stabile Semantics-Bezeichnung für Assistenztechnik und UI-Automation. | FIXED LOCAL | Widgettest und echter Nachrichtenaustausch auf dem Redmi bestanden |
 | OBS-001 | P1-Risiko | Firestore Rules | Einzelne erwartete Negativpfade protokollieren im Emulator weiter die Grenze von 1.000 Regelausdrücken. Der zuvor betroffene legitime Zwei-Konten-Blockierpfad ist korrigiert und reproduzierbar grün. | MONITORED | 109/109 Rules-Tests und echter Redmi-Mehrkontenpfad bestanden |
@@ -86,3 +86,19 @@ Background fetch und die zugehörigen Xcode-Capability-Markierungen sind jetzt
 vorhanden. Ein dauerhafter Windows-Validator schützt 124 iOS-Annahmen. Der
 Mac-/Apple-Portal-/iPhone-Nachweis bleibt als `OBS-003` offen und darf nicht als
 bestanden gewertet werden, bevor er tatsächlich ausgeführt wurde.
+
+## Mittlere Security-Remediation
+
+SEC-006 bis SEC-011 wurden vollständig geschlossen. Kontaktanfragen laufen über
+einen authentifizierten, App-Check-geschützten Callable mit serverseitigen
+Quoten, Cooldowns, Einmal-Grant und strengem Schema. Medien- und Profilbild-URLs
+sind an exakten Firebase-Host, Bucket, Objektpfad und Nutzer gebunden. Android
+öffnet nur geprüfte App-Dateien beziehungsweise begrenzte, erneut validierte
+Downloads. Profilbilder erfordern Eigentum oder eine aktive Verbindung;
+Profilaufrufe sind autorisiert, dedupliziert und limitiert.
+
+Zwischenscans fanden zusätzlich Lösch-Races in Kontakt-, Profilaufruf-,
+Kennzeichen-Grant- und Profilfoto-Synchronisationspfaden. Alle betroffenen
+Schreibtransaktionen lesen nun die Löschreservierungen im selben atomaren
+Readset; der Profilfoto-Trigger kann gelöschte Projektionen nicht neu anlegen.
+Der finale Scan `be9553ca-7f13-42fa-82d5-dbc79c9acef5` meldete 0 Befunde.

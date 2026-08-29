@@ -28,6 +28,12 @@ const {
 const {runReportCleanup} = require("./report_cleanup");
 const {searchPlateDocument} = require("./plate_search");
 const {
+  createContactRequest: createContactRequestDocument,
+} = require("./contact_request");
+const {
+  recordProfileViewTransaction,
+} = require("./profile_view");
+const {
   cleanupExpiredMediaUploadReservations,
   recordDeletedMediaUpload,
   recordFinalizedMediaUpload,
@@ -220,6 +226,38 @@ exports.searchPlate = onCall(
   },
 );
 
+exports.createContactRequest = onCall(
+  {
+    timeoutSeconds: 20,
+    memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
+  },
+  async (request) => {
+    const userId = safeString(request.auth?.uid);
+    if (userId.length === 0) {
+      throw new HttpsError("unauthenticated", "Bitte melde dich neu an.");
+    }
+    await ensureAccountOperational(userId);
+    try {
+      return await createContactRequestDocument({
+        firestore: db,
+        senderUserId: userId,
+        input: request.data,
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      logger.error("Contact request creation failed", {
+        errorType: errorType(error),
+      });
+      throw new HttpsError(
+        "internal",
+        "Die Kontaktanfrage konnte nicht gesendet werden.",
+      );
+    }
+  },
+);
+
 exports.reserveMediaUpload = onCall(
   {
     timeoutSeconds: 15,
@@ -273,8 +311,10 @@ exports.releaseReservedMediaUploadQuota = onObjectDeleted(
 
 exports.recordProfileView = onCall(
   {
-    timeoutSeconds: 10,
+    timeoutSeconds: 15,
     memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
   },
   async (request) => {
     const viewerUserId = safeString(request.auth?.uid);
@@ -282,24 +322,12 @@ exports.recordProfileView = onCall(
     if (viewerUserId.length === 0) {
       throw new HttpsError("unauthenticated", "Bitte melde dich neu an.");
     }
-    if (profileUserId.length === 0 || profileUserId === viewerUserId) {
-      return {recorded: false};
-    }
-    const profileReference = db.doc(`public_profiles/${profileUserId}`);
-    await db.runTransaction(async (transaction) => {
-      const profileSnapshot = await transaction.get(profileReference);
-      if (!profileSnapshot.exists ||
-          profileSnapshot.data()?.profileAccessEnabled !== true) {
-        throw new HttpsError("not-found", "Das Profil ist nicht verfügbar.");
-      }
-      const currentCount = Number(profileSnapshot.data()?.profileViewCount);
-      transaction.update(profileReference, {
-        profileViewCount: Number.isSafeInteger(currentCount) &&
-          currentCount >= 0 ? currentCount + 1 : 1,
-        profileViewedAt: Timestamp.now(),
-      });
+    await ensureAccountOperational(viewerUserId);
+    return recordProfileViewTransaction({
+      firestore: db,
+      viewerUserId,
+      profileUserId,
     });
-    return {recorded: true};
   },
 );
 

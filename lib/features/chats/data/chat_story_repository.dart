@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../shared/security/trusted_firebase_media_url.dart';
+
 final RegExp _storyStoragePathPattern = RegExp(
   r'^chat_stories/([^/]+)/(?:[0-9]{12,24}\.(?:jpg|mp4)|[0-9]{12,24}/media\.(?:jpg|mp4))$',
 );
@@ -284,7 +286,12 @@ class ChatStoryRepository {
     final trimmedStoryId = storyId.trim();
     final trimmedOwnerUserId = ownerUserId.trim();
     final trimmedOwnerDisplayName = ownerDisplayName.trim();
-    final trimmedOwnerPhotoUrl = ownerPhotoUrl?.trim() ?? '';
+    final safeOwnerPhotoUrl =
+        trustedProfilePhotoUrl(
+          url: ownerPhotoUrl,
+          userId: trimmedOwnerUserId,
+        ) ??
+        '';
     final trimmedImageUrl = imageUrl.trim();
     final trimmedImagePath = imagePath.trim();
     final trimmedMediaType = mediaType.trim() == 'video' ? 'video' : 'image';
@@ -341,17 +348,15 @@ class ChatStoryRepository {
     await storyReference.set({
       'ownerUserId': trimmedOwnerUserId,
       'ownerDisplayName': trimmedOwnerDisplayName,
-      'ownerPhotoUrl': trimmedOwnerPhotoUrl.isEmpty
-          ? null
-          : trimmedOwnerPhotoUrl,
+      'ownerPhotoUrl': safeOwnerPhotoUrl.isEmpty ? null : safeOwnerPhotoUrl,
       'viewerUserIds': safeViewerUserIds,
       'repliesEnabled': repliesEnabled,
       'viewerNameBy': <String, String>{
         trimmedOwnerUserId: trimmedOwnerDisplayName,
       },
-      if (trimmedOwnerPhotoUrl.isNotEmpty)
+      if (safeOwnerPhotoUrl.isNotEmpty)
         'viewerPhotoUrlBy': <String, String>{
-          trimmedOwnerUserId: trimmedOwnerPhotoUrl,
+          trimmedOwnerUserId: safeOwnerPhotoUrl,
         },
       'viewedAtBy': <String, Timestamp>{
         trimmedOwnerUserId: Timestamp.fromDate(now),
@@ -434,7 +439,8 @@ class ChatStoryRepository {
     final trimmedStoryId = storyId.trim();
     final trimmedUserId = userId.trim();
     final trimmedDisplayName = displayName.trim();
-    final trimmedPhotoUrl = photoUrl?.trim() ?? '';
+    final safePhotoUrl =
+        trustedProfilePhotoUrl(url: photoUrl, userId: trimmedUserId) ?? '';
 
     if (trimmedStoryId.isEmpty || trimmedUserId.isEmpty) {
       return;
@@ -445,8 +451,8 @@ class ChatStoryRepository {
       FieldPath(['viewerNameBy', trimmedUserId]): trimmedDisplayName.isEmpty
           ? 'plaqa Nutzer'
           : trimmedDisplayName,
-      if (trimmedPhotoUrl.isNotEmpty)
-        FieldPath(['viewerPhotoUrlBy', trimmedUserId]): trimmedPhotoUrl,
+      if (safePhotoUrl.isNotEmpty)
+        FieldPath(['viewerPhotoUrlBy', trimmedUserId]): safePhotoUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -458,16 +464,17 @@ class ChatStoryRepository {
   }) async {
     final trimmedStoryId = storyId.trim();
     final trimmedUserId = userId.trim();
-    final trimmedPhotoUrl = photoUrl.trim();
+    final safePhotoUrl =
+        trustedProfilePhotoUrl(url: photoUrl, userId: trimmedUserId) ?? '';
 
     if (trimmedStoryId.isEmpty ||
         trimmedUserId.isEmpty ||
-        trimmedPhotoUrl.isEmpty) {
+        safePhotoUrl.isEmpty) {
       return;
     }
 
     await _storiesCollection.doc(trimmedStoryId).update({
-      FieldPath(['viewerPhotoUrlBy', trimmedUserId]): trimmedPhotoUrl,
+      FieldPath(['viewerPhotoUrlBy', trimmedUserId]): safePhotoUrl,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -577,10 +584,20 @@ class ChatStoryRepository {
     DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
     final data = snapshot.data() ?? const <String, dynamic>{};
-    final imageUrl = (data['imageUrl'] as String? ?? '').trim();
     final imagePath = (data['imagePath'] as String? ?? '').trim();
-    final videoUrl = (data['videoUrl'] as String? ?? '').trim();
     final videoPath = (data['videoPath'] as String? ?? '').trim();
+    final imageUrl =
+        trustedFirebaseMediaUrl(
+          url: data['imageUrl'],
+          storagePath: imagePath,
+        ) ??
+        '';
+    final videoUrl =
+        trustedFirebaseMediaUrl(
+          url: data['videoUrl'],
+          storagePath: videoPath,
+        ) ??
+        '';
     final safeMediaType = _safeStoryMediaType(data['mediaType']);
     final safeStickerType = _safeStoryStickerType(data['stickerType']);
     final safeStickerPayload = _safeStoryStickerPayload(
@@ -594,11 +611,15 @@ class ChatStoryRepository {
     );
     final safeStickers = _storyStickersFromValue(data['stickers']);
 
+    final ownerUserId = (data['ownerUserId'] as String? ?? '').trim();
     return ChatStoryRecord(
       id: snapshot.id,
-      ownerUserId: data['ownerUserId'] as String? ?? '',
+      ownerUserId: ownerUserId,
       ownerDisplayName: data['ownerDisplayName'] as String? ?? 'plaqa Nutzer',
-      ownerPhotoUrl: data['ownerPhotoUrl'] as String?,
+      ownerPhotoUrl: trustedProfilePhotoUrl(
+        url: data['ownerPhotoUrl'],
+        userId: ownerUserId,
+      ),
       viewerUserIds: _stringListFromValue(data['viewerUserIds']),
       repliesEnabled: data['repliesEnabled'] as bool? ?? true,
       imageUrl: imageUrl,
@@ -625,7 +646,7 @@ class ChatStoryRepository {
       stickers: safeStickers,
       viewedAtBy: _dateTimeMapFromValue(data['viewedAtBy']),
       viewerNameBy: _stringMapFromValue(data['viewerNameBy']),
-      viewerPhotoUrlBy: _stringMapFromValue(data['viewerPhotoUrlBy']),
+      viewerPhotoUrlBy: _profilePhotoMapFromValue(data['viewerPhotoUrlBy']),
       pollVoteBy: _intMapFromValue(data['pollVoteBy']),
       createdAt: _dateTimeFromValue(data['createdAt']) ?? DateTime(1970),
       expiresAt: _dateTimeFromValue(data['expiresAt']) ?? DateTime(1970),
@@ -687,6 +708,17 @@ class ChatStoryRepository {
       }
     }
 
+    return entries;
+  }
+
+  Map<String, String> _profilePhotoMapFromValue(Object? value) {
+    if (value is! Map) return const <String, String>{};
+    final entries = <String, String>{};
+    for (final entry in value.entries) {
+      final userId = entry.key.toString().trim();
+      final url = trustedProfilePhotoUrl(url: entry.value, userId: userId);
+      if (url != null) entries[userId] = url;
+    }
     return entries;
   }
 

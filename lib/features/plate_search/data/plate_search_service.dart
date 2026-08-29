@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/firebase/carisma_firestore_paths.dart';
 import '../../../shared/firebase/carisma_firestore_schema.dart';
-import '../../../shared/models/search_credit.dart';
+import '../../../shared/security/trusted_firebase_media_url.dart';
 import 'plate_search_result.dart';
 
 class PlateContactRequestState {
@@ -511,8 +511,10 @@ class PlateSearchService {
       found: true,
       targetUid: ownerUserId,
       displayName: displayName?.trim().isEmpty == true ? null : displayName,
-      profilePhotoUrl:
-          (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?),
+      profilePhotoUrl: trustedProfilePhotoUrl(
+        url: data['profilePhotoUrl'] ?? data['photoUrl'],
+        userId: ownerUserId,
+      ),
       isVerified: ownerIdentityVerified,
       distanceKm: distanceKm,
       vehicleId: vehicleId,
@@ -578,7 +580,6 @@ class PlateSearchService {
     String? message,
   }) async {
     final sender = _auth.currentUser;
-
     if (sender == null) {
       throw FirebaseException(
         plugin: 'plaqa',
@@ -586,13 +587,10 @@ class PlateSearchService {
         message: 'Bitte melde dich an, um Kontakt anzufragen.',
       );
     }
-
-    final senderUserId = sender.uid;
     final receiverUserId = targetUid.trim();
     final normalizedCountryCode = countryCode.trim().toUpperCase();
     final normalizedVehicleId = vehicleId.trim();
     final normalizedPlateKey = plateKey.trim().toUpperCase();
-
     if (receiverUserId.isEmpty ||
         !const <String>{'DE', 'AT', 'CH'}.contains(normalizedCountryCode) ||
         normalizedVehicleId.isEmpty ||
@@ -603,538 +601,51 @@ class PlateSearchService {
         message: 'Kontaktanfrage konnte nicht vorbereitet werden.',
       );
     }
-
-    if (receiverUserId == senderUserId) {
+    if (receiverUserId == sender.uid) {
       throw FirebaseException(
         plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Du kannst dich nicht selbst kontaktieren.',
       );
     }
-
-    final senderSummary = await _loadCurrentUserContactSummary(senderUserId);
-    if (senderSummary.verifiedVehicleId == null) {
-      throw FirebaseException(
-        plugin: 'plaqa',
-        code: 'permission-denied',
-        message:
-            'Bestätige zuerst eines deiner Fahrzeuge, bevor du eine Kontaktanfrage sendest.',
-      );
-    }
-    final normalizedDisplayPlate = displayPlate?.trim().isNotEmpty == true
-        ? displayPlate!.trim()
-        : normalizedPlateKey;
-    final normalizedReceiverDisplayName =
-        receiverDisplayName?.trim().isNotEmpty == true
-        ? receiverDisplayName!.trim()
-        : 'plaqa Nutzer';
-    final normalizedVehicleBrand = vehicleBrand?.trim();
-    final normalizedVehicleModel = vehicleModel?.trim();
-    final normalizedVehicleColor = vehicleColor?.trim();
-    final normalizedVehicleLabel = vehicleLabel?.trim().isNotEmpty == true
-        ? vehicleLabel!.trim()
-        : _vehicleLabel(
-            color: normalizedVehicleColor,
-            brand: normalizedVehicleBrand,
-            model: normalizedVehicleModel,
-          );
     final normalizedRequestReason = requestReason?.trim();
     final normalizedMessage = message?.trim();
-
-    if (normalizedMessage == null || normalizedMessage.isEmpty) {
+    if (normalizedRequestReason == null ||
+        normalizedRequestReason.isEmpty ||
+        normalizedMessage == null ||
+        normalizedMessage.isEmpty) {
       throw FirebaseException(
         plugin: 'plaqa',
         code: 'invalid-argument',
         message: 'Bitte wähle einen Grund für deine Anfrage.',
       );
     }
-
-    final contactFilters = await _loadContactFilterSettingsForUser(
-      receiverUserId,
-    );
-    final requireVerifiedRequester =
-        contactFilters['requireVerifiedRequester'] as bool? ?? false;
-    final autoRejectUnverified =
-        contactFilters['autoRejectUnverified'] as bool? ?? false;
-    final requesterVerificationLevel =
-        contactFilters['requesterVerificationLevel'] as String? ??
-        ((requireVerifiedRequester || autoRejectUnverified)
-            ? 'identityVerified'
-            : 'all');
-    final quietModeUntil = _dateTimeFromValue(
-      contactFilters['contactRequestQuietModeUntil'],
-    );
-    final allowedContactReasons =
-        (contactFilters['allowedContactReasons'] as List<dynamic>?)
-            ?.whereType<String>()
-            .toSet() ??
-        const <String>{
-          'vehicle_question',
-          'compliment',
-          'meet_and_drive',
-          'get_to_know',
-        };
-
-    if (quietModeUntil != null && quietModeUntil.isAfter(DateTime.now())) {
-      throw FirebaseException(
-        plugin: 'plaqa',
-        code: 'permission-denied',
-        message: 'Dieser Nutzer nimmt gerade keine neuen Kontaktanfragen an.',
-      );
-    }
-
-    if (requesterVerificationLevel == 'identityVerified' &&
-        !senderSummary.isIdentityVerified) {
-      throw FirebaseException(
-        plugin: 'plaqa',
-        code: 'permission-denied',
-        message:
-            'Dieser Nutzer erlaubt aktuell nur Anfragen von Nutzern mit bestätigter Identität.',
-      );
-    }
-
-    if (normalizedRequestReason == null ||
-        normalizedRequestReason.isEmpty ||
-        !allowedContactReasons.contains(normalizedRequestReason)) {
-      throw FirebaseException(
-        plugin: 'plaqa',
-        code: 'permission-denied',
-        message: 'Dieser Anfragegrund ist für diesen Nutzer nicht erlaubt.',
-      );
-    }
-
-    final now = DateTime.now();
-    final expiresAt = now.add(
-      const Duration(
-        minutes: FirestoreDocumentDefaults.defaultRequestExpiryMinutes,
-      ),
-    );
-
-    final document = _firestore
-        .collection(CaRismaFirestoreCollections.contactRequests)
-        .doc(
-          _contactRequestDocumentId(
-            senderUserId: senderUserId,
-            countryCode: normalizedCountryCode,
-            vehicleId: normalizedVehicleId,
-          ),
-        );
-    final chatId = 'request_${document.id}';
-    final creditDocument = _firestore.doc(
-      CaRismaFirestorePaths.userSearchCredit(senderUserId),
-    );
-    final chatDocument = _firestore
-        .collection(CaRismaFirestoreCollections.chats)
-        .doc(chatId);
-
-    final result = await _firestore.runTransaction((transaction) async {
-      final requestSnapshot = await transaction.get(document);
-      final creditSnapshot = CaRismaAppConfig.enforceMonthlyContactRequestLimit
-          ? await transaction.get(creditDocument)
-          : null;
-      final chatSnapshot = await transaction.get(chatDocument);
-
-      final existingRequestData = requestSnapshot.data();
-      final existingStatus = existingRequestData?['status'] as String?;
-      if (existingRequestData != null &&
-          _isRequestStillActive(existingRequestData) &&
-          (existingStatus == FirestoreContactRequestStatus.pending ||
-              existingStatus == FirestoreContactRequestStatus.accepted)) {
-        if (!chatSnapshot.exists) {
-          transaction.set(
-            chatDocument,
-            _chatDataForRequest(
-              senderUserId: senderUserId,
-              receiverUserId: receiverUserId,
-              countryCode:
-                  existingRequestData['countryCode'] as String? ??
-                  normalizedCountryCode,
-              vehicleId:
-                  existingRequestData['vehicleId'] as String? ??
-                  normalizedVehicleId,
-              requestId: document.id,
-              createdAt: now,
-              senderDisplayName:
-                  existingRequestData['senderDisplayName'] as String? ??
-                  senderSummary.displayName,
-              senderPhotoUrl:
-                  existingRequestData['senderPhotoUrl'] as String? ??
-                  senderSummary.photoUrl,
-              receiverDisplayName:
-                  existingRequestData['receiverDisplayName'] as String? ??
-                  normalizedReceiverDisplayName,
-              receiverPhotoUrl:
-                  existingRequestData['receiverPhotoUrl'] as String? ??
-                  receiverPhotoUrl?.trim(),
-              displayPlate:
-                  existingRequestData['displayPlate'] as String? ??
-                  normalizedDisplayPlate,
-              vehicleBrand:
-                  existingRequestData['vehicleBrand'] as String? ??
-                  normalizedVehicleBrand,
-              vehicleModel:
-                  existingRequestData['vehicleModel'] as String? ??
-                  normalizedVehicleModel,
-              vehicleColor:
-                  existingRequestData['vehicleColor'] as String? ??
-                  normalizedVehicleColor,
-              vehicleLabel:
-                  existingRequestData['vehicleLabel'] as String? ??
-                  normalizedVehicleLabel,
-              requestMessage:
-                  existingRequestData['message'] as String? ??
-                  normalizedMessage,
-            ),
-          );
-        }
-
-        return PlateContactRequestResult(
-          requestId: document.id,
-          chatId: chatId,
-          status: existingStatus ?? FirestoreContactRequestStatus.pending,
-          created: false,
-        );
-      }
-
-      SearchCredit? nextCredit;
-      if (CaRismaAppConfig.enforceMonthlyContactRequestLimit) {
-        final creditData = creditSnapshot?.data();
-        if (creditData == null) {
-          throw FirebaseException(
-            plugin: 'plaqa',
-            code: 'failed-precondition',
-            message: 'Der Anfrage-Credit konnte nicht geladen werden.',
-          );
-        }
-
-        final currentCredit = SearchCredit.fromMap(
-          creditData,
-        ).normalizeForCurrentMonth();
-        if (!currentCredit.hasRemaining) {
-          throw FirebaseException(
-            plugin: 'plaqa',
-            code: 'resource-exhausted',
-            message: 'Du hast keine Anfragen mehr verfügbar.',
-          );
-        }
-
-        nextCredit = currentCredit.consume();
-      }
-
-      transaction.set(document, {
-        'senderUserId': senderUserId,
-        'receiverUserId': receiverUserId,
-        'targetUserId': receiverUserId,
-        'countryCode': normalizedCountryCode,
-        'vehicleId': normalizedVehicleId,
-        'senderVehicleId': senderSummary.verifiedVehicleId,
-        'plateKey': normalizedPlateKey,
-        'senderDisplayName': senderSummary.displayName,
-        'senderPhotoUrl': senderSummary.photoUrl,
-        'receiverDisplayName': normalizedReceiverDisplayName,
-        'receiverPhotoUrl': receiverPhotoUrl?.trim(),
-        'displayPlate': normalizedDisplayPlate,
-        'vehicleBrand': normalizedVehicleBrand,
-        'vehicleModel': normalizedVehicleModel,
-        'vehicleColor': normalizedVehicleColor,
-        'vehicleLabel': normalizedVehicleLabel,
-        'requestReason': normalizedRequestReason,
-        'message': normalizedMessage,
-        'status': FirestoreContactRequestStatus.pending,
-        'chatId': chatId,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'expiresAt': Timestamp.fromDate(expiresAt),
-        'isDeleted': false,
-      });
-      if (nextCredit != null) {
-        transaction.set(creditDocument, {
-          ...nextCredit.toMap(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-
-      if (!chatSnapshot.exists) {
-        transaction.set(
-          chatDocument,
-          _chatDataForRequest(
-            senderUserId: senderUserId,
-            receiverUserId: receiverUserId,
-            countryCode: normalizedCountryCode,
-            vehicleId: normalizedVehicleId,
-            requestId: document.id,
-            createdAt: now,
-            senderDisplayName: senderSummary.displayName,
-            senderPhotoUrl: senderSummary.photoUrl,
-            receiverDisplayName: normalizedReceiverDisplayName,
-            receiverPhotoUrl: receiverPhotoUrl?.trim(),
-            displayPlate: normalizedDisplayPlate,
-            vehicleBrand: normalizedVehicleBrand,
-            vehicleModel: normalizedVehicleModel,
-            vehicleColor: normalizedVehicleColor,
-            vehicleLabel: normalizedVehicleLabel,
-            requestMessage: normalizedMessage,
-          ),
-        );
-      }
-
-      return PlateContactRequestResult(
-        requestId: document.id,
-        chatId: chatId,
-        status: FirestoreContactRequestStatus.pending,
-        created: true,
-      );
+    final callable = _functions.httpsCallable('createContactRequest');
+    final response = await callable.call<Map<String, dynamic>>({
+      'targetUserId': receiverUserId,
+      'countryCode': normalizedCountryCode,
+      'vehicleId': normalizedVehicleId,
+      'plateKey': normalizedPlateKey,
+      'requestReason': normalizedRequestReason,
+      'message': normalizedMessage,
     });
-
-    await _ensureInitialContactMessage(
-      result: result,
-      message: normalizedMessage,
-    );
-    return result;
-  }
-
-  Future<void> _ensureInitialContactMessage({
-    required PlateContactRequestResult result,
-    required String? message,
-  }) async {
-    final sender = _auth.currentUser;
-    final normalizedMessage = message?.trim() ?? '';
-    final chatId = result.chatId.trim();
-    final requestId = result.requestId.trim();
-
-    if (sender == null ||
-        normalizedMessage.isEmpty ||
-        chatId.isEmpty ||
-        requestId.isEmpty ||
-        isDemoChat(chatId)) {
-      return;
-    }
-
-    if (normalizedMessage.length >
-        FirestoreDocumentDefaults.maxChatMessageLength) {
+    final data = Map<String, dynamic>.from(response.data);
+    final requestId = data['requestId'] as String? ?? '';
+    final chatId = data['chatId'] as String? ?? '';
+    if (requestId.isEmpty || chatId.isEmpty) {
       throw FirebaseException(
         plugin: 'plaqa',
-        code: 'invalid-argument',
-        message: 'Der automatische Nachrichtentext ist zu lang.',
+        code: 'internal',
+        message: 'Die Kontaktanfrage wurde unvollständig beantwortet.',
       );
     }
-
-    final senderUserId = sender.uid;
-    final messageId = 'contact_request_${requestId}_initial';
-    final chatDocument = _firestore.doc(CaRismaFirestorePaths.chat(chatId));
-    final messageDocument = _firestore.doc(
-      CaRismaFirestorePaths.chatMessage(chatId, messageId),
+    return PlateContactRequestResult(
+      requestId: requestId,
+      chatId: chatId,
+      status:
+          data['status'] as String? ?? FirestoreContactRequestStatus.pending,
+      created: data['created'] as bool? ?? false,
     );
-
-    await _firestore.runTransaction((transaction) async {
-      final chatSnapshot = await transaction.get(chatDocument);
-      final messageSnapshot = await transaction.get(messageDocument);
-
-      if (messageSnapshot.exists) {
-        return;
-      }
-
-      final chatData = chatSnapshot.data();
-      final participants = (chatData?['participants'] as List<dynamic>? ?? [])
-          .whereType<String>()
-          .map((participant) => participant.trim())
-          .where((participant) => participant.isNotEmpty)
-          .toSet();
-      final deletedBy = Map<String, dynamic>.from(
-        chatData?['deletedBy'] as Map<dynamic, dynamic>? ?? const {},
-      );
-      final status = chatData?['status'];
-
-      if (!chatSnapshot.exists ||
-          participants.length != 2 ||
-          !participants.contains(senderUserId) ||
-          (status != FirestoreChatStatus.active &&
-              status != FirestoreChatStatus.archived) ||
-          deletedBy[senderUserId] == true) {
-        throw FirebaseException(
-          plugin: 'plaqa',
-          code: 'failed-precondition',
-          message: 'Der vorbereitete Chat ist noch nicht verfügbar.',
-        );
-      }
-
-      final timestamp = Timestamp.fromDate(DateTime.now());
-
-      transaction.set(messageDocument, {
-        'chatId': chatId,
-        'senderUserId': senderUserId,
-        'type': FirestoreMessageTypes.text,
-        'text': normalizedMessage,
-        'createdAt': timestamp,
-        'updatedAt': timestamp,
-        'isDeleted': false,
-        'replyToMessageId': null,
-        'replyToText': null,
-      });
-      transaction.set(chatDocument, {
-        'lastMessage': normalizedMessage,
-        'lastMessageAt': timestamp,
-        'lastReadAtBy': {senderUserId: timestamp},
-        'manualUnreadBy': {senderUserId: false},
-        'manualUnreadUpdatedAtBy': {senderUserId: timestamp},
-        'archivedBy': {
-          for (final participant in participants) participant: false,
-        },
-        'archivedUpdatedAtBy': {
-          for (final participant in participants) participant: timestamp,
-        },
-        'updatedAt': timestamp,
-      }, SetOptions(merge: true));
-    });
-  }
-
-  Map<String, Object?> _chatDataForRequest({
-    required String senderUserId,
-    required String receiverUserId,
-    required String countryCode,
-    required String vehicleId,
-    required String requestId,
-    required DateTime createdAt,
-    required String? senderDisplayName,
-    required String? senderPhotoUrl,
-    required String? receiverDisplayName,
-    required String? receiverPhotoUrl,
-    required String? displayPlate,
-    required String? vehicleBrand,
-    required String? vehicleModel,
-    required String? vehicleColor,
-    required String? vehicleLabel,
-    required String requestMessage,
-  }) {
-    return {
-      'participants': ([senderUserId, receiverUserId]..sort()),
-      'status': FirestoreChatStatus.active,
-      'requestId': requestId,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(createdAt),
-      'lastMessage': requestMessage,
-      'lastMessageAt': Timestamp.fromDate(createdAt),
-      'isDeleted': false,
-      'senderUserId': senderUserId,
-      'receiverUserId': receiverUserId,
-      'countryCode': countryCode,
-      'vehicleId': vehicleId,
-      'senderDisplayName': senderDisplayName,
-      'senderPhotoUrl': senderPhotoUrl,
-      'receiverDisplayName': receiverDisplayName,
-      'receiverPhotoUrl': receiverPhotoUrl,
-      'displayPlate': displayPlate,
-      'vehicleBrand': vehicleBrand,
-      'vehicleModel': vehicleModel,
-      'vehicleColor': vehicleColor,
-      'vehicleLabel': vehicleLabel,
-    };
-  }
-
-  String _vehicleLabel({
-    required String? color,
-    required String? brand,
-    required String? model,
-  }) {
-    final parts = <String>[
-      if (color != null && color.trim().isNotEmpty)
-        _vehicleColorAdjective(color),
-      if (brand != null && brand.trim().isNotEmpty) brand.trim(),
-      if (model != null && model.trim().isNotEmpty) model.trim(),
-    ];
-
-    return parts.join(' ').trim();
-  }
-
-  String _vehicleColorAdjective(String color) {
-    return switch (color.trim().toLowerCase()) {
-      'schwarz' => 'schwarzer',
-      'weiß' || 'weiss' => 'weißer',
-      'silber' => 'silberner',
-      'grau' => 'grauer',
-      'blau' => 'blauer',
-      'rot' => 'roter',
-      'grün' || 'gruen' => 'grüner',
-      'braun' => 'brauner',
-      'gelb' => 'gelber',
-      'orange' => 'oranger',
-      _ => color.trim(),
-    };
-  }
-
-  Future<_ContactUserSummary> _loadCurrentUserContactSummary(
-    String userId,
-  ) async {
-    try {
-      final results = await Future.wait([
-        _firestore.doc(CaRismaFirestorePaths.userProfile(userId)).get(),
-        _firestore
-            .collection(
-              '${CaRismaFirestorePaths.publicProfile(userId)}/vehicles',
-            )
-            .where('isVerified', isEqualTo: true)
-            .limit(1)
-            .get(),
-      ]);
-      final profile = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-      final verifiedVehicles =
-          results[1] as QuerySnapshot<Map<String, dynamic>>;
-      final verifiedVehicleId = verifiedVehicles.docs.firstOrNull?.id;
-
-      final data = profile.data();
-
-      if (data == null) {
-        return _ContactUserSummary(
-          displayName: _fallbackDisplayName(),
-          photoUrl: _auth.currentUser?.photoURL,
-          isIdentityVerified: false,
-          verifiedVehicleId: verifiedVehicleId,
-        );
-      }
-
-      final firstName = data['firstName'] as String? ?? '';
-      final lastName = data['lastName'] as String? ?? '';
-      final displayName = data['displayName'] as String? ?? '';
-      final photoUrl =
-          (data['profilePhotoUrl'] as String?) ?? (data['photoUrl'] as String?);
-      final isIdentityVerified =
-          data['verificationStatus'] == 'verified' ||
-          data['isVerified'] == true;
-
-      final fullName = '$firstName $lastName'.trim();
-
-      if (fullName.isNotEmpty) {
-        return _ContactUserSummary(
-          displayName: fullName,
-          photoUrl: photoUrl,
-          isIdentityVerified: isIdentityVerified,
-          verifiedVehicleId: verifiedVehicleId,
-        );
-      }
-
-      if (displayName.trim().isNotEmpty) {
-        return _ContactUserSummary(
-          displayName: displayName.trim(),
-          photoUrl: photoUrl,
-          isIdentityVerified: isIdentityVerified,
-          verifiedVehicleId: verifiedVehicleId,
-        );
-      }
-
-      return _ContactUserSummary(
-        displayName: _fallbackDisplayName(),
-        photoUrl: photoUrl,
-        isIdentityVerified: isIdentityVerified,
-        verifiedVehicleId: verifiedVehicleId,
-      );
-    } catch (_) {
-      return _ContactUserSummary(
-        displayName: _fallbackDisplayName(),
-        photoUrl: _auth.currentUser?.photoURL,
-        isIdentityVerified: false,
-        verifiedVehicleId: null,
-      );
-    }
   }
 
   Future<Map<String, dynamic>> _loadVisibilitySettingsForUser(
@@ -1166,43 +677,4 @@ class PlateSearchService {
     }
   }
 
-  Future<Map<String, dynamic>> _loadContactFilterSettingsForUser(
-    String userId,
-  ) async {
-    try {
-      final snapshot = await _firestore
-          .doc(
-            '${CaRismaFirestorePaths.user(userId)}/'
-            '${CaRismaFirestoreCollections.settings}/contact_filters',
-          )
-          .get();
-      return snapshot.data() ?? const <String, dynamic>{};
-    } catch (_) {
-      return const <String, dynamic>{};
-    }
-  }
-
-  String _fallbackDisplayName() {
-    final authDisplayName = _auth.currentUser?.displayName;
-
-    if (authDisplayName != null && authDisplayName.trim().isNotEmpty) {
-      return authDisplayName.trim();
-    }
-
-    return 'plaqa Nutzer';
-  }
-}
-
-class _ContactUserSummary {
-  const _ContactUserSummary({
-    required this.displayName,
-    required this.isIdentityVerified,
-    required this.verifiedVehicleId,
-    this.photoUrl,
-  });
-
-  final String displayName;
-  final String? photoUrl;
-  final bool isIdentityVerified;
-  final String? verifiedVehicleId;
 }

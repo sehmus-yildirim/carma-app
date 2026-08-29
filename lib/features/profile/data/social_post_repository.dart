@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../shared/firebase/secure_upload_reservation_service.dart';
+import '../../../shared/security/trusted_firebase_media_url.dart';
 import 'social_post.dart';
 
 class SocialPostRepositoryException implements Exception {
@@ -61,7 +62,12 @@ class SocialPostRepository {
       displayName: fallbackDisplayName.trim().isEmpty
           ? 'plaqa Nutzer'
           : fallbackDisplayName.trim(),
-      photoUrl: fallbackPhotoUrl.trim(),
+      photoUrl:
+          trustedProfilePhotoUrl(
+            url: fallbackPhotoUrl,
+            userId: normalizedUserId,
+          ) ??
+          '',
     );
     if (normalizedUserId.isEmpty) return Stream.value(fallback);
 
@@ -73,7 +79,12 @@ class SocialPostRepository {
           final data = snapshot.data();
           if (data == null) return fallback;
           final displayName = (data['displayName'] as String? ?? '').trim();
-          final photoUrl = (data['photoUrl'] as String? ?? '').trim();
+          final photoUrl =
+              trustedProfilePhotoUrl(
+                url: data['photoUrl'],
+                userId: normalizedUserId,
+              ) ??
+              '';
           return SocialPostPublicIdentity(
             displayName: displayName.isEmpty
                 ? fallback.displayName
@@ -100,11 +111,17 @@ class SocialPostRepository {
       if (data == null) {
         return (
           displayName: normalizedFallbackName,
-          photoUrl: fallbackPhotoUrl.trim(),
+          photoUrl:
+              trustedProfilePhotoUrl(
+                url: fallbackPhotoUrl,
+                userId: userId,
+              ) ??
+              '',
         );
       }
       final publicDisplayName = (data['displayName'] as String? ?? '').trim();
-      final publicPhotoUrl = (data['photoUrl'] as String? ?? '').trim();
+      final publicPhotoUrl =
+          trustedProfilePhotoUrl(url: data['photoUrl'], userId: userId) ?? '';
       return (
         displayName: publicDisplayName.isEmpty
             ? normalizedFallbackName
@@ -114,7 +131,12 @@ class SocialPostRepository {
     } catch (_) {
       return (
         displayName: normalizedFallbackName,
-        photoUrl: fallbackPhotoUrl.trim(),
+        photoUrl:
+            trustedProfilePhotoUrl(
+              url: fallbackPhotoUrl,
+              userId: userId,
+            ) ??
+            '',
       );
     }
   }

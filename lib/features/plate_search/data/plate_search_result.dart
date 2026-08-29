@@ -1,3 +1,5 @@
+import '../../../shared/security/trusted_firebase_media_url.dart';
+
 class PlateSearchResult {
   const PlateSearchResult({
     required this.found,
@@ -75,12 +77,16 @@ class PlateSearchResult {
 
   factory PlateSearchResult.fromMap(Map<String, dynamic> map) {
     final distanceValue = map['distanceKm'];
+    final targetUid = map['targetUid'] as String?;
 
     return PlateSearchResult(
       found: map['found'] == true,
-      targetUid: map['targetUid'] as String?,
+      targetUid: targetUid,
       displayName: map['displayName'] as String?,
-      profilePhotoUrl: map['profilePhotoUrl'] as String?,
+      profilePhotoUrl: trustedProfilePhotoUrl(
+        url: map['profilePhotoUrl'],
+        userId: targetUid,
+      ),
       isVerified: map['isVerified'] == true,
       distanceKm: distanceValue is num ? distanceValue.toDouble() : null,
       vehicleId: map['vehicleId'] as String?,

@@ -13,7 +13,8 @@ void main() {
       'targetUid': 'target-user',
       'vehicleId': 'vehicle-mercedes-gls',
       'displayName': 'Mara Beispiel',
-      'profilePhotoUrl': 'https://example.test/profile.jpg',
+      'profilePhotoUrl':
+          'https://firebasestorage.googleapis.com/v0/b/carma-a84e4.firebasestorage.app/o/profile_photos%2Ftarget-user%2Fprofile.png?alt=media&token=test-token',
       'isVerified': true,
       'vehicleBrand': 'Mercedes-Benz',
       'vehicleModel': 'GLS',
@@ -36,6 +37,16 @@ void main() {
     expect(result.region, 'FD');
     expect(result.letters, 'RT');
     expect(result.numbers, '2918');
+  });
+
+  test('drops an untrusted profile photo URL from a search result', () {
+    final result = PlateSearchResult.fromMap(const {
+      'found': true,
+      'targetUid': 'target-user',
+      'profilePhotoUrl': 'https://example.test/profile.jpg',
+    });
+
+    expect(result.profilePhotoUrl, isNull);
   });
 
   test('uses a real regional presentation for the returned plate region', () {

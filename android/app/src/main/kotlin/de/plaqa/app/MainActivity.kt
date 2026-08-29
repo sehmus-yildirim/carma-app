@@ -23,12 +23,17 @@ import android.provider.Settings
 import android.speech.RecognizerIntent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.BufferedInputStream
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.io.OutputStream
+import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 
@@ -57,7 +62,14 @@ class MainActivity : FlutterActivity() {
         "application/vnd.ms-powerpoint",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "application/rtf",
+        "application/octet-stream",
     )
+    private val maxImageBytes = 15L * 1024L * 1024L
+    private val maxVoiceMemoBytes = 15L * 1024L * 1024L
+    private val maxDocumentBytes = 25L * 1024L * 1024L
+    private val maxVideoBytes = 80L * 1024L * 1024L
+    private val networkConnectTimeoutMs = 10_000
+    private val networkReadTimeoutMs = 20_000
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -346,25 +358,52 @@ class MainActivity : FlutterActivity() {
             result.error("invalid_document_url", "Document URL is required.", null)
             return
         }
-
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(Uri.parse(url), contentType?.ifBlank { "*/*" } ?: "*/*")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val normalizedContentType = normalizeDocumentContentType(contentType)
+        if (normalizedContentType == null) {
+            result.error("invalid_document_type", "Document type is not allowed.", null)
+            return
         }
 
-        try {
-            startActivity(intent)
-            result.success(null)
-        } catch (error: Exception) {
-            val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-
+        Thread {
             try {
-                startActivity(fallbackIntent)
-                result.success(null)
-            } catch (fallbackError: Exception) {
-                result.error("document_open_unavailable", "No app is available to open this document.", fallbackError.message)
+                val sourceFile = materializeSafeSource(
+                    value = url,
+                    fileName = "document_${System.currentTimeMillis()}",
+                    contentType = normalizedContentType,
+                    maxBytes = maxDocumentBytes,
+                )
+                val contentUri = FileProvider.getUriForFile(
+                    this,
+                    "$packageName.secure-files",
+                    sourceFile,
+                )
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(contentUri, normalizedContentType)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                runOnUiThread {
+                    try {
+                        startActivity(intent)
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error(
+                            "document_open_unavailable",
+                            "No app is available to open this document.",
+                            error.message,
+                        )
+                    }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    result.error(
+                        "invalid_document_source",
+                        "Document source is not allowed.",
+                        error.message,
+                    )
+                }
             }
-        }
+        }.start()
     }
 
     private fun shareText(text: String?, result: MethodChannel.Result) {
@@ -442,13 +481,28 @@ class MainActivity : FlutterActivity() {
             result.error("invalid_save_url", "File URL is required.", null)
             return
         }
+        val normalizedContentType = normalizeSaveContentType(contentType, isImage)
+        if (normalizedContentType == null) {
+            result.error("invalid_save_type", "File type is not allowed.", null)
+            return
+        }
 
         Thread {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    saveFileWithScopedStorage(url, fileName, contentType, isImage)
+                    saveFileWithScopedStorage(
+                        url,
+                        fileName,
+                        normalizedContentType,
+                        isImage,
+                    )
                 } else {
-                    saveFileLegacy(url, fileName, contentType, isImage)
+                    saveFileLegacy(
+                        url,
+                        fileName,
+                        normalizedContentType,
+                        isImage,
+                    )
                 }
 
                 runOnUiThread {
@@ -502,8 +556,16 @@ class MainActivity : FlutterActivity() {
                     throw IllegalStateException("Could not open target file.")
                 }
 
-                openSourceStream(url).use { input ->
-                    input.copyTo(output)
+                openSourceStream(
+                    url,
+                    contentType,
+                    maximumBytesFor(contentType),
+                ).use { input ->
+                    copyStreamWithLimit(
+                        input,
+                        output,
+                        maximumBytesFor(contentType),
+                    )
                 }
             }
 
@@ -532,8 +594,16 @@ class MainActivity : FlutterActivity() {
         val targetFile = File(targetDirectory, sanitizeFileName(fileName))
 
         FileOutputStream(targetFile).use { output ->
-            openSourceStream(url).use { input ->
-                input.copyTo(output)
+            openSourceStream(
+                url,
+                contentType,
+                maximumBytesFor(contentType),
+            ).use { input ->
+                copyStreamWithLimit(
+                    input,
+                    output,
+                    maximumBytesFor(contentType),
+                )
             }
         }
 
@@ -542,23 +612,290 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun openSourceStream(value: String): InputStream {
+    private fun openSourceStream(
+        value: String,
+        contentType: String,
+        maxBytes: Long,
+    ): InputStream {
         val trimmedValue = value.trim()
-
-        if (trimmedValue.startsWith("http://") || trimmedValue.startsWith("https://")) {
-            return URL(trimmedValue).openStream()
+        val rawStream = if (isTrustedFirebaseStorageUrl(trimmedValue)) {
+            openTrustedRemoteStream(trimmedValue, contentType, maxBytes)
+        } else {
+            val localFile = resolveAppOwnedFile(trimmedValue)
+                ?: throw SecurityException("Only app-owned local files are allowed.")
+            if (!localFile.isFile || localFile.length() <= 0L || localFile.length() > maxBytes) {
+                throw SecurityException("Local file size is not allowed.")
+            }
+            FileInputStream(localFile)
         }
+        val buffered = BufferedInputStream(rawStream)
+        verifyContentSignature(buffered, contentType)
+        return buffered
+    }
 
-        if (trimmedValue.startsWith("content://")) {
-            return contentResolver.openInputStream(Uri.parse(trimmedValue))
-                ?: throw IllegalStateException("Could not open content URI.")
+    private fun materializeSafeSource(
+        value: String,
+        fileName: String,
+        contentType: String,
+        maxBytes: Long,
+    ): File {
+        resolveAppOwnedFile(value)?.let { localFile ->
+            if (!localFile.isFile || localFile.length() <= 0L || localFile.length() > maxBytes) {
+                throw SecurityException("Local file size is not allowed.")
+            }
+            BufferedInputStream(FileInputStream(localFile)).use { input ->
+                verifyContentSignature(input, contentType)
+            }
+            return localFile
         }
-
-        if (trimmedValue.startsWith("file://")) {
-            return File(Uri.parse(trimmedValue).path ?: "").inputStream()
+        if (!isTrustedFirebaseStorageUrl(value)) {
+            throw SecurityException("Remote source is not trusted.")
         }
+        val targetDirectory = File(cacheDir, "secure_shared_media").apply { mkdirs() }
+        val extension = extensionForContentType(contentType)
+        val targetFile = File(
+            targetDirectory,
+            "${sanitizeFileName(fileName)}$extension",
+        ).canonicalFile
+        try {
+            FileOutputStream(targetFile).use { output ->
+                openSourceStream(value, contentType, maxBytes).use { input ->
+                    copyStreamWithLimit(input, output, maxBytes)
+                }
+            }
+            return targetFile
+        } catch (error: Exception) {
+            targetFile.delete()
+            throw error
+        }
+    }
 
-        return File(trimmedValue).inputStream()
+    private fun isTrustedFirebaseStorageUrl(value: String): Boolean {
+        return try {
+            val url = URL(value.trim())
+            val path = url.path.orEmpty()
+            val queryParts = url.query?.split('&').orEmpty()
+            val altParts = queryParts.filter { it == "alt=media" }
+            val tokenParts = queryParts.filter { part ->
+                part.startsWith("token=") &&
+                    part.removePrefix("token=").let { token ->
+                        token.isNotEmpty() && token.length <= 512 &&
+                            token.matches(Regex("^[A-Za-z0-9_%.,-]+$"))
+                    }
+            }
+            url.protocol == "https" &&
+                url.host == "firebasestorage.googleapis.com" &&
+                url.userInfo == null &&
+                path.matches(
+                    Regex(
+                        "^/v0/b/(carma-a84e4\\.firebasestorage\\.app|" +
+                            "carma-a84e4\\.appspot\\.com)/o/[^/]+$",
+                    ),
+                ) &&
+                altParts.size == 1 && tokenParts.size <= 1 &&
+                queryParts.size == altParts.size + tokenParts.size
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isAllowedRedirectUrl(url: URL): Boolean {
+        val host = url.host.lowercase(Locale.US)
+        return url.protocol == "https" && url.userInfo == null &&
+            (host == "firebasestorage.googleapis.com" ||
+                host == "storage.googleapis.com" ||
+                host.endsWith(".googleusercontent.com"))
+    }
+
+    private fun openTrustedRemoteStream(
+        value: String,
+        expectedContentType: String,
+        maxBytes: Long,
+    ): InputStream {
+        var currentUrl = URL(value)
+        repeat(4) { redirectCount ->
+            val connection = currentUrl.openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = networkConnectTimeoutMs
+            connection.readTimeout = networkReadTimeoutMs
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Accept", expectedContentType)
+            connection.connect()
+            val responseCode = connection.responseCode
+            if (responseCode in 300..399) {
+                val location = connection.getHeaderField("Location")
+                    ?: throw SecurityException("Remote redirect has no location.")
+                connection.disconnect()
+                if (redirectCount >= 3) {
+                    throw SecurityException("Too many remote redirects.")
+                }
+                currentUrl = URL(currentUrl, location)
+                if (!isAllowedRedirectUrl(currentUrl)) {
+                    throw SecurityException("Remote redirect is not trusted.")
+                }
+                return@repeat
+            }
+            if (responseCode !in 200..299) {
+                connection.disconnect()
+                throw IllegalStateException("Remote source returned HTTP $responseCode.")
+            }
+            val contentLength = connection.contentLengthLong
+            if (contentLength <= 0L || contentLength > maxBytes) {
+                connection.disconnect()
+                throw SecurityException("Remote file size is not allowed.")
+            }
+            val actualContentType = connection.contentType
+                ?.substringBefore(';')
+                ?.trim()
+                ?.lowercase(Locale.US)
+                .orEmpty()
+            if (!contentTypesMatch(expectedContentType, actualContentType)) {
+                connection.disconnect()
+                throw SecurityException("Remote content type does not match.")
+            }
+            return connection.inputStream
+        }
+        throw SecurityException("Remote source could not be resolved.")
+    }
+
+    private fun resolveAppOwnedFile(value: String): File? {
+        val trimmedValue = value.trim()
+        if (trimmedValue.startsWith("content://") ||
+            trimmedValue.startsWith("http://") ||
+            trimmedValue.startsWith("https://")) {
+            return null
+        }
+        val candidate = try {
+            if (trimmedValue.startsWith("file://")) {
+                File(Uri.parse(trimmedValue).path ?: return null)
+            } else {
+                File(trimmedValue)
+            }.canonicalFile
+        } catch (_: Exception) {
+            return null
+        }
+        val roots = listOf(cacheDir.canonicalFile, filesDir.canonicalFile)
+        return candidate.takeIf { file ->
+            roots.any { root ->
+                file.path == root.path || file.path.startsWith(root.path + File.separator)
+            }
+        }
+    }
+
+    private fun normalizeDocumentContentType(value: String?): String? {
+        val normalized = value
+            ?.substringBefore(';')
+            ?.trim()
+            ?.lowercase(Locale.US)
+            .orEmpty()
+        if (normalized.isEmpty()) return null
+        return normalized.takeIf { contentType ->
+            allowedDocumentMimeTypes.any { allowed ->
+                allowed.endsWith("/*") && contentType.startsWith(allowed.removeSuffix("*")) ||
+                    allowed == contentType
+            }
+        }
+    }
+
+    private fun normalizeSaveContentType(value: String, isMedia: Boolean): String? {
+        val normalized = value.substringBefore(';').trim().lowercase(Locale.US)
+        if (isMedia) {
+            return normalized.takeIf {
+                it == "image/jpeg" || it == "image/png" ||
+                    it == "image/webp" || it == "video/mp4"
+            }
+        }
+        return normalizeDocumentContentType(normalized)
+    }
+
+    private fun maximumBytesFor(contentType: String): Long {
+        return when {
+            contentType.startsWith("image/") -> maxImageBytes
+            contentType.startsWith("video/") -> maxVideoBytes
+            contentType.startsWith("audio/") -> maxVoiceMemoBytes
+            else -> maxDocumentBytes
+        }
+    }
+
+    private fun contentTypesMatch(expected: String, actual: String): Boolean {
+        if (actual.isEmpty()) return false
+        if (expected == "application/octet-stream") {
+            return actual == expected || normalizeDocumentContentType(actual) != null
+        }
+        if (expected.startsWith("text/")) return actual.startsWith("text/")
+        return expected == actual
+    }
+
+    private fun extensionForContentType(contentType: String): String {
+        return when (contentType) {
+            "application/pdf" -> ".pdf"
+            "application/rtf" -> ".rtf"
+            "image/jpeg" -> ".jpg"
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            "video/mp4" -> ".mp4"
+            "audio/mp4" -> ".m4a"
+            else -> ".bin"
+        }
+    }
+
+    private fun copyStreamWithLimit(
+        input: InputStream,
+        output: OutputStream,
+        maxBytes: Long,
+    ) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0L
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            total += count
+            if (total > maxBytes) {
+                throw SecurityException("File exceeds the allowed size.")
+            }
+            output.write(buffer, 0, count)
+        }
+        if (total <= 0L) throw SecurityException("File is empty.")
+    }
+
+    private fun verifyContentSignature(input: BufferedInputStream, contentType: String) {
+        input.mark(32)
+        val header = ByteArray(16)
+        val count = input.read(header)
+        input.reset()
+        if (count <= 0) throw SecurityException("File is empty.")
+        fun startsWith(vararg bytes: Int): Boolean {
+            return count >= bytes.size && bytes.indices.all { index ->
+                header[index].toInt() and 0xff == bytes[index]
+            }
+        }
+        val isJpeg = startsWith(0xff, 0xd8, 0xff)
+        val isPng = startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+        val isWebp = count >= 12 &&
+            String(header, 0, 4, Charsets.US_ASCII) == "RIFF" &&
+            String(header, 8, 4, Charsets.US_ASCII) == "WEBP"
+        val isMp4 = count >= 12 && String(header, 4, 4, Charsets.US_ASCII) == "ftyp"
+        val isPdf = String(header, 0, minOf(count, 5), Charsets.US_ASCII) == "%PDF-"
+        val isZip = startsWith(0x50, 0x4b, 0x03, 0x04)
+        val isCompoundOffice = startsWith(0xd0, 0xcf, 0x11, 0xe0)
+        val isRtf = String(header, 0, minOf(count, 5), Charsets.US_ASCII) == "{\\rtf"
+        val isExecutable = startsWith(0x4d, 0x5a) || startsWith(0x7f, 0x45, 0x4c, 0x46)
+        val valid = when {
+            contentType == "image/jpeg" -> isJpeg
+            contentType == "image/png" -> isPng
+            contentType == "image/webp" -> isWebp
+            contentType == "video/mp4" || contentType == "audio/mp4" -> isMp4
+            contentType == "application/pdf" -> isPdf
+            contentType == "application/rtf" -> isRtf
+            contentType.startsWith("text/") -> header.take(count).none { it.toInt() == 0 }
+            contentType.contains("officedocument") -> isZip
+            contentType == "application/msword" ||
+                contentType == "application/vnd.ms-excel" ||
+                contentType == "application/vnd.ms-powerpoint" -> isCompoundOffice
+            contentType == "application/octet-stream" -> !isExecutable
+            else -> false
+        }
+        if (!valid) throw SecurityException("File signature does not match its type.")
     }
 
     private fun startVoiceMemo(result: MethodChannel.Result) {
@@ -688,35 +1025,53 @@ class MainActivity : FlutterActivity() {
         }
 
         stopVoiceMemoPlayer()
-
-        try {
-            val player = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
+        Thread {
+            try {
+                val sourceFile = materializeSafeSource(
+                    value = url,
+                    fileName = "voice_${System.currentTimeMillis()}",
+                    contentType = "audio/mp4",
+                    maxBytes = maxVoiceMemoBytes,
                 )
-                setDataSource(url)
-                setOnCompletionListener {
-                    stopVoiceMemoPlayer()
+                runOnUiThread {
+                    try {
+                        val player = MediaPlayer().apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                                    .build(),
+                            )
+                            setDataSource(sourceFile.absolutePath)
+                            setOnCompletionListener { stopVoiceMemoPlayer() }
+                            setOnErrorListener { _, _, _ ->
+                                stopVoiceMemoPlayer()
+                                true
+                            }
+                            setOnPreparedListener { it.start() }
+                            prepareAsync()
+                        }
+                        voiceMemoPlayer = player
+                        result.success(null)
+                    } catch (error: Exception) {
+                        stopVoiceMemoPlayer()
+                        result.error(
+                            "voice_memo_play_failed",
+                            "Voice memo could not be played.",
+                            error.message,
+                        )
+                    }
                 }
-                setOnErrorListener { _, _, _ ->
-                    stopVoiceMemoPlayer()
-                    true
+            } catch (error: Exception) {
+                runOnUiThread {
+                    result.error(
+                        "invalid_voice_memo_source",
+                        "Voice memo source is not allowed.",
+                        error.message,
+                    )
                 }
-                setOnPreparedListener {
-                    it.start()
-                }
-                prepareAsync()
             }
-
-            voiceMemoPlayer = player
-            result.success(null)
-        } catch (error: Exception) {
-            stopVoiceMemoPlayer()
-            result.error("voice_memo_play_failed", "Voice memo could not be played.", error.message)
-        }
+        }.start()
     }
 
     private fun stopVoiceMemoPlayback(result: MethodChannel.Result) {
@@ -861,19 +1216,26 @@ class MainActivity : FlutterActivity() {
 
         try {
             val displayName = documentDisplayName(documentUri)
-            val contentType = contentResolver.getType(documentUri) ?: "application/octet-stream"
+            val contentType = normalizeDocumentContentType(
+                contentResolver.getType(documentUri) ?: "application/octet-stream",
+            ) ?: throw SecurityException("Document type is not allowed.")
             val targetDirectory = File(cacheDir, "chat_documents").apply { mkdirs() }
             val targetFile = File(targetDirectory, "${System.currentTimeMillis()}_${sanitizeFileName(displayName)}")
-
-            contentResolver.openInputStream(documentUri).use { input ->
-                if (input == null) {
-                    result.error("document_read_failed", "Document could not be opened.", null)
-                    return
+            try {
+                contentResolver.openInputStream(documentUri).use { rawInput ->
+                    if (rawInput == null) {
+                        throw IllegalStateException("Document could not be opened.")
+                    }
+                    BufferedInputStream(rawInput).use { input ->
+                        verifyContentSignature(input, contentType)
+                        FileOutputStream(targetFile).use { output ->
+                            copyStreamWithLimit(input, output, maxDocumentBytes)
+                        }
+                    }
                 }
-
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
-                }
+            } catch (error: Exception) {
+                targetFile.delete()
+                throw error
             }
 
             result.success(

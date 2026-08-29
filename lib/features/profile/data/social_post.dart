@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../shared/security/trusted_firebase_media_url.dart';
+
 enum SocialPostSection {
   posts('posts'),
   vehicle('vehicle');
@@ -119,12 +121,16 @@ class SocialPost {
     final mediaTypes = _stringList(data['mediaTypes']);
     final media = <SocialPostMedia>[];
     for (var index = 0; index < mediaUrls.length; index++) {
-      final url = mediaUrls[index].trim();
-      if (url.isEmpty) continue;
+      final path = index < mediaPaths.length ? mediaPaths[index].trim() : '';
+      final url = trustedFirebaseMediaUrl(
+        url: mediaUrls[index],
+        storagePath: path,
+      );
+      if (url == null) continue;
       media.add(
         SocialPostMedia(
           url: url,
-          path: index < mediaPaths.length ? mediaPaths[index] : '',
+          path: path,
           type: SocialPostMediaType.fromFirestore(
             index < mediaTypes.length ? mediaTypes[index] : 'image',
           ),
@@ -132,11 +138,18 @@ class SocialPost {
       );
     }
 
+    final imagePath = data['imagePath'] as String? ?? '';
+    final imageUrl =
+        trustedFirebaseMediaUrl(
+          url: data['imageUrl'],
+          storagePath: imagePath,
+        ) ??
+        '';
     return SocialPost(
       id: data['postId'] as String? ?? document.id,
       ownerUserId: data['ownerUserId'] as String? ?? '',
-      imageUrl: data['imageUrl'] as String? ?? '',
-      imagePath: data['imagePath'] as String? ?? '',
+      imageUrl: imageUrl,
+      imagePath: imagePath,
       section: SocialPostSection.fromFirestore(data['section']),
       visibility: data['visibility'] as String? ?? 'private',
       media: media,
@@ -219,13 +232,19 @@ class SocialPostComment {
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data() ?? const <String, dynamic>{};
+    final authorUserId = data['authorUserId'] as String? ?? '';
     return SocialPostComment(
       id: data['commentId'] as String? ?? document.id,
       postId: data['postId'] as String? ?? '',
       postOwnerUserId: data['postOwnerUserId'] as String? ?? '',
-      authorUserId: data['authorUserId'] as String? ?? '',
+      authorUserId: authorUserId,
       authorDisplayName: data['authorDisplayName'] as String? ?? 'Nutzer',
-      authorPhotoUrl: data['authorPhotoUrl'] as String? ?? '',
+      authorPhotoUrl:
+          trustedProfilePhotoUrl(
+            url: data['authorPhotoUrl'],
+            userId: authorUserId,
+          ) ??
+          '',
       text: data['text'] as String? ?? '',
       createdAt:
           SocialPost._dateTimeFromTimestamp(data['createdAt']) ??
@@ -264,14 +283,20 @@ class SocialPostCommentReply {
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data() ?? const <String, dynamic>{};
+    final authorUserId = data['authorUserId'] as String? ?? '';
     return SocialPostCommentReply(
       id: data['replyId'] as String? ?? document.id,
       commentId: data['commentId'] as String? ?? '',
       postId: data['postId'] as String? ?? '',
       postOwnerUserId: data['postOwnerUserId'] as String? ?? '',
-      authorUserId: data['authorUserId'] as String? ?? '',
+      authorUserId: authorUserId,
       authorDisplayName: data['authorDisplayName'] as String? ?? 'Nutzer',
-      authorPhotoUrl: data['authorPhotoUrl'] as String? ?? '',
+      authorPhotoUrl:
+          trustedProfilePhotoUrl(
+            url: data['authorPhotoUrl'],
+            userId: authorUserId,
+          ) ??
+          '',
       text: data['text'] as String? ?? '',
       createdAt:
           SocialPost._dateTimeFromTimestamp(data['createdAt']) ??
@@ -298,10 +323,12 @@ class SocialPostLike {
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
     final data = document.data() ?? const <String, dynamic>{};
+    final userId = data['userId'] as String? ?? document.id;
     return SocialPostLike(
-      userId: data['userId'] as String? ?? document.id,
+      userId: userId,
       displayName: data['displayName'] as String? ?? 'plaqa Nutzer',
-      photoUrl: data['photoUrl'] as String? ?? '',
+      photoUrl:
+          trustedProfilePhotoUrl(url: data['photoUrl'], userId: userId) ?? '',
       createdAt:
           SocialPost._dateTimeFromTimestamp(data['createdAt']) ??
           DateTime.now(),

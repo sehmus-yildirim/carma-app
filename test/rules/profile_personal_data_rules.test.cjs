@@ -46,6 +46,32 @@ function privateProfile({locked = false} = {}) {
   };
 }
 
+function publicProfile(photoUrl) {
+  return {
+    uid: userId,
+    displayName: 'Sehmus Yildirim',
+    photoUrl,
+    publicBio: null,
+    publicRegion: null,
+    showVehicleOnPublicProfile: false,
+    showPlateOnPublicProfile: false,
+    isPrivateProfile: true,
+    profileAccessEnabled: true,
+    followersVisibility: 'contacts',
+    followingVisibility: 'contacts',
+    verificationStatus: 'unverified',
+    primaryVehicleId: null,
+    vehicleBrand: null,
+    vehicleModel: null,
+    vehicleColor: null,
+    countryCode: null,
+    plateRegion: null,
+    plateLetters: null,
+    plateNumbers: null,
+    updatedAt: new Date(),
+  };
+}
+
 function utcBirthday({yearsAgo, dayOffset = 0}) {
   const now = new Date();
   const value = new Date(Date.UTC(
@@ -274,6 +300,72 @@ describe('personal profile data lock', () => {
     });
 
     await assertSucceeds(batch.commit());
+  });
+
+  test('public profile photo must use the owner canonical Storage path', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    await setDoc(
+      doc(owner, 'users', userId, 'profiles', 'main'),
+      privateProfile(),
+    );
+    const publicReference = doc(owner, 'public_profiles', userId);
+    await assertFails(setDoc(
+      publicReference,
+      publicProfile('https://tracker.example/profile.png'),
+    ));
+    const trustedUrl = 'https://firebasestorage.googleapis.com/v0/b/' +
+      'carma-a84e4.firebasestorage.app/o/' +
+      `profile_photos%2F${userId}%2Fprofile.png?alt=media&token=test-token`;
+    await assertSucceeds(setDoc(publicReference, publicProfile(trustedUrl)));
+  });
+
+  test('owner can update a profile while server-owned view fields stay immutable', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const publicReference = doc(owner, 'public_profiles', userId);
+    const viewedAt = new Date('2026-08-29T10:00:00Z');
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'users', userId, 'profiles', 'main'),
+        privateProfile(),
+      );
+      await setDoc(
+        doc(context.firestore(), 'public_profiles', userId),
+        {
+          ...publicProfile(null),
+          profileViewCount: 7,
+          profileViewedAt: viewedAt,
+        },
+      );
+    });
+
+    await assertSucceeds(updateDoc(publicReference, {
+      publicBio: 'Aktualisierte Beschreibung',
+      updatedAt: new Date(),
+    }));
+    await assertFails(updateDoc(publicReference, {
+      profileViewCount: 8,
+      updatedAt: new Date(),
+    }));
+    await assertFails(updateDoc(publicReference, {
+      profileViewedAt: new Date('2026-08-29T11:00:00Z'),
+      updatedAt: new Date(),
+    }));
+  });
+
+  test('owner cannot initialize server-owned profile view fields', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    await setDoc(
+      doc(owner, 'users', userId, 'profiles', 'main'),
+      privateProfile(),
+    );
+    await assertFails(setDoc(
+      doc(owner, 'public_profiles', userId),
+      {
+        ...publicProfile(null),
+        profileViewCount: 1,
+        profileViewedAt: new Date(),
+      },
+    ));
   });
 
   test('existing verification status cannot be reset by the owner', async () => {

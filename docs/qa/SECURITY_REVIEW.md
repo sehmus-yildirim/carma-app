@@ -3,7 +3,7 @@
 Stand: 2026-08-29
 Scan-ID: `d316c0fd-3693-447f-badf-1864041b52df`
 Ergebnis: 11 bestätigte Befunde, davon 5 `HIGH` und 6 `MEDIUM`
-Aktueller Stand: SEC-001 bis SEC-005 lokal behoben; SEC-006 bis SEC-011 offen
+Aktueller Stand: SEC-001 bis SEC-011 lokal behoben und vollständig nachgeprüft
 
 ## Umfang
 
@@ -40,14 +40,29 @@ produktiv erzwungen.
 
 ## Mittlere Befunde
 
-| ID | Befund | Releasebedingung |
+| ID | Befund | Aktueller Status |
 |---|---|---|
-| SEC-006 | Kontaktanfragen besitzen keine belastbare serverseitige Gesamtquote, Ablaufzeit und Resend-Sperre. | Serverzeit, Kontingente und Cooldowns serverseitig erzwingen. |
-| SEC-007 | Optionale Kontaktanfrage-Projektionen und Ablaufwerte sind nicht vollständig typ- und zeitgebunden. | Striktes Gesamtschema und serverrelative Zeitgrenzen. |
-| SEC-008 | Medienpfade und clientgeschriebene URLs sind nicht fest miteinander verbunden. | Nur kanonische Storage-Pfade oder serverseitig abgeleitete, erlaubte URLs. |
-| SEC-009 | Android öffnet beziehungsweise streamt beliebige URI-Schemes ohne feste Zeit- und Byteobergrenzen. | Scheme-/Host-Allowlist, Timeouts, Byte- und MIME-Prüfung. |
-| SEC-010 | Profilfotos sind für jedes angemeldete Konto lesbar, unabhängig von Profil- und Blockstatus. | Storage-Zugriff an dieselbe Sichtbarkeits- und Blocklogik binden. |
-| SEC-011 | `recordProfileView` kann Zähler und Schreibkosten ohne Deduplizierung oder Limit erhöhen. | Zugriff, PeriodendDuplikat und Account-/Gerätelimits ergänzen. |
+| SEC-006 | Kontaktanfragen besitzen keine belastbare serverseitige Gesamtquote, Ablaufzeit und Resend-Sperre. | **BEHOBEN LOKAL** - Callable, Serverzeit, Sender-/Zielquote, Cooldown und Einmal-Grant. |
+| SEC-007 | Optionale Kontaktanfrage-Projektionen und Ablaufwerte sind nicht vollständig typ- und zeitgebunden. | **BEHOBEN LOKAL** - striktes Schema, serverseitig abgeleitete Identitäten und Projektionen. |
+| SEC-008 | Medienpfade und clientgeschriebene URLs sind nicht fest miteinander verbunden. | **BEHOBEN LOKAL** - exakter Firebase-Host, Bucket, Objektpfad und erlaubte Query-Parameter. |
+| SEC-009 | Android öffnet beziehungsweise streamt beliebige URI-Schemes ohne feste Zeit- und Byteobergrenzen. | **BEHOBEN LOKAL** - nicht exportierter FileProvider, kanonische App-Pfade, Redirect-, MIME-, Signatur-, Größen- und Zeitprüfung. |
+| SEC-010 | Profilfotos sind für jedes angemeldete Konto lesbar, unabhängig von Profil- und Blockstatus. | **BEHOBEN LOKAL** - nur Eigentümer oder aktive Profilverbindung; alle Avatarprojektionen UID-gebunden. |
+| SEC-011 | `recordProfileView` kann Zähler und Schreibkosten ohne Deduplizierung oder Limit erhöhen. | **BEHOBEN LOKAL** - autorisierter Callable, PeriodendDuplikat, Quote und servereigene Zählerfelder. |
+
+## Abschluss der mittleren Befunde
+
+Die technische Umsetzung und die Race-Condition-Nachprüfungen sind in
+`docs/qa/MEDIUM_SECURITY_REMEDIATION.md` dokumentiert. Drei aufeinanderfolgende
+Zwischenscans fanden verbleibende Avatar- und Kontolösch-Races; diese wurden
+jeweils behoben und erneut getestet. Der finale unveränderliche Diff-Scan
+`be9553ca-7f13-42fa-82d5-dbc79c9acef5` gegen Digest
+`aaa3f54d5b346a0fccc4c933efc55c9fd28e73210ccffb9d11416184cab8ed54`
+schloss `24/24` Prüfflächen und meldete **0 Befunde**.
+
+Die anschließende Regression bestand mit 245 Flutter-, 136 Functions-, 110
+Rules-, 30 Website- und 126 iOS-Windows-Prüfungen. Neue APK und AAB wurden
+gebaut und validiert; der echte Release-Smoke auf Redmi `2201117TY` bestand.
+Es wurde nichts deployt, hochgeladen oder veröffentlicht.
 
 ## Positive Nachweise
 
@@ -74,10 +89,8 @@ lassen sich aus dem Repository nicht beweisen und wurden nicht verändert.
 
 ## Weiteres Vorgehen
 
-1. SEC-006 bis SEC-011 schließen oder vor internem Rollout mit dokumentierter
-   Verantwortlichkeit und Frist risikoseitig akzeptieren.
-2. Nach den verbleibenden Sicherheitsänderungen erneut Vollregression,
-   Security-Diff-Scan und neue signierte Artefakte
-   ausführen.
-3. Erst danach App-Check-Messung, internen Store-Rollout und externe Abnahme
-   beginnen.
+1. App-Check-Messung, Push und Firebase-Betriebsnachweise auf dem signierten
+   Kandidaten durchführen.
+2. iOS auf Mac/Xcode und echtem iPhone vollständig abnehmen.
+3. Store-, Datenschutz-, Moderations- und Betriebsfreigaben abschließen, bevor
+   ein Upload oder öffentlicher Rollout erfolgt.

@@ -5,12 +5,45 @@ const {
   displayNameValue,
   photoValue,
   profilePhotoUpdateFor,
+  syncProfilePhotoReference,
 } = require("./profile_photo_sync");
 
+function snapshot(value) {
+  return {exists: value != null, data: () => value};
+}
+
+function fakeTransactionFirestore(seed) {
+  const documents = new Map(Object.entries(seed));
+  return {
+    documents,
+    doc(path) {
+      return {path, get: async () => snapshot(documents.get(path))};
+    },
+    async runTransaction(callback) {
+      return callback({
+        get: (reference) => reference.get(),
+        update(reference, value) {
+          if (!documents.has(reference.path)) {
+            throw new Error("missing document");
+          }
+          documents.set(reference.path, {
+            ...documents.get(reference.path),
+            ...value,
+          });
+        },
+      });
+    },
+  };
+}
+
 test("normalizes empty profile photos to null", () => {
-  assert.equal(photoValue("  "), null);
-  assert.equal(photoValue(" https://plaqa.de/profile.jpg "),
-    "https://plaqa.de/profile.jpg");
+  const trusted = "https://firebasestorage.googleapis.com/v0/b/" +
+    "carma-a84e4.firebasestorage.app/o/" +
+    "profile_photos%2Fuser-a%2Fprofile.png?alt=media&token=test-token";
+  assert.equal(photoValue("  ", "user-a"), null);
+  assert.equal(photoValue(` ${trusted} `, "user-a"), trusted);
+  assert.equal(photoValue("https://tracker.example/profile.jpg", "user-a"), null);
+  assert.equal(photoValue(trusted, "user-b"), null);
 });
 
 test("normalizes empty public display names", () => {
@@ -87,4 +120,63 @@ test("updates social post comment identity references", () => {
 
   assert.equal(update.authorPhotoUrl, "");
   assert.equal(update.authorDisplayName, "Sehmus Y.");
+});
+
+test("transactional sync updates an existing projection", async () => {
+  const firestore = fakeTransactionFirestore({
+    "plates/plate-a": {ownerUserId: "user-a", profilePhotoUrl: null},
+  });
+  const updated = await syncProfilePhotoReference({
+    firestore,
+    deletionReference: firestore.doc("account_deletions/user-a"),
+    collection: "plates",
+    reference: firestore.doc("plates/plate-a"),
+    userId: "user-a",
+    photoUrl: "photo-a",
+    displayName: "User A",
+  });
+
+  assert.equal(updated, true);
+  assert.equal(
+    firestore.documents.get("plates/plate-a").profilePhotoUrl,
+    "photo-a",
+  );
+});
+
+test("transactional sync stops after account deletion is reserved", async () => {
+  const firestore = fakeTransactionFirestore({
+    "account_deletions/user-a": {status: "processing"},
+    "plates/plate-a": {ownerUserId: "user-a", profilePhotoUrl: null},
+  });
+  const updated = await syncProfilePhotoReference({
+    firestore,
+    deletionReference: firestore.doc("account_deletions/user-a"),
+    collection: "plates",
+    reference: firestore.doc("plates/plate-a"),
+    userId: "user-a",
+    photoUrl: "photo-a",
+    displayName: "User A",
+  });
+
+  assert.equal(updated, false);
+  assert.equal(
+    firestore.documents.get("plates/plate-a").profilePhotoUrl,
+    null,
+  );
+});
+
+test("transactional sync never recreates a deleted projection", async () => {
+  const firestore = fakeTransactionFirestore({});
+  const updated = await syncProfilePhotoReference({
+    firestore,
+    deletionReference: firestore.doc("account_deletions/user-a"),
+    collection: "plates",
+    reference: firestore.doc("plates/plate-a"),
+    userId: "user-a",
+    photoUrl: "photo-a",
+    displayName: "User A",
+  });
+
+  assert.equal(updated, false);
+  assert.equal(firestore.documents.has("plates/plate-a"), false);
 });

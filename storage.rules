@@ -567,7 +567,19 @@ service firebase.storage {
     }
 
     match /profile_photos/{userId}/{fileName} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn()
+        && (
+          request.auth.uid == userId
+          || (
+            hasActiveProfileConnection(userId)
+            && firestore.exists(
+              /databases/(default)/documents/public_profiles/$(userId)
+            )
+            && firestore.get(
+              /databases/(default)/documents/public_profiles/$(userId)
+            ).data.profileAccessEnabled == true
+          )
+        );
       allow create, update: if isSignedIn()
         && request.auth.uid == userId
         && isValidProfilePhotoUpload(fileName);

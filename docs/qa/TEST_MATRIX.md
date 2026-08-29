@@ -14,7 +14,17 @@ Branch: `main`
 | 5 | Mehrkonten- und echte Gerätetests | PASS | Lokaler/Redmi-Umfang bestanden; Push und App Check separat `MANUAL REQUIRED` |
 | 6 | Android Release Candidate | PASS LOCAL | AAB/APK signiert und validiert; Release-Smoke auf Redmi bestanden; kein Upload |
 | 7 | iOS Readiness | PASS WINDOWS / MANUAL REQUIRED | aktuell 126/126 Konfigurationschecks; Mac/Xcode/iPhone/TestFlight offen |
-| 8 | Finale technische Release-Abnahme | COMPLETE / PUBLIC NO-GO | 237/237 Flutter, 100/100 Functions, 109/109 Rules, 30/30 Website, 126/126 iOS; 5 hohe und 6 mittlere Security-Befunde offen |
+| 8 | Finale technische Release-Abnahme | COMPLETE LOCAL / PUBLIC NO-GO | 245/245 Flutter, 136/136 Functions, 110/110 Rules, 30/30 Website, 126/126 iOS; 11/11 Security-Befunde lokal behoben |
+
+## Security-Remediation-Abschluss
+
+| ID | Bereich | Testart | Ergebnis | Status |
+|---|---|---|---|---|
+| SEC-MED-001 | Kontaktanfragen, Medien, Android-Dateien, Profilbilder und Profilaufrufe | Unit/Widget/Functions/Rules | 245 Flutter, 136 Functions und 110 Rules bestanden | PASS |
+| SEC-MED-002 | Vollständige Nebenregression | Website/iOS-Windows/Analyze | 30 Website, 126 iOS-Windows, Analyze ohne Befund | PASS |
+| SEC-MED-003 | Finaler Security-Diff | Codex Security | Scan `be9553ca-7f13-42fa-82d5-dbc79c9acef5`; 24/24 Flächen; 0 Befunde | PASS |
+| SEC-MED-004 | Neue Android-Artefakte | Flutter/bundletool/apksigner/zipalign | AAB/APK gebaut, signiert, validiert und 16-KiB-ausgerichtet | PASS |
+| SEC-MED-005 | Echter Android-Release-Smoke | Redmi 2201117TY / Maestro / Logcat | byteidentische APK, drei Kaltstarts, UI-Smoke, 0 Fatal-Treffer; Ausgangszustand wiederhergestellt | PASS |
 
 ## Block 1
 

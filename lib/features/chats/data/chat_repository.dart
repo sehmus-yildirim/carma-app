@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../shared/firebase/carisma_firestore_paths.dart';
 import '../../../shared/firebase/carisma_firestore_schema.dart';
+import '../../../shared/security/trusted_firebase_media_url.dart';
 
 enum ChatStatus { active, archived, blocked, deleted }
 
@@ -2528,6 +2529,8 @@ class FirestoreChatRepository implements ChatRepository {
     DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
     final data = snapshot.data() ?? const <String, dynamic>{};
+    final senderUserId = _stringFromValue(data['senderUserId']);
+    final receiverUserId = _stringFromValue(data['receiverUserId']);
 
     return ChatRecord(
       id: snapshot.id,
@@ -2538,12 +2541,18 @@ class FirestoreChatRepository implements ChatRepository {
       requestId: _stringFromValue(data['requestId']),
       lastMessage: _stringFromValue(data['lastMessage']),
       lastMessageAt: _dateTimeFromValue(data['lastMessageAt']),
-      senderUserId: _stringFromValue(data['senderUserId']),
-      receiverUserId: _stringFromValue(data['receiverUserId']),
+      senderUserId: senderUserId,
+      receiverUserId: receiverUserId,
       senderDisplayName: _stringFromValue(data['senderDisplayName']),
       receiverDisplayName: _stringFromValue(data['receiverDisplayName']),
-      senderPhotoUrl: _stringFromValue(data['senderPhotoUrl']),
-      receiverPhotoUrl: _stringFromValue(data['receiverPhotoUrl']),
+      senderPhotoUrl: trustedProfilePhotoUrl(
+        url: data['senderPhotoUrl'],
+        userId: senderUserId,
+      ),
+      receiverPhotoUrl: trustedProfilePhotoUrl(
+        url: data['receiverPhotoUrl'],
+        userId: receiverUserId,
+      ),
       blockedBy: _stringFromValue(data['blockedBy']),
       blockedAt: _dateTimeFromValue(data['blockedAt']),
       countryCode: _stringFromValue(data['countryCode']),
@@ -2567,6 +2576,8 @@ class FirestoreChatRepository implements ChatRepository {
     DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
     final data = snapshot.data() ?? const <String, dynamic>{};
+    final imagePath = data['imagePath'] as String?;
+    final filePath = data['filePath'] as String?;
 
     return ChatMessageRecord(
       id: snapshot.id,
@@ -2580,10 +2591,16 @@ class FirestoreChatRepository implements ChatRepository {
       isStarred: data['isStarred'] as bool? ?? false,
       replyToMessageId: data['replyToMessageId'] as String?,
       replyToText: data['replyToText'] as String?,
-      imageUrl: data['imageUrl'] as String?,
-      imagePath: data['imagePath'] as String?,
-      fileUrl: data['fileUrl'] as String?,
-      filePath: data['filePath'] as String?,
+      imageUrl: trustedFirebaseMediaUrl(
+        url: data['imageUrl'],
+        storagePath: imagePath,
+      ),
+      imagePath: imagePath,
+      fileUrl: trustedFirebaseMediaUrl(
+        url: data['fileUrl'],
+        storagePath: filePath,
+      ),
+      filePath: filePath,
       fileName: data['fileName'] as String?,
       fileContentType: data['fileContentType'] as String?,
       fileSizeBytes: _intFromValue(data['fileSizeBytes']),

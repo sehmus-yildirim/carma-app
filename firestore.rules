@@ -25,6 +25,78 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isTrustedFirebaseStorageUrl(value) {
+      return value is string
+        && value.size() > 0
+        && value.size() <= 2000
+        && value.matches(
+          '^https://firebasestorage\\.googleapis\\.com/v0/b/(carma-a84e4\\.firebasestorage\\.app|carma-a84e4\\.appspot\\.com)/o/[^?#]+\\?alt=media(&token=[A-Za-z0-9_%.,-]{1,512})?$'
+        );
+    }
+
+    function isTrustedProfilePhotoUrl(value, userId) {
+      return value == null
+        || (
+          userId is string
+          && userId.matches('^[A-Za-z0-9_-]{1,128}$')
+          && value is string
+          && value.size() > 0
+          && value.size() <= 2000
+          && value.matches(
+            '^https://firebasestorage\\.googleapis\\.com/v0/b/(carma-a84e4\\.firebasestorage\\.app|carma-a84e4\\.appspot\\.com)/o/profile_photos%2F'
+              + userId
+              + '%2Fprofile\\.png\\?alt=media(&token=[A-Za-z0-9_%.,-]{1,512})?$'
+          )
+        );
+    }
+
+    function isEmptyOrTrustedProfilePhotoUrl(value, userId) {
+      return value is string
+        && (
+          value.size() == 0
+          || isTrustedProfilePhotoUrl(value, userId)
+        );
+    }
+
+    function isTrustedFirebaseStorageUrlList(values) {
+      return values is list
+        && values.size() >= 1
+        && values.size() <= 10
+        && isTrustedFirebaseStorageUrl(values[0])
+        && (values.size() < 2 || isTrustedFirebaseStorageUrl(values[1]))
+        && (values.size() < 3 || isTrustedFirebaseStorageUrl(values[2]))
+        && (values.size() < 4 || isTrustedFirebaseStorageUrl(values[3]))
+        && (values.size() < 5 || isTrustedFirebaseStorageUrl(values[4]))
+        && (values.size() < 6 || isTrustedFirebaseStorageUrl(values[5]))
+        && (values.size() < 7 || isTrustedFirebaseStorageUrl(values[6]))
+        && (values.size() < 8 || isTrustedFirebaseStorageUrl(values[7]))
+        && (values.size() < 9 || isTrustedFirebaseStorageUrl(values[8]))
+        && (values.size() < 10 || isTrustedFirebaseStorageUrl(values[9]));
+    }
+
+    function isOwnedProfilePostPath(value, userId, postId) {
+      return value is string
+        && value.matches(
+          '^profile_posts/' + userId + '/' + postId + '/[^/]{1,180}$'
+        );
+    }
+
+    function isOwnedProfilePostPathList(values, userId, postId) {
+      return values is list
+        && values.size() >= 1
+        && values.size() <= 10
+        && isOwnedProfilePostPath(values[0], userId, postId)
+        && (values.size() < 2 || isOwnedProfilePostPath(values[1], userId, postId))
+        && (values.size() < 3 || isOwnedProfilePostPath(values[2], userId, postId))
+        && (values.size() < 4 || isOwnedProfilePostPath(values[3], userId, postId))
+        && (values.size() < 5 || isOwnedProfilePostPath(values[4], userId, postId))
+        && (values.size() < 6 || isOwnedProfilePostPath(values[5], userId, postId))
+        && (values.size() < 7 || isOwnedProfilePostPath(values[6], userId, postId))
+        && (values.size() < 8 || isOwnedProfilePostPath(values[7], userId, postId))
+        && (values.size() < 9 || isOwnedProfilePostPath(values[8], userId, postId))
+        && (values.size() < 10 || isOwnedProfilePostPath(values[9], userId, postId));
+    }
+
     function isAdmin() {
       return isSignedIn() && request.auth.token.admin == true;
     }
@@ -398,13 +470,15 @@ service cloud.firestore {
           'plateRegion',
           'plateLetters',
           'plateNumbers',
+          'profileViewCount',
+          'profileViewedAt',
           'updatedAt',
         ])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 80
-        && isNullableStringWithMax(request.resource.data.photoUrl, 1000)
+        && isTrustedProfilePhotoUrl(request.resource.data.photoUrl, userId)
         && isNullableStringWithMax(request.resource.data.publicBio, 220)
         && isNullableStringWithMax(request.resource.data.publicRegion, 120)
         && request.resource.data.showVehicleOnPublicProfile is bool
@@ -440,6 +514,13 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp
         && publicNameMatchesLockedPersonalData(userId)
         && publicVerificationMatchesPrivateProfile(userId);
+    }
+
+    function keepsProtectedProfileViewState() {
+      return request.resource.data.get('profileViewCount', null)
+          == resource.data.get('profileViewCount', null)
+        && request.resource.data.get('profileViewedAt', null)
+          == resource.data.get('profileViewedAt', null);
     }
 
     function isValidVehicleStatus(status) {
@@ -2220,6 +2301,139 @@ service cloud.firestore {
         && chatData.get('deletedBy', {}).get(request.auth.uid, false) != true;
     }
 
+    function hasStrictContactRequestSchema(data) {
+      return data.keys().hasOnly([
+          'senderUserId',
+          'receiverUserId',
+          'targetUserId',
+          'countryCode',
+          'vehicleId',
+          'senderVehicleId',
+          'plateKey',
+          'senderDisplayName',
+          'senderPhotoUrl',
+          'receiverDisplayName',
+          'receiverPhotoUrl',
+          'displayPlate',
+          'vehicleBrand',
+          'vehicleModel',
+          'vehicleColor',
+          'vehicleLabel',
+          'requestReason',
+          'message',
+          'status',
+          'chatId',
+          'createdAt',
+          'updatedAt',
+          'expiresAt',
+          'isDeleted',
+        ])
+        && data.keys().hasAll([
+          'senderUserId',
+          'receiverUserId',
+          'targetUserId',
+          'countryCode',
+          'vehicleId',
+          'senderVehicleId',
+          'plateKey',
+          'senderDisplayName',
+          'senderPhotoUrl',
+          'receiverDisplayName',
+          'receiverPhotoUrl',
+          'displayPlate',
+          'vehicleBrand',
+          'vehicleModel',
+          'vehicleColor',
+          'vehicleLabel',
+          'requestReason',
+          'message',
+          'status',
+          'chatId',
+          'createdAt',
+          'updatedAt',
+          'expiresAt',
+          'isDeleted',
+        ]);
+    }
+
+    function isStrictContactRequestData(data, requestId) {
+      return hasStrictContactRequestSchema(data)
+        && data.senderUserId is string
+        && data.senderUserId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && data.receiverUserId is string
+        && data.receiverUserId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && data.senderUserId != data.receiverUserId
+        && data.targetUserId == data.receiverUserId
+        && data.countryCode in ['DE', 'AT', 'CH']
+        && data.vehicleId is string
+        && data.vehicleId.matches('^[A-Za-z0-9_-]{1,160}$')
+        && data.senderVehicleId is string
+        && data.senderVehicleId.matches('^[A-Za-z0-9_-]{1,160}$')
+        && data.plateKey is string
+        && data.plateKey.matches('^[A-ZÄÖÜ0-9]{2,20}$')
+        && requestId == data.senderUserId + '_' + data.countryCode
+          + '_' + data.vehicleId
+        && data.senderDisplayName is string
+        && data.senderDisplayName.size() > 0
+        && data.senderDisplayName.size() <= 80
+        && data.receiverDisplayName is string
+        && data.receiverDisplayName.size() > 0
+        && data.receiverDisplayName.size() <= 80
+        && isTrustedProfilePhotoUrl(data.senderPhotoUrl, data.senderUserId)
+        && isTrustedProfilePhotoUrl(data.receiverPhotoUrl, data.receiverUserId)
+        && isNullableStringWithMax(data.displayPlate, 32)
+        && isNullableStringWithMax(data.vehicleBrand, 120)
+        && isNullableStringWithMax(data.vehicleModel, 120)
+        && isNullableStringWithMax(data.vehicleColor, 80)
+        && isNullableStringWithMax(data.vehicleLabel, 160)
+        && data.requestReason in [
+          'vehicle_question',
+          'compliment',
+          'meet_and_drive',
+          'get_to_know',
+        ]
+        && data.message is string
+        && data.message.size() > 0
+        && data.message.size() <= 1000
+        && data.status in [
+          'pending',
+          'accepted',
+          'declined',
+          'withdrawn',
+          'expired',
+          'blocked',
+        ]
+        && data.chatId == 'request_' + requestId
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.expiresAt is timestamp
+        && data.expiresAt > data.createdAt
+        && data.expiresAt <= data.createdAt + duration.value(48, 'h')
+        && data.isDeleted == false;
+    }
+
+    function isValidStrictContactRequestUpdate(requestId) {
+      return isSignedIn()
+        && isStrictContactRequestData(resource.data, requestId)
+        && isStrictContactRequestData(request.resource.data, requestId)
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.auth.uid == resource.data.receiverUserId
+            && resource.data.status == 'pending'
+            && resource.data.expiresAt > request.time
+            && request.resource.data.status in ['accepted', 'declined']
+            && changedOnly(['status', 'updatedAt'])
+          )
+          || (
+            request.auth.uid == resource.data.senderUserId
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'withdrawn'
+            && changedOnly(['status', 'updatedAt'])
+          )
+        );
+    }
+
     function isOpenUndeletedChatParticipant(chatData) {
       return isUndeletedChatParticipant(chatData)
         && isOpenChatStatus(chatData.status);
@@ -2681,7 +2895,7 @@ service cloud.firestore {
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000
         && request.resource.data.imageUrl is string
-        && request.resource.data.imageUrl.size() > 0
+        && isTrustedFirebaseStorageUrl(request.resource.data.imageUrl)
         && request.resource.data.imagePath is string
         && request.resource.data.imagePath.size() > 0
         && request.resource.data.isViewOnce is bool
@@ -2725,7 +2939,7 @@ service cloud.firestore {
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000
         && request.resource.data.fileUrl is string
-        && request.resource.data.fileUrl.size() > 0
+        && isTrustedFirebaseStorageUrl(request.resource.data.fileUrl)
         && request.resource.data.filePath is string
         && request.resource.data.filePath.size() > 0
         && isOwnChatDocumentPath(
@@ -2790,7 +3004,7 @@ service cloud.firestore {
         && request.resource.data.type == 'audio'
         && request.resource.data.text == 'Sprachnachricht'
         && request.resource.data.fileUrl is string
-        && request.resource.data.fileUrl.size() > 0
+        && isTrustedFirebaseStorageUrl(request.resource.data.fileUrl)
         && request.resource.data.filePath is string
         && request.resource.data.filePath.size() > 0
         && isOwnChatVoiceMemoPath(
@@ -2845,7 +3059,7 @@ service cloud.firestore {
         && request.resource.data.text.size() > 0
         && request.resource.data.text.size() <= 1000
         && request.resource.data.fileUrl is string
-        && request.resource.data.fileUrl.size() > 0
+        && isTrustedFirebaseStorageUrl(request.resource.data.fileUrl)
         && request.resource.data.filePath is string
         && request.resource.data.filePath.size() > 0
         && isOwnChatVideoPath(
@@ -3500,12 +3714,9 @@ service cloud.firestore {
         && request.resource.data.ownerDisplayName is string
         && request.resource.data.ownerDisplayName.size() > 0
         && request.resource.data.ownerDisplayName.size() <= 80
-        && (
-          request.resource.data.ownerPhotoUrl == null ||
-          (
-            request.resource.data.ownerPhotoUrl is string
-            && request.resource.data.ownerPhotoUrl.size() <= 500
-          )
+        && isTrustedProfilePhotoUrl(
+          request.resource.data.ownerPhotoUrl,
+          request.auth.uid
         )
         && request.resource.data.viewerUserIds is list
         && request.resource.data.viewerUserIds.size() > 0
@@ -3524,12 +3735,9 @@ service cloud.firestore {
           (
             request.resource.data.viewerPhotoUrlBy is map
             && request.resource.data.viewerPhotoUrlBy.keys().hasOnly([request.auth.uid])
-            && (
-              request.resource.data.viewerPhotoUrlBy[request.auth.uid] == null ||
-              (
-                request.resource.data.viewerPhotoUrlBy[request.auth.uid] is string
-                && request.resource.data.viewerPhotoUrlBy[request.auth.uid].size() <= 500
-              )
+            && isTrustedProfilePhotoUrl(
+              request.resource.data.viewerPhotoUrlBy[request.auth.uid],
+              request.auth.uid
             )
           )
         )
@@ -3546,13 +3754,13 @@ service cloud.firestore {
         && request.resource.data.videoIsMuted is bool
         && (
           (request.resource.data.mediaType == 'image'
-            && request.resource.data.imageUrl.size() > 0
+            && isTrustedFirebaseStorageUrl(request.resource.data.imageUrl)
             && request.resource.data.imagePath.size() > 0
             && isOwnStoryImagePath(request.resource.data.imagePath)
             && request.resource.data.videoUrl.size() == 0
             && request.resource.data.videoPath.size() == 0)
           || (request.resource.data.mediaType == 'video'
-            && request.resource.data.videoUrl.size() > 0
+            && isTrustedFirebaseStorageUrl(request.resource.data.videoUrl)
             && request.resource.data.videoPath.size() > 0
             && isOwnStoryVideoPath(request.resource.data.videoPath)
             && request.resource.data.imageUrl.size() == 0
@@ -3594,7 +3802,13 @@ service cloud.firestore {
         && request.resource.data.stickerAlignmentY <= 1
         && (
           !request.resource.data.keys().hasAny(['stickers'])
-          || isValidStoryStickerList(request.resource.data.stickers)
+          || (
+            request.resource.data.stickers is list
+            && (
+              request.resource.data.stickers.size() == 0
+              || isValidStoryStickerList(request.resource.data.stickers)
+            )
+          )
         )
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
@@ -3617,12 +3831,9 @@ service cloud.firestore {
           !request.resource.data.keys().hasAny(['viewerPhotoUrlBy']) ||
           (
             request.resource.data.viewerPhotoUrlBy is map
-            && (
-              request.resource.data.viewerPhotoUrlBy[request.auth.uid] == null ||
-              (
-                request.resource.data.viewerPhotoUrlBy[request.auth.uid] is string
-                && request.resource.data.viewerPhotoUrlBy[request.auth.uid].size() <= 500
-              )
+            && isTrustedProfilePhotoUrl(
+              request.resource.data.viewerPhotoUrlBy[request.auth.uid],
+              request.auth.uid
             )
           )
         )
@@ -3644,9 +3855,11 @@ service cloud.firestore {
         && resource.data.viewedAtBy[request.auth.uid] is timestamp
         && changedOnly(['viewerPhotoUrlBy', 'updatedAt'])
         && request.resource.data.viewerPhotoUrlBy is map
-        && request.resource.data.viewerPhotoUrlBy[request.auth.uid] is string
-        && request.resource.data.viewerPhotoUrlBy[request.auth.uid].size() > 0
-        && request.resource.data.viewerPhotoUrlBy[request.auth.uid].size() <= 500
+        && isTrustedProfilePhotoUrl(
+          request.resource.data.viewerPhotoUrlBy[request.auth.uid],
+          request.auth.uid
+        )
+        && request.resource.data.viewerPhotoUrlBy[request.auth.uid] != null
         && request.resource.data.updatedAt is timestamp
         && changedOnlyNestedMapKey('viewerPhotoUrlBy', request.auth.uid);
     }
@@ -3657,7 +3870,13 @@ service cloud.firestore {
           hasActiveProfileConnection(userId)
           && resource.data.profileAccessEnabled == true
         );
-      allow create, update: if isValidPublicProfileWrite(userId);
+      allow create: if isValidPublicProfileWrite(userId)
+        && !request.resource.data.keys().hasAny([
+          'profileViewCount',
+          'profileViewedAt',
+        ]);
+      allow update: if isValidPublicProfileWrite(userId)
+        && keepsProtectedProfileViewState();
       allow delete: if false;
 
       match /vehicles/{vehicleId} {
@@ -4036,13 +4255,18 @@ service cloud.firestore {
           && request.resource.data.postId == postId
           && request.resource.data.ownerUserId == userId
           && request.resource.data.imageUrl is string
-          && request.resource.data.imageUrl.size() > 0
-          && request.resource.data.imageUrl.size() <= 1000
+          && isTrustedFirebaseStorageUrl(request.resource.data.imageUrl)
           && request.resource.data.mediaUrls is list
           && request.resource.data.mediaPaths is list
           && request.resource.data.mediaTypes is list
           && request.resource.data.mediaUrls.size() > 0
           && request.resource.data.mediaUrls.size() <= 10
+          && isTrustedFirebaseStorageUrlList(request.resource.data.mediaUrls)
+          && isOwnedProfilePostPathList(
+            request.resource.data.mediaPaths,
+            userId,
+            postId
+          )
           && request.resource.data.mediaPaths.size()
             == request.resource.data.mediaUrls.size()
           && request.resource.data.mediaTypes.size()
@@ -4158,8 +4382,10 @@ service cloud.firestore {
             && request.resource.data.displayName is string
             && request.resource.data.displayName.size() > 0
             && request.resource.data.displayName.size() <= 100
-            && request.resource.data.photoUrl is string
-            && request.resource.data.photoUrl.size() <= 1000
+            && isEmptyOrTrustedProfilePhotoUrl(
+              request.resource.data.photoUrl,
+              likerUserId
+            )
             && request.resource.data.createdAt is timestamp
             && request.resource.data.keys().hasOnly([
               'userId',
@@ -4210,8 +4436,10 @@ service cloud.firestore {
             && request.resource.data.authorUserId == request.auth.uid
             && request.resource.data.authorDisplayName is string
             && request.resource.data.authorDisplayName.size() <= 100
-            && request.resource.data.authorPhotoUrl is string
-            && request.resource.data.authorPhotoUrl.size() <= 1000
+            && isEmptyOrTrustedProfilePhotoUrl(
+              request.resource.data.authorPhotoUrl,
+              request.auth.uid
+            )
             && request.resource.data.text is string
             && request.resource.data.text.size() > 0
             && request.resource.data.text.size() <= 500
@@ -4282,8 +4510,10 @@ service cloud.firestore {
               && request.resource.data.authorUserId == request.auth.uid
               && request.resource.data.authorDisplayName is string
               && request.resource.data.authorDisplayName.size() <= 100
-              && request.resource.data.authorPhotoUrl is string
-              && request.resource.data.authorPhotoUrl.size() <= 1000
+              && isEmptyOrTrustedProfilePhotoUrl(
+                request.resource.data.authorPhotoUrl,
+                request.auth.uid
+              )
               && request.resource.data.text is string
               && request.resource.data.text.size() > 0
               && request.resource.data.text.size() <= 500
@@ -4494,9 +4724,9 @@ service cloud.firestore {
           resource.data.receiverUserId == request.auth.uid
         );
 
-      allow create: if isValidContactRequestCreate(requestId);
+      allow create: if false;
 
-      allow update: if isValidContactRequestUpdate(requestId);
+      allow update: if isValidStrictContactRequestUpdate(requestId);
 
       allow delete: if false;
     }
@@ -4511,8 +4741,7 @@ service cloud.firestore {
       allow list: if isSignedIn()
         && request.auth.uid in resource.data.participants;
 
-      allow create: if request.resource.data.requestId is string
-        && isValidChatCreateForRequest(chatId, request.resource.data.requestId);
+      allow create: if false;
 
       allow update: if isValidChatBlockUpdate()
         || isValidChatUnblockUpdate()

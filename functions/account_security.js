@@ -241,6 +241,22 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
       .where("userId", "==", userId),
     firestore.collection("plate_search_probes")
       .where("requesterUserId", "==", userId),
+    firestore.collection("plate_contact_grants")
+      .where("requesterUserId", "==", userId),
+    firestore.collection("plate_contact_grants")
+      .where("targetUserId", "==", userId),
+    firestore.collection("contact_request_rate_limits")
+      .where("userId", "==", userId),
+    firestore.collection("contact_request_target_limits")
+      .where("senderUserId", "==", userId),
+    firestore.collection("contact_request_target_limits")
+      .where("receiverUserId", "==", userId),
+    firestore.collection("profile_view_events")
+      .where("viewerUserId", "==", userId),
+    firestore.collection("profile_view_events")
+      .where("profileUserId", "==", userId),
+    firestore.collection("profile_view_rate_limits")
+      .where("viewerUserId", "==", userId),
     firestore.collection("_media_upload_reservations")
       .where("userId", "==", userId),
     firestore.collection("_media_upload_objects")

@@ -1,0 +1,17 @@
+appId: de.plaqa.app
+name: plaqa Android release startup smoke test
+tags:
+  - release
+  - redmi
+  - smoke
+---
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Einloggen"
+    timeout: 60000
+- assertVisible: "Einloggen"
+- assertVisible: "Mit Google fortfahren.*"
+- assertVisible: "Noch kein Konto.*Registrieren.*"
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

@@ -126,3 +126,35 @@ Lockfile-Korrekturen erneut:
 Das Redmi enthält weiterhin die Debug-App und Nutzerdaten. Eine Deinstallation
 wurde abgelehnt, weil sie diese Daten gelöscht hätte. Der Gate-6-Smoke bleibt
 der gültige reale Gerätenachweis; Gate 8 behauptet keinen neuen Geräte-PASS.
+
+## Medium-Security-Remediation-Neubau und Redmi-Smoke
+
+Nach Abschluss von SEC-006 bis SEC-011 wurden am 2026-08-29 neue Artefakte
+erzeugt und auf dem echten Redmi `2201117TY` geprüft:
+
+| Artefakt | Größe | SHA-256 | Ergebnis |
+|---|---:|---|---|
+| `build/app/outputs/bundle/release/app-release.aab` | 74.141.658 Bytes | `7C2828CF8A2BCE53019F8865A46F59A98315952969974047932436E469DC6A34` | PASS |
+| `build/app/outputs/flutter-apk/app-release.apk` | 86.311.712 Bytes | `56A8D8A83D6835B519D83650DCA22E9C0666B77C7FC9C7C3BAD5F7B7A88C5085` | PASS |
+
+- [x] AAB mit bundletool 1.18.3 validiert
+- [x] APK-Signatur v2 gültig; genau ein Signierer; Zertifikat wie Gate 6
+- [x] AAB-JAR-Signatur verifiziert
+- [x] `zipalign -P 16 -c -v 4` bestanden
+- [x] Paket `de.plaqa.app`, Version `1.0.0 (1)`, minSdk 24, targetSdk 36
+- [x] kein `DEBUGGABLE`- und kein Cleartext-Flag im Release-Manifest
+- [x] installierte APK bytegenau zum lokalen Artefakt
+- [x] drei Kaltstarts: 1.960 ms, 1.382 ms und 1.394 ms
+- [x] Maestro-Release-Flow bestanden; Login und Registrierung sichtbar
+- [x] keine Crash-, ANR-, Null-Check- oder RenderFlex-Treffer in Logcat/UI
+- [x] stabiler Zustand: 156.942 KB Total PSS, 187.512 KB Total RSS,
+  48.914 KB Swap PSS
+
+Vor dem Test wurden Debug-APK und interne App-Daten gesichert. Nach dem Test
+wurde die ursprüngliche Debug-APK mit SHA-256
+`AEB8D6000060278513CC128129E9C8050F5379D45F1A7F219331479F36DE3329`
+bytegenau wiederhergestellt, 34 interne Datendateien wurden zurückgespielt,
+die Debug-App startete erfolgreich und das Redmi wurde anschließend gestoppt
+und in `Dozing` gesperrt.
+
+Es wurde nichts in die Play Console hochgeladen oder veröffentlicht.

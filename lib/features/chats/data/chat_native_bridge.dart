@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../shared/security/trusted_firebase_media_url.dart';
+
 class PickedPhoneContact {
   const PickedPhoneContact({required this.name, required this.phoneNumber});
 
@@ -256,9 +258,10 @@ class ChatNativeBridge {
     required String url,
     required String contentType,
   }) async {
+    _validateMediaSource(url, action: 'Dokument öffnen');
     if (_isIos) {
       final uri = Uri.tryParse(url.trim());
-      if (uri == null || !const {'https', 'http'}.contains(uri.scheme)) {
+      if (uri == null || !isTrustedPlaqaFirebaseDownloadUrl(uri.toString())) {
         throw PlatformException(
           code: 'invalid-document-url',
           message: 'Der Dokumentlink ist ungültig.',
@@ -293,6 +296,7 @@ class ChatNativeBridge {
     required String fileName,
     required String contentType,
   }) async {
+    _validateMediaSource(url, action: 'Bild speichern');
     _requireAndroidNativeTool('Bild speichern');
     await _channel.invokeMethod<void>('saveImageToGallery', <String, Object>{
       'url': url,
@@ -306,6 +310,7 @@ class ChatNativeBridge {
     required String fileName,
     required String contentType,
   }) async {
+    _validateMediaSource(url, action: 'Video speichern');
     _requireAndroidNativeTool('Video speichern');
     await _channel.invokeMethod<void>('saveVideoToGallery', <String, Object>{
       'url': url,
@@ -319,9 +324,10 @@ class ChatNativeBridge {
     required String fileName,
     required String contentType,
   }) async {
+    _validateMediaSource(url, action: 'Dokument speichern');
     if (_isIos) {
       final uri = Uri.tryParse(url.trim());
-      if (uri == null || !const {'https', 'http'}.contains(uri.scheme)) {
+      if (uri == null || !isTrustedPlaqaFirebaseDownloadUrl(uri.toString())) {
         throw PlatformException(
           code: 'invalid-document-url',
           message: 'Der Dokumentlink ist ungültig.',
@@ -387,6 +393,7 @@ class ChatNativeBridge {
   }
 
   Future<void> playVoiceMemo({required String url}) async {
+    _validateMediaSource(url, action: 'Sprachmemo wiedergeben');
     _requireAndroidNativeTool('Sprachmemo wiedergeben');
     await _channel.invokeMethod<void>('playVoiceMemo', <String, Object>{
       'url': url,
@@ -411,6 +418,19 @@ class ChatNativeBridge {
       code: 'platform-tool-unavailable',
       message:
           '$action ist auf diesem Gerät noch nicht verfügbar. Bitte nutze eine andere Auswahl.',
+    );
+  }
+
+  void _validateMediaSource(String value, {required String action}) {
+    final normalized = value.trim();
+    final uri = Uri.tryParse(normalized);
+    final isLocal =
+        normalized.isNotEmpty &&
+        (uri == null || uri.scheme.isEmpty || uri.scheme == 'file');
+    if (isLocal || isTrustedPlaqaFirebaseDownloadUrl(normalized)) return;
+    throw PlatformException(
+      code: 'untrusted-media-source',
+      message: '$action ist für diese Quelle nicht erlaubt.',
     );
   }
 }

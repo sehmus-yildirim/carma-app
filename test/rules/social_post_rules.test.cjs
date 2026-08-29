@@ -35,6 +35,12 @@ const storagePort = Number(process.env.FIREBASE_STORAGE_EMULATOR_PORT || 9199);
 let testEnv;
 let reservationSequence = 0;
 
+function storageUrl(storagePath) {
+  return 'https://firebasestorage.googleapis.com/v0/b/' +
+    'carma-a84e4.firebasestorage.app/o/' +
+    `${encodeURIComponent(storagePath)}?alt=media&token=test-token`;
+}
+
 function rulesFile(fileNameToRead) {
   return fs.readFileSync(path.join(process.cwd(), fileNameToRead), 'utf8');
 }
@@ -64,12 +70,13 @@ async function reservedUploadMetadata({userId, filePath, contentType, size}) {
 
 function postData(overrides = {}) {
   const now = Timestamp.now();
+  const mediaUrl = storageUrl(mediaPath);
   return {
     postId,
     ownerUserId,
-    imageUrl: 'https://plaqa.de/post.jpg',
+    imageUrl: mediaUrl,
     imagePath: mediaPath,
-    mediaUrls: ['https://plaqa.de/post.jpg'],
+    mediaUrls: [mediaUrl],
     mediaPaths: [mediaPath],
     mediaTypes: ['image'],
     caption: 'Testbeitrag',
@@ -156,6 +163,22 @@ describe('social post Firestore and Storage rules', () => {
     await assertFails(setDoc(
       doc(outsider.firestore(), 'users', ownerUserId, 'social_posts', 'fake'),
       postData({postId: 'fake'}),
+    ));
+    const externalPostId = 'external-media';
+    const externalPath =
+      `profile_posts/${ownerUserId}/${externalPostId}/${fileName}`;
+    await assertFails(setDoc(
+      doc(
+        owner.firestore(),
+        'users', ownerUserId, 'social_posts', externalPostId,
+      ),
+      postData({
+        postId: externalPostId,
+        imageUrl: 'https://media.example.test/tracking.jpg',
+        imagePath: externalPath,
+        mediaUrls: ['https://media.example.test/tracking.jpg'],
+        mediaPaths: [externalPath],
+      }),
     ));
 
     const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
@@ -246,11 +269,21 @@ describe('social post Firestore and Storage rules', () => {
     const likePath = [
       'users', ownerUserId, 'social_posts', postId, 'likes', contactUserId,
     ];
+    const contactPhotoUrl = storageUrl(
+      `profile_photos/${contactUserId}/profile.png`,
+    );
+    await assertFails(setDoc(doc(contact.firestore(), ...likePath), {
+      userId: contactUserId,
+      postOwnerUserId: ownerUserId,
+      displayName: 'Kontakt N.',
+      photoUrl: 'https://tracker.example/like.png',
+      createdAt: Timestamp.now(),
+    }));
     await assertSucceeds(setDoc(doc(contact.firestore(), ...likePath), {
       userId: contactUserId,
       postOwnerUserId: ownerUserId,
       displayName: 'Kontakt N.',
-      photoUrl: '',
+      photoUrl: contactPhotoUrl,
       createdAt: Timestamp.now(),
     }));
     await assertFails(setDoc(doc(outsider.firestore(), ...likePath), {
@@ -266,13 +299,25 @@ describe('social post Firestore and Storage rules', () => {
     const commentPath = [
       'users', ownerUserId, 'social_posts', postId, 'comments', commentId,
     ];
+    await assertFails(setDoc(doc(contact.firestore(), ...commentPath), {
+      commentId,
+      postId,
+      postOwnerUserId: ownerUserId,
+      authorUserId: contactUserId,
+      authorDisplayName: 'Kontakt N.',
+      authorPhotoUrl: 'https://tracker.example/comment.png',
+      text: 'Unsicheres Profilbild.',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      isDeleted: false,
+    }));
     await assertSucceeds(setDoc(doc(contact.firestore(), ...commentPath), {
       commentId,
       postId,
       postOwnerUserId: ownerUserId,
       authorUserId: contactUserId,
       authorDisplayName: 'Kontakt N.',
-      authorPhotoUrl: '',
+      authorPhotoUrl: contactPhotoUrl,
       text: 'Schönes Fahrzeug.',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -287,6 +332,19 @@ describe('social post Firestore and Storage rules', () => {
     const replyPath = [
       ...commentPath, 'replies', replyId,
     ];
+    await assertFails(setDoc(doc(contact.firestore(), ...replyPath), {
+      replyId,
+      commentId,
+      postId,
+      postOwnerUserId: ownerUserId,
+      authorUserId: contactUserId,
+      authorDisplayName: 'Kontakt N.',
+      authorPhotoUrl: 'https://tracker.example/reply.png',
+      text: 'Unsicheres Profilbild.',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+      isDeleted: false,
+    }));
     await assertSucceeds(setDoc(doc(contact.firestore(), ...replyPath), {
       replyId,
       commentId,
@@ -294,7 +352,7 @@ describe('social post Firestore and Storage rules', () => {
       postOwnerUserId: ownerUserId,
       authorUserId: contactUserId,
       authorDisplayName: 'Kontakt N.',
-      authorPhotoUrl: '',
+      authorPhotoUrl: contactPhotoUrl,
       text: 'Danke für deine Rückmeldung.',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),

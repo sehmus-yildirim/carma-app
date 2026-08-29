@@ -75,6 +75,52 @@ describe('account security rules', () => {
     }));
   });
 
+  test('profile photo reads require owner access or a live profile connection', async () => {
+    const imagePath = `profile_photos/${userId}/profile.png`;
+    const connectedId = 'security-connected';
+    const connectionId = `${connectedId}_${userId}`;
+    const pngBytes = Uint8Array.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadBytes(ref(context.storage(), imagePath), pngBytes, {
+        contentType: 'image/png',
+      });
+      await setDoc(doc(context.firestore(), 'public_profiles', userId), {
+        uid: userId,
+        profileAccessEnabled: true,
+      });
+      await setDoc(doc(
+        context.firestore(),
+        'profile_connections',
+        connectionId,
+      ), {
+        status: 'active',
+        participants: [connectedId, userId],
+        chatId: 'profile-photo-chat',
+      });
+      await setDoc(doc(context.firestore(), 'chats', 'profile-photo-chat'), {
+        status: 'active',
+        participants: [connectedId, userId],
+        deletedBy: {[connectedId]: false, [userId]: false},
+      });
+    });
+
+    const owner = testEnv.authenticatedContext(userId).storage();
+    const connected = testEnv.authenticatedContext(connectedId).storage();
+    const outsider = testEnv.authenticatedContext(outsiderId).storage();
+    await assertSucceeds(getBytes(ref(owner, imagePath)));
+    await assertSucceeds(getBytes(ref(connected, imagePath)));
+    await assertFails(getBytes(ref(outsider, imagePath)));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'public_profiles', userId), {
+        profileAccessEnabled: false,
+      }, {merge: true});
+    });
+    await assertFails(getBytes(ref(connected, imagePath)));
+  });
+
   test('only owner reads server-written security activities', async () => {
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(

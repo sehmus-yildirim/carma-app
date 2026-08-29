@@ -34,6 +34,12 @@ const firestorePort = Number(process.env.FIRESTORE_EMULATOR_PORT || 8080);
 const storagePort = Number(process.env.FIREBASE_STORAGE_EMULATOR_PORT || 9199);
 
 let testEnv;
+
+function storageUrl(storagePath) {
+  return 'https://firebasestorage.googleapis.com/v0/b/' +
+    'carma-a84e4.firebasestorage.app/o/' +
+    `${encodeURIComponent(storagePath)}?alt=media&token=test-token`;
+}
 let reservationSequence = 0;
 
 function rulesFile(fileName) {
@@ -192,6 +198,7 @@ function storyPrivacySetting(userId, overrides = {}) {
 
 function storyDocument(storyId, overrides = {}) {
   const createdAt = Timestamp.fromMillis(Date.now());
+  const imagePath = `chat_stories/${senderUserId}/${storyId}/media.jpg`;
   return {
     ownerUserId: senderUserId,
     ownerDisplayName: 'Sender S.',
@@ -201,8 +208,8 @@ function storyDocument(storyId, overrides = {}) {
     viewerNameBy: { [senderUserId]: 'Sender S.' },
     viewerPhotoUrlBy: { [senderUserId]: null },
     viewedAtBy: { [senderUserId]: createdAt },
-    imageUrl: 'https://example.invalid/story.jpg',
-    imagePath: `chat_stories/${senderUserId}/${storyId}/media.jpg`,
+    imageUrl: storageUrl(imagePath),
+    imagePath,
     mediaType: 'image',
     videoUrl: '',
     videoPath: '',
@@ -242,13 +249,14 @@ async function seedStory(storyId, overrides = {}) {
 
 function imageMessage(chatId, messageId, overrides = {}) {
   const now = Timestamp.fromMillis(Date.now());
+  const imagePath = `chat_images/${chatId}/${senderUserId}/${messageId}.jpg`;
   return {
     chatId,
     senderUserId,
     type: 'image',
     text: 'Foto',
-    imageUrl: 'https://example.invalid/image.jpg',
-    imagePath: `chat_images/${chatId}/${senderUserId}/${messageId}.jpg`,
+    imageUrl: storageUrl(imagePath),
+    imagePath,
     isViewOnce: false,
     viewOnceOpenedAtBy: {},
     createdAt: now,
@@ -536,6 +544,48 @@ describe('Chat Firestore and Storage rules', () => {
         }),
       ),
     );
+  });
+
+  test('bind story owner and viewer avatars to their profile photo objects', async () => {
+    const senderDb = testEnv.authenticatedContext(senderUserId).firestore();
+    const receiverDb = testEnv.authenticatedContext(receiverUserId).firestore();
+    const storyId = '1723333333333';
+    const externalUrl = 'https://tracker.example/avatar.png';
+    const ownerPhotoUrl = storageUrl(
+      `profile_photos/${senderUserId}/profile.png`,
+    );
+    const viewerPhotoUrl = storageUrl(
+      `profile_photos/${receiverUserId}/profile.png`,
+    );
+
+    await assertFails(setDoc(
+      doc(senderDb, 'chat_stories', storyId),
+      storyDocument(storyId, {
+        ownerPhotoUrl: externalUrl,
+        viewerPhotoUrlBy: {[senderUserId]: externalUrl},
+      }),
+    ));
+    await assertSucceeds(setDoc(
+      doc(senderDb, 'chat_stories', storyId),
+      storyDocument(storyId, {
+        ownerPhotoUrl,
+        viewerPhotoUrlBy: {[senderUserId]: ownerPhotoUrl},
+      }),
+    ));
+
+    const viewedAt = Timestamp.now();
+    await assertFails(updateDoc(doc(receiverDb, 'chat_stories', storyId), {
+      [`viewedAtBy.${receiverUserId}`]: viewedAt,
+      [`viewerNameBy.${receiverUserId}`]: 'Receiver R.',
+      [`viewerPhotoUrlBy.${receiverUserId}`]: externalUrl,
+      updatedAt: viewedAt,
+    }));
+    await assertSucceeds(updateDoc(doc(receiverDb, 'chat_stories', storyId), {
+      [`viewedAtBy.${receiverUserId}`]: viewedAt,
+      [`viewerNameBy.${receiverUserId}`]: 'Receiver R.',
+      [`viewerPhotoUrlBy.${receiverUserId}`]: viewerPhotoUrl,
+      updatedAt: viewedAt,
+    }));
   });
 
   test('deny inactive and expired stories and media to viewers', async () => {
@@ -883,6 +933,14 @@ describe('Chat Firestore and Storage rules', () => {
         doc(senderDb, 'chats', chatId, 'messages', 'wrong-path'),
         imageMessage(chatId, 'wrong-path', {
           imagePath: 'chat_images/chat-message/chat-sender/other.jpg',
+        }),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(senderDb, 'chats', chatId, 'messages', 'external-url'),
+        imageMessage(chatId, 'external-url', {
+          imageUrl: 'https://media.example.test/tracking.jpg',
         }),
       ),
     );

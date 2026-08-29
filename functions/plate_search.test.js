@@ -4,6 +4,7 @@ const test = require("node:test");
 const {
   coarseLocationCell,
   maxPlateTargetSearchesPerWindow,
+  recordPlateContactGrant,
   searchPlateDocument,
 } = require("./plate_search");
 
@@ -20,8 +21,15 @@ function fakeFirestore(data, settings = null) {
       this.paths.push(path);
       return {
         path,
+        async set(value) {
+          documents.set(path, value);
+        },
         async get() {
           if (path.startsWith("plate_search_")) {
+            const stored = documents.get(path);
+            return {exists: stored != null, data: () => stored};
+          }
+          if (path.startsWith("account_deletions/")) {
             const stored = documents.get(path);
             return {exists: stored != null, data: () => stored};
           }
@@ -73,6 +81,9 @@ function visibleSettings(overrides = {}) {
 }
 
 function validData(overrides = {}) {
+  const profilePhotoUrl = "https://firebasestorage.googleapis.com/v0/b/" +
+    "carma-a84e4.firebasestorage.app/o/" +
+    "profile_photos%2Ftarget-user%2Fprofile.png?alt=media&token=test-token";
   return {
     ownerUserId: "target-user",
     vehicleId: "vehicle-mercedes-gls",
@@ -81,7 +92,7 @@ function validData(overrides = {}) {
     normalizedPlate: "FDRT2918",
     displayPlate: "FD-RT 2918",
     displayName: "Mara Beispiel",
-    profilePhotoUrl: "https://example.test/profile.jpg",
+    profilePhotoUrl,
     verificationStatus: "verified",
     isVerified: true,
     ownerIdentityVerified: true,
@@ -128,19 +139,24 @@ test("returns only the dynamic public hit fields", async () => {
     now,
   });
 
-  assert.deepEqual(firestore.paths, [
-    "plate_search_rate_limits/searching-user",
-    firestore.paths[1],
-    firestore.paths[2],
-    "plates/DE_FDRT2918",
-    "users/target-user/settings/visibility",
-    "public_profiles/target-user",
-  ]);
+  assert.equal(firestore.paths.includes("plates/DE_FDRT2918"), true);
+  assert.equal(
+    firestore.paths.includes("account_deletions/target-user"),
+    true,
+  );
+  assert.equal(
+    firestore.paths.some((path) =>
+      /^plate_contact_grants\/[a-f0-9]{64}$/u.test(path)),
+    true,
+  );
   assert.deepEqual(result, {
     found: true,
     targetUid: "target-user",
     displayName: "Mara Beispiel",
-    profilePhotoUrl: "https://example.test/profile.jpg",
+    profilePhotoUrl:
+      "https://firebasestorage.googleapis.com/v0/b/" +
+      "carma-a84e4.firebasestorage.app/o/" +
+      "profile_photos%2Ftarget-user%2Fprofile.png?alt=media&token=test-token",
     isVerified: true,
     vehicleId: "vehicle-mercedes-gls",
     plateKey: "FDRT2918",
@@ -226,6 +242,87 @@ test("keeps missing photo and unverified status private and neutral", async () =
   assert.equal(result.found, true);
   assert.equal(result.profilePhotoUrl, null);
   assert.equal(result.isVerified, false);
+});
+
+test("drops an external profile photo from a successful result", async () => {
+  const result = await searchPlateDocument({
+    firestore: fakeFirestore(
+      validData({profilePhotoUrl: "https://tracker.example/profile.jpg"}),
+      visibleSettings(),
+    ),
+    requesterUserId: "searching-user",
+    input: validInput(),
+    now,
+  });
+
+  assert.equal(result.found, true);
+  assert.equal(result.profilePhotoUrl, null);
+});
+
+test("does not mint a grant while the target account is being deleted", async () => {
+  const firestore = fakeFirestore(validData(), visibleSettings());
+  firestore.documents.set("account_deletions/target-user", {
+    status: "processing",
+  });
+  const result = await searchPlateDocument({
+    firestore,
+    requesterUserId: "searching-user",
+    input: validInput(),
+    now,
+  });
+
+  assert.deepEqual(result, {found: false});
+  assert.equal(
+    [...firestore.documents.keys()].some((path) =>
+      path.startsWith("plate_contact_grants/")),
+    false,
+  );
+});
+
+test("does not record probes while the requester account is being deleted", async () => {
+  const firestore = fakeFirestore(validData(), visibleSettings());
+  firestore.documents.set("account_deletions/searching-user", {
+    status: "requested",
+  });
+
+  await assert.rejects(
+    searchPlateDocument({
+      firestore,
+      requesterUserId: "searching-user",
+      input: validInput(),
+      now,
+    }),
+    (error) => error.code === "failed-precondition",
+  );
+  assert.equal(
+    [...firestore.documents.keys()].some((path) =>
+      path.startsWith("plate_search_probes/")),
+    false,
+  );
+});
+
+test("does not mint a grant while the requester account is being deleted", async () => {
+  const firestore = fakeFirestore(validData(), visibleSettings());
+  firestore.documents.set("account_deletions/searching-user", {
+    status: "completed",
+  });
+
+  const recorded = await recordPlateContactGrant({
+    firestore,
+    requesterUserId: "searching-user",
+    targetUserId: "target-user",
+    countryCode: "DE",
+    vehicleId: "vehicle-mercedes-gls",
+    plateKey: "FDRT2918",
+    now,
+  });
+
+  assert.equal(recorded, false);
+  assert.equal(
+    [...firestore.documents.keys()].some((path) =>
+      path.startsWith("plate_contact_grants/")),
+    false,
+  );
 });
 
 test("hides vehicle and plate fields when visibility settings disallow them", async () => {

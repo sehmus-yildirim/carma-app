@@ -1,17 +1,25 @@
 const {FieldValue} = require("firebase-admin/firestore");
+const {trustedProfilePhotoUrl} = require("./trusted_media_url");
+
+const syncConcurrency = 10;
 
 function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function photoValue(value) {
-  const normalized = safeString(value);
-  return normalized.length === 0 ? null : normalized;
+function photoValue(value, userId) {
+  return trustedProfilePhotoUrl(value, userId);
 }
 
 function displayNameValue(value) {
   const normalized = safeString(value);
   return normalized.length === 0 ? "plaqa Nutzer" : normalized;
+}
+
+function accountDeletionBlocksWrites(data) {
+  return ["requested", "processing", "completed"].includes(
+    safeString(data?.status),
+  );
 }
 
 function profilePhotoUpdateFor({
@@ -80,7 +88,7 @@ async function syncProfilePhotoReferences({
   if (normalizedUserId.length === 0) {
     throw new TypeError("userId is required");
   }
-  const normalizedPhotoUrl = photoValue(photoUrl);
+  const normalizedPhotoUrl = photoValue(photoUrl, normalizedUserId);
   const querySpecs = [
     {
       collection: "chats",
@@ -136,32 +144,78 @@ async function syncProfilePhotoReferences({
   const snapshots = await Promise.all(
     querySpecs.map(({query}) => query.get()),
   );
-  const writer = firestore.bulkWriter();
-  const writtenPaths = new Set();
+  const referencesByPath = new Map();
 
   querySpecs.forEach(({collection}, index) => {
     for (const document of snapshots[index].docs) {
-      if (writtenPaths.has(document.ref.path)) continue;
-      const update = profilePhotoUpdateFor({
-        collection,
-        data: document.data() ?? {},
-        userId: normalizedUserId,
-        photoUrl: normalizedPhotoUrl,
-        displayName,
-      });
-      if (update == null) continue;
-      writtenPaths.add(document.ref.path);
-      writer.set(document.ref, update, {merge: true});
+      if (!referencesByPath.has(document.ref.path)) {
+        referencesByPath.set(document.ref.path, {
+          collection,
+          reference: document.ref,
+        });
+      }
     }
   });
 
-  await writer.close();
-  return {updatedReferenceCount: writtenPaths.size};
+  const deletionReference = firestore.doc(
+    `account_deletions/${normalizedUserId}`,
+  );
+  const references = [...referencesByPath.values()];
+  let updatedReferenceCount = 0;
+  for (let index = 0; index < references.length; index += syncConcurrency) {
+    const results = await Promise.all(
+      references.slice(index, index + syncConcurrency).map((entry) =>
+        syncProfilePhotoReference({
+          firestore,
+          deletionReference,
+          collection: entry.collection,
+          reference: entry.reference,
+          userId: normalizedUserId,
+          photoUrl: normalizedPhotoUrl,
+          displayName,
+        })),
+    );
+    updatedReferenceCount += results.filter(Boolean).length;
+  }
+  return {updatedReferenceCount};
+}
+
+async function syncProfilePhotoReference({
+  firestore,
+  deletionReference,
+  collection,
+  reference,
+  userId,
+  photoUrl,
+  displayName,
+}) {
+  return firestore.runTransaction(async (transaction) => {
+    const [deletionSnapshot, documentSnapshot] = await Promise.all([
+      transaction.get(deletionReference),
+      transaction.get(reference),
+    ]);
+    if (accountDeletionBlocksWrites(
+      deletionSnapshot.exists ? deletionSnapshot.data() : null,
+    ) || !documentSnapshot.exists) {
+      return false;
+    }
+    const update = profilePhotoUpdateFor({
+      collection,
+      data: documentSnapshot.data() ?? {},
+      userId,
+      photoUrl,
+      displayName,
+    });
+    if (update == null) return false;
+    transaction.update(reference, update);
+    return true;
+  });
 }
 
 module.exports = {
   displayNameValue,
   photoValue,
   profilePhotoUpdateFor,
+  syncProfilePhotoReference,
   syncProfilePhotoReferences,
 };

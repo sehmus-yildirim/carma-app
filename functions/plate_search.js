@@ -1,6 +1,7 @@
 const {createHash} = require("node:crypto");
 const {Timestamp} = require("firebase-admin/firestore");
 const {HttpsError} = require("firebase-functions/v2/https");
+const {trustedProfilePhotoUrl} = require("./trusted_media_url");
 
 const supportedCountries = new Set(["DE", "AT", "CH"]);
 const maxSearchRadiusKm = 5;
@@ -10,9 +11,16 @@ const plateSearchProbeCooldownMs = 24 * 60 * 60 * 1000;
 const maxPlateSearchesPerWindow = 20;
 const maxPlateTargetSearchesPerWindow = 8;
 const coarseLocationCellSizeKm = 3;
+const contactGrantLifetimeMs = 10 * 60 * 1000;
 
 function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function accountDeletionBlocksWrites(data) {
+  return ["requested", "processing", "completed"].includes(
+    safeString(data?.status),
+  );
 }
 
 function normalizePlatePart(value) {
@@ -23,6 +31,63 @@ function normalizePlatePart(value) {
 
 function normalizePlateKey(value) {
   return normalizePlatePart(value);
+}
+
+function contactGrantId(requesterUserId, countryCode, vehicleId) {
+  return createHash("sha256")
+    .update(`${requesterUserId}\u0000${countryCode}\u0000${vehicleId}`)
+    .digest("hex");
+}
+
+async function recordPlateContactGrant({
+  firestore,
+  requesterUserId,
+  targetUserId,
+  countryCode,
+  vehicleId,
+  plateKey,
+  now,
+}) {
+  const reference = firestore.doc(
+    `plate_contact_grants/${contactGrantId(
+      requesterUserId,
+      countryCode,
+      vehicleId,
+    )}`,
+  );
+  const targetDeletionReference = firestore.doc(
+    `account_deletions/${targetUserId}`,
+  );
+  const requesterDeletionReference = firestore.doc(
+    `account_deletions/${requesterUserId}`,
+  );
+  return firestore.runTransaction(async (transaction) => {
+    const [targetDeletionSnapshot, requesterDeletionSnapshot] =
+      await Promise.all([
+        transaction.get(targetDeletionReference),
+        transaction.get(requesterDeletionReference),
+      ]);
+    if (accountDeletionBlocksWrites(
+      targetDeletionSnapshot.exists ? targetDeletionSnapshot.data() : null,
+    ) || accountDeletionBlocksWrites(
+      requesterDeletionSnapshot.exists ?
+        requesterDeletionSnapshot.data() : null,
+    )) {
+      return false;
+    }
+    transaction.set(reference, {
+      requesterUserId,
+      targetUserId,
+      countryCode,
+      vehicleId,
+      plateHash: createHash("sha256").update(plateKey).digest("hex"),
+      createdAt: Timestamp.fromDate(now),
+      expiresAt: Timestamp.fromDate(
+        new Date(now.getTime() + contactGrantLifetimeMs),
+      ),
+    });
+    return true;
+  });
 }
 
 function dateFromValue(value) {
@@ -178,15 +243,30 @@ async function reservePlateSearchProbe({
   const targetReference = firestore.doc(
     `plate_search_target_limits/${targetId}`,
   );
+  const requesterDeletionReference = firestore.doc(
+    `account_deletions/${requesterUserId}`,
+  );
   const nowTimestamp = Timestamp.fromDate(now);
 
   await firestore.runTransaction(async (transaction) => {
+    const requesterDeletionSnapshot = await transaction.get(
+      requesterDeletionReference,
+    );
     const limitSnapshot = await transaction.get(limitReference);
     const probeSnapshot = await transaction.get(probeReference);
     const targetSnapshot = await transaction.get(targetReference);
     const limit = limitSnapshot.exists ? limitSnapshot.data() ?? {} : {};
     const probe = probeSnapshot.exists ? probeSnapshot.data() ?? {} : {};
     const target = targetSnapshot.exists ? targetSnapshot.data() ?? {} : {};
+    if (accountDeletionBlocksWrites(
+      requesterDeletionSnapshot.exists ?
+        requesterDeletionSnapshot.data() : null,
+    )) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Das Konto ist nicht verfügbar.",
+      );
+    }
     const windowStartedAtMs = timestampMillis(limit.windowStartedAt);
     const hasActiveWindow = windowStartedAtMs != null &&
       now.getTime() - windowStartedAtMs < plateSearchWindowMs;
@@ -376,12 +456,24 @@ async function searchPlateDocument({
   const vehicleIsPublic = data.showOnPublicProfile !== false;
   const showFullPlate = settingsShowPlate && plateDisplayMode === "full";
   const showAnyPlate = settingsShowPlate && plateDisplayMode !== "hidden";
+  const grantRecorded = await recordPlateContactGrant({
+    firestore,
+    requesterUserId: userId,
+    targetUserId: ownerUserId,
+    countryCode,
+    vehicleId,
+    plateKey,
+    now,
+  });
+  if (!grantRecorded) return notFoundResult();
   return {
     found: true,
     targetUid: ownerUserId,
     displayName: safeString(data.displayName) || null,
-    profilePhotoUrl:
-      safeString(data.profilePhotoUrl || data.photoUrl) || null,
+    profilePhotoUrl: trustedProfilePhotoUrl(
+      data.profilePhotoUrl || data.photoUrl,
+      ownerUserId,
+    ),
     isVerified: ownerIdentityVerified,
     vehicleId,
     plateKey,
@@ -410,10 +502,12 @@ async function searchPlateDocument({
 
 module.exports = {
   coarseLocationCell,
+  contactGrantId,
   distanceKmBetween,
   maxPlateTargetSearchesPerWindow,
   normalizePlateKey,
   parseDisplayPlate,
+  recordPlateContactGrant,
   reservePlateSearchProbe,
   searchPlateDocument,
 };
