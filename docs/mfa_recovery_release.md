@@ -18,21 +18,19 @@ anmelden. Erst das neue ID-Token enthält den aktualisierten Claim.
 
 ## App Check
 
-App Check ist aktuell absichtlich **nicht erzwungen**. Im Flutter-Client ist
-das Paket noch nicht initialisiert. Vor einer Erzwingung sind diese Schritte
-notwendig:
+App Check ist aktuell absichtlich **nicht erzwungen**. Das Paket ist im
+Flutter-Client initialisiert: Android Release verwendet Play Integrity,
+Apple Release App Attest mit DeviceCheck-Fallback und Debug-Builds den
+Debug-Provider. Vor einer Erzwingung sind diese Schritte notwendig:
 
-1. Android-App `de.plaqa.app` in Firebase App Check registrieren.
-2. Release-App mit Play Integrity konfigurieren und die korrekte SHA-256 in
-   Firebase hinterlegen.
-3. `firebase_app_check` im Flutter-Client ergänzen.
-4. Nach `Firebase.initializeApp()` in Debug-Builds den Debug-Provider und in
-   Release-Builds Play Integrity aktivieren.
-5. Debug-Token ausschließlich in der Firebase Console registrieren, niemals
+1. Android- und iOS-App in Firebase App Check registriert bestätigen.
+2. Play Integrity, App Attest und die korrekten Signierzuordnungen in Firebase
+   kontrollieren.
+3. Debug-Token ausschließlich in der Firebase Console registrieren, niemals
    im Repository speichern.
-6. Debug und signierten Release-Build gegen alle Recovery-Callables testen.
-7. In der App-Check-Metrik kontrollieren, dass gültige Requests ankommen.
-8. Erst danach bei allen MFA-Recovery-Callables `enforceAppCheck: true`
+4. Debug und signierten Release-Build gegen alle Recovery-Callables testen.
+5. In der App-Check-Metrik kontrollieren, dass gültige Requests ankommen.
+6. Erst danach bei allen MFA-Recovery-Callables `enforceAppCheck: true`
    setzen. Für administrative Mutationen zusätzlich
    `consumeAppCheckToken: true` aktivieren und Retry-Verhalten testen.
 

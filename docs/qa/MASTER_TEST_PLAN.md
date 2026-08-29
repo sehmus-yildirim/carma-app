@@ -392,7 +392,7 @@ Windows-Umfang abgeschlossen:
   ohne Alpha-Kanal bestätigt
 - keine privaten Apple-Schlüssel, Zertifikate oder Provisioning Profiles im
   iOS-Projekt; kein fremdes Apple-Team fest verdrahtet
-- dauerhafter Validator `npm run test:ios:windows` mit 124 von 124 Prüfungen
+- dauerhafter Validator `npm run test:ios:windows` mit inzwischen 126 von 126 Prüfungen
   bestanden
 - frische Gate-7-Abschlussregression: 234/234 Flutter-Tests, Analyze ohne
   Befund, 100/100 Functions-Tests, 109/109 Firestore-/Storage-Rules und 30/30
@@ -406,3 +406,34 @@ Report, IPA, echte iPhone-Tests, APNs-Zustellung, App-Check-Metriken und
 TestFlight benötigen macOS beziehungsweise externe Konten. Diese Punkte stehen
 verbindlich in `docs/qa/IOS_RELEASE_CHECKLIST.md`. Es wurde nichts deployt,
 hochgeladen oder veröffentlicht.
+
+## 23. Gate-8-Abschluss: finale technische Release-Abnahme
+
+Gate 8 wurde auf Basis von `main` /
+`a8ebd42a9a039f70ff17a50e85adce43f4fdf077` vollständig im lokal und unter
+Windows ausführbaren Umfang abgeschlossen:
+
+- iOS-Firebase-App-Zuordnung korrigiert und automatisch gegen die Plist geprüft
+- persistentes Onboarding für neue Profile korrigiert und mit drei Tests
+  abgesichert
+- zwei hohe transitive npm-Sicherheitsadvisories innerhalb kompatibler
+  Paketbereiche behoben
+- frische Regression: 237/237 Flutter, Analyze ohne Befund, 100/100 Functions,
+  109/109 Rules, 30/30 Website und 126/126 iOS-Windows-Prüfungen
+- neues Android-AAB mit SHA-256
+  `65D9F708B7E5C05099DC0034AF910DC9AAA3A0B2B2A41568935D54638533174A`
+- neue Android-APK mit SHA-256
+  `FF226D7DFFAC3B52076831D50599BAE526E1DA47065BA904511390F85A168DAC`
+- AAB durch bundletool validiert; APK-Signatur, Signierer,
+  16-KiB-Alignment, Paket, Version, SDK und ABIs bestätigt
+- Standard-Security-Scan `d316c0fd-3693-447f-badf-1864041b52df`
+  abgeschlossen und versiegelt: 5 hohe und 6 mittlere Befunde
+- manuelle Releaseabnahme, Monitoring, Rollback und klare GO/NO-GO-Kriterien
+  dokumentiert
+
+Gate 8 trägt **COMPLETE / PUBLIC NO-GO**. Dieser Status bedeutet, dass die
+Prüfung vollständig ist und ihre Ergebnisse eine Veröffentlichung sperren.
+Store-Upload, Deployment, App-Check-Erzwingung, TestFlight und Veröffentlichung
+wurden nicht ausgeführt. Die Wiederfreigabe setzt Behebung und Regression aller
+hohen Befunde, Behandlung der mittleren Befunde und reale externe Nachweise
+voraus. Details stehen in `docs/qa/GATE_8_RELEASE_DECISION.md`.

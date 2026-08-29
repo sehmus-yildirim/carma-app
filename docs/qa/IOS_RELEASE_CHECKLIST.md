@@ -9,7 +9,7 @@ Version: `1.0.0+1`
 
 Die unter Windows zuverlässig ausführbare iOS-Release-Vorbereitung ist
 abgeschlossen. Die native Konfiguration ist konsistent, die fehlenden Push-,
-Background- und App-Attest-Einstellungen wurden ergänzt und 124 dauerhafte
+Background- und App-Attest-Einstellungen wurden ergänzt und 126 dauerhafte
 Konfigurationsprüfungen bestehen.
 
 Der iOS-Build ist noch nicht als Store-Artefakt freigegeben. Xcode, Apple
@@ -36,8 +36,8 @@ veröffentlicht.
 | IOS-ICON-001 | App-Icons | 19/19 Slots, exakte Pixelmaße, einschließlich 1024 px ohne Alpha | PASS |
 | IOS-SECRET-001 | Signiermaterial | keine `.p8`, `.p12`, Profile, Zertifikate oder privaten Schlüssel im iOS-Baum | PASS |
 | IOS-TEAM-001 | Apple-Team | kein fremdes Team fest im Repository verdrahtet | PASS |
-| IOS-CONFIG-001 | Dauerhafter Validator | `npm run test:ios:windows`, 124/124 Prüfungen | PASS |
-| IOS-FLUTTER-001 | Flutter-Gesamtregression | 234/234 Tests | PASS |
+| IOS-CONFIG-001 | Dauerhafter Validator | `npm run test:ios:windows`, 126/126 Prüfungen | PASS |
+| IOS-FLUTTER-001 | Flutter-Gesamtregression | 237/237 Tests | PASS |
 | IOS-ANALYZE-001 | Flutter Analyze | keine Befunde in 172,8 Sekunden | PASS |
 | IOS-FUNCTIONS-001 | Functions-Regression | 100/100 Tests | PASS |
 | IOS-RULES-001 | Firestore-/Storage-Rules | 109/109 Tests; Emulatorports danach frei | PASS |

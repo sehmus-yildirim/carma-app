@@ -90,6 +90,7 @@ $projectPath = Resolve-PathFromRepo 'ios\Runner.xcodeproj\project.pbxproj'
 $podfilePath = Resolve-PathFromRepo 'ios\Podfile'
 $frameworkInfoPath = Resolve-PathFromRepo 'ios\Flutter\AppFrameworkInfo.plist'
 $firebaseOptionsPath = Resolve-PathFromRepo 'lib\firebase_options.dart'
+$firebaseConfigPath = Resolve-PathFromRepo 'firebase.json'
 $appDelegatePath = Resolve-PathFromRepo 'ios\Runner\AppDelegate.swift'
 $sceneDelegatePath = Resolve-PathFromRepo 'ios\Runner\SceneDelegate.swift'
 $iconCatalogPath = Resolve-PathFromRepo 'ios\Runner\Assets.xcassets\AppIcon.appiconset\Contents.json'
@@ -102,6 +103,7 @@ $requiredFiles = @(
     $podfilePath,
     $frameworkInfoPath,
     $firebaseOptionsPath,
+    $firebaseConfigPath,
     $appDelegatePath,
     $sceneDelegatePath,
     $iconCatalogPath
@@ -117,6 +119,7 @@ $frameworkInfo = Read-Plist $frameworkInfoPath
 $project = Get-Content -LiteralPath $projectPath -Raw
 $podfile = Get-Content -LiteralPath $podfilePath -Raw
 $firebaseOptions = Get-Content -LiteralPath $firebaseOptionsPath -Raw
+$firebaseConfig = Get-Content -LiteralPath $firebaseConfigPath -Raw | ConvertFrom-Json
 $appDelegate = Get-Content -LiteralPath $appDelegatePath -Raw
 $sceneDelegate = Get-Content -LiteralPath $sceneDelegatePath -Raw
 
@@ -163,6 +166,8 @@ $reversedClientId = Get-PlistString $google 'REVERSED_CLIENT_ID'
 Assert-ReleaseCheck ($bundleId -eq 'de.plaqa.app') 'Firebase-iOS-Bundle-ID stimmt'
 Assert-ReleaseCheck ($projectId -eq 'carma-a84e4') 'Firebase-Projekt-ID stimmt'
 Assert-ReleaseCheck ($firebaseOptions.Contains("appId: '$appId'")) 'FlutterFire-App-ID stimmt mit GoogleService-Info.plist ueberein'
+$configuredIosAppId = $firebaseConfig.flutter.platforms.dart.'lib/firebase_options.dart'.configurations.ios
+Assert-ReleaseCheck ($configuredIosAppId -eq $appId) 'firebase.json verwendet dieselbe iOS-App-ID wie GoogleService-Info.plist'
 Assert-ReleaseCheck ($firebaseOptions.Contains("messagingSenderId: '$senderId'")) 'FlutterFire-Sender-ID stimmt ueberein'
 Assert-ReleaseCheck ($firebaseOptions.Contains("projectId: '$projectId'")) 'FlutterFire-Projekt-ID stimmt ueberein'
 Assert-ReleaseCheck ($firebaseOptions.Contains("'$clientId'")) 'FlutterFire-iOS-Client-ID stimmt ueberein'

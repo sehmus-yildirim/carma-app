@@ -16,7 +16,7 @@ class OnboardingFlowScreen extends StatefulWidget {
     this.onBack,
   });
 
-  final VoidCallback onCompleted;
+  final Future<void> Function() onCompleted;
   final VoidCallback? onBack;
 
   @override
@@ -25,6 +25,8 @@ class OnboardingFlowScreen extends StatefulWidget {
 
 class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
   int _currentStep = 0;
+  bool _isCompleting = false;
+  String? _completionError;
 
   static const int _lastStep = 3;
 
@@ -36,9 +38,28 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
     return _currentStep == _lastStep;
   }
 
-  void _goNext() {
+  Future<void> _goNext() async {
     if (_isLastStep) {
-      widget.onCompleted();
+      if (_isCompleting) return;
+      setState(() {
+        _isCompleting = true;
+        _completionError = null;
+      });
+      try {
+        await widget.onCompleted();
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _completionError =
+              'Der Abschluss konnte gerade nicht gespeichert werden. Bitte versuche es erneut.';
+        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isCompleting = false;
+          });
+        }
+      }
       return;
     }
 
@@ -140,12 +161,20 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      const Spacer(),
+                      if (_completionError != null) ...[
+                        CaRismaMessageCard(
+                          icon: Icons.sync_problem_rounded,
+                          message: _completionError!,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       CaRismaPrimaryButton(
                         label: _isLastStep ? 'plaqa starten' : 'Weiter',
                         icon: _isLastStep
                             ? Icons.check_circle_outline_rounded
                             : Icons.arrow_forward_rounded,
+                        isLoading: _isCompleting,
+                        loadingLabel: 'Wird gespeichert',
                         onPressed: _goNext,
                       ),
                       if (_currentStep > 0) ...[

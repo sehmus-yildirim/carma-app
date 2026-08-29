@@ -49,20 +49,25 @@ Im Code und in der Konfiguration belegt:
 - Cloud Storage fuer Profilbilder, Beitraege, Storys, Chatmedien und
   Verifizierungsdokumente
 - Cloud Functions fuer geschuetzte serverseitige Ablaeufe
-- App Check ist technisch vorbereitet und vor Release final zu konfigurieren
+- App Check ist im Flutter-Client technisch integriert: Release verwendet auf
+  Android Play Integrity und auf Apple App Attest mit DeviceCheck-Fallback.
+  Produktive Metriken und Erzwingung sind noch nicht abgenommen.
 - Standort fuer Kennzeichensuche und standortbezogene App-Funktionen; keine
   Berechtigung fuer Hintergrundstandort
 - Kamera, Mikrofon und Medienzugriff nur fuer vom Nutzer gestartete Funktionen
 - Kontaktfreigabe ueber System-Picker statt vollstaendigem Adressbuchzugriff
 
+Technisch eingebunden, aber noch nicht produktiv end-to-end abgenommen:
+
+- Firebase Cloud Messaging / Push-Token-Verarbeitung
+- Apple-Anmeldung ueber Firebase Authentication
+
 Derzeit nicht aktiv eingebunden:
 
 - Firebase Analytics
 - Firebase Crashlytics
-- Firebase Cloud Messaging / Push-Token-Verarbeitung
 - Werbung oder Tracking
 - In-App-Kaeufe, Abonnements oder Zahlungs-SDKs
-- Apple-Anmeldung
 
 ## 3. Verifizierung und Dokumente
 

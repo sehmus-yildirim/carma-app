@@ -103,3 +103,26 @@ Gerät: Redmi `2201117TY`, Android 13 / API 33, ADB-ID `cf1d4c97`.
 Diese Punkte sind keine fehlgeschlagenen lokalen Gate-6-Prüfungen. Sie verändern
 externe Systeme und benötigen deshalb eine gesonderte Freigabe. In Gate 6 wurde
 nichts deployt, in die Play Console hochgeladen oder veröffentlicht.
+
+## Gate-8-Neubau
+
+Gate 8 erzeugte die Artefakte nach den Onboarding-, Firebase-iOS- und
+Lockfile-Korrekturen erneut:
+
+| Artefakt | Größe | SHA-256 | Ergebnis |
+|---|---:|---|---|
+| `build/app/outputs/bundle/release/app-release.aab` | 74.136.367 Bytes | `65D9F708B7E5C05099DC0034AF910DC9AAA3A0B2B2A41568935D54638533174A` | PASS |
+| `build/app/outputs/flutter-apk/app-release.apk` | 86.311.256 Bytes | `FF226D7DFFAC3B52076831D50599BAE526E1DA47065BA904511390F85A168DAC` | PASS |
+
+- [x] AAB mit bundletool 1.18.3 validiert
+- [x] APK-Signatur: ein Signierer, v2 gültig
+- [x] Upload-Zertifikat stimmt mit Gate 6 überein
+- [x] `zipalign -P 16 -c -v 4` bestanden
+- [x] Paket `de.plaqa.app`, Version `1.0.0+1`, minSdk 24, targetSdk 36
+- [x] ABIs `arm64-v8a`, `armeabi-v7a`, `x86_64`
+- [ ] neuer Gate-8-Release-Smoke auf AVD: lokale ADB-Autorisierung blieb nach
+  AVD-Wipe gestört
+
+Das Redmi enthält weiterhin die Debug-App und Nutzerdaten. Eine Deinstallation
+wurde abgelehnt, weil sie diese Daten gelöscht hätte. Der Gate-6-Smoke bleibt
+der gültige reale Gerätenachweis; Gate 8 behauptet keinen neuen Geräte-PASS.

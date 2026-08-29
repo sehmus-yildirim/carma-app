@@ -2,67 +2,74 @@
 
 Stand: 2026-08-29
 Branch: `main`
-Geprüfte Gate-7-Windows-Basis: `3ad20157b0930e613235e112528d21c35e1860e7`
+Gate-8-Ausgangsbasis: `a8ebd42a9a039f70ff17a50e85adce43f4fdf077`
 
 ## Gesamturteil
 
-Der lokale Android-Release-Candidate-Gate und die vollständige, unter Windows
-zuverlässig ausführbare iOS-Vorbereitung sind bestanden. Die iOS-Konfiguration
-wird jetzt durch 124 automatische Prüfungen geschützt. Es wurde nichts deployt,
-hochgeladen oder veröffentlicht.
+**Gate 8 ist vollständig abgeschlossen. Öffentlicher Release: NO-GO.**
 
-plaqa ist damit noch nicht öffentlich releasebereit: Die externe Hälfte von
-Gate 7 auf Mac/Xcode/iPhone/TestFlight und Gate 8 mit Vollabnahme, Store, Push,
-App Check, Monitoring und Rollback stehen noch aus.
+Der lokale Android-Release-Candidate wurde frisch gebaut, signiert und als
+Artefakt validiert. Die Flutter-, Functions-, Rules-, Website- und
+iOS-Windows-Regressionssuiten sind grün. Zwei reale Releasefehler wurden
+korrigiert und durch Tests abgesichert. Es wurde nichts deployt, hochgeladen,
+veröffentlicht oder produktiv erzwungen.
+
+Die öffentliche Veröffentlichung bleibt gesperrt, weil die finale
+Sicherheitsprüfung 5 hohe und 6 mittlere Befunde bestätigt hat. Zusätzlich
+fehlen externe Nachweise für iOS, Push, App Check, Stores sowie rechtliche und
+betriebliche Prozesse.
 
 ## Gate-Übersicht
 
 | Gate | Umfang | Status | Kernergebnis |
 |---|---|---|---|
-| 1 | Flutter Unit/Widget und Baseline | PASS | 234/234 aktuelle Gesamtregression; Analyze sauber |
-| 2 | Functions und Firebase Rules | PASS | 100/100 Functions; 109/109 Rules in der Gate-6-Abschlussregression |
+| 1 | Flutter Unit/Widget und Baseline | PASS | Baseline aufgebaut; Analyze sauber |
+| 2 | Functions und Firebase Rules | PASS | 100/100 Functions; zuletzt 109/109 Rules |
 | 3 | Flutter-Integration | PASS | 4/4 Integrationsdateien gegen lokale Emulatoren |
 | 4 | Maestro UI-Automation | PASS | 3/3 dauerhafte AVD-Flows |
 | 5 | Mehrkonten und echtes Redmi | PASS LOCAL | Kernabläufe, Kamera, GPS, Lifecycle und Offline bestanden |
-| 6 | Android Release Candidate | PASS LOCAL | AAB/APK signiert, validiert und Release-Smoke auf Redmi bestanden |
-| 7 | iOS Readiness und Geräteabnahme | PASS WINDOWS / MANUAL REQUIRED | 124/124 Konfigurationschecks; Mac, Signing und iPhone/TestFlight offen |
-| 8 | Finaler Release Candidate | NOT STARTED | Vollregression, Store, Monitoring und Rollback folgen |
+| 6 | Android Release Candidate | PASS LOCAL | signierter Geräte-Smoke und Artefaktprüfung bestanden |
+| 7 | iOS Readiness | PASS WINDOWS / MANUAL REQUIRED | jetzt 126/126 Konfigurationschecks; Mac/iPhone offen |
+| 8 | Finale technische und Release-Abnahme | COMPLETE / PUBLIC NO-GO | 237/237 Flutter; 11 offene Security-Befunde; externe Freigaben offen |
 
-## Gate-7-Entscheidung
+## Frische Gate-8-Nachweise
 
-**GO für Gate 8 beziehungsweise die spätere Mac-Abnahme, NO-GO für eine
-öffentliche Veröffentlichung.**
+- Flutter Analyze: keine Befunde
+- Flutter Unit-/Widget-Tests: 237/237
+- Functions: 100/100
+- Firestore-/Storage-Rules: 109/109
+- Website: 30/30
+- iOS-Windows-Konfiguration: 126/126
+- Android AAB: 74.136.367 Bytes, SHA-256
+  `65D9F708B7E5C05099DC0034AF910DC9AAA3A0B2B2A41568935D54638533174A`
+- Android APK: 86.311.256 Bytes, SHA-256
+  `FF226D7DFFAC3B52076831D50599BAE526E1DA47065BA904511390F85A168DAC`
+- AAB validiert; APK signiert, 16-KiB-ausgerichtet, nicht debuggable,
+  `targetSdk 36`
+- Codex-Security-Scan: 11 bestätigt, 5 `HIGH`, 6 `MEDIUM`
 
-Begründung:
+## Gate-8-Entscheidung
 
-- Android Gate 6 bleibt vollständig grün
-- iOS-Bundle, Firebase, Berechtigungstexte, Entitlements, Capabilities,
-  Lifecycle und Icons bestehen 124 Windows-Prüfungen
-- Push Notifications, Background fetch, Remote notifications und App Attest
-  sind im Projekt vorbereitet
-- kein offener P0-Produktfehler aus Gate 7
-- frische Abschlussregression mit Flutter 234/234, Functions 100/100, Rules
-  109/109, Website 30/30 und Analyze ohne Befund
-- Apple-Portal-, Signing-, iPhone- und Store-Schritte wurden nicht vorgetäuscht
+**GO für gezielte Fehlerbehebung und erneute interne Validierung. NO-GO für
+Store-Upload, TestFlight, öffentlichen Rollout oder App-Check-Erzwingung.**
 
-## Verbleibende Risiken
+Die Sperre wird erst aufgehoben, wenn:
 
-1. Produktive Push-Zustellung und App-Check-Metriken benötigen eine freigegebene
-   Staging-/Live-Geräteprüfung.
-2. Einzelne erwartete Rules-Negativpfade können weiterhin die
-   1.000-Ausdruck-Grenze protokollieren; die geprüften legitimen Pfade sind grün.
-3. iOS kann unter Windows nicht gebaut, signiert oder auf iPhone/TestFlight
-   abgenommen werden; dafür ist die verbindliche Mac-Liste dokumentiert.
-4. Store-Angaben, Rechtstexte, Data Safety, Zielgruppe und Content Rating
-   benötigen eine abschließende fachliche beziehungsweise rechtliche Abnahme.
-5. Gate 8 muss die vollständige Regression, Monitoring, Rollback und den
-   kontrollierten internen Store-Rollout zusammenführen.
+1. alle fünf hohen Sicherheitsbefunde behoben und regressionsgetestet sind,
+2. die sechs mittleren Befunde behoben oder formal mit Frist akzeptiert sind,
+3. ein neuer Security-Diff-Scan und die vollständige Regression grün sind,
+4. iOS/Mac/iPhone/TestFlight real bestanden sind,
+5. Push und App Check auf signierten Builds mit echten Metriken geprüft sind,
+6. Store-, Datenschutz-, Kinderschutz-, Moderations-, Export-, Monitoring- und
+   Rollbackprozesse verantwortet und nachgewiesen sind.
 
 ## Nachweise
 
-- Android-Details: `docs/qa/ANDROID_RELEASE_CHECKLIST.md`
-- iOS-Details: `docs/qa/IOS_RELEASE_CHECKLIST.md`
-- Testfälle: `docs/qa/TEST_MATRIX.md`
-- bekannte Fehler und Beobachtungen: `docs/qa/BUG_REGISTER.md`
-- verbindlicher Gesamtplan: `docs/qa/MASTER_TEST_PLAN.md`
-- aktueller Übergabestand: `docs/qa/SESSION_HANDOVER.md`
+- Gate-8-Entscheidung: `docs/qa/GATE_8_RELEASE_DECISION.md`
+- Sicherheitsbericht: `docs/qa/SECURITY_REVIEW.md`
+- Android: `docs/qa/ANDROID_RELEASE_CHECKLIST.md`
+- iOS: `docs/qa/IOS_RELEASE_CHECKLIST.md`
+- manuelle Abnahme: `docs/qa/MANUAL_TEST_CHECKLIST.md`
+- Monitoring/Rollback: `docs/qa/MONITORING_ROLLBACK_PLAN.md`
+- Testmatrix: `docs/qa/TEST_MATRIX.md`
+- Fehlerregister: `docs/qa/BUG_REGISTER.md`

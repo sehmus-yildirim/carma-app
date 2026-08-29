@@ -35,7 +35,34 @@ class UserProfileRepository {
       ...data,
       'createdAt': FieldValue.serverTimestamp(),
       'accountState': 'active',
+      'onboardingCompleted': false,
       'isDeleted': false,
     });
+  }
+
+  Future<bool> isOnboardingCompleted(String userId) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) return false;
+
+    final snapshot = await _userDocument(normalizedUserId).get();
+    return onboardingCompletedFromData(snapshot.data());
+  }
+
+  Future<void> completeOnboarding(String userId) async {
+    final normalizedUserId = userId.trim();
+    if (normalizedUserId.isEmpty) {
+      throw ArgumentError('Nutzer-ID darf nicht leer sein.');
+    }
+
+    await _userDocument(normalizedUserId).set({
+      'onboardingCompleted': true,
+      'onboardingCompletedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static bool onboardingCompletedFromData(Map<String, dynamic>? data) {
+    return data?['onboardingCompleted'] == true ||
+        data?['onboardingCompletedAt'] != null;
   }
 }

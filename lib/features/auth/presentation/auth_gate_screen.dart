@@ -70,8 +70,6 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
 
     if (_onboardingCompletedUserIds.contains(userId)) {
       baseState = baseState.markOnboardingCompleted();
-    } else {
-      baseState = baseState.markOnboardingCompleted();
     }
 
     return switch (_localTestMode) {
@@ -117,7 +115,10 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     };
   }
 
-  void _completeOnboarding(String userId) {
+  Future<void> _completeOnboarding(String userId) async {
+    await _userProfileRepository.completeOnboarding(userId);
+    if (!mounted) return;
+
     setState(() {
       _onboardingCompletedUserIds.add(userId);
     });
@@ -292,6 +293,13 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
 
   Future<void> _provisionAuthenticatedUser(User user) async {
     await _userProfileRepository.createProfileForUser(user);
+    final onboardingCompleted = await _userProfileRepository
+        .isOnboardingCompleted(user.uid);
+    if (onboardingCompleted) {
+      _onboardingCompletedUserIds.add(user.uid);
+    } else {
+      _onboardingCompletedUserIds.remove(user.uid);
+    }
     await _profileRepository.createProfileIfMissing(user);
     await _searchCreditRepository.createSearchCreditIfMissing(userId: user.uid);
     await _legalConsentRepository.saveRegistrationConsents(

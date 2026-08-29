@@ -88,10 +88,14 @@ already open before setup must be restarted once.
   `1382A293107CCD27193CD0D3FFFD01A5B11BE5E5679FCD4CE89827E730B786C6`
 - Gate-6 final regression: Flutter 234/234, Functions 100/100, Rules 109/109,
   website 30/30 and Analyze without findings
-- Gate-7 iOS Windows configuration: 124/124 checks passed for Plists,
+- Gate-7/Gate-8 iOS Windows configuration: 126/126 checks passed for Plists,
   entitlements, capabilities, Firebase mapping, app icons and signing hygiene
 - Gate-7 final regression: Flutter 234/234, Functions 100/100, Rules 109/109,
   website 30/30 and Analyze without findings
+- Gate-8 final regression: Flutter 237/237, Functions 100/100, Rules 109/109,
+  website 30/30, iOS Windows 126/126 and Analyze without findings
+- Gate-8 security scan: 11 validated findings, 5 high and 6 medium; public
+  release remains NO-GO
 - Gate-7 emulator cleanup: ports 8080, 9199, 9150 and 4400 free
 - Xcode, CocoaPods resolution, iOS signing, IPA, iPhone and TestFlight remain
   manual because Apple requires macOS/Xcode for the release build

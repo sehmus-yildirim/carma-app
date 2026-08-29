@@ -13,7 +13,8 @@ Branch: `main`
 | 4 | Maestro UI-Automation | PASS | 3/3 Flows in 4m 12s; 234/234 Flutter-Regressionstests |
 | 5 | Mehrkonten- und echte Gerätetests | PASS | Lokaler/Redmi-Umfang bestanden; Push und App Check separat `MANUAL REQUIRED` |
 | 6 | Android Release Candidate | PASS LOCAL | AAB/APK signiert und validiert; Release-Smoke auf Redmi bestanden; kein Upload |
-| 7 | iOS Readiness | PASS WINDOWS / MANUAL REQUIRED | 124/124 Konfigurationschecks; Mac/Xcode/iPhone/TestFlight offen |
+| 7 | iOS Readiness | PASS WINDOWS / MANUAL REQUIRED | aktuell 126/126 Konfigurationschecks; Mac/Xcode/iPhone/TestFlight offen |
+| 8 | Finale technische Release-Abnahme | COMPLETE / PUBLIC NO-GO | 237/237 Flutter, 100/100 Functions, 109/109 Rules, 30/30 Website, 126/126 iOS; 5 hohe und 6 mittlere Security-Befunde offen |
 
 ## Block 1
 
@@ -177,7 +178,7 @@ veröffentlicht.
 
 | ID | Bereich | Testart | Ergebnis | Status |
 |---|---|---|---|---|
-| IOS-CONFIG-001 | Vollständige native Konfiguration | PowerShell/XML/JSON | 124/124 Prüfungen bestanden | PASS |
+| IOS-CONFIG-001 | Vollständige native Konfiguration | PowerShell/XML/JSON | 126/126 Prüfungen bestanden | PASS |
 | IOS-ID-001 | App-ID und Version | Statisch | `de.plaqa.app`, `plaqa`, `1.0.0+1` | PASS |
 | IOS-TARGET-001 | Deployment Target | Plist/Podfile/PBX | überall iOS 15.0 | PASS |
 | IOS-FIREBASE-001 | FlutterFire und Google-Service | strukturierter Plist-/Quellabgleich | Projekt-, App-, Client-, Sender- und Bundle-ID konsistent | PASS |
@@ -187,7 +188,7 @@ veröffentlicht.
 | IOS-APPCHECK-001 | App Attest | Entitlement/Dart-Inventar | Production-Entitlement und DeviceCheck-Fallback vorhanden | PASS WINDOWS |
 | IOS-ICON-001 | App-Icon-Katalog | JSON/Bildprüfung | 19/19 Slots, Maße korrekt, kein Alpha | PASS |
 | IOS-SECRET-001 | Apple-Signiermaterial | Dateiinventar | keine privaten Schlüssel, Profile oder Zertifikate im iOS-Baum | PASS |
-| IOS-FLUTTER-001 | Flutter-Gesamtregression | Unit/Widget | 234/234 bestanden | PASS |
+| IOS-FLUTTER-001 | Flutter-Gesamtregression | Unit/Widget | 237/237 aktuell bestanden | PASS |
 | IOS-ANALYZE-001 | Flutter Analyze | Statisch | keine Befunde; 172,8 Sekunden | PASS |
 | IOS-FUNCTIONS-001 | Functions-Abschlussregression | Node 22 | 100/100 bestanden | PASS |
 | IOS-RULES-001 | Rules-Abschlussregression | lokale Emulatoren | 109/109; Ports 8080, 9199, 9150 und 4400 danach frei | PASS |
@@ -195,6 +196,27 @@ veröffentlicht.
 | IOS-MAC-001 | CocoaPods/Xcode/IPA/Signing | macOS erforderlich | unter Windows nicht ausführbar | MANUAL REQUIRED |
 | IOS-DEVICE-001 | Apple Login, Push, App Check und Berechtigungen | echtes iPhone erforderlich | verbindliche Testliste erstellt | MANUAL REQUIRED |
 | IOS-STORE-001 | TestFlight/App Store Connect | Apple-Konto und Freigabe erforderlich | nicht hochgeladen | MANUAL REQUIRED |
+
+## Gate 8
+
+| ID | Bereich | Testart | Ergebnis | Status |
+|---|---|---|---|---|
+| G8-FLUTTER-001 | Gesamtregression | Unit/Widget | 237/237 | PASS |
+| G8-ANALYZE-001 | Statische Analyse | Flutter Analyze | keine Befunde | PASS |
+| G8-FUNCTIONS-001 | Cloud Functions | Node 22 | 100/100 | PASS |
+| G8-RULES-001 | Firestore/Storage | lokale Emulatoren | 109/109 | PASS |
+| G8-WEB-001 | Website | Node/Browser | 30/30 | PASS |
+| G8-IOS-001 | iOS-Konfiguration | PowerShell/XML/JSON | 126/126 | PASS WINDOWS |
+| G8-AAB-001 | Android Bundle | Flutter/bundletool | gebaut, signiert, validiert; SHA-256 dokumentiert | PASS |
+| G8-APK-001 | Android APK | Flutter/apksigner/zipalign/AAPT | gebaut, signiert, 16-KiB-ausgerichtet, targetSdk 36 | PASS |
+| G8-DEVICE-001 | Frischer Gate-8-Geräte-Smoke | dedizierter AVD | ADB-Autorisierung des frisch gewischten AVD fehlgeschlagen; Redmi-Daten bewusst nicht gelöscht | BLOCKED LOCAL ENV |
+| G8-SECURITY-001 | Release-Sicherheitsaudit | Codex Security/Quelltrace | 11 bestätigt: 5 hoch, 6 mittel | PUBLIC NO-GO |
+| G8-NPM-001 | npm Produktionsabhängigkeiten | npm audit | zwei hohe transitive Advisories behoben; moderate Restbefunde benötigen Breaking-Downgrade | PASS WITH DEBT |
+| G8-STORE-001 | Store/TestFlight/Veröffentlichung | externe Systeme | nicht ausgeführt; gesonderte Freigabe und Vorbedingungen fehlen | MANUAL REQUIRED |
+
+Gate 8 ist als Prüf- und Entscheidungs-Gate vollständig. `PUBLIC NO-GO` bedeutet
+nicht, dass der Test abgebrochen wurde, sondern dass die ermittelten Risiken
+eine Veröffentlichung korrekt sperren.
 
 ## Abgrenzung
 
