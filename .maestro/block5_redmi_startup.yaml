@@ -1,0 +1,16 @@
+appId: de.plaqa.app
+name: plaqa Redmi startup smoke test
+tags:
+  - block5
+  - redmi
+  - smoke
+---
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "E-Mail-Adresse"
+    timeout: 60000
+- assertVisible: "E-Mail-Adresse"
+- assertVisible: "Noch kein Konto.*Registrieren"
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

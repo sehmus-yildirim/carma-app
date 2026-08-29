@@ -1,8 +1,8 @@
 # plaqa Master-Test-, QA- und Release-Plan
 
-Stand: 2026-08-28
-Planbasis: `main` / `dd619a9e9fe3da06258cfc0d0b2ddf8d143e21fd`
-Status: Umsetzung begonnen; Block 1 bis Block 4 abgeschlossen
+Stand: 2026-08-29
+Planbasis vor Block 5: `main` / `1cdb90afdb377082f9e50ce5d501c5b439e2fead`
+Status: Umsetzung begonnen; Block 1 bis Block 5 im lokal ausführbaren Umfang abgeschlossen
 
 ## 1. Zweck und oberstes Ziel
 
@@ -48,8 +48,10 @@ Die Live-Deployments bleiben in dieser Testphase ungeprüft. Flutter-Unit- und
 Widget-Testbasis, `flutter analyze`, Functions-Tests sowie Firestore-/Storage-
 Rules-Tests wurden am 2026-08-27 erneut verifiziert. Die vorhandenen Flutter-
 Integrationstests und die ausgewählten Maestro-Black-box-Flows wurden am
-2026-08-28 abgeschlossen; alle späteren Test- und Buildblöcke behalten bis zu
-ihrer tatsächlichen Ausführung den Status `NOT RUN`.
+2026-08-28 abgeschlossen. Die lokalen Mehrkonten- und echten Redmi-Gerätetests
+wurden am 2026-08-29 abgeschlossen. Push-Zustellung und produktive App-Check-
+Metriken bleiben ausdrücklich `MANUAL REQUIRED`, weil Firebase Messaging keinen
+lokalen Emulator besitzt und produktive Systeme in Block 5 nicht verändert wurden.
 
 ## 4. Architekturübersicht
 
@@ -90,7 +92,7 @@ ihrer tatsächlichen Ausführung den Status `NOT RUN`.
 
 ### P0-Kandidaten
 
-- Dokumentierter Firestore-Fehler `permission-denied` beim Annehmen einer Kontaktanfrage
+- Nicht nachgewiesene produktive Push- und App-Check-Gerätepfade
 - Unerlaubter Zugriff oder Manipulation bei Profilen, Fahrzeugen, Chats, Dokumenten oder Admin-Feldern
 - Nicht nachgewiesene vollständige Kontolöschung beziehungsweise Dokumentenbereinigung
 - Release-Blocker in Signing, Store-Konfiguration oder Rules-/Functions-Live-Stand
@@ -98,7 +100,6 @@ ihrer tatsächlichen Ausführung den Status `NOT RUN`.
 ### P1-Kandidaten
 
 - Beide Zweige im geprüften Onboarding-Code markieren Onboarding als abgeschlossen
-- Keine echte Zwei-Konten-End-to-End-Abdeckung
 - Push und App Check nur statisch beziehungsweise im Monitoring geprüft
 - Große, eng gekoppelte Screens und Repositories erhöhen Regressionsrisiko
 - Kein Crashlytics für die spätere Produktionsbeobachtung
@@ -261,7 +262,8 @@ plaqa gilt nur dann als Release-Candidate, wenn ein benannter Commit vollständi
 
 ## 20. Aktueller Ausführungsstand
 
-Am 2026-08-28 wurden Block 1 bis Block 4 der Testausführung abgeschlossen:
+Am 2026-08-28 wurden Block 1 bis Block 4 und am 2026-08-29 der lokal
+ausführbare Umfang von Block 5 abgeschlossen:
 
 - 40 vorhandene Flutter-Testdateien inventarisiert
 - Ausgangslauf: 207 von 207 Tests bestanden
@@ -271,8 +273,8 @@ Am 2026-08-28 wurden Block 1 bis Block 4 der Testausführung abgeschlossen:
 - Abschlusslauf und Coverage-Lauf: jeweils 231 von 231 Tests bestanden
 - `flutter analyze --no-pub`: ohne Befund
 - Line-Coverage: 7.238 von 36.333 instrumentierten Zeilen (19,9 Prozent)
-- Functions-Syntax: 21 von 21 eigenen JavaScriptdateien unter Node 22 bestanden
-- Functions-Tests: 98 von 98 Tests aus neun Dateien bestanden
+- Functions-Syntax: 23 von 23 eigenen JavaScriptdateien unter Node 22 bestanden
+- Functions-Tests: 100 von 100 Tests aus zehn Dateien bestanden
 - Functions-Einstiegspunkt: 30 Exporte erfolgreich geladen
 - Firestore-/Storage-Rules: 104 von 104 Tests aus elf Dateien bestanden
 - Rules-Emulatoren wurden dateiweise neu gestartet und anschließend beendet
@@ -301,9 +303,30 @@ Am 2026-08-28 wurden Block 1 bis Block 4 der Testausführung abgeschlossen:
 - erneute Abschlussregression nach Block 4: 234 von 234 Flutter-Tests bestanden,
   `flutter analyze --no-pub` ohne Befund
 - Firebase-Suite und Test-AVD kontrolliert beendet; Ports 9099, 8080, 9199,
-  5001, 4400 und 9150 frei; das angeschlossene Redmi blieb unberührt
+  5001, 4400 und 9150 frei; das angeschlossene Redmi blieb bis Block 4 unberührt
+- lokale Profile-APK mit Host `127.0.0.1` auf dem Redmi `2201117TY` installiert;
+  Produktionsdaten, Live-Functions, App-Check-Erzwingung und Deployments blieben
+  unverändert
+- zwei künstliche Emulator-Konten suchten ein Fahrzeug, sendeten und nahmen eine
+  Kontaktanfrage an, tauschten zwei Nachrichten aus und prüften die Blockierung
+  aus beiden Kontoperspektiven erfolgreich
+- der Backend-Nachweis bestätigte drei Nachrichten, beide Teilnehmer, Status
+  `blocked` und den korrekten blockierenden Nutzer
+- legitime Kontaktanfragen, fehlende Follow-Dokumente, Blockierung und Story-
+  Abfragen wurden in den Rules minimal korrigiert und durch Regressionen geschützt
+- Kamera-Berechtigungsdialog, Rückkehr aus der nativen Kamera, App-Berechtigungs-
+  status, GPS-Auflösung, Hintergrund/Vordergrund, Kaltstart-Session sowie Offline-
+  und Wiederverbindungszustand auf dem Redmi bestanden
+- GPS löste den realen Gerätestandort erfolgreich zu `Kaiserbarg 3A, Hamburg` auf
+- drei Online-Kaltstarts: 1.600 ms, 1.595 ms und 1.567 ms; stabiler Zustand:
+  256.482 KB Total PSS und 369.244 KB Total RSS; keine Flutter-Ausnahme, kein ANR
+  und kein erkannter Layoutüberlauf
+- Abschlussregression: 234 von 234 Flutter-Tests, `flutter analyze --no-pub`
+  ohne Befund sowie 109 von 109 Rules-/Security-Tests bestanden
+- lokale Fahrzeugbildgenerierung serverseitig vor externen Vertex-AI-Zugriffen
+  geschützt; authentifizierter Emulator-Nachweis bestand in 62 ms
 
-Mehrkonten-, echte Geräte- und Livetests wurden noch nicht gestartet. Der
-nächste Block beginnt erst nach gemeinsamer Besprechung und ausdrücklicher
-Fortsetzung durch den Nutzer. Es wurde nichts deployt, hochgeladen oder
-veröffentlicht.
+Block 5 ist für den sicher lokal ausführbaren Mehrkonten- und Redmi-Umfang
+abgeschlossen. Push im Vorder-/Hintergrund sowie produktive App-Check-Tokens und
+-Metriken bleiben `MANUAL REQUIRED` und werden in einem ausdrücklich freigegebenen
+Staging-/Produktionsschritt geprüft. Es wurde nichts deployt oder veröffentlicht.

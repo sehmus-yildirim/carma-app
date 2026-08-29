@@ -1,6 +1,6 @@
 # plaqa QA Test Matrix
 
-Stand: 2026-08-28
+Stand: 2026-08-29
 Branch: `main`
 
 ## Blockstatus
@@ -8,10 +8,10 @@ Branch: `main`
 | Block | Umfang | Status | Nachweis |
 |---|---|---|---|
 | 1 | Flutter Unit- und Widget-Tests | PASS | 231/231 Tests, Analyze ohne Befund |
-| 2 | Functions- und Rules-Tests im Emulator | PASS | 98/98 Functions-Tests, 104/104 Rules-Tests |
+| 2 | Functions- und Rules-Tests im Emulator | PASS | 100/100 Functions-Tests, 104/104 Rules-Tests |
 | 3 | Flutter-Integrationstests | PASS | 4/4 Integrationsdateien; 234/234 Flutter-Regressionstests |
 | 4 | Maestro UI-Automation | PASS | 3/3 Flows in 4m 12s; 234/234 Flutter-Regressionstests |
-| 5 | Mehrkonten- und echte Gerätetests | NOT RUN | Noch nicht gestartet |
+| 5 | Mehrkonten- und echte Gerätetests | PASS | Lokaler/Redmi-Umfang bestanden; Push und App Check separat `MANUAL REQUIRED` |
 
 ## Block 1
 
@@ -35,9 +35,10 @@ Firebase CLI 15.15.0. Firestore und Storage liefen ausschließlich lokal auf
 
 | ID | Bereich | Testart | Ergebnis | Status |
 |---|---|---|---|---|
-| FN-SYNTAX-001 | Eigene Functions-Quellen und -Tests | Node-22-Syntax | 21/21 Dateien bestanden | PASS |
+| FN-SYNTAX-001 | Eigene Functions-Quellen und -Tests | Node-22-Syntax | 23/23 Dateien bestanden | PASS |
 | FN-EXPORT-001 | Functions-Einstiegspunkt | Initialisierung | 30 Exporte geladen; rund 30,3 Sekunden | PASS |
-| FN-ALL-001 | Alle neun Functions-Testdateien | Node-Test | 98/98 bestanden | PASS |
+| FN-ALL-001 | Alle zehn Functions-Testdateien | Node-Test | 100/100 bestanden | PASS |
+| FN-LOCAL-001 | Fahrzeugbildgenerierung | Auth-/Functions-Emulator | Authentifizierter Aufruf in 62 ms lokal gesperrt; kein externer Vertex-Aufruf | PASS |
 | RULE-ACCOUNT-001 | Kontosicherheit | Firestore/Storage Emulator | 6/6 bestanden | PASS |
 | RULE-CHAT-001 | Chats und Teilnehmerrechte | Firestore/Storage Emulator | 13/13 bestanden | PASS |
 | RULE-CONTACT-001 | Kontaktanfragen und Fahrzeuge | Firestore/Storage Emulator | 8/8 bestanden | PASS |
@@ -102,12 +103,43 @@ und wurde deshalb erwartungsgemäß als optionale Warnung protokolliert. Das ist
 kein Produktfehler. Mehrkonten-, Push-, App-Check-, Kamera-, GPS-, Performance-
 und echte Gerätetests bleiben Bestandteil von Block 5.
 
+## Block 5
+
+Laufzeitumgebung: Redmi `2201117TY` mit Android 13, Maestro CLI 2.5.1,
+lokale Profile-APK, ADB-Reverse und die Firebase Emulator Suite mit
+Authentication, Functions, Firestore und Storage. Zwei künstliche Konten und
+Kennzeichen wurden ausschließlich lokal erzeugt. Produktive Daten, App-Check-
+Erzwingung, Deployments und Veröffentlichungen blieben unverändert.
+
+| ID | Bereich | Testart | Ergebnis | Status |
+|---|---|---|---|---|
+| DEV-BUILD-001 | Redmi-Testartefakt | Flutter Profile/ADB | APK installiert; SHA-256 `B02923F94400B23B7053A95230800F4259AC0F0B8AA41F12AB7734A22AD1AC4A` | PASS |
+| DEV-AUTH-001 | Zwei lokale Konten | Maestro/Auth Emulator | Konto A und B mehrfach nach frischem App-Zustand angemeldet | PASS |
+| DEV-CONTACT-001 | Suche und Kontaktanfrage | Maestro/Functions/Firestore | A findet `HH-CR 2026`; Anfrage wird erstellt und B kann sie annehmen | PASS |
+| DEV-CHAT-001 | Zwei-Konten-Chat | Maestro/Firestore | Initialnachricht, Nachricht von B und Antwort von A sichtbar und im Backend vorhanden | PASS |
+| DEV-BLOCK-001 | Blockierung | Maestro/Firestore | A blockiert; Chat verschwindet bei A und B; Backendstatus `blocked` | PASS |
+| DEV-RULES-001 | Block-5-Sicherheitsregression | Firestore/Storage Emulator | 109/109 bestanden; ein abgebrochener Emulator-Cleanup bestand isoliert bei Wiederholung | PASS |
+| DEV-PERM-001 | Native Berechtigungsanzeige | Maestro/Android | Kamera, Mikrofon, Standort, Medien und Kontakte korrekt klassifiziert | PASS |
+| DEV-CAMERA-001 | Kamera | Maestro/Android | nativer Dialog, Kamerastart und sichere Rückkehr zur Meldeseite bestanden | PASS |
+| DEV-GPS-001 | Standort | Maestro/Android | GPS erfasst und zu `Kaiserbarg 3A, Hamburg` aufgelöst | PASS |
+| DEV-LIFE-001 | Lifecycle und Session | Maestro/ADB | Hintergrund/Vordergrund sowie Force-Stop/Kaltstart behalten gültige Session und UI-Zustand | PASS |
+| DEV-OFFLINE-001 | Offline/Wiederverbinden | Maestro/ADB | verständlicher Offline-Zustand; Retry nach ADB-Reverse-Wiederherstellung erfolgreich | PASS |
+| DEV-PERF-001 | Start und Speicher | ADB/Profile | Kaltstart 1.600/1.595/1.567 ms; 256.482 KB PSS, 369.244 KB RSS; keine Flutter-Ausnahme oder ANR | PASS |
+| DEV-REGRESSION-001 | Flutter-Abschlussregression | Unit/Widget/Statisch | 234/234 und Analyze ohne Befund | PASS |
+| DEV-EXTERNAL-001 | Externe KI im lokalen Testbetrieb | Auth-/Functions-Emulator | Fahrzeugbildgenerierung vor Datenzugriff und Vertex-Aufruf gesperrt | PASS |
+| DEV-PUSH-001 | Push foreground/background/terminated | Echtes Backend erforderlich | Kein lokaler Firebase-Messaging-Emulator; produktive Zustellung nicht angefasst | MANUAL REQUIRED |
+| DEV-APPCHECK-001 | App-Check-Token und Metriken | Echtes Backend erforderlich | Release-Konfiguration statisch geprüft; produktive Token/Metriken und Erzwingung nicht verändert | MANUAL REQUIRED |
+
+Android `gfxinfo` erfasst Flutter-Surface-Rendering auf diesem Gerät nicht
+repräsentativ; die Jank-Endprüfung bleibt deshalb zusätzlich Bestandteil des
+späteren Profiler-/Release-Candidate-Blocks. Das ändert den bestandenen Block-5-
+Geräte-Smoke-Test nicht.
+
 ## Abgrenzung
 
 Block 1 prüft isolierte Dart-Logik und Flutter-Widgets. Block 2 prüft Functions
 und Firebase-Regeln reproduzierbar mit künstlichen lokalen Emulator-Daten. Block
 3 prüft die vorhandenen Flutter-Integrationsabläufe mit einem künstlichen Konto.
 Block 4 bedient ausgewählte Kernreisen als Black-box über die gerenderte
-Android-Oberfläche. Keiner dieser Blöcke ist ein Nachweis für echte Mehrkonten-,
-Geräte- oder produktive Backend-Abläufe. Diese Nachweise folgen ausschließlich
-in den späteren, getrennten Blöcken.
+Android-Oberfläche. Block 5 ergänzt lokale Mehrkontenpfade und ein echtes Redmi,
+ist aber kein Nachweis für produktive Push-, App-Check- oder Live-Backend-Abläufe.

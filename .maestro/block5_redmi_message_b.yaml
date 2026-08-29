@@ -1,0 +1,25 @@
+appId: de.plaqa.app
+name: plaqa Redmi account B sends first chat message
+tags:
+  - block5
+  - redmi
+  - multi-account
+  - chat
+---
+- extendedWaitUntil:
+    visible: "Nachricht schreiben"
+    timeout: 30000
+- assertVisible: ".*Frage zu deinem BMW X6.*"
+- setClipboard: "Hallo von Block 5 B"
+- tapOn: "Nachricht schreiben"
+- pasteText
+- tapOn:
+    text: "Nachricht senden"
+    enabled: true
+- extendedWaitUntil:
+    visible: ".*Hallo von Block 5 B.*"
+    timeout: 30000
+- assertNotVisible: "Diese Aktion ist nicht erlaubt."
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

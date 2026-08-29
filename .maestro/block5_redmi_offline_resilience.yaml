@@ -1,0 +1,16 @@
+appId: de.plaqa.app
+name: plaqa Redmi unavailable local backend resilience
+tags:
+  - block5
+  - redmi
+  - network
+  - offline
+---
+- extendedWaitUntil:
+    visible: "Konto wird vorbereitet"
+    timeout: 60000
+- assertVisible: "Erneut versuchen"
+- assertVisible: ".*Basisdaten konnten gerade nicht vollständig angelegt werden.*"
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

@@ -1,6 +1,6 @@
 # Test toolchain setup
 
-Status: 2026-08-28
+Status: 2026-08-29
 
 ## Installed and configured
 
@@ -13,6 +13,8 @@ Status: 2026-08-28
 - Flutter DevTools from the Flutter SDK
 - Android virtual device `plaqa_pixel_6_api_35`
 - Physical Redmi test device available through ADB when connected and unlocked
+- Isolated Node 22 runtime at
+  `C:\Users\Admin\AppData\Local\Programs\node-v22.23.2\node-v22.23.2-win-x64`
 
 ## Project entry points
 
@@ -21,12 +23,19 @@ Status: 2026-08-28
 - Firebase Rules tests: `test/rules/`
 - Maestro smoke flows: `.maestro/app_startup.yaml`, `.maestro/auth_error.yaml`
   und `.maestro/registration_navigation.yaml`
+- Redmi Block-5 flows: `.maestro/block5_redmi_*.yaml`
+- Local Redmi seed and inspector: `tools/block5_seed_emulator.js` and
+  `tools/block5_inspect_emulator.js`; both abort unless the expected local
+  emulator hosts are explicitly configured
+- External-service guard check: `tools/block5_verify_functions_guard.js`
 
 ## Windows environment
 
 - `JAVA_HOME`: Android Studio JDK 21
 - `ANDROID_HOME` and `ANDROID_SDK_ROOT`: local Android SDK
 - `PATH`: JDK, platform tools, emulator, command-line tools, and Maestro
+- Firebase Functions emulation must use the isolated Node 22 directory first on
+  `PATH`; global Node 24 exceeds the Functions project's declared runtime
 - Maestro analytics are disabled for the local CLI.
 
 New terminals inherit these variables automatically. Terminals that were
@@ -35,13 +44,15 @@ already open before setup must be restarted once.
 ## Verification status
 
 - `flutter pub get`: passed
-- `flutter analyze`: passed without findings after Block 4
+- `flutter analyze`: passed without findings after Block 5
 - Flutter unit and widget suite: 231 of 231 passed
 - Flutter coverage run: 231 of 231 passed; 19.9 percent line coverage
-- Functions syntax with isolated Node 22: 21 of 21 own JavaScript files passed
-- Functions tests with isolated Node 22: 98 of 98 passed across nine files
+- Functions syntax with isolated Node 22: 23 of 23 own JavaScript files passed
+- Functions tests with isolated Node 22: 100 of 100 passed across ten files
 - Functions entry point: 30 exports loaded successfully
-- Firestore and Storage Rules: 104 of 104 passed across eleven emulator runs
+- Authenticated Functions-emulator guard: passed in 62 ms; local vehicle image
+  generation cannot call the external Vertex service
+- Firestore and Storage Rules: 109 of 109 passed after Block 5
 - Emulator shutdown: passed; ports 8080, 9199, and 9150 were free afterward
 - Android AVD creation and boot: passed
 - ADB connection: passed for the emulator and the connected Redmi
@@ -57,6 +68,14 @@ already open before setup must be restarted once.
 - Maestro startup, login-error, registration, plate entry, and core navigation:
   3 of 3 flows passed in one 4 minute 12 second final run
 - Flutter regression after Block 4: 234 of 234 passed
+- Redmi profile APK built and installed with local host `127.0.0.1`; SHA-256
+  `B02923F94400B23B7053A95230800F4259AC0F0B8AA41F12AB7734A22AD1AC4A`
+- Redmi multi-account search, contact request, acceptance, chat, reply and block:
+  passed with local Auth, Functions and Firestore emulators
+- Redmi permission, camera, GPS, lifecycle, session restore and offline/reconnect
+  flows: passed
+- Flutter regression after Block 5: 234 of 234 passed
+- Push and production App Check: manual required; no live systems were changed
 - Final emulator cleanup: AVD stopped and ports 9099, 8080, 9199, 5001, 4400,
   and 9150 free
 

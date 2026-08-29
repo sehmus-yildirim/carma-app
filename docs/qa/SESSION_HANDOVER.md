@@ -1,6 +1,6 @@
 # plaqa QA Session Handover
 
-Stand: 2026-08-28
+Stand: 2026-08-29
 Repository: `C:\Projects\plaqa`
 
 ## Aktueller Stand
@@ -13,6 +13,8 @@ Repository: `C:\Projects\plaqa`
   vollständig abgeschlossen.
 - Block 4, ausgewählte Maestro-Black-box-Flows auf dem lokalen Android-AVD, ist
   vollständig abgeschlossen.
+- Block 5, lokale Mehrkontenabläufe und echte Gerätetests auf dem Redmi, ist im
+  sicher lokal ausführbaren Umfang vollständig abgeschlossen.
 - Ein bestätigter Produktfehler wurde minimal korrigiert: Die Kennzeichensuche
   respektiert nun auch in der UI die deaktivierte Monatsbegrenzung und blendet
   den Kontingentstatus im Launch-Modus aus.
@@ -25,10 +27,10 @@ Repository: `C:\Projects\plaqa`
 ## Git-Basis
 
 - Branch: `main`
-- Commit: `dd619a9e9fe3da06258cfc0d0b2ddf8d143e21fd`
-- `main` und `origin/main` waren synchron.
-- Der Arbeitsbaum enthält die bewusst noch nicht committeten Toolchain-, Test-,
-  Dokumentations- und Fehlerkorrekturen dieses Blocks.
+- Arbeitsbasis vor Block 5: `1cdb90afdb377082f9e50ce5d501c5b439e2fead`
+- `main` und `origin/main` waren vor Block 5 synchron.
+- Die Block-5-Änderungen werden nach Abschlusskontrolle gemeinsam committet und
+  zu `origin/main` gepusht.
 
 ## Zuletzt abgeschlossen
 
@@ -39,8 +41,8 @@ Repository: `C:\Projects\plaqa`
 - Abschlusslauf und Coverage-Lauf mit jeweils 231 von 231 bestandenen Tests
 - `flutter analyze --no-pub` ohne Befund
 - `git diff --check` ohne Fehler
-- Syntaxprüfung aller 21 eigenen Functions-JavaScriptdateien mit Node 22
-- 98 von 98 Functions-Tests aus neun Testdateien bestanden
+- Syntaxprüfung aller 23 eigenen Functions-JavaScriptdateien mit Node 22
+- 100 von 100 Functions-Tests aus zehn Testdateien bestanden
 - 104 von 104 Firestore-/Storage-Rules-Tests aus elf Testdateien bestanden
 - Emulatoren zwischen den Rules-Dateien neu gestartet; Abschlussports frei
 - 4 von 4 Flutter-Integrationsdateien auf dem dedizierten Android-AVD bestanden
@@ -54,48 +56,61 @@ Repository: `C:\Projects\plaqa`
 - vollständige Flutter-Regression nach Block 4 mit 234 von 234 Tests bestanden
 - lokaler Profile-Build gegen die vollständige Firebase Emulator Suite genutzt;
   Release-Konfiguration, Produktionsdaten und App Check blieben unverändert
-- lokale Firebase-Suite und dedizierter Test-AVD beendet; Ports 9099, 8080,
-  9199, 5001, 4400 und 9150 frei; das angeschlossene Redmi nicht verwendet
+- lokaler Zwei-Konten-Ablauf aus Suche, Anfrage, Annahme, zwei Nachrichten und
+  Blockierung auf dem Redmi vollständig bestanden
+- Backendstatus und drei Nachrichten mit korrekten Absendern nachgewiesen
+- Kamera, GPS, Berechtigungsstatus, Lifecycle, Session-Wiederherstellung,
+  Offline-Zustand und Wiederverbindung auf dem Redmi bestanden
+- drei Online-Kaltstarts zwischen 1.567 und 1.600 ms; 256.482 KB Total PSS;
+  keine Flutter-Ausnahme, kein ANR und kein erkannter Layoutüberlauf
+- Abschlussregression mit 234/234 Flutter- und 109/109 Rules-/Security-Tests;
+  `flutter analyze --no-pub` ohne Befund
+- authentifizierter Functions-Emulator-Nachweis: lokale Fahrzeugbildgenerierung
+  wird in 62 ms abgewiesen und kann keinen externen Vertex-Aufruf auslösen
 
 ## Laufender Workstream
 
-- Keiner; Block 1 bis Block 4 sind abgeschlossen. Block 5 wurde nicht gestartet.
+- Keiner; Block 1 bis Block 5 sind im jeweils freigegebenen Umfang abgeschlossen.
 
 ## Testergebnisse
 
 - Flutter-Tests: `PASS` - 231/231, sequenzieller Abschlusslauf
 - Flutter-Coverage: `PASS` - 7.238/36.333 Zeilen, 19,9 Prozent
 - Flutter Analyze: `PASS` - keine Befunde
-- Functions-Syntax: `PASS` - 21/21 eigene JavaScriptdateien unter Node 22
-- Functions-Tests: `PASS` - 98/98 aus neun Testdateien
-- Firestore-/Storage-Rules-Tests: `PASS` - 104/104 aus elf Testdateien
+- Functions-Syntax: `PASS` - 23/23 eigene JavaScriptdateien unter Node 22
+- Functions-Tests: `PASS` - 100/100 aus zehn Testdateien
+- Firestore-/Storage-Rules-Tests: `PASS` - 109/109 nach Block 5
 - Flutter-Integrationstests: `PASS` - 4/4 Dateien auf lokalem Android-AVD
 - Maestro UI-Automation: `PASS` - 3/3 dauerhafte Flows in 4m 12s
-- Flutter-Gesamtregression: `PASS` - 234/234 nach Block 4
+- Flutter-Gesamtregression: `PASS` - 234/234 nach Block 5
+- Redmi Mehrkonten-/Gerätetests: `PASS` - lokaler Block-5-Umfang
+- Kamera/GPS/Lifecycle/Offline: `PASS` - echtes Redmi
+- Push-Zustellung: `MANUAL REQUIRED` - kein lokaler Messaging-Emulator
+- Produktive App-Check-Gerätevalidierung: `MANUAL REQUIRED`
 - Website-Tests: `NOT RUN`
 - Android Debug-/Release-Build: `NOT RUN`
-- Mehrkonten-/echte Gerätetests: `NOT RUN`
+- Mehrkonten-/echte Gerätetests: `PASS` - lokaler/Redmi-Umfang
 - iOS-Build: `BLOCKED` bis Mac/Xcode verfügbar und freigegeben ist
 
 ## Bekannte priorisierte Risiken
 
-1. Dokumentierter Firestore-`permission-denied`-Fehler beim Annehmen einer Kontaktanfrage; im Ein-Konto-Block 3 nicht abgedeckt
+1. Push und App Check benötigen eine ausdrücklich freigegebene Staging-/Live-
+   Geräteprüfung; Block 5 hat produktive Systeme bewusst nicht verwendet
 2. Verdächtige Onboarding-Verzweigung, die in beiden Fällen Onboarding als abgeschlossen markiert
-3. Keine vollständigen Zwei-Konten-End-to-End-Tests; `OBS-001` bleibt bis dahin offen
-4. Keine CI-Pipeline
-5. App Check nur Monitoring und keine aktuelle Gerätevalidierung
-6. Kontolöschung und Verifizierungs-Cleanup noch nicht end-to-end nachgewiesen
-7. Android-Release-Smoke-Test und iOS-Mac-Abnahme offen
-8. Emulatorwarnung zur Firestore-Grenze von 1.000 Regelausdrücken in einzelnen
-   Chat-/Kontakt-Negativpfaden (`OBS-001`); noch kein positiver Nutzerpfadfehler
+3. Keine CI-Pipeline
+4. Kontolöschung und Verifizierungs-Cleanup noch nicht end-to-end nachgewiesen
+5. Android-Release-Smoke-Test und iOS-Mac-Abnahme offen
+6. Einzelne erwartete Rules-Negativpfade protokollieren weiterhin die Emulator-
+   Grenze von 1.000 Ausdrücken; der legitime Mehrkontenpfad wurde korrigiert und
+   besteht auf dem Redmi sowie in der Rules-Regression
 
 ## Nächste konkrete Aktion
 
-Den Abschluss von Block 4 gemeinsam besprechen. Erst danach und nur nach
-ausdrücklicher Fortsetzung mit Block 5 beginnen: kontrollierte Mehrkonten- und
-echte Redmi-Gerätetests mit isolierten Testdaten. Keine Livetests vorziehen.
+Den Abschluss von Block 5 gemeinsam besprechen und danach den nächsten
+freigegebenen Testblock beginnen. Produktive Push-/App-Check-Prüfungen bleiben
+getrennt und dürfen nicht stillschweigend vorgezogen werden.
 
 ## Erforderliche Entscheidung
 
-Der Nutzer entscheidet, wann Block 5 startet. Bis dahin werden keine weiteren
-Tests, Builds, Deployments oder Veröffentlichungen gestartet.
+Der Nutzer entscheidet über den Start des nächsten Blocks und über jeden
+Staging-/Live-Test. Es wurde in Block 5 nichts deployt oder veröffentlicht.

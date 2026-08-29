@@ -1,0 +1,116 @@
+appId: de.plaqa.app
+name: plaqa Redmi registration and navigation test
+tags:
+  - block5
+  - redmi
+  - critical
+env:
+  TEST_PASSWORD: "Plaqa-Test-2026!"
+---
+- evalScript: ${output.testEmail = "maestro.block5.redmi." + Date.now() + "@plaqa.test"}
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "E-Mail-Adresse"
+    timeout: 60000
+- tapOn:
+    text: "Noch kein Konto.*Registrieren"
+    retryTapIfNoChange: true
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Noch kein Konto.*Registrieren"
+    commands:
+      - tapOn:
+          text: "Noch kein Konto.*Registrieren"
+          retryTapIfNoChange: true
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "Passwort wiederholen"
+    timeout: 15000
+- tapOn: "E-Mail-Adresse"
+- setClipboard: ${output.testEmail}
+- tapOn: "E-Mail-Adresse"
+- pasteText
+- assertVisible: ${output.testEmail}
+- tapOn:
+    text: "Passwort"
+    index: 0
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Passwort wiederholen"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Ich akzeptiere die"
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 70
+- tapOn: "AGB akzeptieren"
+- tapOn: "Datenschutzerklärung akzeptieren"
+- tapOn: "Verantwortungsvolle Nutzung bestätigen"
+- scrollUntilVisible:
+    element:
+      text: "Konto erstellen"
+      enabled: true
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 70
+- tapOn:
+    text: "Konto erstellen"
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "E-Mail bestätigen"
+    timeout: 30000
+- assertVisible: "E-Mail bestätigen"
+- tapOn:
+    text: "Weiter zur App"
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      text: "Suchen"
+      selected: true
+    timeout: 30000
+- tapOn:
+    text: "No thanks"
+    optional: true
+    retryTapIfNoChange: true
+- waitForAnimationToEnd
+- assertVisible: '(?s)Deutschland.*'
+- assertVisible: "Stadt Kennzeichenfeld"
+- assertVisible: "Buchstaben Kennzeichenfeld"
+- assertVisible: "Zahlen Kennzeichenfeld"
+- tapOn: "Stadt Kennzeichenfeld"
+- inputText: "HH"
+- tapOn: "Buchstaben Kennzeichenfeld"
+- inputText: "CR"
+- tapOn: "Zahlen Kennzeichenfeld"
+- inputText: "2026"
+- hideKeyboard
+- assertVisible:
+    text: "Anfrage prüfen"
+    enabled: true
+- tapOn: "Profil"
+- assertVisible:
+    text: "Profil"
+    selected: true
+- assertVisible: "Startseite"
+- tapOn: "Chats"
+- assertVisible:
+    text: "Chats"
+    selected: true
+- extendedWaitUntil:
+    visible: "Keine Chats"
+    timeout: 20000
+- tapOn: "Melden"
+- assertVisible:
+    text: "Melden"
+    selected: true
+- assertVisible: "Was möchtest du melden.*"
+- tapOn: "Einstellungen"
+- assertVisible:
+    text: "Einstellungen"
+    selected: true
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

@@ -1,0 +1,41 @@
+appId: de.plaqa.app
+name: plaqa Redmi local emulator login test
+tags:
+  - block5
+  - redmi
+  - auth
+env:
+  TEST_EMAIL: "block5.redmi.a@plaqa.test"
+  TEST_PASSWORD: "Plaqa-Test-2026!"
+---
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: "E-Mail-Adresse"
+    timeout: 60000
+- tapOn: "E-Mail-Adresse"
+- setClipboard: ${TEST_EMAIL}
+- tapOn: "E-Mail-Adresse"
+- pasteText
+- tapOn: "Passwort"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Einloggen"
+    enabled: true
+- runFlow:
+    when:
+      visible: "E-Mail bestätigen"
+    commands:
+      - tapOn:
+          text: "Weiter zur App"
+          enabled: true
+          retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      text: "Suchen"
+      selected: true
+    timeout: 45000
+- assertVisible: "Stadt Kennzeichenfeld"
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

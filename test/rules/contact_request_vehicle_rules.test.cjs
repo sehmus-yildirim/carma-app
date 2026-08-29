@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const assert = require('node:assert/strict');
 const path = require('node:path');
 const {after, afterEach, before, describe, test} = require('node:test');
 
@@ -7,7 +8,13 @@ const {
   assertSucceeds,
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
-const {Timestamp, doc, setDoc} = require('firebase/firestore');
+const {
+  Timestamp,
+  doc,
+  getDoc,
+  runTransaction,
+  setDoc,
+} = require('firebase/firestore');
 
 const projectId = 'carma-a84e4';
 const senderUserId = 'request-sender';
@@ -158,6 +165,39 @@ async function createValidRequest() {
 }
 
 describe('contact request stable vehicle identity rules', () => {
+  test('lets only the sender check its missing deterministic request', async () => {
+    const sender = testEnv.authenticatedContext(senderUserId).firestore();
+    const outsider = testEnv.authenticatedContext('request-outsider').firestore();
+    const regexOutsider = testEnv.authenticatedContext('request.*').firestore();
+    const legacyRequestId = `${senderUserId}_${plateKey}`;
+
+    const missing = await assertSucceeds(
+      getDoc(doc(sender, 'contact_requests', requestId)),
+    );
+    assert.equal(missing.exists(), false);
+    const missingLegacy = await assertSucceeds(
+      getDoc(doc(sender, 'contact_requests', legacyRequestId)),
+    );
+    assert.equal(missingLegacy.exists(), false);
+    await assertFails(
+      getDoc(doc(outsider, 'contact_requests', requestId)),
+    );
+    await assertFails(
+      getDoc(doc(outsider, 'contact_requests', legacyRequestId)),
+    );
+    await assertFails(
+      getDoc(doc(regexOutsider, 'contact_requests', requestId)),
+    );
+
+    const chatId = `request_${requestId}`;
+    const missingChat = await assertSucceeds(
+      getDoc(doc(sender, 'chats', chatId)),
+    );
+    assert.equal(missingChat.exists(), false);
+    await assertFails(getDoc(doc(outsider, 'chats', chatId)));
+    await assertFails(getDoc(doc(regexOutsider, 'chats', chatId)));
+  });
+
   test('allows a request and chat bound to the active plate vehicle', async () => {
     await seedPlate();
     const sender = await createValidRequest();
@@ -165,6 +205,74 @@ describe('contact request stable vehicle identity rules', () => {
     await assertSucceeds(
       setDoc(doc(sender, 'chats', `request_${requestId}`), chatData()),
     );
+  });
+
+  test('atomically creates a request and its chat after missing reads', async () => {
+    await seedPlate();
+    const sender = testEnv.authenticatedContext(senderUserId).firestore();
+    const requestReference = doc(sender, 'contact_requests', requestId);
+    const chatReference = doc(sender, 'chats', `request_${requestId}`);
+
+    await assertSucceeds(runTransaction(sender, async (transaction) => {
+      const requestSnapshot = await transaction.get(requestReference);
+      const chatSnapshot = await transaction.get(chatReference);
+      assert.equal(requestSnapshot.exists(), false);
+      assert.equal(chatSnapshot.exists(), false);
+      transaction.set(requestReference, requestData());
+      transaction.set(chatReference, chatData());
+    }));
+  });
+
+  test('creates the initial request message and updates chat metadata', async () => {
+    await seedPlate();
+    const sender = await createValidRequest();
+    const chatId = `request_${requestId}`;
+    const chatReference = doc(sender, 'chats', chatId);
+    await assertSucceeds(setDoc(chatReference, chatData()));
+    const messageId = `contact_request_${requestId}_initial`;
+    const messageReference = doc(
+      sender,
+      'chats',
+      chatId,
+      'messages',
+      messageId,
+    );
+
+    await assertSucceeds(runTransaction(sender, async (transaction) => {
+      const chatSnapshot = await transaction.get(chatReference);
+      const messageSnapshot = await transaction.get(messageReference);
+      assert.equal(chatSnapshot.exists(), true);
+      assert.equal(messageSnapshot.exists(), false);
+      const timestamp = Timestamp.now();
+      const text = requestData().message;
+      transaction.set(messageReference, {
+        chatId,
+        senderUserId,
+        type: 'text',
+        text,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        isDeleted: false,
+        replyToMessageId: null,
+        replyToText: null,
+      });
+      transaction.set(chatReference, {
+        lastMessage: text,
+        lastMessageAt: timestamp,
+        lastReadAtBy: {[senderUserId]: timestamp},
+        manualUnreadBy: {[senderUserId]: false},
+        manualUnreadUpdatedAtBy: {[senderUserId]: timestamp},
+        archivedBy: {
+          [senderUserId]: false,
+          [receiverUserId]: false,
+        },
+        archivedUpdatedAtBy: {
+          [senderUserId]: timestamp,
+          [receiverUserId]: timestamp,
+        },
+        updatedAt: timestamp,
+      }, {merge: true});
+    }));
   });
 
   test('rejects forged vehicle identity, receiver and vehicle projection', async () => {
@@ -262,6 +370,20 @@ describe('contact request stable vehicle identity rules', () => {
     const outsider = testEnv.authenticatedContext('request-outsider').firestore();
     await assertFails(
       setDoc(doc(outsider, 'contact_requests', requestId), requestData()),
+    );
+  });
+
+  test('keeps an existing request private to its participants', async () => {
+    await seedPlate();
+    await createValidRequest();
+    const receiver = testEnv.authenticatedContext(receiverUserId).firestore();
+    const outsider = testEnv.authenticatedContext('request-outsider').firestore();
+
+    await assertSucceeds(
+      getDoc(doc(receiver, 'contact_requests', requestId)),
+    );
+    await assertFails(
+      getDoc(doc(outsider, 'contact_requests', requestId)),
     );
   });
 });

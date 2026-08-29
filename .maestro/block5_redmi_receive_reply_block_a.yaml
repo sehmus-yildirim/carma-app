@@ -1,0 +1,44 @@
+appId: de.plaqa.app
+name: plaqa Redmi account A receives replies and blocks chat
+tags:
+  - block5
+  - redmi
+  - multi-account
+  - chat
+  - blocking
+---
+- tapOn: "Chats"
+- extendedWaitUntil:
+    visible: ".*Hallo von Block 5 B.*"
+    timeout: 45000
+- tapOn: ".*Hallo von Block 5 B.*"
+- extendedWaitUntil:
+    visible: "Nachricht schreiben"
+    timeout: 45000
+- assertVisible: ".*Hallo von Block 5 B.*"
+- setClipboard: "Antwort von Block 5 A"
+- tapOn: "Nachricht schreiben"
+- pasteText
+- tapOn:
+    text: "Nachricht senden"
+    enabled: true
+- extendedWaitUntil:
+    visible: ".*Antwort von Block 5 A.*"
+    timeout: 30000
+- tapOn: "Chat-Einstellungen"
+- extendedWaitUntil:
+    visible: "Nutzer blockieren"
+    timeout: 15000
+- tapOn: "Nutzer blockieren"
+- assertVisible: "Nutzer blockieren?"
+- assertVisible: "Abbrechen"
+- tapOn:
+    text: "Blockieren"
+    enabled: true
+- extendedWaitUntil:
+    visible: "Keine Chats"
+    timeout: 30000
+- assertNotVisible: "Diese Aktion ist nicht erlaubt."
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

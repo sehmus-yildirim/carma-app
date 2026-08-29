@@ -29,13 +29,25 @@ String firebaseEmulatorHost({
 Future<void> connectToFirebaseEmulators() async {
   final host = firebaseEmulatorHost();
 
-  await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+  await FirebaseAuth.instance.useAuthEmulator(
+    host,
+    9099,
+    automaticHostMapping: false,
+  );
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: false,
   );
-  FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
-  FirebaseStorage.instance.useStorageEmulator(host, 9199);
+  FirebaseFirestore.instance.useFirestoreEmulator(
+    host,
+    8080,
+    automaticHostMapping: false,
+  );
+  FirebaseStorage.instance.useStorageEmulator(
+    host,
+    9199,
+    automaticHostMapping: false,
+  );
   FirebaseFunctions.instanceFor(
     region: 'europe-west3',
-  ).useFunctionsEmulator(host, 5001);
+  ).useFunctionsEmulator(host, 5001, automaticHostMapping: false);
 }

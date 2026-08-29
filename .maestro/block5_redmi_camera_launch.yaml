@@ -1,0 +1,11 @@
+appId: de.plaqa.app
+name: plaqa Redmi launches native camera
+tags:
+  - block5
+  - redmi
+  - camera
+---
+- tapOn:
+    text: "Foto aufnehmen"
+    enabled: true
+- waitForAnimationToEnd

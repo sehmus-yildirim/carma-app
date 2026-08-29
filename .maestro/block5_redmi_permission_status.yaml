@@ -1,0 +1,38 @@
+appId: de.plaqa.app
+name: plaqa Redmi native permission status
+tags:
+  - block5
+  - redmi
+  - permissions
+  - lifecycle
+---
+- tapOn: "Einstellungen"
+- extendedWaitUntil:
+    visible: ".*Schutz & Daten.*"
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible: ".*App-Berechtigungen.*"
+    commands:
+      - tapOn: ".*Schutz & Daten.*"
+- extendedWaitUntil:
+    visible: ".*App-Berechtigungen.*"
+    timeout: 15000
+- tapOn: ".*App-Berechtigungen.*"
+- extendedWaitUntil:
+    visible: "(?s).*Kamera.*Mikrofon.*Standort.*Fotos und Videos.*Kontakte.*"
+    timeout: 30000
+- assertVisible: "(?s).*Nicht erlaubt.*Erlaubt.*Nicht erforderlich.*"
+- scrollUntilVisible:
+    element: "(?s).*Status aktualisieren.*"
+    direction: DOWN
+    timeout: 15000
+    visibilityPercentage: 50
+- tapOn: "(?s).*Status aktualisieren.*"
+- extendedWaitUntil:
+    visible: "(?s).*Status aktualisieren.*"
+    timeout: 15000
+- assertNotVisible: "Berechtigungsstatus konnte nicht geladen werden."
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

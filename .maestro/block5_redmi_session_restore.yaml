@@ -1,0 +1,18 @@
+appId: de.plaqa.app
+name: plaqa Redmi process restart restores session
+tags:
+  - block5
+  - redmi
+  - lifecycle
+  - auth
+---
+- extendedWaitUntil:
+    visible:
+      text: "Suchen"
+      selected: true
+    timeout: 60000
+- assertVisible: "Stadt Kennzeichenfeld"
+- assertNotVisible: "E-Mail-Adresse"
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

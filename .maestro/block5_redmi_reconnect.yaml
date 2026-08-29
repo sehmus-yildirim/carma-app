@@ -1,0 +1,21 @@
+appId: de.plaqa.app
+name: plaqa Redmi reconnects to local backend
+tags:
+  - block5
+  - redmi
+  - network
+  - reconnect
+---
+- assertVisible: "Konto wird vorbereitet"
+- tapOn:
+    text: "Erneut versuchen"
+    enabled: true
+- extendedWaitUntil:
+    visible:
+      text: "Suchen"
+      selected: true
+    timeout: 60000
+- assertVisible: "Stadt Kennzeichenfeld"
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

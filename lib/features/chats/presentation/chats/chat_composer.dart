@@ -761,6 +761,7 @@ class _SendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      label: 'Nachricht senden',
       button: true,
       enabled: isEnabled,
       child: GestureDetector(

@@ -1,0 +1,16 @@
+appId: de.plaqa.app
+name: plaqa Redmi background and foreground resume
+tags:
+  - block5
+  - redmi
+  - lifecycle
+---
+- extendedWaitUntil:
+    visible: "App-Berechtigungen"
+    timeout: 30000
+- assertVisible: "(?s).*Kamera.*Mikrofon.*Standort.*Fotos und Videos.*Kontakte.*"
+- assertVisible: "(?s).*Nicht erlaubt.*Erlaubt.*Nicht erforderlich.*"
+- assertNotVisible: "Berechtigungsstatus konnte nicht geladen werden."
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

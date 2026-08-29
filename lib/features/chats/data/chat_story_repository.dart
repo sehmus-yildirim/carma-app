@@ -213,6 +213,12 @@ class ChatStoryRepository {
     return _storiesCollection
         .where('viewerUserIds', arrayContains: trimmedUserId)
         .where('isActive', isEqualTo: true)
+        .where(
+          'expiresAt',
+          isGreaterThan: Timestamp.fromDate(
+            DateTime.now().add(const Duration(minutes: 1)),
+          ),
+        )
         .snapshots()
         .map((snapshot) {
           final stories =

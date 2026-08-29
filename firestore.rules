@@ -1474,6 +1474,56 @@ service cloud.firestore {
         + '_' + request.resource.data.vehicleId;
     }
 
+    function hasPathSafeAuthUid() {
+      return isSignedIn()
+        && request.auth.uid.matches('^[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function canReadMissingOwnContactRequest(requestId) {
+      return hasPathSafeAuthUid()
+        && (
+          requestId.matches(
+            '^' + request.auth.uid + '_(DE|AT|CH)_.{1,160}$'
+          )
+          || requestId.matches(
+            '^' + request.auth.uid + '_[A-ZÄÖÜ0-9]{2,20}$'
+          )
+        )
+        && !exists(
+          /databases/$(database)/documents/contact_requests/$(requestId)
+        );
+    }
+
+    function canReadMissingOwnFollowRelationship(relationshipId) {
+      return hasPathSafeAuthUid()
+        && (
+          relationshipId.matches(
+            '^' + request.auth.uid + '_.{1,128}$'
+          )
+          || relationshipId.matches(
+            '^.{1,128}_' + request.auth.uid + '$'
+          )
+        )
+        && !exists(
+          /databases/$(database)/documents/follow_relationships/$(relationshipId)
+        );
+    }
+
+    function canReadMissingOwnRequestChat(chatId) {
+      return hasPathSafeAuthUid()
+        && (
+          chatId.matches(
+            '^request_' + request.auth.uid + '_(DE|AT|CH)_.{1,160}$'
+          )
+          || chatId.matches(
+            '^request_' + request.auth.uid + '_[A-ZÄÖÜ0-9]{2,20}$'
+          )
+        )
+        && !exists(
+          /databases/$(database)/documents/chats/$(chatId)
+        );
+    }
+
     function contactRequestOptionalProjectionMatches(value, expected) {
       return value == null || value == expected;
     }
@@ -2167,7 +2217,7 @@ service cloud.firestore {
     function isUndeletedChatParticipant(chatData) {
       return isSignedIn()
         && request.auth.uid in chatData.participants
-        && chatData.get('deletedBy', {})[request.auth.uid] != true;
+        && chatData.get('deletedBy', {}).get(request.auth.uid, false) != true;
     }
 
     function isOpenUndeletedChatParticipant(chatData) {
@@ -3730,7 +3780,9 @@ service cloud.firestore {
     }
 
     match /follow_relationships/{relationshipId} {
-      allow read: if canReadFollowRelationship(resource.data);
+      allow get: if canReadMissingOwnFollowRelationship(relationshipId)
+        || canReadFollowRelationship(resource.data);
+      allow list: if canReadFollowRelationship(resource.data);
       allow create: if isValidFollowRelationshipCreate(relationshipId);
       allow update: if isValidFollowRequestAccept();
       allow delete: if isValidFollowRelationshipDelete();
@@ -4427,7 +4479,16 @@ service cloud.firestore {
     }
 
     match /contact_requests/{requestId} {
-      allow read: if isSignedIn()
+      allow get: if canReadMissingOwnContactRequest(requestId)
+        || (
+          isSignedIn()
+          && (
+            resource.data.senderUserId == request.auth.uid ||
+            resource.data.receiverUserId == request.auth.uid
+          )
+        );
+
+      allow list: if isSignedIn()
         && (
           resource.data.senderUserId == request.auth.uid ||
           resource.data.receiverUserId == request.auth.uid
@@ -4441,13 +4502,21 @@ service cloud.firestore {
     }
 
     match /chats/{chatId} {
-      allow read: if isSignedIn()
+      allow get: if canReadMissingOwnRequestChat(chatId)
+        || (
+          isSignedIn()
+          && request.auth.uid in resource.data.participants
+        );
+
+      allow list: if isSignedIn()
         && request.auth.uid in resource.data.participants;
 
       allow create: if request.resource.data.requestId is string
         && isValidChatCreateForRequest(chatId, request.resource.data.requestId);
 
-      allow update: if isValidChatLastMessageUpdate()
+      allow update: if isValidChatBlockUpdate()
+        || isValidChatUnblockUpdate()
+        || isValidChatLastMessageUpdate()
         || isValidChatReadUpdate()
         || isValidChatTypingUpdate()
         || isValidChatPresenceUpdate()
@@ -4455,9 +4524,7 @@ service cloud.firestore {
         || isValidChatPinnedUpdate()
         || isValidChatMutedUpdate()
         || isValidChatArchiveUpdate()
-        || isValidChatDeleteUpdate()
-        || isValidChatBlockUpdate()
-        || isValidChatUnblockUpdate();
+        || isValidChatDeleteUpdate();
 
       allow delete: if false;
 
@@ -4485,15 +4552,23 @@ service cloud.firestore {
     }
 
     match /chat_stories/{storyId} {
-      allow read: if isSignedIn()
-        && (
-          request.auth.uid == resource.data.ownerUserId ||
-          (
-            request.auth.uid in resource.data.viewerUserIds
-            && resource.data.isActive == true
-            && resource.data.expiresAt > request.time
-          )
-        );
+      allow get: if isSignedIn()
+        && request.auth.uid == resource.data.ownerUserId;
+      allow get: if isSignedIn()
+        && request.auth.uid in resource.data.viewerUserIds
+        && resource.data.isActive == true
+        && resource.data.expiresAt > request.time;
+
+      allow list: if isSignedIn()
+        && 'ownerUserId' in resource.data
+        && request.auth.uid == resource.data.ownerUserId;
+      allow list: if isSignedIn()
+        && 'viewerUserIds' in resource.data
+        && 'isActive' in resource.data
+        && 'expiresAt' in resource.data
+        && request.auth.uid in resource.data.viewerUserIds
+        && resource.data.isActive == true
+        && resource.data.expiresAt > request.time;
 
       allow create: if isValidStoryOwnerWrite(storyId)
         && request.resource.data.isActive == true;

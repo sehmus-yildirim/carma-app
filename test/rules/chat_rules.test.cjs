@@ -9,10 +9,14 @@ const {
 } = require('@firebase/rules-unit-testing');
 const {
   Timestamp,
+  collection,
   doc,
   getDoc,
+  getDocs,
+  query,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } = require('firebase/firestore');
 const { getBytes, ref, uploadBytes } = require('firebase/storage');
@@ -260,6 +264,68 @@ after(async () => {
 });
 
 describe('Chat Firestore and Storage rules', () => {
+  test('allow participant reads of missing deterministic follow documents before blocking', async () => {
+    const chatId = 'chat-block-without-follows';
+    await seedChat(chatId);
+
+    const senderDb = testEnv
+      .authenticatedContext(senderUserId)
+      .firestore();
+    const outsiderDb = testEnv
+      .authenticatedContext(outsiderUserId)
+      .firestore();
+    const regexOutsiderDb = testEnv
+      .authenticatedContext('chat.*')
+      .firestore();
+
+    await assertSucceeds(
+      getDoc(
+        doc(
+          senderDb,
+          'follow_relationships',
+          `${senderUserId}_${receiverUserId}`,
+        ),
+      ),
+    );
+    await assertSucceeds(
+      getDoc(
+        doc(
+          senderDb,
+          'follow_relationships',
+          `${receiverUserId}_${senderUserId}`,
+        ),
+      ),
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          outsiderDb,
+          'follow_relationships',
+          `${senderUserId}_${receiverUserId}`,
+        ),
+      ),
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          regexOutsiderDb,
+          'follow_relationships',
+          `${senderUserId}_${receiverUserId}`,
+        ),
+      ),
+    );
+
+    const now = Timestamp.fromMillis(Date.now());
+    await assertSucceeds(
+      updateDoc(doc(senderDb, 'chats', chatId), {
+        status: 'blocked',
+        blockedBy: senderUserId,
+        blockedAt: now,
+        updatedAt: now,
+      }),
+    );
+  });
+
   test('keep chat privacy settings private to their owner', async () => {
     const ownerDb = testEnv.authenticatedContext(senderUserId).firestore();
     const outsiderDb = testEnv.authenticatedContext(outsiderUserId).firestore();
@@ -446,14 +512,31 @@ describe('Chat Firestore and Storage rules', () => {
   test('deny inactive and expired stories and media to viewers', async () => {
     const inactiveStoryId = '1733333333333';
     const expiredStoryId = '1744444444444';
+    const visibleStoryId = '1755555555555';
     await seedStory(inactiveStoryId, { isActive: false });
     await seedStory(expiredStoryId, {
       createdAt: Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000),
       updatedAt: Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000),
       expiresAt: Timestamp.fromMillis(Date.now() - 60 * 60 * 1000),
     });
+    await seedStory(visibleStoryId);
     const receiverContext = testEnv.authenticatedContext(receiverUserId);
     const ownerContext = testEnv.authenticatedContext(senderUserId);
+
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(receiverContext.firestore(), 'chat_stories'),
+          where('viewerUserIds', 'array-contains', receiverUserId),
+          where('isActive', '==', true),
+          where(
+            'expiresAt',
+            '>',
+            Timestamp.fromMillis(Date.now() + 60 * 1000),
+          ),
+        ),
+      ),
+    );
 
     await assertFails(
       getDoc(

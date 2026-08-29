@@ -63,6 +63,9 @@ const {
 const {
   handleWebsiteContactRequest,
 } = require("./website_contact");
+const {
+  isFirebaseFunctionsEmulator,
+} = require("./runtime_environment");
 
 initializeApp();
 
@@ -601,6 +604,12 @@ exports.requestVehicleHeroImage = onCall(
       throw new HttpsError(
         "unauthenticated",
         "Bitte melde dich neu an.",
+      );
+    }
+    if (isFirebaseFunctionsEmulator()) {
+      throw new HttpsError(
+        "unimplemented",
+        "Die Fahrzeugdarstellung ist im lokalen Testbetrieb deaktiviert.",
       );
     }
     await ensureAccountOperational(userId);

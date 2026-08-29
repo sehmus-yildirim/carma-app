@@ -1,0 +1,17 @@
+appId: de.plaqa.app
+name: plaqa Redmi returns from native camera
+tags:
+  - block5
+  - redmi
+  - camera
+  - lifecycle
+---
+- extendedWaitUntil:
+    visible:
+      text: "Foto aufnehmen"
+      enabled: true
+    timeout: 30000
+- assertNotVisible: "Kamera konnte nicht geöffnet werden. Bitte prüfe die Kameraberechtigung."
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

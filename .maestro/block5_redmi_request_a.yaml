@@ -1,0 +1,51 @@
+appId: de.plaqa.app
+name: plaqa Redmi account A search and contact request
+tags:
+  - block5
+  - redmi
+  - multi-account
+---
+- extendedWaitUntil:
+    visible:
+      text: "Suchen"
+      selected: true
+    timeout: 30000
+- tapOn: "Stadt Kennzeichenfeld"
+- eraseText: 10
+- inputText: "HH"
+- tapOn: "Buchstaben Kennzeichenfeld"
+- eraseText: 10
+- inputText: "CR"
+- tapOn: "Zahlen Kennzeichenfeld"
+- eraseText: 10
+- inputText: "2026"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      text: "Anfrage prüfen"
+      enabled: true
+    timeout: 20000
+- tapOn:
+    text: "Anfrage prüfen"
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible: "Kontakt anfragen"
+    timeout: 45000
+- assertVisible: "Verifiziert"
+- assertVisible: ".*Anfragegrund auswählen.*"
+- assertVisible: "BMW"
+- assertVisible: "X6"
+- tapOn:
+    text: "Kontakt anfragen"
+    enabled: true
+    retryTapIfNoChange: true
+- extendedWaitUntil:
+    visible:
+      text: "Chats"
+      selected: true
+    timeout: 45000
+- assertNotVisible: "Diese Aktion ist nicht erlaubt."
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"

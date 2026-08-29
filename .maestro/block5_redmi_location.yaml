@@ -1,0 +1,25 @@
+appId: de.plaqa.app
+name: plaqa Redmi location capture
+tags:
+  - block5
+  - redmi
+  - permissions
+  - location
+---
+- tapOn: "Melden"
+- extendedWaitUntil:
+    visible: ".*Was möchtest du melden.*"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "GPS"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 70
+- tapOn: "GPS"
+- extendedWaitUntil:
+    visible: ".*(GPS-Standort erfasst|Hamburg|Standortdienste sind deaktiviert|Standort lädt zu lange|Standort konnte nicht geladen).*"
+    timeout: 45000
+- assertNotVisible: "Null check operator used on a null value"
+- assertNotVisible: "A RenderFlex overflowed"
+- assertNotVisible: ".*isn't responding.*"
