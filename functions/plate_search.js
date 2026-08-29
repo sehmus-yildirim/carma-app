@@ -1,8 +1,15 @@
+const {createHash} = require("node:crypto");
+const {Timestamp} = require("firebase-admin/firestore");
 const {HttpsError} = require("firebase-functions/v2/https");
 
 const supportedCountries = new Set(["DE", "AT", "CH"]);
 const maxSearchRadiusKm = 5;
 const locationFreshnessMs = 60 * 60 * 1000;
+const plateSearchWindowMs = 24 * 60 * 60 * 1000;
+const plateSearchProbeCooldownMs = 24 * 60 * 60 * 1000;
+const maxPlateSearchesPerWindow = 20;
+const maxPlateTargetSearchesPerWindow = 8;
+const coarseLocationCellSizeKm = 3;
 
 function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -56,6 +63,21 @@ function distanceKmBetween(latitudeA, longitudeA, latitudeB, longitudeB) {
     Math.sqrt(haversine),
     Math.sqrt(1 - haversine),
   );
+}
+
+function coarseLocationCell(latitude, longitude) {
+  const latitudeCellSize = coarseLocationCellSizeKm / 111.32;
+  const latitudeCenter =
+    (Math.floor(latitude / latitudeCellSize) + 0.5) * latitudeCellSize;
+  const longitudeScale = Math.max(
+    Math.cos(latitudeCenter * Math.PI / 180),
+    0.2,
+  );
+  const longitudeCellSize = coarseLocationCellSizeKm /
+    (111.32 * longitudeScale);
+  const longitudeCenter =
+    (Math.floor(longitude / longitudeCellSize) + 0.5) * longitudeCellSize;
+  return {latitude: latitudeCenter, longitude: longitudeCenter};
 }
 
 function parseDisplayPlate(countryCode, displayPlate) {
@@ -126,6 +148,106 @@ function notFoundResult() {
   return {found: false};
 }
 
+function timestampMillis(value) {
+  if (value != null && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  return null;
+}
+
+async function reservePlateSearchProbe({
+  firestore,
+  requesterUserId,
+  countryCode,
+  plateKey,
+  now,
+}) {
+  const probeId = createHash("sha256")
+    .update(`${requesterUserId}\u0000${countryCode}\u0000${plateKey}`)
+    .digest("hex");
+  const limitReference = firestore.doc(
+    `plate_search_rate_limits/${requesterUserId}`,
+  );
+  const probeReference = firestore.doc(`plate_search_probes/${probeId}`);
+  const targetId = createHash("sha256")
+    .update(`${countryCode}\u0000${plateKey}`)
+    .digest("hex");
+  const targetReference = firestore.doc(
+    `plate_search_target_limits/${targetId}`,
+  );
+  const nowTimestamp = Timestamp.fromDate(now);
+
+  await firestore.runTransaction(async (transaction) => {
+    const limitSnapshot = await transaction.get(limitReference);
+    const probeSnapshot = await transaction.get(probeReference);
+    const targetSnapshot = await transaction.get(targetReference);
+    const limit = limitSnapshot.exists ? limitSnapshot.data() ?? {} : {};
+    const probe = probeSnapshot.exists ? probeSnapshot.data() ?? {} : {};
+    const target = targetSnapshot.exists ? targetSnapshot.data() ?? {} : {};
+    const windowStartedAtMs = timestampMillis(limit.windowStartedAt);
+    const hasActiveWindow = windowStartedAtMs != null &&
+      now.getTime() - windowStartedAtMs < plateSearchWindowMs;
+    const currentCount = Number.isInteger(limit.searchCount) ?
+      limit.searchCount :
+      0;
+    const searchCount = hasActiveWindow ? currentCount + 1 : 1;
+    const lastSearchedAtMs = timestampMillis(probe.lastSearchedAt);
+    const targetWindowStartedAtMs = timestampMillis(target.windowStartedAt);
+    const hasActiveTargetWindow = targetWindowStartedAtMs != null &&
+      now.getTime() - targetWindowStartedAtMs < plateSearchWindowMs;
+    const currentTargetCount = Number.isInteger(target.searchCount) ?
+      target.searchCount : 0;
+    const targetSearchCount = hasActiveTargetWindow ?
+      currentTargetCount + 1 : 1;
+
+    if (lastSearchedAtMs != null &&
+        now.getTime() - lastSearchedAtMs < plateSearchProbeCooldownMs) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Dieses Kennzeichen kann erst später erneut gesucht werden.",
+      );
+    }
+    if (searchCount > maxPlateSearchesPerWindow) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Das tägliche Suchlimit ist erreicht.",
+      );
+    }
+    if (targetSearchCount > maxPlateTargetSearchesPerWindow) {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Dieses Kennzeichen ist momentan nicht erneut suchbar.",
+      );
+    }
+
+    transaction.set(limitReference, {
+      userId: requesterUserId,
+      windowStartedAt: hasActiveWindow ? limit.windowStartedAt : nowTimestamp,
+      searchCount,
+      updatedAt: nowTimestamp,
+    }, {merge: true});
+    transaction.set(probeReference, {
+      requesterUserId,
+      countryCode,
+      plateHash: createHash("sha256").update(plateKey).digest("hex"),
+      lastSearchedAt: nowTimestamp,
+      updatedAt: nowTimestamp,
+    }, {merge: true});
+    transaction.set(targetReference, {
+      plateHash: createHash("sha256")
+        .update(`${countryCode}\u0000${plateKey}`)
+        .digest("hex"),
+      windowStartedAt: hasActiveTargetWindow ?
+        target.windowStartedAt : nowTimestamp,
+      searchCount: targetSearchCount,
+      updatedAt: nowTimestamp,
+    }, {merge: true});
+  });
+}
+
 async function loadVisibilitySettings(firestore, userId) {
   try {
     const snapshot = await firestore
@@ -172,6 +294,14 @@ async function searchPlateDocument({
       "Kennzeichen oder Standort sind ungültig.",
     );
   }
+
+  await reservePlateSearchProbe({
+    firestore,
+    requesterUserId: userId,
+    countryCode,
+    plateKey,
+    now,
+  });
 
   const radiusKm = Number.isFinite(requestedRadiusKm) ?
     Math.min(Math.max(requestedRadiusKm, 1), maxSearchRadiusKm) :
@@ -223,11 +353,15 @@ async function searchPlateDocument({
     return notFoundResult();
   }
 
+  const coarseTargetLocation = coarseLocationCell(
+    storedLatitude,
+    storedLongitude,
+  );
   const distanceKm = distanceKmBetween(
     latitude,
     longitude,
-    storedLatitude,
-    storedLongitude,
+    coarseTargetLocation.latitude,
+    coarseTargetLocation.longitude,
   );
   if (distanceKm > radiusKm) {
     return notFoundResult();
@@ -249,7 +383,6 @@ async function searchPlateDocument({
     profilePhotoUrl:
       safeString(data.profilePhotoUrl || data.photoUrl) || null,
     isVerified: ownerIdentityVerified,
-    distanceKm: Math.round(distanceKm * 100) / 100,
     vehicleId,
     plateKey,
     displayPlate: showAnyPlate ?
@@ -276,8 +409,11 @@ async function searchPlateDocument({
 }
 
 module.exports = {
+  coarseLocationCell,
   distanceKmBetween,
+  maxPlateTargetSearchesPerWindow,
   normalizePlateKey,
   parseDisplayPlate,
+  reservePlateSearchProbe,
   searchPlateDocument,
 };

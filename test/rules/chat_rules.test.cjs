@@ -19,7 +19,12 @@ const {
   where,
   writeBatch,
 } = require('firebase/firestore');
-const { getBytes, ref, uploadBytes } = require('firebase/storage');
+const {
+  deleteObject,
+  getBytes,
+  ref,
+  uploadBytes,
+} = require('firebase/storage');
 
 const projectId = 'carma-a84e4';
 const senderUserId = 'chat-sender';
@@ -29,9 +34,33 @@ const firestorePort = Number(process.env.FIRESTORE_EMULATOR_PORT || 8080);
 const storagePort = Number(process.env.FIREBASE_STORAGE_EMULATOR_PORT || 9199);
 
 let testEnv;
+let reservationSequence = 0;
 
 function rulesFile(fileName) {
   return fs.readFileSync(path.join(process.cwd(), fileName), 'utf8');
+}
+
+async function reservedUploadMetadata({userId, filePath, contentType, size}) {
+  reservationSequence += 1;
+  const reservationId =
+    `00000000-0000-4000-8000-${String(reservationSequence).padStart(12, '0')}`;
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), '_media_upload_reservations', reservationId),
+      {
+        userId,
+        storagePath: filePath,
+        contentType,
+        maxBytes: size,
+        status: 'reserved',
+        expiresAt: Timestamp.fromMillis(Date.now() + 10 * 60 * 1000),
+      },
+    );
+  });
+  return {
+    contentType,
+    customMetadata: {uploadReservationId: reservationId},
+  };
 }
 
 async function seedChat(chatId, overrides = {}) {
@@ -554,11 +583,17 @@ describe('Chat Firestore and Storage rules', () => {
 
     const mediaPath =
       `chat_stories/${senderUserId}/${inactiveStoryId}/media.jpg`;
+    const metadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath: mediaPath,
+      contentType: 'image/jpeg',
+      size: 3,
+    });
     await assertSucceeds(
       uploadBytes(
         ref(ownerContext.storage(), mediaPath),
         new Uint8Array([1, 2, 3]),
-        { contentType: 'image/jpeg' },
+        metadata,
       ),
     );
     await assertFails(getBytes(ref(receiverContext.storage(), mediaPath)));
@@ -574,6 +609,14 @@ describe('Chat Firestore and Storage rules', () => {
     const senderContext = testEnv.authenticatedContext(senderUserId);
     const senderDb = senderContext.firestore();
     const senderStorage = senderContext.storage();
+    const uploadPath =
+      `chat_images/${chatId}/${senderUserId}/before-accept.jpg`;
+    const metadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath: uploadPath,
+      contentType: 'image/jpeg',
+      size: 1,
+    });
 
     await assertSucceeds(
       sendTextMessage({
@@ -595,10 +638,10 @@ describe('Chat Firestore and Storage rules', () => {
       uploadBytes(
         ref(
           senderStorage,
-          `chat_images/${chatId}/${senderUserId}/before-accept.jpg`,
+          uploadPath,
         ),
         new Uint8Array([1]),
-        { contentType: 'image/jpeg' },
+        metadata,
       ),
     );
   });
@@ -610,6 +653,14 @@ describe('Chat Firestore and Storage rules', () => {
       status: 'accepted',
     });
     const senderContext = testEnv.authenticatedContext(senderUserId);
+    const uploadPath =
+      `chat_images/${chatId}/${senderUserId}/after-accept.jpg`;
+    const metadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath: uploadPath,
+      contentType: 'image/jpeg',
+      size: 1,
+    });
 
     await assertSucceeds(
       sendTextMessage({
@@ -623,10 +674,10 @@ describe('Chat Firestore and Storage rules', () => {
       uploadBytes(
         ref(
           senderContext.storage(),
-          `chat_images/${chatId}/${senderUserId}/after-accept.jpg`,
+          uploadPath,
         ),
         new Uint8Array([1]),
-        { contentType: 'image/jpeg' },
+        metadata,
       ),
     );
   });
@@ -655,16 +706,104 @@ describe('Chat Firestore and Storage rules', () => {
     ];
 
     for (const [filePath, contentType] of uploads) {
+      const metadata = await reservedUploadMetadata({
+        userId: senderUserId,
+        filePath,
+        contentType,
+        size: 3,
+      });
       await assertSucceeds(
         uploadBytes(
           ref(senderStorage, filePath),
           new Uint8Array([1, 2, 3]),
-          { contentType },
+          metadata,
         ),
       );
       await assertSucceeds(getBytes(ref(receiverStorage, filePath)));
       await assertFails(getBytes(ref(outsiderStorage, filePath)));
     }
+  });
+
+  test('reject unreserved and path-mismatched attachment uploads', async () => {
+    const chatId = 'chat-reservation';
+    await seedChat(chatId);
+    const senderStorage = testEnv.authenticatedContext(senderUserId).storage();
+    const reservedPath =
+      `chat_images/${chatId}/${senderUserId}/reserved.jpg`;
+    const otherPath = `chat_images/${chatId}/${senderUserId}/other.jpg`;
+    const metadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath: reservedPath,
+      contentType: 'image/jpeg',
+      size: 1,
+    });
+
+    await assertFails(
+      uploadBytes(
+        ref(senderStorage, otherPath),
+        new Uint8Array([1]),
+        metadata,
+      ),
+    );
+    await assertFails(
+      uploadBytes(
+        ref(senderStorage, reservedPath),
+        new Uint8Array([1]),
+        {contentType: 'image/jpeg'},
+      ),
+    );
+    await assertFails(
+      uploadBytes(
+        ref(senderStorage, reservedPath),
+        new Uint8Array([1, 2]),
+        metadata,
+      ),
+    );
+    const oversizedReservation = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath: reservedPath,
+      contentType: 'image/jpeg',
+      size: 2,
+    });
+    await assertFails(
+      uploadBytes(
+        ref(senderStorage, reservedPath),
+        new Uint8Array([1]),
+        oversizedReservation,
+      ),
+    );
+  });
+
+  test('prevents deleting a reserved upload before it is consumed', async () => {
+    const chatId = 'chat-reservation-delete-race';
+    await seedChat(chatId);
+    const senderStorage = testEnv.authenticatedContext(senderUserId).storage();
+    const filePath = `chat_images/${chatId}/${senderUserId}/reserved.jpg`;
+    const metadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath,
+      contentType: 'image/jpeg',
+      size: 1,
+    });
+    const objectReference = ref(senderStorage, filePath);
+
+    await assertSucceeds(
+      uploadBytes(objectReference, new Uint8Array([1]), metadata),
+    );
+    await assertFails(deleteObject(objectReference));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(
+          context.firestore(),
+          '_media_upload_reservations',
+          metadata.customMetadata.uploadReservationId,
+        ),
+        {status: 'consumed'},
+        {merge: true},
+      );
+    });
+    await assertSucceeds(deleteObject(objectReference));
   });
 
   test('reject attachment uploads for blocked and locally deleted chats', async () => {
@@ -677,25 +816,41 @@ describe('Chat Firestore and Storage rules', () => {
       deletedBy: { [senderUserId]: true, [receiverUserId]: false },
     });
     const storage = testEnv.authenticatedContext(senderUserId).storage();
+    const blockedPath =
+      'chat_images/chat-blocked/chat-sender/blocked-message.jpg';
+    const deletedPath =
+      'chat_images/chat-deleted/chat-sender/deleted-message.jpg';
+    const blockedMetadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath: blockedPath,
+      contentType: 'image/jpeg',
+      size: 1,
+    });
+    const deletedMetadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath: deletedPath,
+      contentType: 'image/jpeg',
+      size: 1,
+    });
 
     await assertFails(
       uploadBytes(
         ref(
           storage,
-          'chat_images/chat-blocked/chat-sender/blocked-message.jpg',
+          blockedPath,
         ),
         new Uint8Array([1]),
-        { contentType: 'image/jpeg' },
+        blockedMetadata,
       ),
     );
     await assertFails(
       uploadBytes(
         ref(
           storage,
-          'chat_images/chat-deleted/chat-sender/deleted-message.jpg',
+          deletedPath,
         ),
         new Uint8Array([1]),
-        { contentType: 'image/jpeg' },
+        deletedMetadata,
       ),
     );
   });

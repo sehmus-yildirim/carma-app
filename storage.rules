@@ -17,6 +17,31 @@ service firebase.storage {
         && !hasBlockedAccountDeletion(request.auth.uid);
     }
 
+    function hasValidUploadReservation(userId, storagePath) {
+      let reservationId = request.resource.metadata
+        .get('uploadReservationId', '');
+      let reservationPath = /databases/(default)/documents/_media_upload_reservations/$(reservationId);
+      return reservationId is string
+        && reservationId.matches('^[0-9a-f-]{36}$')
+        && firestore.exists(reservationPath)
+        && firestore.get(reservationPath).data.userId == userId
+        && firestore.get(reservationPath).data.storagePath == storagePath
+        && firestore.get(reservationPath).data.contentType
+          == request.resource.contentType
+        && firestore.get(reservationPath).data.maxBytes == request.resource.size
+        && firestore.get(reservationPath).data.status == 'reserved'
+        && firestore.get(reservationPath).data.expiresAt > request.time;
+    }
+
+    function canDeleteReservedUpload() {
+      let reservationId = resource.metadata.get('uploadReservationId', '');
+      let reservationPath = /databases/(default)/documents/_media_upload_reservations/$(reservationId);
+      return !(reservationId is string)
+        || !reservationId.matches('^[0-9a-f-]{36}$')
+        || !firestore.exists(reservationPath)
+        || firestore.get(reservationPath).data.status == 'consumed';
+    }
+
     function isChatParticipant(chatId) {
       return isSignedIn()
         && firestore.exists(
@@ -419,10 +444,15 @@ service firebase.storage {
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
+        && hasValidUploadReservation(
+          userId,
+          'chat_images/' + chatId + '/' + userId + '/' + fileName
+        )
         && isValidChatImageUpload(fileName);
       allow delete: if isSignedIn()
         && request.auth.uid == userId
-        && isChatParticipant(chatId);
+        && isChatParticipant(chatId)
+        && canDeleteReservedUpload();
     }
 
     match /chat_documents/{chatId}/{userId}/{fileName} {
@@ -431,10 +461,15 @@ service firebase.storage {
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
+        && hasValidUploadReservation(
+          userId,
+          'chat_documents/' + chatId + '/' + userId + '/' + fileName
+        )
         && isValidChatDocumentUpload(fileName);
       allow delete: if isSignedIn()
         && request.auth.uid == userId
-        && isChatParticipant(chatId);
+        && isChatParticipant(chatId)
+        && canDeleteReservedUpload();
     }
 
     match /chat_voice_memos/{chatId}/{userId}/{fileName} {
@@ -443,10 +478,15 @@ service firebase.storage {
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
+        && hasValidUploadReservation(
+          userId,
+          'chat_voice_memos/' + chatId + '/' + userId + '/' + fileName
+        )
         && isValidChatVoiceMemoUpload(fileName);
       allow delete: if isSignedIn()
         && request.auth.uid == userId
-        && isChatParticipant(chatId);
+        && isChatParticipant(chatId)
+        && canDeleteReservedUpload();
     }
 
     match /chat_videos/{chatId}/{userId}/{fileName} {
@@ -455,10 +495,15 @@ service firebase.storage {
         && request.auth.uid == userId
         && isOpenChat(chatId)
         && canSendChatAttachment(chatId)
+        && hasValidUploadReservation(
+          userId,
+          'chat_videos/' + chatId + '/' + userId + '/' + fileName
+        )
         && isValidChatVideoUpload(fileName);
       allow delete: if isSignedIn()
         && request.auth.uid == userId
-        && isChatParticipant(chatId);
+        && isChatParticipant(chatId)
+        && canDeleteReservedUpload();
     }
 
     match /chat_stories/{userId}/{fileName} {
@@ -467,14 +512,20 @@ service firebase.storage {
           request.auth.uid == userId
           || canReadStoryMedia(userId, fileName)
         );
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.auth.uid == userId
+        && hasValidUploadReservation(
+          userId,
+          'chat_stories/' + userId + '/' + fileName
+        )
         && (
           isValidStoryImageUpload(fileName)
           || isValidStoryVideoUpload(fileName)
         );
+      allow update: if false;
       allow delete: if isSignedIn()
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && canDeleteReservedUpload();
     }
 
     match /chat_stories/{userId}/{storyId}/{fileName} {
@@ -483,15 +534,21 @@ service firebase.storage {
           request.auth.uid == userId
           || canReadStoryMediaById(userId, storyId, fileName)
         );
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.auth.uid == userId
         && storyId.matches('^[0-9]{12,24}$')
+        && hasValidUploadReservation(
+          userId,
+          'chat_stories/' + userId + '/' + storyId + '/' + fileName
+        )
         && (
           isValidStoryItemImageUpload(fileName)
           || isValidStoryItemVideoUpload(fileName)
         );
+      allow update: if false;
       allow delete: if isSignedIn()
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && canDeleteReservedUpload();
     }
 
     match /report_images/{reportId}/{userId}/{fileName} {
@@ -499,9 +556,14 @@ service firebase.storage {
         || sentReportNotificationAllowsImageRead(reportId, userId, fileName);
       allow create: if isSignedIn()
         && request.auth.uid == userId
+        && hasValidUploadReservation(
+          userId,
+          'report_images/' + reportId + '/' + userId + '/' + fileName
+        )
         && isValidReportImageUpload(fileName);
       allow delete: if isSignedIn()
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && canDeleteReservedUpload();
     }
 
     match /profile_photos/{userId}/{fileName} {
@@ -519,11 +581,17 @@ service firebase.storage {
           request.auth.uid == userId
           || canReadPublicProfilePost(userId, postId, fileName)
         );
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.auth.uid == userId
+        && hasValidUploadReservation(
+          userId,
+          'profile_posts/' + userId + '/' + postId + '/' + fileName
+        )
         && isValidProfilePostMediaUpload(fileName);
+      allow update: if false;
       allow delete: if isSignedIn()
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && canDeleteReservedUpload();
     }
 
     match /vehicle_gallery/{userId}/{vehicleId}/{fileName} {
@@ -532,11 +600,17 @@ service firebase.storage {
           request.auth.uid == userId
           || canReadVehicleGalleryImage(userId, vehicleId, fileName)
         );
-      allow create, update: if isSignedIn()
+      allow create: if isSignedIn()
         && request.auth.uid == userId
+        && hasValidUploadReservation(
+          userId,
+          'vehicle_gallery/' + userId + '/' + vehicleId + '/' + fileName
+        )
         && isValidVehicleGalleryMediaUpload(fileName);
+      allow update: if false;
       allow delete: if isSignedIn()
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && canDeleteReservedUpload();
     }
 
     match /vehicle_heroes/{userId}/{vehicleId}/{fileName} {

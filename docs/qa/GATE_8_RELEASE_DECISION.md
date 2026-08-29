@@ -11,17 +11,17 @@ Der Android-Release-Candidate ist technisch gebaut, signiert und validiert. Die
 Gesamtregression ist grün. Es wurde nichts deployt, in einen Store hochgeladen,
 veröffentlicht oder in Firebase produktiv erzwungen.
 
-Eine öffentliche Veröffentlichung ist noch nicht freigegeben. Die finale
-Sicherheitsprüfung bestätigte 11 offene Befunde: 5 mit hoher und 6 mit mittlerer
-Schwere. Zusätzlich fehlen reale iOS-, Push-, App-Check-, Store- und
-betriebliche Nachweise.
+Eine öffentliche Veröffentlichung ist noch nicht freigegeben. Die fünf hohen
+Sicherheitsbefunde sind lokal behoben und regressionsgetestet; sechs mittlere
+Befunde bleiben offen. Zusätzlich fehlen reale iOS-, Push-, App-Check-, Store-
+und betriebliche Nachweise.
 
 ## Bestandene technische Nachweise
 
 - Flutter Analyze: keine Befunde
 - Flutter Unit-/Widget-Regression: 237/237
-- Functions: 100/100
-- Firestore-/Storage-Rules: 109/109
+- Functions: 111/111
+- Firestore-/Storage-Rules: 111/111
 - Website: 30/30
 - iOS-Windows-Konfiguration: 126/126
 - Android AAB: 74.136.367 Bytes, SHA-256
@@ -47,20 +47,17 @@ betriebliche Nachweise.
 
 ### Sicherheit
 
-- präzise Fahrzeugstandorte können durch wiederholte Kennzeichensuchen
-  angenähert werden
-- bezahlte KI-Bildkontingente lassen sich über unbegrenzt erzeugte Fahrzeuge
-  vervielfachen
-- direkte Storage-Uploads erlauben ungebundene, nicht vollständig bereinigte
-  Medienobjekte
-- Kontolöschung entfernt soziale Fremdpfade und Begegnungsspiegel nicht
-  vollständig
-- sechs weitere mittlere Befunde betreffen Kontaktanfragen, Mediensicherheit,
+- SEC-001 bis SEC-005 sind lokal behoben; vollständige technische Nachweise
+  stehen in `docs/qa/HIGH_SECURITY_REMEDIATION.md`
+- sechs mittlere Befunde betreffen Kontaktanfragen, Mediensicherheit,
   Profilfotos und missbrauchbare Zähler
 
 Vollständige technische Details stehen in `docs/qa/SECURITY_REVIEW.md` und im
 versiegelten Codex-Security-Scan
-`d316c0fd-3693-447f-badf-1864041b52df`.
+`d316c0fd-3693-447f-badf-1864041b52df`. Die Änderungen wurden zusätzlich mit
+dem Security-Diff-Scan `0f935310-dca6-4856-ba34-a4d8c9591041` geprüft; zwei im
+Zwischenstand erkannte Umgehungen wurden danach geschlossen und regressions-
+getestet.
 
 ### Extern und manuell
 
@@ -85,8 +82,9 @@ statisch und als signiertes Artefakt, nicht als neuen Geräte-PASS.
 
 ## Wiederfreigabe
 
-Ein öffentliches `GO` ist erst zulässig, wenn alle hohen Sicherheitsbefunde
-behoben und regressionsgetestet, die mittleren Befunde risikoseitig geschlossen
-oder ausdrücklich akzeptiert und sämtliche externen Punkte mit realen
-Nachweisen abgeschlossen sind. Deployment, App-Check-Erzwingung, Store-Upload
-und Veröffentlichung benötigen jeweils eine ausdrückliche Freigabe.
+Die lokale Bedingung für die fünf hohen Sicherheitsbefunde ist erfüllt. Ein
+öffentliches `GO` ist erst zulässig, wenn die mittleren Befunde risikoseitig
+geschlossen oder ausdrücklich akzeptiert und sämtliche externen Punkte mit
+realen Nachweisen abgeschlossen sind. Deployment, App-Check-Erzwingung,
+Store-Upload und Veröffentlichung benötigen jeweils eine ausdrückliche
+Freigabe.

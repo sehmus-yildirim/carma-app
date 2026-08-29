@@ -27,9 +27,33 @@ const firestorePort = Number(process.env.FIRESTORE_EMULATOR_PORT || 8080);
 const storagePort = Number(process.env.FIREBASE_STORAGE_EMULATOR_PORT || 9199);
 
 let testEnv;
+let reservationSequence = 0;
 
 function rulesFile(fileName) {
   return fs.readFileSync(path.join(process.cwd(), fileName), 'utf8');
+}
+
+async function reservedUploadMetadata({userId, filePath, contentType, size}) {
+  reservationSequence += 1;
+  const reservationId =
+    `20000000-0000-4000-8000-${String(reservationSequence).padStart(12, '0')}`;
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), '_media_upload_reservations', reservationId),
+      {
+        userId,
+        storagePath: filePath,
+        contentType,
+        maxBytes: size,
+        status: 'reserved',
+        expiresAt: Timestamp.fromMillis(Date.now() + 10 * 60 * 1000),
+      },
+    );
+  });
+  return {
+    contentType,
+    customMetadata: {uploadReservationId: reservationId},
+  };
 }
 
 function reportData(reportId, overrides = {}) {
@@ -337,9 +361,15 @@ describe('Storage report image rules', () => {
   test('allow the sender to upload and both parties to read evidence', async () => {
     await seedImageNotifications();
     const senderStorage = testEnv.authenticatedContext(senderUserId).storage();
+    const metadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath,
+      contentType: 'image/jpeg',
+      size: 3,
+    });
     await assertSucceeds(
       uploadBytes(ref(senderStorage, filePath), new Uint8Array([1, 2, 3]), {
-        contentType: 'image/jpeg',
+        ...metadata,
       }),
     );
 
@@ -383,11 +413,17 @@ describe('Storage report image rules', () => {
 
   test('reject an evidence image at the 10 MB limit', async () => {
     const senderStorage = testEnv.authenticatedContext(senderUserId).storage();
+    const metadata = await reservedUploadMetadata({
+      userId: senderUserId,
+      filePath,
+      contentType: 'image/jpeg',
+      size: 10 * 1024 * 1024,
+    });
     await assertFails(
       uploadBytes(
         ref(senderStorage, filePath),
         new Uint8Array(10 * 1024 * 1024),
-        { contentType: 'image/jpeg' },
+        metadata,
       ),
     );
   });

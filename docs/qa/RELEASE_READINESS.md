@@ -14,30 +14,30 @@ iOS-Windows-Regressionssuiten sind grün. Zwei reale Releasefehler wurden
 korrigiert und durch Tests abgesichert. Es wurde nichts deployt, hochgeladen,
 veröffentlicht oder produktiv erzwungen.
 
-Die öffentliche Veröffentlichung bleibt gesperrt, weil die finale
-Sicherheitsprüfung 5 hohe und 6 mittlere Befunde bestätigt hat. Zusätzlich
-fehlen externe Nachweise für iOS, Push, App Check, Stores sowie rechtliche und
-betriebliche Prozesse.
+Die fünf hohen Sicherheitsbefunde sind lokal behoben und regressionsgetestet.
+Die öffentliche Veröffentlichung bleibt gesperrt, weil sechs mittlere Befunde
+und externe Nachweise für iOS, Push, App Check, Stores sowie rechtliche und
+betriebliche Prozesse offen sind.
 
 ## Gate-Übersicht
 
 | Gate | Umfang | Status | Kernergebnis |
 |---|---|---|---|
 | 1 | Flutter Unit/Widget und Baseline | PASS | Baseline aufgebaut; Analyze sauber |
-| 2 | Functions und Firebase Rules | PASS | 100/100 Functions; zuletzt 109/109 Rules |
+| 2 | Functions und Firebase Rules | PASS | 111/111 Functions; 111/111 Rules nach High-Security-Remediation |
 | 3 | Flutter-Integration | PASS | 4/4 Integrationsdateien gegen lokale Emulatoren |
 | 4 | Maestro UI-Automation | PASS | 3/3 dauerhafte AVD-Flows |
 | 5 | Mehrkonten und echtes Redmi | PASS LOCAL | Kernabläufe, Kamera, GPS, Lifecycle und Offline bestanden |
 | 6 | Android Release Candidate | PASS LOCAL | signierter Geräte-Smoke und Artefaktprüfung bestanden |
 | 7 | iOS Readiness | PASS WINDOWS / MANUAL REQUIRED | jetzt 126/126 Konfigurationschecks; Mac/iPhone offen |
-| 8 | Finale technische und Release-Abnahme | COMPLETE / PUBLIC NO-GO | 237/237 Flutter; 11 offene Security-Befunde; externe Freigaben offen |
+| 8 | Finale technische und Release-Abnahme | COMPLETE / PUBLIC NO-GO | 237/237 Flutter; 5 hohe Befunde lokal behoben, 6 mittlere offen; externe Freigaben offen |
 
 ## Frische Gate-8-Nachweise
 
 - Flutter Analyze: keine Befunde
 - Flutter Unit-/Widget-Tests: 237/237
-- Functions: 100/100
-- Firestore-/Storage-Rules: 109/109
+- Functions: 111/111
+- Firestore-/Storage-Rules: 111/111
 - Website: 30/30
 - iOS-Windows-Konfiguration: 126/126
 - Android AAB: 74.136.367 Bytes, SHA-256
@@ -46,7 +46,10 @@ betriebliche Prozesse.
   `FF226D7DFFAC3B52076831D50599BAE526E1DA47065BA904511390F85A168DAC`
 - AAB validiert; APK signiert, 16-KiB-ausgerichtet, nicht debuggable,
   `targetSdk 36`
-- Codex-Security-Scan: 11 bestätigt, 5 `HIGH`, 6 `MEDIUM`
+- Ausgangsscan: 11 bestätigt, 5 `HIGH`, 6 `MEDIUM`
+- High-Security-Remediation: 5/5 lokal behoben und regressionsgetestet
+- Security-Diff-Scan: `0f935310-dca6-4856-ba34-a4d8c9591041`; zwei erkannte
+  Zwischenstands-Umgehungen anschließend geschlossen
 
 ## Gate-8-Entscheidung
 
@@ -55,18 +58,19 @@ Store-Upload, TestFlight, öffentlichen Rollout oder App-Check-Erzwingung.**
 
 Die Sperre wird erst aufgehoben, wenn:
 
-1. alle fünf hohen Sicherheitsbefunde behoben und regressionsgetestet sind,
-2. die sechs mittleren Befunde behoben oder formal mit Frist akzeptiert sind,
-3. ein neuer Security-Diff-Scan und die vollständige Regression grün sind,
-4. iOS/Mac/iPhone/TestFlight real bestanden sind,
-5. Push und App Check auf signierten Builds mit echten Metriken geprüft sind,
-6. Store-, Datenschutz-, Kinderschutz-, Moderations-, Export-, Monitoring- und
+1. die sechs mittleren Befunde behoben oder formal mit Frist akzeptiert sind,
+2. nach diesen Änderungen ein neuer Security-Diff-Scan und die vollständige
+   Regression grün sind,
+3. iOS/Mac/iPhone/TestFlight real bestanden sind,
+4. Push und App Check auf signierten Builds mit echten Metriken geprüft sind,
+5. Store-, Datenschutz-, Kinderschutz-, Moderations-, Export-, Monitoring- und
    Rollbackprozesse verantwortet und nachgewiesen sind.
 
 ## Nachweise
 
 - Gate-8-Entscheidung: `docs/qa/GATE_8_RELEASE_DECISION.md`
 - Sicherheitsbericht: `docs/qa/SECURITY_REVIEW.md`
+- High-Security-Remediation: `docs/qa/HIGH_SECURITY_REMEDIATION.md`
 - Android: `docs/qa/ANDROID_RELEASE_CHECKLIST.md`
 - iOS: `docs/qa/IOS_RELEASE_CHECKLIST.md`
 - manuelle Abnahme: `docs/qa/MANUAL_TEST_CHECKLIST.md`

@@ -3,6 +3,8 @@ const test = require("node:test");
 
 const {
   cleanupAccountData,
+  cleanupCrossOwnerSocialData,
+  cleanupVehicleEncounters,
   deleteStoragePrefixes,
   requestAccountDeletion,
   requireRecentAuthentication,
@@ -157,6 +159,90 @@ test("account cleanup removes private MFA recovery data", async () => {
   ]);
 });
 
+test("account cleanup removes or anonymizes cross-owner social data", async () => {
+  const firestore = fakeIndexedFirestore({
+    "users/owner/social_posts/post-1/likes/user-1": {
+      userId: "user-1",
+    },
+    "users/owner/social_posts/post-1/comments/comment-1": {
+      authorUserId: "user-1",
+      authorDisplayName: "Private Name",
+      authorPhotoUrl: "https://private.test/photo.jpg",
+      text: "Mein Kommentar",
+    },
+    "users/owner/social_posts/post-1/comments/comment-2/replies/reply-1": {
+      authorUserId: "user-1",
+      text: "Meine Antwort",
+    },
+    "users/owner/social_posts/post-1/comments/comment-2/reactions/user-1": {
+      userId: "user-1",
+    },
+    "users/owner/social_posts/post-1/comments/comment-2/reports/user-1": {
+      reporterUserId: "user-1",
+    },
+    "reports/moderation-report": {reporterUserId: "user-1"},
+  });
+
+  await cleanupCrossOwnerSocialData({
+    firestore,
+    userId: "user-1",
+    pseudonym: "deleted_hash",
+    now,
+  });
+
+  assert.equal(
+    firestore.documents.has(
+      "users/owner/social_posts/post-1/likes/user-1",
+    ),
+    false,
+  );
+  assert.equal(
+    firestore.documents.has(
+      "users/owner/social_posts/post-1/comments/comment-2/reactions/user-1",
+    ),
+    false,
+  );
+  assert.equal(
+    firestore.documents.has(
+      "users/owner/social_posts/post-1/comments/comment-2/reports/user-1",
+    ),
+    false,
+  );
+  assert.equal(firestore.documents.has("reports/moderation-report"), true);
+  const comment = firestore.documents.get(
+    "users/owner/social_posts/post-1/comments/comment-1",
+  );
+  assert.equal(comment.authorUserId, "deleted_hash");
+  assert.equal(comment.authorDisplayName, "Gelöschtes Konto");
+  assert.equal(comment.text, "");
+  assert.equal(comment.isDeleted, true);
+});
+
+test("account cleanup deletes both public encounter mirrors", async () => {
+  const encounterPath = "vehicle_encounters/encounter-1";
+  const initiatorMirror =
+    "public_profiles/user-1/vehicles/vehicle-a/encounters/encounter-1";
+  const recipientMirror =
+    "public_profiles/user-2/vehicles/vehicle-b/encounters/encounter-1";
+  const firestore = fakeIndexedFirestore({
+    [encounterPath]: {
+      participantUserIds: ["user-1", "user-2"],
+      initiatorUserId: "user-1",
+      initiatorVehicleId: "vehicle-a",
+      recipientUserId: "user-2",
+      recipientVehicleId: "vehicle-b",
+    },
+    [initiatorMirror]: {status: "confirmed"},
+    [recipientMirror]: {status: "confirmed"},
+  });
+
+  await cleanupVehicleEncounters({firestore, userId: "user-1"});
+
+  assert.equal(firestore.documents.has(encounterPath), false);
+  assert.equal(firestore.documents.has(initiatorMirror), false);
+  assert.equal(firestore.documents.has(recipientMirror), false);
+});
+
 function fakeCleanupFirestore(recursivelyDeleted) {
   const emptySnapshot = {docs: []};
   const query = {
@@ -170,6 +256,9 @@ function fakeCleanupFirestore(recursivelyDeleted) {
 
   return {
     collection() {
+      return query;
+    },
+    collectionGroup() {
       return query;
     },
     doc(path) {
@@ -188,6 +277,76 @@ function fakeCleanupFirestore(recursivelyDeleted) {
         delete() {},
         set() {},
         async commit() {},
+      };
+    },
+  };
+}
+
+function fakeIndexedFirestore(initialDocuments) {
+  const documents = new Map(Object.entries(initialDocuments));
+
+  function reference(path) {
+    return {path};
+  }
+
+  function queryFor(predicate) {
+    let field;
+    let operator;
+    let expected;
+    return {
+      where(nextField, nextOperator, nextExpected) {
+        field = nextField;
+        operator = nextOperator;
+        expected = nextExpected;
+        return this;
+      },
+      async get() {
+        const docs = [];
+        for (const [path, data] of documents) {
+          if (!predicate(path)) continue;
+          const value = data[field];
+          const matches = operator === "array-contains" ?
+            Array.isArray(value) && value.includes(expected) :
+            value === expected;
+          if (matches) {
+            docs.push({id: path.split("/").at(-1), ref: reference(path), data: () => data});
+          }
+        }
+        return {docs};
+      },
+    };
+  }
+
+  return {
+    documents,
+    collection(name) {
+      return queryFor((path) => {
+        const parts = path.split("/");
+        return parts.length === 2 && parts[0] === name;
+      });
+    },
+    collectionGroup(name) {
+      return queryFor((path) => {
+        const parts = path.split("/");
+        return parts.length >= 2 && parts.at(-2) === name;
+      });
+    },
+    doc: reference,
+    batch() {
+      const mutations = [];
+      return {
+        delete(ref) {
+          mutations.push(() => documents.delete(ref.path));
+        },
+        set(ref, data) {
+          mutations.push(() => documents.set(ref.path, {
+            ...(documents.get(ref.path) ?? {}),
+            ...data,
+          }));
+        },
+        async commit() {
+          for (const mutation of mutations) mutation();
+        },
       };
     },
   };

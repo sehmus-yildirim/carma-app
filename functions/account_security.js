@@ -211,6 +211,13 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
     now,
   });
   await removeUserFromStoryAudiences({firestore, userId, now});
+  await cleanupCrossOwnerSocialData({
+    firestore,
+    userId,
+    pseudonym,
+    now,
+  });
+  await cleanupVehicleEncounters({firestore, userId});
 
   await deleteQueryDocuments(firestore, [
     firestore.collection("plates").where("ownerUserId", "==", userId),
@@ -220,8 +227,6 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
       .where("receiverUserId", "==", userId),
     firestore.collection("profile_connections")
       .where("participants", "array-contains", userId),
-    firestore.collection("vehicle_encounters")
-      .where("participantUserIds", "array-contains", userId),
     firestore.collection("follow_relationships")
       .where("followerUserId", "==", userId),
     firestore.collection("follow_relationships")
@@ -230,10 +235,25 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
       .where("ownerUserId", "==", userId),
     firestore.collection("verification_requests")
       .where("userId", "==", userId),
+    firestore.collection("plate_search_probes")
+      .where("requesterUserId", "==", userId),
+    firestore.collection("_media_upload_reservations")
+      .where("userId", "==", userId),
+    firestore.collection("_media_upload_objects")
+      .where("userId", "==", userId),
   ]);
 
   await deleteDocumentIfPresent(
     firestore.doc(`report_rate_limits/${userId}`),
+  );
+  await deleteDocumentIfPresent(
+    firestore.doc(`plate_search_rate_limits/${userId}`),
+  );
+  await deleteDocumentIfPresent(
+    firestore.doc(`vehicle_hero_rate_limits/${userId}`),
+  );
+  await deleteDocumentIfPresent(
+    firestore.doc(`_media_upload_limits/${userId}`),
   );
   await recursiveDeleteIfPresent(
     firestore,
@@ -246,6 +266,98 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
   await recursiveDeleteIfPresent(
     firestore,
     firestore.doc(`users/${userId}`),
+  );
+}
+
+async function cleanupCrossOwnerSocialData({
+  firestore,
+  userId,
+  pseudonym,
+  now,
+}) {
+  const [likes, comments, replies, reactions, reports] = await Promise.all([
+    uniqueQueryDocuments([
+      firestore.collectionGroup("likes").where("userId", "==", userId),
+    ]),
+    uniqueQueryDocuments([
+      firestore.collectionGroup("comments")
+        .where("authorUserId", "==", userId),
+    ]),
+    uniqueQueryDocuments([
+      firestore.collectionGroup("replies")
+        .where("authorUserId", "==", userId),
+    ]),
+    uniqueQueryDocuments([
+      firestore.collectionGroup("reactions").where("userId", "==", userId),
+    ]),
+    uniqueQueryDocuments([
+      firestore.collectionGroup("reports")
+        .where("reporterUserId", "==", userId),
+    ]),
+  ]);
+  const timestamp = Timestamp.fromDate(now);
+  const mutations = [];
+
+  for (const document of [...likes, ...reactions]) {
+    mutations.push({type: "delete", reference: document.ref});
+  }
+  for (const document of reports) {
+    if (document.ref.path.includes("/social_posts/")) {
+      mutations.push({type: "delete", reference: document.ref});
+    }
+  }
+  for (const document of [...comments, ...replies]) {
+    mutations.push({
+      type: "set",
+      reference: document.ref,
+      data: {
+        authorUserId: pseudonym,
+        authorDisplayName: "Gelöschtes Konto",
+        authorPhotoUrl: "",
+        text: "",
+        isDeleted: true,
+        accountDeleted: true,
+        updatedAt: timestamp,
+      },
+    });
+  }
+
+  await commitMutations(firestore, mutations);
+}
+
+async function cleanupVehicleEncounters({firestore, userId}) {
+  const snapshot = await firestore.collection("vehicle_encounters")
+    .where("participantUserIds", "array-contains", userId)
+    .get();
+  const references = new Map();
+
+  for (const document of snapshot.docs) {
+    const encounter = document.data() ?? {};
+    const endpoints = [
+      [encounter.initiatorUserId, encounter.initiatorVehicleId],
+      [encounter.recipientUserId, encounter.recipientVehicleId],
+    ];
+    for (const [participantUserId, vehicleId] of endpoints) {
+      const safeUserId = safeDocumentId(participantUserId);
+      const safeVehicleId = safeDocumentId(vehicleId);
+      if (safeUserId.length === 0 || safeVehicleId.length === 0) {
+        continue;
+      }
+      const reference = firestore.doc(
+        `public_profiles/${safeUserId}/vehicles/${safeVehicleId}/` +
+        `encounters/${document.id}`,
+      );
+      references.set(reference.path, reference);
+    }
+    references.set(document.ref.path, document.ref);
+  }
+
+  await commitMutations(
+    firestore,
+    [...references.values()].map((reference) => ({
+      type: "delete",
+      reference,
+    })),
   );
 }
 
@@ -564,9 +676,16 @@ function safeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function safeDocumentId(value) {
+  const documentId = safeString(value);
+  return /^[^/]{1,512}$/.test(documentId) ? documentId : "";
+}
+
 module.exports = {
   accountStoragePrefixes,
   cleanupAccountData,
+  cleanupCrossOwnerSocialData,
+  cleanupVehicleEncounters,
   deleteStoragePrefixes,
   deletedUserPseudonym,
   normalizedPlatform,

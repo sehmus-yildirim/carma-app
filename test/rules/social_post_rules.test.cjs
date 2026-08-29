@@ -33,9 +33,33 @@ const firestorePort = Number(process.env.FIRESTORE_EMULATOR_PORT || 8080);
 const storagePort = Number(process.env.FIREBASE_STORAGE_EMULATOR_PORT || 9199);
 
 let testEnv;
+let reservationSequence = 0;
 
 function rulesFile(fileNameToRead) {
   return fs.readFileSync(path.join(process.cwd(), fileNameToRead), 'utf8');
+}
+
+async function reservedUploadMetadata({userId, filePath, contentType, size}) {
+  reservationSequence += 1;
+  const reservationId =
+    `10000000-0000-4000-8000-${String(reservationSequence).padStart(12, '0')}`;
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), '_media_upload_reservations', reservationId),
+      {
+        userId,
+        storagePath: filePath,
+        contentType,
+        maxBytes: size,
+        status: 'reserved',
+        expiresAt: Timestamp.fromMillis(Date.now() + 10 * 60 * 1000),
+      },
+    );
+  });
+  return {
+    contentType,
+    customMetadata: {uploadReservationId: reservationId},
+  };
 }
 
 function postData(overrides = {}) {
@@ -135,10 +159,16 @@ describe('social post Firestore and Storage rules', () => {
     ));
 
     const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
+    const metadata = await reservedUploadMetadata({
+      userId: ownerUserId,
+      filePath: mediaPath,
+      contentType: 'image/jpeg',
+      size: bytes.length,
+    });
     await assertSucceeds(uploadBytes(
       ref(owner.storage(), mediaPath),
       bytes,
-      {contentType: 'image/jpeg'},
+      metadata,
     ));
     await assertFails(uploadBytes(
       ref(outsider.storage(), mediaPath),
@@ -157,10 +187,17 @@ describe('social post Firestore and Storage rules', () => {
       'users', ownerUserId, 'social_posts', postId,
     );
     await setDoc(postReference, postData());
+    const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
+    const metadata = await reservedUploadMetadata({
+      userId: ownerUserId,
+      filePath: mediaPath,
+      contentType: 'image/jpeg',
+      size: bytes.length,
+    });
     await uploadBytes(
       ref(owner.storage(), mediaPath),
-      Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
-      {contentType: 'image/jpeg'},
+      bytes,
+      metadata,
     );
 
     await assertSucceeds(getDoc(doc(

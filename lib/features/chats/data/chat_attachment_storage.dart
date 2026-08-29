@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../shared/firebase/secure_upload_reservation_service.dart';
+
 class ChatImageUploadResult {
   const ChatImageUploadResult({required this.path, required this.url});
 
@@ -68,8 +70,12 @@ class ChatAttachmentStorageException implements Exception {
 }
 
 class ChatAttachmentStorage {
-  ChatAttachmentStorage({FirebaseStorage? storage})
-    : _storage = storage ?? FirebaseStorage.instance;
+  ChatAttachmentStorage({
+    FirebaseStorage? storage,
+    SecureUploadReservationService? uploadReservations,
+  }) : _storage = storage ?? FirebaseStorage.instance,
+       _uploadReservations =
+           uploadReservations ?? SecureUploadReservationService();
 
   static const int _maxStorageFileNameLength = 140;
   static const int _maxStorageDocumentFileNameLength = 180;
@@ -92,6 +98,7 @@ class ChatAttachmentStorage {
   };
 
   final FirebaseStorage _storage;
+  final SecureUploadReservationService _uploadReservations;
 
   Future<ChatImageUploadResult> uploadChatImage({
     required String chatId,
@@ -106,7 +113,7 @@ class ChatAttachmentStorage {
       'Nachrichten-ID',
     );
 
-    await _ensureUploadFits(
+    final fileSizeBytes = await _ensureUploadFits(
       file: file,
       maxBytes: _maxChatImageBytes,
       emptyMessage: 'Foto ist leer.',
@@ -116,7 +123,15 @@ class ChatAttachmentStorage {
     final path =
         'chat_images/$trimmedChatId/$trimmedUserId/$trimmedMessageId.jpg';
     final reference = _storage.ref(path);
-    final metadata = SettableMetadata(contentType: 'image/jpeg');
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: path,
+      contentType: 'image/jpeg',
+      sizeBytes: fileSizeBytes,
+    );
+    final metadata = SettableMetadata(
+      contentType: 'image/jpeg',
+      customMetadata: {'uploadReservationId': reservationId},
+    );
 
     final url = await _uploadChatFileAndResolveUrl(
       reference: reference,
@@ -139,7 +154,7 @@ class ChatAttachmentStorage {
       throw ArgumentError('Nutzer- oder Story-ID ist ungültig.');
     }
 
-    await _ensureUploadFits(
+    final fileSizeBytes = await _ensureUploadFits(
       file: file,
       maxBytes: _maxStoryImageBytes,
       emptyMessage: 'Story-Foto ist leer.',
@@ -148,7 +163,15 @@ class ChatAttachmentStorage {
 
     final path = 'chat_stories/$trimmedUserId/$trimmedStoryId/media.jpg';
     final reference = _storage.ref(path);
-    final metadata = SettableMetadata(contentType: 'image/jpeg');
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: path,
+      contentType: 'image/jpeg',
+      sizeBytes: fileSizeBytes,
+    );
+    final metadata = SettableMetadata(
+      contentType: 'image/jpeg',
+      customMetadata: {'uploadReservationId': reservationId},
+    );
 
     await reference.putFile(file, metadata);
 
@@ -170,7 +193,7 @@ class ChatAttachmentStorage {
       throw ArgumentError('Nutzer- oder Story-ID ist ungültig.');
     }
 
-    await _ensureUploadFits(
+    final fileSizeBytes = await _ensureUploadFits(
       file: file,
       maxBytes: _maxStoryVideoBytes,
       emptyMessage: 'Story-Video ist leer.',
@@ -179,7 +202,15 @@ class ChatAttachmentStorage {
 
     final path = 'chat_stories/$trimmedUserId/$trimmedStoryId/media.mp4';
     final reference = _storage.ref(path);
-    final metadata = SettableMetadata(contentType: 'video/mp4');
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: path,
+      contentType: 'video/mp4',
+      sizeBytes: fileSizeBytes,
+    );
+    final metadata = SettableMetadata(
+      contentType: 'video/mp4',
+      customMetadata: {'uploadReservationId': reservationId},
+    );
 
     await reference.putFile(file, metadata);
 
@@ -289,7 +320,15 @@ class ChatAttachmentStorage {
     final path =
         'chat_documents/$trimmedChatId/$trimmedUserId/$storageFileName';
     final reference = _storage.ref(path);
-    final metadata = SettableMetadata(contentType: effectiveContentType);
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: path,
+      contentType: effectiveContentType,
+      sizeBytes: fileSizeBytes,
+    );
+    final metadata = SettableMetadata(
+      contentType: effectiveContentType,
+      customMetadata: {'uploadReservationId': reservationId},
+    );
 
     final url = await _uploadChatFileAndResolveUrl(
       reference: reference,
@@ -341,7 +380,15 @@ class ChatAttachmentStorage {
     final path =
         'chat_voice_memos/$trimmedChatId/$trimmedUserId/${trimmedMessageId}_$safeFileName';
     final reference = _storage.ref(path);
-    final metadata = SettableMetadata(contentType: effectiveContentType);
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: path,
+      contentType: effectiveContentType,
+      sizeBytes: fileSizeBytes,
+    );
+    final metadata = SettableMetadata(
+      contentType: effectiveContentType,
+      customMetadata: {'uploadReservationId': reservationId},
+    );
 
     final url = await _uploadChatFileAndResolveUrl(
       reference: reference,
@@ -387,7 +434,15 @@ class ChatAttachmentStorage {
     final path =
         'chat_videos/$trimmedChatId/$trimmedUserId/$trimmedMessageId.mp4';
     final reference = _storage.ref(path);
-    final metadata = SettableMetadata(contentType: 'video/mp4');
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: path,
+      contentType: 'video/mp4',
+      sizeBytes: fileSizeBytes,
+    );
+    final metadata = SettableMetadata(
+      contentType: 'video/mp4',
+      customMetadata: {'uploadReservationId': reservationId},
+    );
     final url = await _uploadChatFileAndResolveUrl(
       reference: reference,
       file: file,
@@ -404,7 +459,7 @@ class ChatAttachmentStorage {
     );
   }
 
-  Future<void> _ensureUploadFits({
+  Future<int> _ensureUploadFits({
     required File file,
     required int maxBytes,
     required String emptyMessage,
@@ -419,6 +474,7 @@ class ChatAttachmentStorage {
     if (fileSizeBytes > maxBytes) {
       throw ChatAttachmentStorageException(tooLargeMessage);
     }
+    return fileSizeBytes;
   }
 
   Future<String> _uploadChatFileAndResolveUrl({

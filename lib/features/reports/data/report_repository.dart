@@ -8,6 +8,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/firebase/carisma_firestore_paths.dart';
 import '../../../shared/firebase/carisma_firestore_schema.dart';
+import '../../../shared/firebase/secure_upload_reservation_service.dart';
 import '../../../shared/plate/german_plate_region_codes.dart';
 import '../domain/report_draft.dart';
 
@@ -17,6 +18,7 @@ class ReportRepository {
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     FirebaseFunctions? functions,
+    SecureUploadReservationService? uploadReservations,
   }) : _auth = auth ?? FirebaseAuth.instance,
        _firestore = firestore ?? FirebaseFirestore.instance,
        _storage = storage ?? FirebaseStorage.instance,
@@ -24,12 +26,16 @@ class ReportRepository {
            functions ??
            FirebaseFunctions.instanceFor(
              region: CaRismaAppConfig.firebaseRegion,
-           );
+           ),
+       _uploadReservations =
+           uploadReservations ??
+           SecureUploadReservationService(functions: functions);
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
   final FirebaseFunctions _functions;
+  final SecureUploadReservationService _uploadReservations;
 
   Stream<List<ReportNotificationRecord>> watchReportNotifications({
     required String userId,
@@ -335,14 +341,21 @@ class ReportRepository {
       );
     }
 
-    final reference = _storage.ref(
-      'report_images/$reportId/$reporterUserId/evidence.jpg',
+    final storagePath = 'report_images/$reportId/$reporterUserId/evidence.jpg';
+    final reference = _storage.ref(storagePath);
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: storagePath,
+      contentType: 'image/jpeg',
+      sizeBytes: size,
     );
     await reference.putFile(
       file,
       SettableMetadata(
         contentType: 'image/jpeg',
-        customMetadata: {'reportId': reportId},
+        customMetadata: {
+          'reportId': reportId,
+          'uploadReservationId': reservationId,
+        },
       ),
     );
 

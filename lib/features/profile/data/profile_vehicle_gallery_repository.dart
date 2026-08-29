@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../shared/firebase/carisma_firestore_paths.dart';
+import '../../../shared/firebase/secure_upload_reservation_service.dart';
 import 'profile_vehicle.dart';
 import 'profile_vehicle_gallery_media.dart';
 
@@ -20,14 +21,18 @@ class ProfileVehicleGalleryRepository {
   ProfileVehicleGalleryRepository({
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
+    SecureUploadReservationService? uploadReservations,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _storage = storage ?? FirebaseStorage.instance;
+       _storage = storage ?? FirebaseStorage.instance,
+       _uploadReservations =
+           uploadReservations ?? SecureUploadReservationService();
 
   static const int _maxImageBytes = 10 * 1024 * 1024;
   static const int _maxVideoBytes = 80 * 1024 * 1024;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
+  final SecureUploadReservationService _uploadReservations;
 
   CollectionReference<Map<String, dynamic>> _privateCollection(
     String userId,
@@ -126,10 +131,18 @@ class ProfileVehicleGalleryRepository {
     final mediaId = mediaReference.id;
     final mediaPath = 'vehicle_gallery/$trimmedUserId/${vehicle.id}/$mediaId';
     final storageReference = _storage.ref(mediaPath);
+    final reservationId = await _uploadReservations.reserve(
+      storagePath: mediaPath,
+      contentType: contentType,
+      sizeBytes: size,
+    );
 
     await storageReference.putFile(
       mediaFile,
-      SettableMetadata(contentType: contentType),
+      SettableMetadata(
+        contentType: contentType,
+        customMetadata: {'uploadReservationId': reservationId},
+      ),
     );
     final mediaUrl = await storageReference.getDownloadURL();
 

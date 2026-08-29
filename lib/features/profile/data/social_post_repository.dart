@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../shared/firebase/secure_upload_reservation_service.dart';
 import 'social_post.dart';
 
 class SocialPostRepositoryException implements Exception {
@@ -32,9 +33,14 @@ class SocialPostPublicIdentity {
 }
 
 class SocialPostRepository {
-  SocialPostRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _storage = storage ?? FirebaseStorage.instance;
+  SocialPostRepository({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+    SecureUploadReservationService? uploadReservations,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storage = storage ?? FirebaseStorage.instance,
+       _uploadReservations =
+           uploadReservations ?? SecureUploadReservationService();
 
   static const int maxMediaPerPost = 10;
   static const int _maxPostImageBytes = 10 * 1024 * 1024;
@@ -43,6 +49,7 @@ class SocialPostRepository {
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
+  final SecureUploadReservationService _uploadReservations;
 
   Stream<SocialPostPublicIdentity> watchPublicIdentity({
     required String userId,
@@ -240,9 +247,18 @@ class SocialPostRepository {
         final mediaPath =
             'profile_posts/$trimmedUserId/$postId/media_$index.$extension';
         final mediaReference = _storage.ref(mediaPath);
+        final sizeBytes = await upload.file.length();
+        final reservationId = await _uploadReservations.reserve(
+          storagePath: mediaPath,
+          contentType: contentType,
+          sizeBytes: sizeBytes,
+        );
         await mediaReference.putFile(
           upload.file,
-          SettableMetadata(contentType: contentType),
+          SettableMetadata(
+            contentType: contentType,
+            customMetadata: {'uploadReservationId': reservationId},
+          ),
         );
         uploadedReferences.add(mediaReference);
         mediaUrls.add(await mediaReference.getDownloadURL());

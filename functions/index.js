@@ -18,11 +18,21 @@ const {
 } = require("firebase-functions/v2/firestore");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {
+  onObjectDeleted,
+  onObjectFinalized,
+} = require("firebase-functions/v2/storage");
+const {
   isOwnedReportImagePath,
   submitPlateHintTransaction,
 } = require("./report_submission");
 const {runReportCleanup} = require("./report_cleanup");
 const {searchPlateDocument} = require("./plate_search");
+const {
+  cleanupExpiredMediaUploadReservations,
+  recordDeletedMediaUpload,
+  recordFinalizedMediaUpload,
+  reserveMediaUpload: reserveMediaUploadDocument,
+} = require("./media_upload_reservation");
 const {
   syncProfilePhotoReferences,
 } = require("./profile_photo_sync");
@@ -66,6 +76,9 @@ const {
 const {
   isFirebaseFunctionsEmulator,
 } = require("./runtime_environment");
+const {
+  reserveAccountVehicleHeroQuota,
+} = require("./vehicle_hero_quota");
 
 initializeApp();
 
@@ -178,6 +191,8 @@ exports.searchPlate = onCall(
   {
     timeoutSeconds: 15,
     memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
   },
   async (request) => {
     const userId = safeString(request.auth?.uid);
@@ -202,6 +217,57 @@ exports.searchPlate = onCall(
         "Die Kennzeichen-Suche ist momentan nicht verfügbar.",
       );
     }
+  },
+);
+
+exports.reserveMediaUpload = onCall(
+  {
+    timeoutSeconds: 15,
+    memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
+  },
+  async (request) => {
+    const userId = safeString(request.auth?.uid);
+    if (userId.length === 0) {
+      throw new HttpsError("unauthenticated", "Bitte melde dich neu an.");
+    }
+    await ensureAccountOperational(userId);
+    return reserveMediaUploadDocument({
+      firestore: db,
+      userId,
+      input: request.data,
+    });
+  },
+);
+
+exports.trackReservedMediaUpload = onObjectFinalized(
+  {timeoutSeconds: 30, memory: "256MiB"},
+  async (event) => {
+    const recorded = await recordFinalizedMediaUpload({
+      firestore: db,
+      object: event.data,
+    });
+    const hasReservationId = safeString(
+      event.data?.metadata?.uploadReservationId,
+    ).length > 0;
+    if (hasReservationId && !recorded) {
+      logger.warn("Finalized upload had no valid reservation", {
+        storagePath: safeString(event.data?.name),
+      });
+    }
+    return {recorded};
+  },
+);
+
+exports.releaseReservedMediaUploadQuota = onObjectDeleted(
+  {timeoutSeconds: 30, memory: "256MiB"},
+  async (event) => {
+    const released = await recordDeletedMediaUpload({
+      firestore: db,
+      object: event.data,
+    });
+    return {released};
   },
 );
 
@@ -597,6 +663,8 @@ exports.requestVehicleHeroImage = onCall(
   {
     timeoutSeconds: 150,
     memory: "512MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
   },
   async (request) => {
     const userId = safeString(request.auth?.uid);
@@ -715,6 +783,13 @@ exports.requestVehicleHeroImage = onCall(
           "Das tägliche Erstellungslimit ist erreicht.",
         );
       }
+
+      await reserveAccountVehicleHeroQuota({
+        firestore: db,
+        transaction,
+        userId,
+        now,
+      });
 
       transaction.set(
         vehicleReference,
@@ -965,6 +1040,23 @@ exports.processPartnersMailboxAutoReplies = onSchedule(
     mailboxConfigs.partners,
     partnersMailboxPassword.value(),
   ),
+);
+
+exports.cleanupMediaUploadReservations = onSchedule(
+  {
+    schedule: "every 60 minutes",
+    timeoutSeconds: 60,
+    memory: "256MiB",
+  },
+  async () => {
+    const deletedCount = await cleanupExpiredMediaUploadReservations({
+      firestore: db,
+      bucket: getStorage().bucket(),
+      now: Timestamp.now(),
+    });
+    logger.info("Expired media upload reservations cleaned", {deletedCount});
+    return {deletedCount};
+  },
 );
 
 async function runScheduledMailboxAutoReplies(mailbox, password) {
