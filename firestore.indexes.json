@@ -113,6 +113,25 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "_verification_sessions",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
       "collectionGroup": "likes",
       "fieldPath": "userId",
       "indexes": [

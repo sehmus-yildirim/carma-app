@@ -500,7 +500,7 @@ exports.submitProfileVerification = onCall(
     enforceAppCheck: true,
     consumeAppCheckToken: true,
     timeoutSeconds: 15,
-    memory: "128MiB",
+    memory: "256MiB",
   },
   async () => {
     throw new HttpsError(

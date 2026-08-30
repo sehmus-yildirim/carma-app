@@ -70,6 +70,8 @@ Die Sperre wird erst aufgehoben, wenn:
 
 ## Nachweise
 
+- Firebase-Produktionsabnahme:
+  `docs/qa/FIREBASE_PRODUCTION_ACCEPTANCE_2026-08-30.md`
 - Gate-8-Entscheidung: `docs/qa/GATE_8_RELEASE_DECISION.md`
 - Sicherheitsbericht: `docs/qa/SECURITY_REVIEW.md`
 - High-Security-Remediation: `docs/qa/HIGH_SECURITY_REMEDIATION.md`
