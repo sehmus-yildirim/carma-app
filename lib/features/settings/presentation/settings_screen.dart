@@ -5309,7 +5309,7 @@ Kennzeichen dürfen nicht dazu verwendet werden, Personen systematisch zu verfol
           _LegalSection(
             title: '11. Verifizierung und lokaler Dokumentabgleich',
             body:
-                r'''plaqa kann einen freiwilligen oder für bestimmte Funktionen erforderlichen Dokumentdatenabgleich anbieten. Im aktuellen Verfahren werden ausschließlich die Vorderseite eines Personalausweises oder Aufenthaltstitels beziehungsweise die Datenseite eines Reisepasses sowie die Vorderseite der Zulassungsbescheinigung Teil I direkt mit der Kamera aufgenommen. Führerschein, Selfie, Rückseiten und bestehende Galerie- oder Dateiaufnahmen werden nicht verlangt.
+                r'''plaqa kann einen freiwilligen oder für bestimmte Funktionen erforderlichen Dokumentdatenabgleich anbieten. Im aktuellen Verfahren werden ausschließlich die Vorderseite eines Personalausweises oder Aufenthaltstitels beziehungsweise die Datenseite eines Reisepasses sowie die Vorderseite der Zulassungsbescheinigung Teil I mit der Kamera aufgenommen oder bewusst aus der Galerie ausgewählt und lokal ausgerichtet. Führerschein, Selfie, Rückseiten und beliebige Datei-Uploads werden nicht verlangt.
 
 Bildqualität und Texterkennung werden auf dem Gerät verarbeitet. Dokumentbilder, Roh-OCR-Blöcke, Dokumentnummern, Lichtbilder, Anschriften, Staatsangehörigkeiten, maschinenlesbare Rohzeilen und die Unterschriftsgrafik werden nicht dauerhaft an plaqa übertragen oder gespeichert. Temporäre lokale Aufnahmen werden nach Abschluss, Abbruch, Abmeldung oder spätestens beim nächsten App-Start gelöscht.
 
@@ -6691,7 +6691,7 @@ Verboten sind:
 
 10.3 Sensible Angaben
 
-Fotografieren Sie nur die ausdrücklich angeforderte Vorder- oder Datenseite direkt im vorgesehenen Kameraablauf. Rückseiten, Führerschein, Selfie sowie Galerie- und Datei-Uploads gehören nicht zum aktuellen Verfahren.
+Verwenden Sie nur die ausdrücklich angeforderte Vorder- oder Datenseite im vorgesehenen Kamera- oder Galerieablauf. Rückseiten, Führerschein, Selfie sowie beliebige Datei-Uploads gehören nicht zum aktuellen Verfahren.
 
 10.4 Keine fremden Dokumente
 

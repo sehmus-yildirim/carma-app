@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../data/document_services.dart';
 import '../domain/verification_models.dart';
 
@@ -72,7 +75,17 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
     _temporaryFiles =
         widget.temporaryFiles ?? LocalVerificationTemporaryFileService();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_initializeCamera());
+    unawaited(_initializeScreen());
+  }
+
+  Future<void> _initializeScreen() async {
+    if (widget.kind == VerificationDocumentKind.vehicleRegistration) {
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+    if (mounted) await _initializeCamera();
   }
 
   @override
@@ -248,6 +261,13 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_disposeController());
+    if (widget.kind == VerificationDocumentKind.vehicleRegistration) {
+      unawaited(
+        SystemChrome.setPreferredOrientations(const [
+          DeviceOrientation.portraitUp,
+        ]),
+      );
+    }
     if (!_accepted && _capturedPath != null) {
       unawaited(_temporaryFiles.delete(_capturedPath!));
     }
@@ -436,9 +456,13 @@ class _DocumentOverlay extends StatelessWidget {
     final ratio = kind == VerificationDocumentKind.passport ? 1.42 : 1.58;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = (constraints.maxWidth - 32).clamp(240.0, 640.0);
-        final maxHeight = constraints.maxHeight * 0.62;
-        final height = (width / ratio).clamp(160.0, maxHeight);
+        final maxWidth = math.min(
+          math.max(1.0, constraints.maxWidth - 32),
+          kind == VerificationDocumentKind.vehicleRegistration ? 760.0 : 640.0,
+        );
+        final maxHeight = math.max(1.0, constraints.maxHeight - 28);
+        final width = math.min(maxWidth, maxHeight * ratio);
+        final height = width / ratio;
         return Stack(
           children: [
             ColorFiltered(
@@ -563,18 +587,75 @@ class _PreviewActions extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: OutlinedButton.icon(
+            child: _PreviewActionButton(
               onPressed: onRetake,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Neu aufnehmen'),
+              label: 'Neu aufnehmen',
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: FilledButton.icon(
+            child: _PreviewActionButton(
               onPressed: onUse,
               icon: const Icon(Icons.check_rounded),
-              label: const Text('Foto verwenden'),
+              label: 'Foto verwenden',
+              isPrimary: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewActionButton extends StatelessWidget {
+  const _PreviewActionButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+    this.isPrimary = false,
+  });
+
+  final VoidCallback onPressed;
+  final Widget icon;
+  final String label;
+  final bool isPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: isPrimary
+            ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.04),
+        side: BorderSide(
+          color: isPrimary
+              ? CaRismaDesignTokens.bluePrimary
+              : Colors.white.withValues(alpha: 0.24),
+          width: isPrimary ? 1.6 : 1,
+        ),
+        minimumSize: const Size.fromHeight(54),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconTheme.merge(data: const IconThemeData(size: 20), child: icon),
+          const SizedBox(width: 8),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
             ),
           ),
         ],

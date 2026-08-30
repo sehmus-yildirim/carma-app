@@ -46,9 +46,7 @@ void main() {
     );
   });
 
-  testWidgets('shows primary, verification and visibility states', (
-    tester,
-  ) async {
+  testWidgets('shows the compact vehicle management card', (tester) async {
     final repository = _FakeVehicleRepository([
       _vehicle(
         isPrimary: true,
@@ -60,9 +58,10 @@ void main() {
 
     expect(find.text('BMW X6'), findsOneWidget);
     expect(find.text('HH-CR 2026'), findsOneWidget);
-    expect(find.textContaining('In Prüfung'), findsOneWidget);
-    expect(find.text('Öffentlich sichtbar'), findsOneWidget);
-    expect(find.text('Hauptfahrzeug'), findsOneWidget);
+    expect(find.text('Schwarz'), findsOneWidget);
+    expect(find.textContaining('In Prüfung'), findsNothing);
+    expect(find.text('Öffentlich sichtbar'), findsNothing);
+    expect(find.text('Hauptfahrzeug'), findsNothing);
   });
 
   testWidgets('explains soft-delete effects before removing a vehicle', (

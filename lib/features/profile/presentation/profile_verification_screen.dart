@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
@@ -19,6 +20,7 @@ import '../verification_v1/domain/verification_models.dart';
 import '../verification_v1/domain/verification_parsers.dart';
 import '../verification_v1/presentation/document_camera_screen.dart';
 import '../verification_v1/presentation/verification_v1_strings.dart';
+import 'widgets/profile_verification_document_editor_screen.dart';
 
 class ProfileVerificationScreen extends StatefulWidget {
   const ProfileVerificationScreen({
@@ -31,9 +33,9 @@ class ProfileVerificationScreen extends StatefulWidget {
     this.ocrService,
     this.imageQualityService,
     this.temporaryFileService,
+    this.imagePicker,
     Object? verificationRepository,
     Object? mediaStorage,
-    Object? imagePicker,
   });
 
   final String userId;
@@ -44,6 +46,7 @@ class ProfileVerificationScreen extends StatefulWidget {
   final DocumentOcrService? ocrService;
   final ImageQualityService? imageQualityService;
   final VerificationTemporaryFileService? temporaryFileService;
+  final ImagePicker? imagePicker;
 
   @override
   State<ProfileVerificationScreen> createState() =>
@@ -57,6 +60,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   late final DocumentOcrService _ocrService;
   late final ImageQualityService _qualityService;
   late final VerificationTemporaryFileService _temporaryFiles;
+  late final ImagePicker _imagePicker;
   late final bool _ownsOcrService;
   late final Stream<UserProfile?> _profileStream;
   late final Stream<List<ProfileVehicle>> _vehicleStream;
@@ -93,6 +97,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         widget.imageQualityService ?? const LocalImageQualityService();
     _temporaryFiles =
         widget.temporaryFileService ?? LocalVerificationTemporaryFileService();
+    _imagePicker = widget.imagePicker ?? ImagePicker();
     _profileStream = _profileRepository.watchProfile(widget.userId);
     _vehicleStream = _vehicleRepository.watchOwnerVehicles(widget.userId);
     unawaited(_temporaryFiles.cleanupOrphans());
@@ -264,7 +269,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     return _StepCard(
       title: 'Fahrzeugbezug bestätigen',
       subtitle:
-          'Fotografiere die Vorderseite der Zulassungsbescheinigung Teil I vollständig und gut lesbar.',
+          'Fotografiere die Vorderseite der Zulassungsbescheinigung Teil I oder wähle ein gut lesbares Bild aus.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -562,18 +567,18 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   }) async {
     if (_busy) return null;
     setState(() {
-      _busy = true;
       _clearMessages();
     });
     String? managedPath;
     String? unmanagedCapturePath;
     var deleteUnmanagedCapture = false;
     try {
-      final captureService =
-          widget.captureService ??
-          CameraDocumentCaptureService(Navigator.of(context));
-      final capture = await captureService.capture(kind);
+      final captureService = widget.captureService;
+      final capture = captureService == null
+          ? await _captureDocument(kind)
+          : await captureService.capture(kind);
       if (capture == null) return null;
+      if (mounted) setState(() => _busy = true);
       if (capture.isManagedTemporaryFile) {
         managedPath = capture.path;
       } else {
@@ -605,7 +610,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       if (mounted) {
         setState(() {
           _error =
-              'Das Dokument konnte nicht sicher gelesen werden. Bitte fotografiere es erneut.';
+              'Das Dokument konnte nicht sicher gelesen werden. Bitte nimm es erneut auf oder wähle ein anderes Bild.';
         });
       }
       return null;
@@ -616,6 +621,91 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       if (managedPath != null) await _temporaryFiles.delete(managedPath);
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<CapturedVerificationDocument?> _captureDocument(
+    VerificationDocumentKind kind,
+  ) async {
+    final source = await showGeneralDialog<_DocumentImageSource>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 160),
+      pageBuilder: (dialogContext, _, _) => SafeArea(
+        child: Material(
+          type: MaterialType.transparency,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DocumentSourceAction(
+                    icon: Icons.photo_camera_rounded,
+                    title: 'Kamera',
+                    subtitle: 'Dokument jetzt aufnehmen',
+                    onTap: () => Navigator.of(
+                      dialogContext,
+                    ).pop(_DocumentImageSource.camera),
+                  ),
+                  const SizedBox(height: 8),
+                  _DocumentSourceAction(
+                    icon: Icons.photo_library_rounded,
+                    title: 'Galerie',
+                    subtitle: 'Vorhandenes Foto auswählen und ausrichten',
+                    onTap: () => Navigator.of(
+                      dialogContext,
+                    ).pop(_DocumentImageSource.gallery),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (context, animation, _, child) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.08),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+    );
+    if (source == null || !mounted) return null;
+
+    if (source == _DocumentImageSource.camera) {
+      return CameraDocumentCaptureService(
+        Navigator.of(context),
+        temporaryFiles: _temporaryFiles,
+      ).capture(kind);
+    }
+
+    final selected = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 100,
+      maxWidth: 4096,
+    );
+    if (selected == null || !mounted) return null;
+    final prepared = await Navigator.of(context).push<XFile>(
+      MaterialPageRoute(
+        builder: (_) => ProfileVerificationDocumentEditorScreen(
+          sourceFile: selected,
+          kind: kind,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+    if (prepared == null) return null;
+    return CapturedVerificationDocument(
+      path: prepared.path,
+      kind: kind,
+      deleteSourceAfterAdoption: true,
+    );
   }
 
   Future<void> _submitDocuments() async {
@@ -876,6 +966,58 @@ class _CameraAction extends StatelessWidget {
               )
             : const Icon(Icons.camera_alt_rounded),
         label: Text(label),
+      ),
+    );
+  }
+}
+
+enum _DocumentImageSource { camera, gallery }
+
+class _DocumentSourceAction extends StatelessWidget {
+  const _DocumentSourceAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: CaRismaDesignTokens.controlSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.42),
+            ),
+          ),
+          child: Icon(icon, color: CaRismaDesignTokens.blueBright),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: CaRismaDesignTokens.textSecondary),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
       ),
     );
   }

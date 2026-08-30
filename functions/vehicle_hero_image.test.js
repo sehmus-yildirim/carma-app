@@ -188,3 +188,56 @@ test("rejects opaque screenshot-like backgrounds", async () => {
       /Hintergrund/.test(error.message),
   );
 });
+
+test("removes a wide opaque floor shadow beneath the vehicle", async () => {
+  const input = await sharp({
+    create: {
+      width: 900,
+      height: 600,
+      channels: 4,
+      background: {r: 0, g: 0, b: 0, alpha: 0},
+    },
+  })
+    .composite([
+      {
+        input: {
+          create: {
+            width: 560,
+            height: 260,
+            channels: 4,
+            background: {r: 34, g: 94, b: 160, alpha: 1},
+          },
+        },
+        left: 170,
+        top: 170,
+      },
+      {
+        input: {
+          create: {
+            width: 720,
+            height: 52,
+            channels: 4,
+            background: {r: 12, g: 16, b: 18, alpha: 1},
+          },
+        },
+        left: 90,
+        top: 468,
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  const output = await processVehicleHeroImage(input);
+  const {data, info} = await sharp(output)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({resolveWithObject: true});
+  const probeY = vehicleBounds.top + vehicleBounds.height - 24;
+  let opaquePixels = 0;
+  for (let x = vehicleBounds.left;
+    x < vehicleBounds.left + vehicleBounds.width;
+    x += 1) {
+    if (data[(probeY * info.width + x) * 4 + 3] > 8) opaquePixels += 1;
+  }
+  assert.ok(opaquePixels / vehicleBounds.width <= 0.34);
+});

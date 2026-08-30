@@ -172,6 +172,7 @@ class ProfileVehicleRepository {
           (document) =>
               ProfileVehicle.fromMap(id: document.id, data: document.data()),
         )
+        .where((vehicle) => !vehicle.isArchived)
         .toList();
     vehicles.sort((left, right) {
       if (left.isPrimary != right.isPrimary) return left.isPrimary ? -1 : 1;

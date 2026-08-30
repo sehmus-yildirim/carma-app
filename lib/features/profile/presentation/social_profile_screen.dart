@@ -46,7 +46,7 @@ import 'widgets/profile_post_details_sheet.dart';
 import 'widgets/profile_post_gallery_screen.dart';
 
 const String _debugProfileContentPrefix = 'plaqa-debug-';
-const int _vehicleHeroPromptVersion = 4;
+const int _vehicleHeroPromptVersion = 5;
 
 final List<SocialPost> _debugSocialPosts = <SocialPost>[
   SocialPost(
@@ -845,12 +845,12 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     if (CaRismaAppConfig.storeScreenshotMode) {
       return const <ProfileVehicle>[debugProfileVehicle];
     }
-    if (kDebugMode &&
-        _isOwnProfile &&
-        !vehicles.any((vehicle) => vehicle.id == debugProfileVehicleId)) {
-      return <ProfileVehicle>[debugProfileVehicle, ...vehicles];
-    }
-    return vehicles;
+    return vehicles
+        .where(
+          (vehicle) =>
+              !vehicle.isArchived && vehicle.id != debugProfileVehicleId,
+        )
+        .toList(growable: false);
   }
 
   Widget _buildPostsViewport({
@@ -1458,9 +1458,9 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Fahrzeug archivieren?'),
+        title: const Text('Fahrzeug entfernen?'),
         content: Text(
-          '${vehicle.displayName} wird aus deinem öffentlichen Profil entfernt.',
+          '${vehicle.displayName} wird deaktiviert und nicht mehr öffentlich angezeigt oder in neuen Storys und Anfragen angeboten. Bestehende Chats bleiben erhalten.',
         ),
         actions: [
           TextButton(
@@ -1469,7 +1469,7 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Archivieren'),
+            child: const Text('Entfernen'),
           ),
         ],
       ),
@@ -1484,11 +1484,11 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Fahrzeug archiviert.')));
+      ).showSnackBar(const SnackBar(content: Text('Fahrzeug wurde entfernt.')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fahrzeug konnte nicht archiviert werden.')),
+        SnackBar(content: Text('Fahrzeug konnte nicht entfernt werden.')),
       );
     }
   }

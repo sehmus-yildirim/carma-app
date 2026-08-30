@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../shared/models/carisma_models.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
-import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
@@ -11,6 +10,7 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../profile/data/profile_vehicle.dart';
 import '../../profile/data/profile_vehicle_repository.dart';
 import '../../profile/presentation/widgets/profile_vehicle_editor_sheet.dart';
+import '../../profile/presentation/widgets/profile_vehicle_manage_card.dart';
 
 enum ProfileSettingsArea { personalData, documents, vehicles }
 
@@ -177,102 +177,40 @@ class _ProfileVerificationSettingsScreenState
               ...vehicles.map(
                 (vehicle) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        _VehicleThumbnail(vehicle: vehicle),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                vehicle.displayName,
-                                style: const TextStyle(
-                                  color: CaRismaDesignTokens.textPrimary,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16.5,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                vehicle.displayPlate,
-                                style: const TextStyle(
-                                  color: CaRismaDesignTokens.textSecondary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${_vehicleStatusLabel(vehicle.status)} · '
-                                '${_verificationStatusLabel(vehicle.verificationStatus)}',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: CaRismaDesignTokens.textMuted,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                vehicle.isPubliclyVisible
-                                    ? 'Öffentlich sichtbar'
-                                    : 'Nicht öffentlich sichtbar',
-                                style: const TextStyle(
-                                  color: CaRismaDesignTokens.textMuted,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                              if (vehicle.isPrimary) ...[
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Hauptfahrzeug',
-                                  style: TextStyle(
-                                    color: CaRismaDesignTokens.bluePrimary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                  child: ProfileVehicleManageCard(
+                    vehicle: vehicle,
+                    trailing: PopupMenuButton<String>(
+                      color: CaRismaDesignTokens.card,
+                      tooltip: 'Fahrzeug verwalten',
+                      icon: const Icon(
+                        Icons.more_vert_rounded,
+                        color: CaRismaDesignTokens.textSecondary,
+                      ),
+                      onSelected: (action) {
+                        switch (action) {
+                          case 'edit':
+                            _openVehicleEditor(vehicle: vehicle);
+                          case 'primary':
+                            _setPrimaryVehicle(vehicle);
+                          case 'archive':
+                            _archiveVehicle(vehicle);
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Fahrzeug bearbeiten'),
                         ),
-                        PopupMenuButton<String>(
-                          color: CaRismaDesignTokens.card,
-                          tooltip: 'Fahrzeug verwalten',
-                          icon: const Icon(
-                            Icons.more_vert_rounded,
-                            color: CaRismaDesignTokens.textSecondary,
+                        if (!vehicle.isPrimary)
+                          const PopupMenuItem(
+                            value: 'primary',
+                            child: Text('Als Hauptfahrzeug festlegen'),
                           ),
-                          onSelected: (action) {
-                            switch (action) {
-                              case 'edit':
-                                _openVehicleEditor(vehicle: vehicle);
-                              case 'primary':
-                                _setPrimaryVehicle(vehicle);
-                              case 'archive':
-                                _archiveVehicle(vehicle);
-                            }
-                          },
-                          itemBuilder: (_) => [
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Fahrzeug bearbeiten'),
-                            ),
-                            if (!vehicle.isPrimary)
-                              const PopupMenuItem(
-                                value: 'primary',
-                                child: Text('Als Hauptfahrzeug festlegen'),
-                              ),
-                            if (!vehicle.isPrimary)
-                              const PopupMenuItem(
-                                value: 'archive',
-                                child: Text('Fahrzeug entfernen'),
-                              ),
-                          ],
-                        ),
+                        if (!vehicle.isPrimary)
+                          const PopupMenuItem(
+                            value: 'archive',
+                            child: Text('Fahrzeug entfernen'),
+                          ),
                       ],
                     ),
                   ),
@@ -282,31 +220,6 @@ class _ProfileVerificationSettingsScreenState
         );
       },
     );
-  }
-
-  static String _vehicleStatusLabel(ProfileVehicleStatus status) {
-    return switch (status) {
-      ProfileVehicleStatus.active => 'Kennzeichen aktiv',
-      ProfileVehicleStatus.modification => 'Fahrzeug im Umbau',
-      ProfileVehicleStatus.repair => 'Fahrzeug in Reparatur',
-      ProfileVehicleStatus.seasonal => 'Saisonfahrzeug',
-      ProfileVehicleStatus.deregistered => 'Kennzeichen inaktiv',
-      ProfileVehicleStatus.sold => 'Fahrzeug verkauft',
-      ProfileVehicleStatus.noLongerOwned => 'Nicht mehr im Besitz',
-      ProfileVehicleStatus.archived => 'Archiviert',
-    };
-  }
-
-  static String _verificationStatusLabel(
-    ProfileVehicleVerificationStatus status,
-  ) {
-    return switch (status) {
-      ProfileVehicleVerificationStatus.unverified => 'Entwurf',
-      ProfileVehicleVerificationStatus.evidenceMissing => 'Nachweis fehlt',
-      ProfileVehicleVerificationStatus.inReview => 'In Prüfung',
-      ProfileVehicleVerificationStatus.verified => 'Fahrzeug bestätigt',
-      ProfileVehicleVerificationStatus.rejected => 'Abgelehnt',
-    };
   }
 }
 
@@ -432,38 +345,6 @@ class _VerificationLevelRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _VehicleThumbnail extends StatelessWidget {
-  const _VehicleThumbnail({required this.vehicle});
-
-  final ProfileVehicle vehicle;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = vehicle.heroImageUrl?.trim() ?? '';
-    if (imageUrl.isEmpty) {
-      return const CaRismaBlueIconBox(
-        icon: Icons.directions_car_rounded,
-        size: 50,
-        iconSize: 25,
-      );
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.network(
-        imageUrl,
-        width: 50,
-        height: 50,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const CaRismaBlueIconBox(
-          icon: Icons.directions_car_rounded,
-          size: 50,
-          iconSize: 25,
-        ),
       ),
     );
   }

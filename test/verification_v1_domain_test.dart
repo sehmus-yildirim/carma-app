@@ -53,6 +53,7 @@ void main() {
       expect(normalizePersonName('  Müller - Öztürk  '), 'mueller-oeztuerk');
       expect(conservativeLastNameMatch('Groß', 'GROSS'), isTrue);
       expect(conservativeLastNameMatch('Yılmaz', 'YILMAZ'), isTrue);
+      expect(conservativeFirstNamesMatch('Şehmuş', 'SEHMUS'), isTrue);
       expect(conservativeLastNameMatch("O'Connor", "O’Connor"), isTrue);
       expect(
         conservativeLastNameMatch('Meyer-Schulz', 'Meyer Schulz'),
@@ -71,6 +72,9 @@ void main() {
     test('parses common dates and handles leap-year age boundaries', () {
       expect(parseDocumentDate('03.02.1995'), DateTime(1995, 2, 3));
       expect(parseDocumentDate('2031-09-07'), DateTime(2031, 9, 7));
+      expect(parseDocumentDate('O3 . O2 . 1995'), DateTime(1995, 2, 3));
+      expect(parseDocumentDate('31 12 2030'), DateTime(2030, 12, 31));
+      expect(parseDocumentDate('03021995'), DateTime(1995, 2, 3));
       expect(parseDocumentDate('31.02.2030'), isNull);
       expect(ageOn(DateTime(2008, 2, 29), DateTime(2026, 2, 28)), 17);
       expect(ageOn(DateTime(2008, 2, 29), DateTime(2026, 3)), 18);
@@ -196,6 +200,154 @@ void main() {
         result.data!.documentType,
         VerificationIdentityDocumentType.residencePermit,
       );
+    });
+
+    test(
+      'parses multilingual identity labels emitted as separate OCR lines',
+      () {
+        final result = const GermanIdCardFrontParser().parse([
+          _block('NAME', 10, 10, 130, 28),
+          _block('Surname / Nom', 10, 30, 150, 48),
+          _block('YILDIRIM', 10, 50, 150, 70),
+          _block('VORNAMEN', 10, 82, 130, 100),
+          _block('Given names / Prénoms', 10, 102, 190, 120),
+          _block('SEHMUS', 10, 122, 150, 142),
+          _block('TAG DER GEBURT', 10, 154, 150, 172),
+          _block('Date of birth', 10, 174, 150, 192),
+          _block('01.01.1990', 10, 194, 130, 214),
+          _block('GÜLTIG BIS', 10, 226, 130, 244),
+          _block("Date d'expiration", 10, 246, 170, 264),
+          _block('31.12.2030', 10, 266, 130, 286),
+        ]);
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: '${result.failure}: ${result.message}',
+        );
+        expect(result.data!.firstNames, 'SEHMUS');
+        expect(result.data!.lastName, 'YILDIRIM');
+        expect(result.data!.dateOfBirth, DateTime(1990, 1, 1));
+        expect(result.data!.expiresAt, DateTime(2030, 12, 31));
+      },
+    );
+
+    test('strips the official surname marker and its observed OCR error', () {
+      for (final surname in const ['[a] YILDIRIM', 'tal YILDIRIM']) {
+        final result = const GermanIdCardFrontParser().parse([
+          _block('NAME / SURNAME / NOM', 10, 10, 230, 30),
+          _block(surname, 10, 34, 150, 54),
+          _block('VORNAMEN / GIVEN NAMES / PRENOMS', 10, 68, 320, 88),
+          _block('SEHMUS', 10, 92, 150, 112),
+          _block('01.01.1990', 10, 150, 150, 170),
+          _block('31.12.2030', 10, 208, 150, 228),
+        ]);
+
+        expect(
+          result.isSuccess,
+          isTrue,
+          reason: '$surname: ${result.failure}: ${result.message}',
+        );
+        expect(result.data!.lastName, 'YILDIRIM');
+      }
+    });
+
+    test('parses real-world combined labels with missing OCR punctuation', () {
+      final result = const GermanIdCardFrontParser().parse([
+        _block('NAME SURNAME NOM', 10, 10, 210, 30),
+        _block('YILDIRIM', 10, 34, 150, 54),
+        _block('VORNAME(N) GIVEN NAME(S) PRENOM(S)', 10, 68, 330, 88),
+        _block('SEHMUS', 10, 92, 150, 112),
+        _block(
+          'GEBURTSDATUM DATE OF BIRTH DATE DE NAISSANCE',
+          10,
+          126,
+          410,
+          146,
+        ),
+        _block('01.01.1990', 10, 150, 150, 170),
+        _block(
+          'GULTIG BIS DATE OF EXPIRY DATE D EXPIRATION',
+          10,
+          184,
+          390,
+          204,
+        ),
+        _block('31.12.2030', 10, 208, 150, 228),
+      ]);
+
+      expect(
+        result.isSuccess,
+        isTrue,
+        reason: '${result.failure}: ${result.message}',
+      );
+      expect(result.data!.firstNames, 'SEHMUS');
+      expect(result.data!.lastName, 'YILDIRIM');
+      expect(result.data!.dateOfBirth, DateTime(1990, 1, 1));
+      expect(result.data!.expiresAt, DateTime(2030, 12, 31));
+    });
+
+    test('parses labels and values merged into single OCR lines', () {
+      final result = const GermanIdCardFrontParser().parse([
+        _block('NAME / SURNAME / NOM: YILDIRIM', 10, 10, 330, 30),
+        _block('VORNAMEN GIVEN NAMES PRENOMS: SEHMUS', 10, 44, 370, 64),
+        _block(
+          'GEBURTSDATUM DATE OF BIRTH DATE DE NAISSANCE: 01.01.1990',
+          10,
+          78,
+          520,
+          98,
+        ),
+        _block(
+          'GÜLTIG BIS DATE OF EXPIRY DATE D EXPIRATION: 31.12.2030',
+          10,
+          112,
+          500,
+          132,
+        ),
+      ]);
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data!.firstNames, 'SEHMUS');
+      expect(result.data!.lastName, 'YILDIRIM');
+      expect(result.data!.dateOfBirth, DateTime(1990, 1, 1));
+      expect(result.data!.expiresAt, DateTime(2030, 12, 31));
+    });
+
+    test('recovers uniquely classifiable dates when date labels are noisy', () {
+      final result = const GermanIdCardFrontParser().parse([
+        _block('NAME / SURNAME / NOM', 10, 10, 230, 30),
+        _block('YILDIRIM', 10, 34, 150, 54),
+        _block('VORNAMEN / GIVEN NAMES / PRENOMS', 10, 68, 320, 88),
+        _block('SEHMUS', 10, 92, 150, 112),
+        _block('O1 . O1 . 199O', 10, 150, 150, 170),
+        _block('31 12 2030', 10, 208, 150, 228),
+      ]);
+
+      expect(
+        result.isSuccess,
+        isTrue,
+        reason: '${result.failure}: ${result.message}',
+      );
+      expect(result.data!.dateOfBirth, DateTime(1990, 1, 1));
+      expect(result.data!.expiresAt, DateTime(2030, 12, 31));
+    });
+
+    test('still rejects equally plausible conflicting name values', () {
+      final result = const GermanIdCardFrontParser().parse([
+        _block('NAME', 10, 10, 130, 30),
+        _block('YILDIRIM', 150, 10, 250, 30),
+        _block('MUSTERMANN', 150, 10, 260, 30),
+        _block('VORNAMEN', 10, 50, 130, 70),
+        _block('SEHMUS', 150, 50, 250, 70),
+        _block('GEBURTSDATUM', 10, 90, 130, 110),
+        _block('01.01.1990', 150, 90, 250, 110),
+        _block('GÜLTIG BIS', 10, 130, 130, 150),
+        _block('31.12.2030', 150, 130, 250, 150),
+      ]);
+
+      expect(result.isSuccess, isFalse);
+      expect(result.failure, VerificationParseFailure.missingRequiredField);
     });
 
     test('parses a passport MRZ and rejects an invalid check digit', () {

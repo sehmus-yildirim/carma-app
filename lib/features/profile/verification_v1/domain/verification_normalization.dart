@@ -1,8 +1,9 @@
 final RegExp _whitespace = RegExp(r'\s+');
 final RegExp _plateSeparators = RegExp(r'[\s\-]+');
 final RegExp _datePattern = RegExp(
-  r'(?<!\d)(\d{1,4})[.\-/](\d{1,2})[.\-/](\d{1,4})(?!\d)',
+  r'(?<!\d)(\d{1,4})\s*(?:[.\-/]|\s+)\s*(\d{1,2})\s*(?:[.\-/]|\s+)\s*(\d{1,4})(?!\d)',
 );
+final RegExp _compactDatePattern = RegExp(r'(?<!\d)(\d{8})(?!\d)');
 
 String normalizePersonName(String raw) {
   var value = _composeRelevantUnicode(raw.trim().toLowerCase());
@@ -12,6 +13,14 @@ String normalizePersonName(String raw) {
       .replaceAll('ü', 'ue')
       .replaceAll('ß', 'ss')
       .replaceAll('ı', 'i')
+      .replaceAll('ş', 's')
+      .replaceAll('ç', 'c')
+      .replaceAll('ğ', 'g')
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
       .replaceAll('’', "'")
       .replaceAll('`', "'")
       .replaceAll('´', "'")
@@ -44,7 +53,11 @@ bool conservativeFirstNamesMatch(String left, String right) {
 }
 
 DateTime? parseDocumentDate(String raw) {
-  for (final match in _datePattern.allMatches(raw)) {
+  final normalized = raw
+      .replaceAll(RegExp(r'[oO]'), '0')
+      .replaceAll(RegExp(r'[iIlL|]'), '1')
+      .replaceAll(RegExp(r'[·•,;:_]'), '.');
+  for (final match in _datePattern.allMatches(normalized)) {
     final first = int.tryParse(match.group(1)!);
     final second = int.tryParse(match.group(2)!);
     final third = int.tryParse(match.group(3)!);
@@ -54,6 +67,24 @@ DateTime? parseDocumentDate(String raw) {
     final month = second;
     final day = yearFirst ? third : first;
     final parsed = _validDate(year, month, day);
+    if (parsed != null) return parsed;
+  }
+  for (final match in _compactDatePattern.allMatches(normalized)) {
+    final value = match.group(1)!;
+    final yearFirst = int.tryParse(value.substring(0, 4));
+    if (yearFirst != null && yearFirst >= 1900 && yearFirst <= 2199) {
+      final parsed = _validDate(
+        yearFirst,
+        int.parse(value.substring(4, 6)),
+        int.parse(value.substring(6, 8)),
+      );
+      if (parsed != null) return parsed;
+    }
+    final parsed = _validDate(
+      int.parse(value.substring(4, 8)),
+      int.parse(value.substring(2, 4)),
+      int.parse(value.substring(0, 2)),
+    );
     if (parsed != null) return parsed;
   }
   return null;

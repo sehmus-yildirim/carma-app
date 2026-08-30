@@ -24,6 +24,23 @@ void main() {
     expect(find.text('Vorderseite fotografieren'), findsOneWidget);
   });
 
+  testWidgets('offers camera and gallery for a verification document', (
+    tester,
+  ) async {
+    await _pumpScreen(tester, useDefaultCapture: true);
+
+    await tester.tap(find.text('Vorderseite fotografieren'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kamera'), findsOneWidget);
+    expect(find.text('Dokument jetzt aufnehmen'), findsOneWidget);
+    expect(find.text('Galerie'), findsOneWidget);
+    expect(
+      find.text('Vorhandenes Foto auswählen und ausrichten'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('shows OCR identity values read-only and advances', (
     tester,
   ) async {
@@ -328,6 +345,7 @@ Future<void> _pumpScreen(
   DocumentCaptureService? captureService,
   VerificationTemporaryFileService? temporaryFileService,
   ProfileVehicleRepository? vehicleRepository,
+  bool useDefaultCapture = false,
   Size surfaceSize = const Size(430, 5000),
   TextScaler textScaler = TextScaler.noScaling,
 }) async {
@@ -347,7 +365,9 @@ Future<void> _pumpScreen(
         verificationV1Repository: VerificationV1Repository(
           gateway: effectiveGateway,
         ),
-        captureService: captureService ?? _FakeCaptureService(),
+        captureService: useDefaultCapture
+            ? null
+            : captureService ?? _FakeCaptureService(),
         ocrService: _FakeOcrService(),
         imageQualityService: const _FakeQualityService(),
         temporaryFileService:

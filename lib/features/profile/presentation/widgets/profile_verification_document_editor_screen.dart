@@ -1,22 +1,27 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../../../../shared/widgets/carisma_background.dart';
 import '../../../../shared/widgets/carisma_sub_page_header.dart';
+import '../../verification_v1/domain/verification_models.dart';
 
 class ProfileVerificationDocumentEditorScreen extends StatefulWidget {
   const ProfileVerificationDocumentEditorScreen({
     super.key,
     required this.sourceFile,
+    required this.kind,
   });
 
   final XFile sourceFile;
+  final VerificationDocumentKind kind;
 
   @override
   State<ProfileVerificationDocumentEditorScreen> createState() =>
@@ -37,12 +42,29 @@ class _ProfileVerificationDocumentEditorScreenState
   @override
   void initState() {
     super.initState();
-    _loadImageSize();
+    unawaited(_initializeEditor());
+  }
+
+  Future<void> _initializeEditor() async {
+    if (widget.kind == VerificationDocumentKind.vehicleRegistration) {
+      await SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+    if (mounted) await _loadImageSize();
   }
 
   @override
   void dispose() {
     _transformationController.dispose();
+    if (widget.kind == VerificationDocumentKind.vehicleRegistration) {
+      unawaited(
+        SystemChrome.setPreferredOrientations(const [
+          DeviceOrientation.portraitUp,
+        ]),
+      );
+    }
     super.dispose();
   }
 
@@ -87,7 +109,7 @@ class _ProfileVerificationDocumentEditorScreenState
       final logicalWidth = renderObject.size.width;
       final pixelRatio = logicalWidth <= 0
           ? 3.0
-          : (1600 / logicalWidth).clamp(1.0, 4.0).toDouble();
+          : (2400 / logicalWidth).clamp(1.0, 4.0).toDouble();
       final rendered = await renderObject.toImage(pixelRatio: pixelRatio);
       final pngData = await rendered.toByteData(format: ui.ImageByteFormat.png);
       rendered.dispose();
@@ -129,18 +151,25 @@ class _ProfileVerificationDocumentEditorScreenState
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final width = math.max(240.0, constraints.maxWidth - 32);
-              final height = math.min(
-                width * 0.72,
-                constraints.maxHeight * 0.58,
-              );
+              if (widget.kind == VerificationDocumentKind.vehicleRegistration &&
+                  constraints.maxWidth > constraints.maxHeight) {
+                return _buildVehicleLandscapeLayout(constraints);
+              }
+              final documentRatio =
+                  widget.kind == VerificationDocumentKind.passport
+                  ? 1.42
+                  : 1.58;
+              final maxWidth = math.max(1.0, constraints.maxWidth - 32);
+              final maxHeight = math.max(1.0, constraints.maxHeight * 0.58);
+              final width = math.min(maxWidth, maxHeight * documentRatio);
+              final height = width / documentRatio;
               return Padding(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
                 child: Column(
                   children: [
                     CaRismaSubPageHeader(
                       icon: Icons.document_scanner_outlined,
-                      title: 'Nachweis prüfen',
+                      title: 'Dokument ausrichten',
                       onBack: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(height: 18),
@@ -149,7 +178,7 @@ class _ProfileVerificationDocumentEditorScreenState
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Verschiebe und zoome den Nachweis. Alle Angaben müssen vollständig lesbar sein.',
+                      _instructionText,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: CaRismaDesignTokens.textSecondary,
@@ -203,6 +232,76 @@ class _ProfileVerificationDocumentEditorScreenState
     );
   }
 
+  Widget _buildVehicleLandscapeLayout(BoxConstraints constraints) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        children: [
+          CaRismaSubPageHeader(
+            icon: Icons.document_scanner_outlined,
+            title: 'Fahrzeugschein ausrichten',
+            onBack: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, frameConstraints) {
+                const ratio = 1.58;
+                final width = math.min(
+                  frameConstraints.maxWidth,
+                  frameConstraints.maxHeight * ratio,
+                );
+                final height = width / ratio;
+                return Center(child: _buildPreview(width, height));
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _DocumentEditorAction(
+                  label: 'Zurücksetzen',
+                  icon: Icons.restart_alt_rounded,
+                  onTap: _sourceAspectRatio == null || _isSaving
+                      ? null
+                      : _reset,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _DocumentEditorAction(
+                  label: 'Drehen',
+                  icon: Icons.rotate_right_rounded,
+                  onTap: _sourceAspectRatio == null || _isSaving
+                      ? null
+                      : _rotate,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _DocumentEditorAction(
+                  label: 'Übernehmen',
+                  icon: Icons.check_rounded,
+                  isPrimary: true,
+                  isLoading: _isSaving,
+                  onTap: _sourceAspectRatio == null || _isSaving
+                      ? null
+                      : _confirm,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String get _instructionText =>
+      widget.kind == VerificationDocumentKind.vehicleRegistration
+      ? 'Verschiebe und zoome das Bild. Der Ausschnitt wird automatisch im Querformat übernommen.'
+      : 'Verschiebe und zoome den Nachweis. Alle Angaben müssen vollständig lesbar sein.';
+
   Widget _buildPreview(double width, double height) {
     final error = _loadError;
     final sourceRatio = _sourceAspectRatio;
@@ -226,8 +325,8 @@ class _ProfileVerificationDocumentEditorScreenState
     final rotated = _quarterTurns.isOdd;
     final ratio = rotated ? 1 / sourceRatio : sourceRatio;
     final frameRatio = width / height;
-    final imageWidth = ratio >= frameRatio ? height * ratio : width;
-    final imageHeight = ratio >= frameRatio ? height : width / ratio;
+    final imageWidth = ratio >= frameRatio ? width : height * ratio;
+    final imageHeight = ratio >= frameRatio ? width / ratio : height;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -243,8 +342,11 @@ class _ProfileVerificationDocumentEditorScreenState
               constrained: false,
               minScale: 1,
               maxScale: 5,
+              boundaryMargin: EdgeInsets.all(math.max(width, height)),
               panEnabled: true,
               scaleEnabled: true,
+              trackpadScrollCausesScale: true,
+              scaleFactor: 120,
               alignment: Alignment.center,
               child: SizedBox(
                 width: imageWidth,

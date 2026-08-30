@@ -53,8 +53,12 @@ async function processVehicleHeroImage(inputBuffer) {
     removeConnectedUniformBackground(pixels, width, height);
   }
 
-  const bounds = foregroundBounds(pixels, width, height);
+  let bounds = foregroundBounds(pixels, width, height);
   validateForeground(pixels, width, height, bounds);
+  removeBroadOpaqueFloor(pixels, width, bounds);
+  bounds = foregroundBounds(pixels, width, height);
+  validateForeground(pixels, width, height, bounds);
+  validateNoOpaqueFloor(pixels, width, bounds);
 
   const extracted = await sharp(pixels, {
     raw: {width, height, channels: 4},
@@ -461,6 +465,146 @@ function validateForeground(pixels, width, height, bounds) {
       "Die Fahrzeugdarstellung ist am Bildrand nicht transparent.",
     );
   }
+}
+
+function validateNoOpaqueFloor(pixels, width, bounds) {
+  const diagnostics = opaqueFloorDiagnostics(pixels, width, bounds);
+  if (diagnostics == null) return;
+  if (diagnostics.opaqueRatio > 0.28 &&
+      diagnostics.averageLuminance < 75) {
+    throw new VehicleHeroImageError(
+      "Die Fahrzeugdarstellung enthaelt eine unzulaessige Bodenflaeche.",
+      {
+        averageLuminance: Number(
+          diagnostics.averageLuminance.toFixed(1),
+        ),
+        floorWidthRatio: Number(diagnostics.opaqueRatio.toFixed(3)),
+      },
+    );
+  }
+}
+
+function opaqueFloorDiagnostics(pixels, width, bounds) {
+  const probeOffset = Math.max(8, Math.round(bounds.height * 0.04));
+  const y = Math.max(bounds.top, bounds.top + bounds.height - 1 - probeOffset);
+  let opaquePixels = 0;
+  let luminanceTotal = 0;
+  for (let x = bounds.left; x < bounds.left + bounds.width; x += 1) {
+    const offset = (y * width + x) * 4;
+    if (pixels[offset + 3] <= 8) continue;
+    opaquePixels += 1;
+    luminanceTotal += (
+      pixels[offset] + pixels[offset + 1] + pixels[offset + 2]
+    ) / 3;
+  }
+  if (opaquePixels === 0) return null;
+  return {
+    y,
+    opaqueRatio: opaquePixels / bounds.width,
+    averageLuminance: luminanceTotal / opaquePixels,
+  };
+}
+
+function removeBroadOpaqueFloor(pixels, width, bounds) {
+  const diagnostics = opaqueFloorDiagnostics(pixels, width, bounds);
+  if (diagnostics == null ||
+      diagnostics.opaqueRatio <= 0.28 ||
+      diagnostics.averageLuminance >= 75) {
+    return;
+  }
+
+  const bottom = bounds.top + bounds.height - 1;
+  const cleanupTop = bounds.top + Math.round(bounds.height * 0.84);
+  const anchorSearchTop = Math.max(
+    bounds.top,
+    cleanupTop - Math.round(bounds.height * 0.24),
+  );
+  const anchorSpan = Math.max(24, Math.round(bounds.height * 0.11));
+  const minimumAnchorSamples = Math.max(4, Math.round(anchorSpan * 0.075));
+  const anchorBottom = new Int32Array(bounds.width);
+  anchorBottom.fill(-1);
+
+  for (let x = bounds.left; x < bounds.left + bounds.width; x += 1) {
+    const column = x - bounds.left;
+    const recentAnchors = [];
+    let recentHead = 0;
+    for (let y = anchorSearchTop; y <= bottom; y += 1) {
+      const offset = (y * width + x) * 4;
+      if (pixels[offset + 3] <= 40) continue;
+      const red = pixels[offset];
+      const green = pixels[offset + 1];
+      const blue = pixels[offset + 2];
+      const luminance = (red + green + blue) / 3;
+      const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+      if (luminance >= 52 || chroma >= 30) {
+        recentAnchors.push(y);
+        while (recentAnchors[recentHead] < y - anchorSpan) {
+          recentHead += 1;
+        }
+        if (recentAnchors.length - recentHead >= minimumAnchorSamples) {
+          anchorBottom[column] = y;
+        }
+      }
+    }
+  }
+
+  const wheelColumns = detectWheelColumns(anchorBottom, bounds, cleanupTop);
+
+  const transitionHeight = Math.max(8, Math.round(bounds.height * 0.025));
+  for (let y = cleanupTop; y <= bottom; y += 1) {
+    for (let x = bounds.left; x < bounds.left + bounds.width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const alpha = pixels[offset + 3];
+      if (alpha <= 8) continue;
+
+      const wheelStrength = wheelColumns[x - bounds.left];
+      const removalStart = cleanupTop + Math.round(
+        (bottom - cleanupTop) * wheelStrength,
+      );
+      if (y <= removalStart) continue;
+
+      const verticalStrength = Math.min(
+        1,
+        (y - removalStart) / transitionHeight,
+      );
+      pixels[offset + 3] = Math.round(alpha * (1 - verticalStrength));
+    }
+  }
+}
+
+function detectWheelColumns(anchorBottom, bounds, cleanupTop) {
+  const wheelColumns = new Float32Array(bounds.width);
+  const threshold = cleanupTop + Math.max(
+    28,
+    Math.round(bounds.height * 0.065),
+  );
+  const minimumWidth = Math.max(18, Math.round(bounds.height * 0.045));
+  const padding = Math.max(24, Math.round(bounds.height * 0.12));
+  let start = -1;
+
+  const markGroup = (end) => {
+    if (start < 0 || end - start < minimumWidth) return;
+    wheelColumns.fill(1, start, end);
+    for (let distance = 1; distance <= padding; distance += 1) {
+      const strength = 1 - distance / (padding + 1);
+      const left = start - distance;
+      const right = end - 1 + distance;
+      if (left >= 0) wheelColumns[left] = Math.max(wheelColumns[left], strength);
+      if (right < bounds.width) {
+        wheelColumns[right] = Math.max(wheelColumns[right], strength);
+      }
+    }
+  };
+
+  for (let column = 0; column <= bounds.width; column += 1) {
+    if (column < bounds.width && anchorBottom[column] >= threshold) {
+      if (start < 0) start = column;
+      continue;
+    }
+    markGroup(column);
+    start = -1;
+  }
+  return wheelColumns;
 }
 
 module.exports = {

@@ -111,7 +111,7 @@ const cleanupPageSize = 200;
 const maxCleanupPagesPerRun = 5;
 const vehicleHeroModel = "gemini-2.5-flash-image";
 const vehicleHeroProvider = `vertex-ai/${vehicleHeroModel}`;
-const vehicleHeroPromptVersion = 4;
+const vehicleHeroPromptVersion = 5;
 const vehicleHeroCooldownMs = 5 * 60 * 1000;
 const vehicleHeroRequestWindowMs = 24 * 60 * 60 * 1000;
 const maxVehicleHeroRequestsPerWindow = 3;
@@ -1407,6 +1407,9 @@ function vehicleHeroPrompt(source) {
     "Use a plain neutral front license plate with no readable characters.",
     "Show the complete supplied vehicle in a natural three-quarter front view,",
     "whether it is a car, SUV, van or motorcycle.",
+    "The front of the vehicle and the front license plate must be on the LEFT",
+    "side of the canvas; the rear must be on the RIGHT. Never mirror or reverse",
+    "this direction.",
     "Match the quality of an expensive dark automotive studio photograph:",
     "realistic materials, accurate proportions, restrained reflections and",
     "subtle cool blue highlights, while keeping the vehicle's specified paint",
@@ -1415,6 +1418,10 @@ function vehicleHeroPrompt(source) {
     `${chromaKey.hex} background that reaches every canvas edge. The key colour`,
     "is only a technical removal layer: it must not illuminate or reflect on the",
     "vehicle. Do not add a floor, horizon, scenery, wall, gradient or texture.",
+    "Do not render a cast shadow, contact shadow, ground plane or reflection.",
+    "The chroma-key layer must",
+    "remain clearly visible directly beneath the complete chassis, around every",
+    "tire and between all tire contact points.",
     "No people, extra vehicles, captions, UI, logos or decorative text.",
     "Leave safe space around the vehicle on a wide 16:9 canvas.",
   ].filter((part) => part.length > 0).join(" ");

@@ -7,7 +7,7 @@ class VerificationV1Strings {
   static const privacyTitle = 'Datenschutz & Berechtigung';
   static const privacyVersion = 'verification_privacy_de_v1.0.0';
   static const privacyItems = <String>[
-    'Es werden nur Vorderseite beziehungsweise Datenseite fotografiert.',
+    'Es werden nur Vorderseite beziehungsweise Datenseite aufgenommen oder bewusst aus der Galerie ausgewählt.',
     'Die Dokumentbilder werden lokal verarbeitet und weder hochgeladen noch dauerhaft gespeichert.',
     'Aus dem Identitätsnachweis werden nur Vorname, Nachname, Geburtsdatum und Ablaufdatum verwendet.',
     'Aus dem Fahrzeugschein werden nur A, C.1.1 und C.1.2 für den Abgleich verwendet.',

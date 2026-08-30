@@ -42,14 +42,15 @@ class MlKitDocumentOcrService implements DocumentOcrService {
       InputImage.fromFilePath(imagePath),
     );
     return recognized.blocks
+        .expand((block) => block.lines)
         .map(
-          (block) => OcrBlock(
-            text: block.text,
+          (line) => OcrBlock(
+            text: line.text,
             bounds: OcrRect(
-              left: block.boundingBox.left,
-              top: block.boundingBox.top,
-              right: block.boundingBox.right,
-              bottom: block.boundingBox.bottom,
+              left: line.boundingBox.left,
+              top: line.boundingBox.top,
+              right: line.boundingBox.right,
+              bottom: line.boundingBox.bottom,
             ),
           ),
         )
