@@ -482,6 +482,29 @@ function verificationCoreChanged(previous, next) {
       comparableVerificationValue(next[field]));
 }
 
+const vehicleHeroAppearanceFields = [
+  "brand",
+  "model",
+  "series",
+  "color",
+  "year",
+  "bodyStyle",
+];
+
+function vehicleHeroAppearanceChanged(previous, next) {
+  if (previous == null) return false;
+  if (vehicleHeroAppearanceFields.some((field) =>
+    comparableVerificationValue(previous[field]) !==
+      comparableVerificationValue(next[field]))) {
+    return true;
+  }
+  const normalizedEquipment = (value) => Array.isArray(value) ?
+    value.map((item) => safeString(item).toLocaleLowerCase("de-DE")).sort() :
+    [];
+  return JSON.stringify(normalizedEquipment(previous.equipment)) !==
+    JSON.stringify(normalizedEquipment(next.equipment));
+}
+
 function profileDisplayName(profile) {
   const displayName = safeString(profile?.displayName);
   if (displayName.length > 0) return displayName;
@@ -1007,6 +1030,9 @@ async function saveProfileVehicle({
     const verificationStatus = resetVerification ? "evidenceMissing" :
       safeString(existing?.verificationStatus) || "unverified";
     const createdAt = existing?.createdAt ?? now;
+    const refreshVehicleHero =
+      safeString(existing?.heroImageStatus) === "ready" &&
+      vehicleHeroAppearanceChanged(existing, vehicle);
     const privateData = {
       ...(existing ?? {}),
       ...vehicle,
@@ -1023,6 +1049,11 @@ async function saveProfileVehicle({
       createdAt,
       updatedAt: now,
       deactivatedAt: null,
+      ...(refreshVehicleHero ? {
+        heroImageStatus: "regenerationRequired",
+        heroSourceHash: null,
+        heroError: null,
+      } : {}),
     };
     delete privateData.displayPlate;
     delete privateData.plateKey;
@@ -1539,5 +1570,6 @@ module.exports = {
   shortenedPlateLabel,
   syncProfileVisibilityReferences,
   updatePrimaryVehicleLocation,
+  vehicleHeroAppearanceChanged,
   verificationCoreChanged,
 };

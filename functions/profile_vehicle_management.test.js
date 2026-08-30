@@ -8,6 +8,7 @@ const {
   setPrimaryProfileVehicle,
   syncProfileVisibilityReferences,
   updatePrimaryVehicleLocation,
+  vehicleHeroAppearanceChanged,
   verificationCoreChanged,
 } = require("./profile_vehicle_management");
 
@@ -218,6 +219,31 @@ test("vehicle ownership status is verification-critical", () => {
       status,
     );
   }
+});
+
+test("vehicle hero refresh ignores plate visibility but tracks appearance", () => {
+  const current = storedVehicle("user-1", {
+    equipment: ["Panorama", "Sitzheizung"],
+  });
+  assert.equal(
+    vehicleHeroAppearanceChanged(current, {
+      ...current,
+      plateDisplayMode: "hidden",
+      showPlate: false,
+    }),
+    false,
+  );
+  assert.equal(
+    vehicleHeroAppearanceChanged(current, {...current, color: "Blau"}),
+    true,
+  );
+  assert.equal(
+    vehicleHeroAppearanceChanged(current, {
+      ...current,
+      equipment: ["Sitzheizung", "Panorama"],
+    }),
+    false,
+  );
 });
 
 test("validates DACH plates, types and season data", () => {

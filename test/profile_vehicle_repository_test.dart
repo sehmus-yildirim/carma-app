@@ -125,6 +125,25 @@ void main() {
       );
     });
   });
+
+  test('uses the protected public label for shortened plates', () {
+    final vehicle = ProfileVehicle.fromMap(
+      id: 'public-vehicle',
+      data: const {
+        'ownerUserId': 'user-1',
+        'brand': 'BMW',
+        'model': 'X6',
+        'color': 'Schwarz',
+        'countryCode': 'DE',
+        'plateDisplayMode': 'shortened',
+        'plateDisplayLabel': 'HH S •••',
+      },
+    );
+
+    expect(vehicle.publicDisplayPlate, 'HH S •••');
+    expect(vehicle.plateRegion, isEmpty);
+    expect(vehicle.plateLetters, isEmpty);
+  });
 }
 
 ProfileVehicle _vehicle() {

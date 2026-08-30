@@ -202,7 +202,10 @@ class ProfileVehicle {
   String get publicDisplayPlate {
     return switch (plateDisplayMode) {
       ProfilePlateDisplayMode.full => displayPlate,
-      ProfilePlateDisplayMode.shortened => _shortenedPlateLabel(),
+      ProfilePlateDisplayMode.shortened =>
+        publicPlateLabel?.trim().isNotEmpty == true
+            ? publicPlateLabel!.trim()
+            : _shortenedPlateLabel(),
       ProfilePlateDisplayMode.hidden => 'Kennzeichen verborgen',
     };
   }

@@ -51,7 +51,7 @@ void main() {
       expect(find.text('Schritt ${step + 1} von 4'), findsOneWidget);
     }
 
-    await _tapVisible(tester, find.text('plaqa starten'));
+    await _tapVisible(tester, find.text('Speichern und starten'));
     await tester.pumpAndSettle();
     expect(completionCalls, 1);
     expect(tester.takeException(), isNull);
@@ -71,7 +71,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    await _tapVisible(tester, find.text('plaqa starten'));
+    await _tapVisible(tester, find.text('Speichern und starten'));
     await tester.pump();
     expect(find.text('Wird gespeichert'), findsOneWidget);
 
@@ -81,7 +81,41 @@ void main() {
       find.textContaining('Abschluss konnte gerade nicht gespeichert werden'),
       findsOneWidget,
     );
-    expect(find.text('plaqa starten'), findsOneWidget);
+    expect(find.text('Speichern und starten'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('all onboarding steps fit a compact phone without scrolling', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OnboardingFlowScreen(onCompleted: () async {}),
+      ),
+    );
+
+    const headings = <String>[
+      'Willkommen bei plaqa',
+      'Profil vorbereiten',
+      'Fahrzeug hinzufügen',
+      'Verifizierung verstehen',
+    ];
+
+    for (var step = 0; step < headings.length; step += 1) {
+      expect(find.text(headings[step]), findsOneWidget);
+      expect(find.byType(Scrollable), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      if (step < headings.length - 1) {
+        await tester.tap(find.text('Weiter'));
+        await tester.pumpAndSettle();
+      }
+    }
+
+    expect(find.text('Speichern und starten'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

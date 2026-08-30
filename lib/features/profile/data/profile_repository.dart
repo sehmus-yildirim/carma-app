@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../../shared/firebase/carisma_firestore_paths.dart';
+import '../../../shared/security/trusted_firebase_media_url.dart';
 import 'user_profile.dart';
 
 class ProfileRepository {
@@ -83,6 +84,10 @@ class ProfileRepository {
   Future<void> createProfileIfMissing(User user) async {
     final document = _profileDocument(user.uid);
     final snapshot = await document.get();
+    final trustedAuthPhotoUrl = trustedProfilePhotoUrl(
+      url: user.photoURL,
+      userId: user.uid,
+    );
 
     if (snapshot.exists) {
       final data = snapshot.data() ?? <String, dynamic>{};
@@ -95,10 +100,11 @@ class ProfileRepository {
       final effectiveDisplayName = existingDisplayName.isNotEmpty
           ? existingDisplayName
           : authDisplayName;
-      final existingPhotoUrl = existingProfile.photoUrl?.trim() ?? '';
-      final effectivePhotoUrl = existingPhotoUrl.isNotEmpty
-          ? existingPhotoUrl
-          : user.photoURL;
+      final existingPhotoUrl = trustedProfilePhotoUrl(
+        url: existingProfile.photoUrl,
+        userId: user.uid,
+      );
+      final effectivePhotoUrl = existingPhotoUrl ?? trustedAuthPhotoUrl;
 
       final updateData = <String, dynamic>{
         'uid': user.uid,
@@ -151,7 +157,7 @@ class ProfileRepository {
     batch.set(document, {
       ...profile.toFirestore(),
       'displayName': user.displayName ?? profile.displayName,
-      'photoUrl': user.photoURL,
+      'photoUrl': trustedAuthPhotoUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
     batch.set(
@@ -159,7 +165,7 @@ class ProfileRepository {
       _publicProfileDataFor(
         profile,
         displayName: user.displayName,
-        photoUrl: user.photoURL,
+        photoUrl: trustedAuthPhotoUrl,
       ),
     );
     await batch.commit();
@@ -167,9 +173,14 @@ class ProfileRepository {
 
   Future<void> saveProfile(UserProfile profile) async {
     final visibility = await _loadVisibilitySettings(profile.uid);
+    final trustedPhotoUrl = trustedProfilePhotoUrl(
+      url: profile.photoUrl,
+      userId: profile.uid,
+    );
     final batch = _database.batch();
     batch.set(_profileDocument(profile.uid), {
       ...profile.toFirestore(),
+      'photoUrl': trustedPhotoUrl,
       'createdAt': profile.createdAt == null
           ? FieldValue.serverTimestamp()
           : Timestamp.fromDate(profile.createdAt!),
@@ -218,6 +229,10 @@ class ProfileRepository {
       birthDate.day,
       12,
     );
+    final trustedPhotoUrl = trustedProfilePhotoUrl(
+      url: photoUrl,
+      userId: normalizedUid,
+    );
     final batch = _database.batch();
     batch.set(_profileDocument(normalizedUid), {
       'uid': normalizedUid,
@@ -226,14 +241,14 @@ class ProfileRepository {
       'displayName': displayName.trim(),
       'birthDate': Timestamp.fromDate(normalizedBirthDate),
       'personalDataLocked': true,
-      'photoUrl': _trimmedOrNull(photoUrl),
+      'photoUrl': trustedPhotoUrl,
       'profilePhotoLocalPath': null,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     batch.set(_publicProfileDocument(normalizedUid), {
       'uid': normalizedUid,
       'displayName': displayName.trim(),
-      'photoUrl': _trimmedOrNull(photoUrl),
+      'photoUrl': trustedPhotoUrl,
       'verificationStatus': verificationStatus.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -250,7 +265,10 @@ class ProfileRepository {
       throw ArgumentError('Nutzer-ID darf nicht leer sein.');
     }
 
-    final normalizedPhotoUrl = _trimmedOrNull(photoUrl);
+    final normalizedPhotoUrl = trustedProfilePhotoUrl(
+      url: photoUrl,
+      userId: normalizedUid,
+    );
     final batch = _database.batch();
     batch.set(_profileDocument(normalizedUid), {
       'photoUrl': normalizedPhotoUrl,
@@ -272,8 +290,12 @@ class ProfileRepository {
     required bool allowAnonymousReports,
   }) async {
     final document = _profileDocument(uid);
+    final trustedPhotoUrl = trustedProfilePhotoUrl(
+      url: photoUrl,
+      userId: uid,
+    );
     await document.set({
-      'photoUrl': photoUrl,
+      'photoUrl': trustedPhotoUrl,
       'profilePhotoLocalPath': null,
       'allowContactRequests': allowContactRequests,
       'allowAnonymousReports': allowAnonymousReports,
@@ -407,7 +429,7 @@ class ProfileRepository {
     if (!snapshot.exists) return;
 
     await publicDocument.update({
-      'photoUrl': _trimmedOrNull(photoUrl),
+      'photoUrl': trustedProfilePhotoUrl(url: photoUrl, userId: uid),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -516,7 +538,10 @@ class ProfileRepository {
     return <String, Object?>{
       'uid': profile.uid.trim(),
       'displayName': safeDisplayName,
-      'photoUrl': _trimmedOrNull(photoUrl ?? profile.photoUrl),
+      'photoUrl': trustedProfilePhotoUrl(
+        url: photoUrl ?? profile.photoUrl,
+        userId: profile.uid,
+      ),
       'publicBio': _trimmedOrNull(publicBio ?? profile.publicBio),
       'publicRegion': _trimmedOrNull(publicRegion ?? profile.publicRegion),
       'showVehicleOnPublicProfile': showVehicle,

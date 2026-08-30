@@ -46,6 +46,7 @@ import 'widgets/profile_post_details_sheet.dart';
 import 'widgets/profile_post_gallery_screen.dart';
 
 const String _debugProfileContentPrefix = 'plaqa-debug-';
+const int _vehicleHeroPromptVersion = 4;
 
 final List<SocialPost> _debugSocialPosts = <SocialPost>[
   SocialPost(
@@ -822,11 +823,14 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
   }
 
   void _schedulePrimaryHeroGeneration(ProfileVehicle? vehicle) {
+    final hasCurrentReadyImage =
+        vehicle?.heroImageStatus == VehicleHeroImageStatus.ready &&
+        (vehicle?.heroPromptVersion ?? 0) >= _vehicleHeroPromptVersion;
     if (!_isOwnProfile ||
         vehicle == null ||
         _isDebugProfileContent(vehicle.id) ||
         _autoHeroRequestedVehicleIds.contains(vehicle.id) ||
-        vehicle.heroImageStatus == VehicleHeroImageStatus.ready ||
+        hasCurrentReadyImage ||
         vehicle.heroImageStatus == VehicleHeroImageStatus.queued ||
         vehicle.heroImageStatus == VehicleHeroImageStatus.generating) {
       return;
@@ -3499,6 +3503,9 @@ class _ProfileMainVehicleCard extends StatelessWidget {
       countryCode: vehicle.countryCode,
       plateCode: vehicle.plateRegion,
     );
+    final plateDisplayMode = showPlate
+        ? vehicle.plateDisplayMode
+        : ProfilePlateDisplayMode.hidden;
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 7),
       decoration: BoxDecoration(
@@ -3531,7 +3538,7 @@ class _ProfileMainVehicleCard extends StatelessWidget {
             },
           ),
           const SizedBox(height: 5),
-          if (showPlate)
+          if (plateDisplayMode == ProfilePlateDisplayMode.full)
             Align(
               alignment: Alignment.centerLeft,
               child: SizedBox(
@@ -3550,6 +3557,25 @@ class _ProfileMainVehicleCard extends StatelessWidget {
                       numbers: vehicle.plateNumbers,
                       regionPresentation: regionPresentation,
                     ),
+                  ),
+                ),
+              ),
+            )
+          else if (plateDisplayMode == ProfilePlateDisplayMode.shortened)
+            SizedBox(
+              height: 30,
+              width: 116,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  vehicle.publicDisplayPlate,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
                   ),
                 ),
               ),

@@ -4,7 +4,6 @@ import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_blue_icon_box.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_primary_button.dart';
-import '../../../shared/widgets/carisma_secondary_button.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/theme/carisma_design_tokens.dart';
@@ -106,41 +105,54 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-
     return CaRismaBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              return SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.fromLTRB(20, 18, 20, 28 + keyboardInset),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - 46,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CaRismaSubPageHeader(
-                        icon: _icon,
-                        title: _title,
-                        onBack: _goBack,
-                      ),
-                      const SizedBox(height: 18),
-                      _ProgressCard(
-                        currentStep: _currentStep,
-                        totalSteps: _lastStep + 1,
-                        progress: _progress,
-                      ),
-                      const SizedBox(height: 18),
-                      AnimatedSwitcher(
+              final compact = constraints.maxHeight < 760;
+              final horizontalPadding = constraints.maxWidth < 380 ? 14.0 : 20.0;
+              final sectionGap = compact ? 6.0 : 14.0;
+
+              return Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  compact ? 6 : 16,
+                  horizontalPadding,
+                  compact ? 7 : 20,
+                ),
+                child: Column(
+                  children: [
+                    CaRismaSubPageHeader(
+                      icon: _icon,
+                      title: _title,
+                      titleFontSize: compact ? 19 : 21,
+                      titleMaxLines: 2,
+                      titleOverflow: TextOverflow.visible,
+                      onBack: _goBack,
+                    ),
+                    SizedBox(height: sectionGap),
+                    _ProgressCard(
+                      currentStep: _currentStep,
+                      totalSteps: _lastStep + 1,
+                      progress: _progress,
+                      compact: compact,
+                    ),
+                    SizedBox(height: sectionGap),
+                    Expanded(
+                      child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 240),
                         switchInCurve: Curves.easeOut,
                         switchOutCurve: Curves.easeIn,
+                        layoutBuilder: (currentChild, previousChildren) => Stack(
+                          fit: StackFit.expand,
+                          alignment: Alignment.center,
+                          children: <Widget>[
+                            ...previousChildren,
+                            ?currentChild,
+                          ],
+                        ),
                         transitionBuilder: (child, animation) {
                           final offsetAnimation = Tween<Offset>(
                             begin: const Offset(0.035, 0),
@@ -158,40 +170,36 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                         child: _OnboardingStepContent(
                           key: ValueKey(_currentStep),
                           step: _currentStep,
+                          compact: compact,
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      if (_completionError != null) ...[
-                        CaRismaMessageCard(
-                          icon: Icons.sync_problem_rounded,
-                          message: _completionError!,
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      CaRismaPrimaryButton(
-                        label: _isLastStep ? 'plaqa starten' : 'Weiter',
-                        icon: _isLastStep
-                            ? Icons.check_circle_outline_rounded
-                            : Icons.arrow_forward_rounded,
-                        isLoading: _isCompleting,
-                        loadingLabel: 'Wird gespeichert',
-                        onPressed: _goNext,
+                    ),
+                    if (_completionError != null) ...[
+                      SizedBox(height: sectionGap),
+                      CaRismaMessageCard(
+                        icon: Icons.sync_problem_rounded,
+                        message: _completionError!,
                       ),
-                      if (_currentStep > 0) ...[
-                        const SizedBox(height: 12),
-                        CaRismaSecondaryButton(
-                          label: 'Zurück',
-                          icon: Icons.arrow_back_rounded,
-                          borderRadius: 24,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 18,
-                          ),
-                          onPressed: _goBack,
-                        ),
-                      ],
                     ],
-                  ),
+                    SizedBox(height: sectionGap),
+                    CaRismaPrimaryButton(
+                      label: _isLastStep ? 'Speichern und starten' : 'Weiter',
+                      icon: _isLastStep
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.arrow_forward_rounded,
+                      isLoading: _isCompleting,
+                      loadingLabel: 'Wird gespeichert',
+                      surfaceOutlined: true,
+                      borderRadius: 22,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: compact ? 12 : 17,
+                      ),
+                      iconSize: compact ? 23 : 25,
+                      fontSize: compact ? 17 : 18,
+                      onPressed: _goNext,
+                    ),
+                  ],
                 ),
               );
             },
@@ -207,16 +215,21 @@ class _ProgressCard extends StatelessWidget {
     required this.currentStep,
     required this.totalSteps,
     required this.progress,
+    required this.compact,
   });
 
   final int currentStep;
   final int totalSteps;
   final double progress;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 14,
+        vertical: compact ? 7 : 13,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -242,12 +255,12 @@ class _ProgressCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 5 : 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
               value: progress,
-              minHeight: 8,
+              minHeight: compact ? 6 : 8,
               backgroundColor: CaRismaDesignTokens.textPrimary.withValues(
                 alpha: 0.10,
               ),
@@ -263,53 +276,54 @@ class _ProgressCard extends StatelessWidget {
 }
 
 class _OnboardingStepContent extends StatelessWidget {
-  const _OnboardingStepContent({super.key, required this.step});
+  const _OnboardingStepContent({
+    super.key,
+    required this.step,
+    required this.compact,
+  });
 
   final int step;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return switch (step) {
-      0 => const _IntroStep(),
-      1 => const _ProfileStep(),
-      2 => const _VehicleStep(),
-      3 => const _VerificationStep(),
-      _ => const _IntroStep(),
+      0 => _IntroStep(compact: compact),
+      1 => _ProfileStep(compact: compact),
+      2 => _VehicleStep(compact: compact),
+      3 => _VerificationStep(compact: compact),
+      _ => _IntroStep(compact: compact),
     };
   }
 }
 
 class _IntroStep extends StatelessWidget {
-  const _IntroStep();
+  const _IntroStep({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        _HeroInfoCard(
-          icon: Icons.shield_rounded,
-          title: 'Sicher kommunizieren rund ums Fahrzeug.',
-          description:
-              'plaqa hilft dir, Kennzeichen zu suchen, Kontaktanfragen zu verwalten und sachliche Hinweise zu senden — ohne deine privaten Daten unnötig offenzulegen.',
-          points: [
-            _HeroInfoPoint(
-              icon: Icons.search_rounded,
-              text: 'Kennzeichen suchen und Kontakt ermöglichen.',
-            ),
-            _HeroInfoPoint(
-              icon: Icons.chat_bubble_outline_rounded,
-              text: 'Geschützte Kommunikation statt Zettel am Auto.',
-            ),
-            _HeroInfoPoint(
-              icon: Icons.verified_user_outlined,
-              text: 'Mehr Vertrauen durch Profil- und Fahrzeugprüfung.',
-            ),
-          ],
+    return _HeroInfoCard(
+      compact: compact,
+      icon: Icons.shield_rounded,
+      title: 'Sicher kommunizieren rund ums Fahrzeug.',
+      description:
+          'Finde Kennzeichen, verwalte Kontaktanfragen und sende wichtige Hinweise, ohne private Daten unnötig offenzulegen.',
+      noteIcon: Icons.info_outline_rounded,
+      note: 'plaqa bereitet diese Funktionen jetzt für dein Konto vor.',
+      points: const [
+        _HeroInfoPoint(
+          icon: Icons.search_rounded,
+          text: 'Kennzeichen suchen und Kontakt ermöglichen.',
         ),
-        SizedBox(height: 12),
-        CaRismaMessageCard(
-          icon: Icons.info_outline_rounded,
-          message: 'Dieser Bereich wird für dein plaqa-Konto vorbereitet.',
+        _HeroInfoPoint(
+          icon: Icons.chat_bubble_outline_rounded,
+          text: 'Geschützt kommunizieren statt Zettel am Auto.',
+        ),
+        _HeroInfoPoint(
+          icon: Icons.verified_user_outlined,
+          text: 'Mehr Vertrauen durch geprüfte Profile und Fahrzeuge.',
         ),
       ],
     );
@@ -317,16 +331,19 @@ class _IntroStep extends StatelessWidget {
 }
 
 class _ProfileStep extends StatelessWidget {
-  const _ProfileStep();
+  const _ProfileStep({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return const _HeroInfoCard(
+    return _HeroInfoCard(
+      compact: compact,
       icon: Icons.person_rounded,
       title: 'Dein Profil bleibt kontrolliert sichtbar.',
       description:
           'Für die spätere Verifizierung werden echte Basisdaten vorbereitet. Nach außen erscheint nur ein geschützter Anzeigename.',
-      points: [
+      points: const [
         _HeroInfoPoint(
           icon: Icons.badge_outlined,
           text: 'Vorname und Nachname werden für die Prüfung vorbereitet.',
@@ -345,16 +362,19 @@ class _ProfileStep extends StatelessWidget {
 }
 
 class _VehicleStep extends StatelessWidget {
-  const _VehicleStep();
+  const _VehicleStep({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return const _HeroInfoCard(
+    return _HeroInfoCard(
+      compact: compact,
       icon: Icons.directions_car_filled_rounded,
       title: 'Dein Fahrzeug wird eindeutig zugeordnet.',
       description:
           'Damit plaqa vertrauenswürdig bleibt, müssen Kennzeichen und Fahrzeugdaten später nachvollziehbar zum Fahrzeughalter passen.',
-      points: [
+      points: const [
         _HeroInfoPoint(
           icon: Icons.pin_outlined,
           text: 'Kennzeichen wird je Land passend erfasst.',
@@ -373,37 +393,32 @@ class _VehicleStep extends StatelessWidget {
 }
 
 class _VerificationStep extends StatelessWidget {
-  const _VerificationStep();
+  const _VerificationStep({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        _HeroInfoCard(
-          icon: Icons.verified_user_rounded,
-          title: 'Volle Nutzung nach Verifizierung.',
-          description:
-              'Dokumente wie Ausweis, Führerschein und Fahrzeugschein werden später sicher hochgeladen und geprüft.',
-          points: [
-            _HeroInfoPoint(
-              icon: Icons.assignment_ind_outlined,
-              text: 'Identität und Fahrzeugbezug werden geprüft.',
-            ),
-            _HeroInfoPoint(
-              icon: Icons.lock_outline_rounded,
-              text: 'Geprüfte Daten werden danach lokal gesperrt.',
-            ),
-            _HeroInfoPoint(
-              icon: Icons.photo_camera_outlined,
-              text: 'Profilbild und Sichtbarkeit bleiben änderbar.',
-            ),
-          ],
+    return _HeroInfoCard(
+      compact: compact,
+      icon: Icons.verified_user_rounded,
+      title: 'Mehr Vertrauen durch Verifizierung.',
+      description:
+          'Ausweis und Fahrzeugschein werden nur auf deinem Gerät gelesen. Dokumentfotos werden nicht dauerhaft gespeichert.',
+      noteIcon: Icons.lock_outline_rounded,
+      note: 'Name und Fahrzeugbezug werden bestätigt; Profilbild und Sichtbarkeit bleiben änderbar.',
+      points: const [
+        _HeroInfoPoint(
+          icon: Icons.assignment_ind_outlined,
+          text: 'Identität und Fahrzeugbezug werden abgeglichen.',
         ),
-        SizedBox(height: 12),
-        CaRismaMessageCard(
-          icon: Icons.lock_outline_rounded,
-          message:
-              'Nach der Verifizierung werden Name, Fahrzeugdaten und Dokumente gesperrt. Sichtbarkeit und Profilbild bleiben weiterhin änderbar.',
+        _HeroInfoPoint(
+          icon: Icons.phonelink_lock_rounded,
+          text: 'Die Dokumenterkennung erfolgt direkt auf dem Gerät.',
+        ),
+        _HeroInfoPoint(
+          icon: Icons.delete_outline_rounded,
+          text: 'Temporäre Aufnahmen werden anschließend gelöscht.',
         ),
       ],
     );
@@ -416,54 +431,84 @@ class _HeroInfoCard extends StatelessWidget {
     required this.title,
     required this.description,
     required this.points,
+    required this.compact,
+    this.note,
+    this.noteIcon,
   });
 
   final IconData icon;
   final String title;
   final String description;
   final List<_HeroInfoPoint> points;
+  final bool compact;
+  final String? note;
+  final IconData? noteIcon;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(compact ? 11 : 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CaRismaBlueIconBox(icon: icon, size: 58, iconSize: 30),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: CaRismaDesignTokens.textPrimary,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.45,
-              height: 1.12,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CaRismaBlueIconBox(
+                icon: icon,
+                size: compact ? 36 : 48,
+                iconSize: compact ? 19 : 25,
+              ),
+              SizedBox(width: compact ? 9 : 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: CaRismaDesignTokens.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: compact ? 17 : 21,
+                    letterSpacing: 0,
+                    height: 1.12,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 7 : 13),
           Text(
             description,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
               fontWeight: FontWeight.w700,
-              fontSize: 16.5,
-              height: 1.35,
+              fontSize: compact ? 11.5 : 14.4,
+              height: compact ? 1.2 : 1.28,
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: compact ? 7 : 14),
           Column(
             children: List.generate(points.length, (index) {
               final point = points[index];
 
               return Padding(
                 padding: EdgeInsets.only(
-                  bottom: index == points.length - 1 ? 0 : 10,
+                  bottom: index == points.length - 1
+                      ? 0
+                      : compact
+                      ? 6
+                      : 10,
                 ),
-                child: _HeroPointRow(point: point),
+                child: _HeroPointRow(point: point, compact: compact),
               );
             }),
           ),
+          if (note != null && note!.isNotEmpty) ...[
+            SizedBox(height: compact ? 7 : 12),
+            _InlineNote(
+              icon: noteIcon ?? Icons.info_outline_rounded,
+              text: note!,
+              compact: compact,
+            ),
+          ],
         ],
       ),
     );
@@ -478,16 +523,20 @@ class _HeroInfoPoint {
 }
 
 class _HeroPointRow extends StatelessWidget {
-  const _HeroPointRow({required this.point});
+  const _HeroPointRow({required this.point, required this.compact});
 
   final _HeroInfoPoint point;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(13),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 12,
+        vertical: compact ? 6 : 10,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         color: CaRismaDesignTokens.controlSurface,
         border: Border.all(
           color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
@@ -496,20 +545,63 @@ class _HeroPointRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(point.icon, color: CaRismaDesignTokens.blueBright, size: 21),
-          const SizedBox(width: 11),
+          Icon(
+            point.icon,
+            color: CaRismaDesignTokens.blueBright,
+            size: compact ? 16 : 20,
+          ),
+          SizedBox(width: compact ? 7 : 11),
           Expanded(
             child: Text(
               point.text,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.76),
                 fontWeight: FontWeight.w700,
-                height: 1.28,
+                fontSize: compact ? 10.8 : 13.5,
+                height: compact ? 1.15 : 1.22,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _InlineNote extends StatelessWidget {
+  const _InlineNote({
+    required this.icon,
+    required this.text,
+    required this.compact,
+  });
+
+  final IconData icon;
+  final String text;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          color: CaRismaDesignTokens.blueBright,
+          size: compact ? 15 : 19,
+        ),
+        SizedBox(width: compact ? 7 : 10),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.68),
+              fontWeight: FontWeight.w700,
+              fontSize: compact ? 10.4 : 12.5,
+              height: compact ? 1.16 : 1.23,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,0 +1,472 @@
+const sharp = require("sharp");
+
+const outputWidth = 1672;
+const outputHeight = 940;
+const vehicleBounds = Object.freeze({
+  left: 68,
+  top: 71,
+  width: 1547,
+  height: 779,
+});
+const maxInputPixels = 20 * 1024 * 1024;
+
+class VehicleHeroImageError extends Error {
+  constructor(message, diagnostics = null) {
+    super(message);
+    this.name = "VehicleHeroImageError";
+    this.diagnostics = diagnostics;
+  }
+}
+
+async function processVehicleHeroImage(inputBuffer) {
+  if (!Buffer.isBuffer(inputBuffer) || inputBuffer.length === 0) {
+    throw new VehicleHeroImageError("Das Fahrzeugbild ist leer.");
+  }
+
+  let decoded;
+  try {
+    decoded = await sharp(inputBuffer, {
+      failOn: "error",
+      limitInputPixels: maxInputPixels,
+    })
+      .rotate()
+      .ensureAlpha()
+      .toColourspace("srgb")
+      .raw()
+      .toBuffer({resolveWithObject: true});
+  } catch (_) {
+    throw new VehicleHeroImageError(
+      "Das Fahrzeugbild konnte nicht sicher verarbeitet werden.",
+    );
+  }
+
+  const {width, height, channels} = decoded.info;
+  if (width < 256 || height < 256 || channels !== 4) {
+    throw new VehicleHeroImageError(
+      "Das Fahrzeugbild hat keine ausreichende Aufloesung.",
+    );
+  }
+
+  const pixels = Buffer.from(decoded.data);
+  const alphaStats = alphaStatistics(pixels, width, height);
+  if (alphaStats.transparentRatio < 0.01) {
+    removeConnectedUniformBackground(pixels, width, height);
+  }
+
+  const bounds = foregroundBounds(pixels, width, height);
+  validateForeground(pixels, width, height, bounds);
+
+  const extracted = await sharp(pixels, {
+    raw: {width, height, channels: 4},
+  })
+    .extract({
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+      height: bounds.height,
+    })
+    .resize({
+      width: vehicleBounds.width,
+      height: vehicleBounds.height,
+      fit: "contain",
+      background: {r: 0, g: 0, b: 0, alpha: 0},
+      kernel: sharp.kernel.lanczos3,
+    })
+    .png({compressionLevel: 9, adaptiveFiltering: true})
+    .toBuffer();
+
+  return sharp({
+    create: {
+      width: outputWidth,
+      height: outputHeight,
+      channels: 4,
+      background: {r: 0, g: 0, b: 0, alpha: 0},
+    },
+  })
+    .composite([{
+      input: extracted,
+      left: vehicleBounds.left,
+      top: vehicleBounds.top,
+    }])
+    .png({compressionLevel: 9, adaptiveFiltering: true})
+    .toBuffer();
+}
+
+function alphaStatistics(pixels, width, height) {
+  const pixelCount = width * height;
+  let transparent = 0;
+  for (let index = 3; index < pixels.length; index += 4) {
+    if (pixels[index] < 245) transparent += 1;
+  }
+  return {transparentRatio: transparent / pixelCount};
+}
+
+function removeConnectedUniformBackground(pixels, width, height) {
+  const background = borderMedianColour(pixels, width, height);
+  const backgroundKind = supportedBackgroundKind(background);
+  const uniformityRatio = borderUniformityRatio(
+    pixels,
+    width,
+    height,
+    background,
+  );
+  const hasSafeBorder = backgroundKind != null && hasSafeBorderBackground(
+    pixels,
+    width,
+    height,
+    background,
+    backgroundKind,
+  );
+  if (!hasSafeBorder) {
+    throw new VehicleHeroImageError(
+      "Die Fahrzeugdarstellung enthaelt einen ungeeigneten Hintergrund.",
+      {
+        background,
+        backgroundKind,
+        uniformityRatio: Number(uniformityRatio.toFixed(3)),
+      },
+    );
+  }
+
+  const count = width * height;
+  const connected = new Uint8Array(count);
+  const queue = new Int32Array(count);
+  let head = 0;
+  let tail = 0;
+
+  const enqueue = (pixelIndex) => {
+    if (connected[pixelIndex] !== 0 ||
+        !isBackgroundPixel(pixels, pixelIndex, background, backgroundKind)) {
+      return;
+    }
+    connected[pixelIndex] = 1;
+    queue[tail] = pixelIndex;
+    tail += 1;
+  };
+
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x);
+    enqueue((height - 1) * width + x);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    enqueue(y * width);
+    enqueue(y * width + width - 1);
+  }
+
+  while (head < tail) {
+    const pixelIndex = queue[head];
+    head += 1;
+    const x = pixelIndex % width;
+    const y = Math.floor(pixelIndex / width);
+    if (x > 0) enqueue(pixelIndex - 1);
+    if (x + 1 < width) enqueue(pixelIndex + 1);
+    if (y > 0) enqueue(pixelIndex - width);
+    if (y + 1 < height) enqueue(pixelIndex + width);
+  }
+
+  if (tail / count < 0.08) {
+    throw new VehicleHeroImageError(
+      "Der Hintergrund der Fahrzeugdarstellung konnte nicht freigestellt werden.",
+    );
+  }
+
+  for (let pixelIndex = 0; pixelIndex < count; pixelIndex += 1) {
+    if (connected[pixelIndex] !== 0) {
+      pixels[pixelIndex * 4 + 3] = 0;
+    }
+  }
+  softenForegroundEdge(pixels, connected, width, height, background);
+  removeChromaSpill(pixels, backgroundKind);
+}
+
+function borderMedianColour(pixels, width, height) {
+  const red = [];
+  const green = [];
+  const blue = [];
+  const sample = (x, y) => {
+    const offset = (y * width + x) * 4;
+    red.push(pixels[offset]);
+    green.push(pixels[offset + 1]);
+    blue.push(pixels[offset + 2]);
+  };
+  const xStep = Math.max(1, Math.floor(width / 256));
+  const yStep = Math.max(1, Math.floor(height / 256));
+  for (let x = 0; x < width; x += xStep) {
+    sample(x, 0);
+    sample(x, height - 1);
+  }
+  for (let y = yStep; y < height - 1; y += yStep) {
+    sample(0, y);
+    sample(width - 1, y);
+  }
+  return {
+    r: median(red),
+    g: median(green),
+    b: median(blue),
+  };
+}
+
+function median(values) {
+  values.sort((left, right) => left - right);
+  return values[Math.floor(values.length / 2)];
+}
+
+function supportedBackgroundKind(background) {
+  const minimum = Math.min(background.r, background.g, background.b);
+  const chroma = Math.max(background.r, background.g, background.b) - minimum;
+  if (minimum >= 218 && chroma <= 38) return "light";
+  if (background.g >= 120 &&
+      background.g - background.r >= 25 &&
+      background.g - background.b >= 25) {
+    return "green";
+  }
+  if (background.r >= 120 &&
+      background.b >= 120 &&
+      Math.min(background.r, background.b) - background.g >= 25) {
+    return "magenta";
+  }
+  return null;
+}
+
+function borderUniformityRatio(pixels, width, height, background) {
+  let samples = 0;
+  let matching = 0;
+  const inspect = (x, y) => {
+    const offset = (y * width + x) * 4;
+    samples += 1;
+    if (colourDistance(
+      pixels[offset],
+      pixels[offset + 1],
+      pixels[offset + 2],
+      background,
+    ) <= 68) {
+      matching += 1;
+    }
+  };
+  const xStep = Math.max(1, Math.floor(width / 256));
+  const yStep = Math.max(1, Math.floor(height / 256));
+  for (let x = 0; x < width; x += xStep) {
+    inspect(x, 0);
+    inspect(x, height - 1);
+  }
+  for (let y = yStep; y < height - 1; y += yStep) {
+    inspect(0, y);
+    inspect(width - 1, y);
+  }
+  return matching / samples;
+}
+
+function hasSafeBorderBackground(
+  pixels,
+  width,
+  height,
+  background,
+  backgroundKind,
+) {
+  if (backgroundKind === "light") {
+    return borderUniformityRatio(pixels, width, height, background) >= 0.82;
+  }
+
+  let samples = 0;
+  let matching = 0;
+  const inspect = (x, y) => {
+    const offset = (y * width + x) * 4;
+    samples += 1;
+    if (isChromaScreenColour(
+      pixels[offset],
+      pixels[offset + 1],
+      pixels[offset + 2],
+      background,
+      backgroundKind,
+    )) {
+      matching += 1;
+    }
+  };
+  const xStep = Math.max(1, Math.floor(width / 256));
+  const yStep = Math.max(1, Math.floor(height / 256));
+  for (let x = 0; x < width; x += xStep) {
+    inspect(x, 0);
+    inspect(x, height - 1);
+  }
+  for (let y = yStep; y < height - 1; y += yStep) {
+    inspect(0, y);
+    inspect(width - 1, y);
+  }
+  return matching / samples >= 0.9;
+}
+
+function isBackgroundPixel(pixels, pixelIndex, background, backgroundKind) {
+  const offset = pixelIndex * 4;
+  const red = pixels[offset];
+  const green = pixels[offset + 1];
+  const blue = pixels[offset + 2];
+  const distance = colourDistance(red, green, blue, background);
+  if (backgroundKind === "green" || backgroundKind === "magenta") {
+    return isChromaScreenColour(
+      red,
+      green,
+      blue,
+      background,
+      backgroundKind,
+    );
+  }
+  const minimum = Math.min(red, green, blue);
+  const chroma = Math.max(red, green, blue) - minimum;
+  return minimum >= 185 && chroma <= 58 && distance <= 82;
+}
+
+function isChromaScreenColour(red, green, blue, background, backgroundKind) {
+  const distance = colourDistance(red, green, blue, background);
+  if (backgroundKind === "green") {
+    return green >= 45 && green - red >= 22 && green - blue >= 22 &&
+      distance <= 155;
+  }
+  return red >= 45 && blue >= 45 &&
+    Math.min(red, blue) - green >= 22 && distance <= 155;
+}
+
+function removeChromaSpill(pixels, backgroundKind) {
+  if (backgroundKind !== "green" && backgroundKind !== "magenta") return;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    if (pixels[offset + 3] <= 8) continue;
+    const red = pixels[offset];
+    const green = pixels[offset + 1];
+    const blue = pixels[offset + 2];
+    if (backgroundKind === "green") {
+      const neutralGreen = Math.max(red, blue);
+      const spill = green - neutralGreen;
+      if (spill > 6) {
+        pixels[offset + 1] = Math.max(
+          neutralGreen,
+          Math.round(green - (spill - 3) * 0.88),
+        );
+      }
+      continue;
+    }
+    const spill = Math.min(red, blue) - green;
+    if (spill > 6) {
+      const reduction = Math.round((spill - 3) * 0.88);
+      pixels[offset] = Math.max(green, red - reduction);
+      pixels[offset + 2] = Math.max(green, blue - reduction);
+    }
+  }
+}
+
+function colourDistance(red, green, blue, background) {
+  return Math.sqrt(
+    Math.pow(red - background.r, 2) +
+    Math.pow(green - background.g, 2) +
+    Math.pow(blue - background.b, 2),
+  );
+}
+
+function softenForegroundEdge(pixels, connected, width, height, background) {
+  const nextAlpha = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const pixelIndex = y * width + x;
+      const offset = pixelIndex * 4;
+      nextAlpha[pixelIndex] = pixels[offset + 3];
+      if (connected[pixelIndex] !== 0 ||
+          !touchesBackground(connected, x, y, width, height)) {
+        continue;
+      }
+      const distance = colourDistance(
+        pixels[offset],
+        pixels[offset + 1],
+        pixels[offset + 2],
+        background,
+      );
+      if (distance < 120) {
+        nextAlpha[pixelIndex] = Math.max(
+          0,
+          Math.min(255, Math.round(((distance - 18) / 92) * 255)),
+        );
+      }
+    }
+  }
+  for (let pixelIndex = 0; pixelIndex < nextAlpha.length; pixelIndex += 1) {
+    pixels[pixelIndex * 4 + 3] = nextAlpha[pixelIndex];
+  }
+}
+
+function touchesBackground(connected, x, y, width, height) {
+  for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      if (offsetX === 0 && offsetY === 0) continue;
+      const nextX = x + offsetX;
+      const nextY = y + offsetY;
+      if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) {
+        continue;
+      }
+      if (connected[nextY * width + nextX] !== 0) return true;
+    }
+  }
+  return false;
+}
+
+function foregroundBounds(pixels, width, height) {
+  let left = width;
+  let top = height;
+  let right = -1;
+  let bottom = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (pixels[(y * width + x) * 4 + 3] <= 8) continue;
+      left = Math.min(left, x);
+      top = Math.min(top, y);
+      right = Math.max(right, x);
+      bottom = Math.max(bottom, y);
+    }
+  }
+  if (right < left || bottom < top) {
+    throw new VehicleHeroImageError(
+      "Auf der Fahrzeugdarstellung wurde kein Fahrzeug erkannt.",
+    );
+  }
+  return {
+    left,
+    top,
+    width: right - left + 1,
+    height: bottom - top + 1,
+  };
+}
+
+function validateForeground(pixels, width, height, bounds) {
+  const coverage = (bounds.width * bounds.height) / (width * height);
+  if (coverage < 0.025 || coverage > 0.9) {
+    throw new VehicleHeroImageError(
+      "Die Fahrzeugdarstellung konnte nicht sicher zugeschnitten werden.",
+    );
+  }
+
+  let transparentBorder = 0;
+  let borderCount = 0;
+  const inspect = (x, y) => {
+    borderCount += 1;
+    if (pixels[(y * width + x) * 4 + 3] <= 8) {
+      transparentBorder += 1;
+    }
+  };
+  for (let x = 0; x < width; x += 1) {
+    inspect(x, 0);
+    inspect(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    inspect(0, y);
+    inspect(width - 1, y);
+  }
+  if (transparentBorder / borderCount < 0.95) {
+    throw new VehicleHeroImageError(
+      "Die Fahrzeugdarstellung ist am Bildrand nicht transparent.",
+    );
+  }
+}
+
+module.exports = {
+  VehicleHeroImageError,
+  outputHeight,
+  outputWidth,
+  processVehicleHeroImage,
+  vehicleBounds,
+};

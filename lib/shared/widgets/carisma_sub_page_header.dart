@@ -11,12 +11,16 @@ class CaRismaSubPageHeader extends StatelessWidget {
     required this.title,
     required this.onBack,
     this.titleFontSize,
+    this.titleMaxLines = 1,
+    this.titleOverflow = TextOverflow.ellipsis,
   });
 
   final IconData icon;
   final String title;
   final VoidCallback onBack;
   final double? titleFontSize;
+  final int titleMaxLines;
+  final TextOverflow titleOverflow;
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +35,8 @@ class CaRismaSubPageHeader extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              maxLines: titleMaxLines,
+              overflow: titleOverflow,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: CaRismaDesignTokens.textPrimary,
                 fontSize: titleFontSize,
