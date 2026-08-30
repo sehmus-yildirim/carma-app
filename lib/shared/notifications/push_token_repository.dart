@@ -28,10 +28,7 @@ class PushTokenRepository {
     }, SetOptions(merge: true));
   }
 
-  Future<void> remove({
-    required String userId,
-    required String token,
-  }) async {
+  Future<void> remove({required String userId, required String token}) async {
     final normalizedUserId = userId.trim();
     final normalizedToken = token.trim();
     if (normalizedUserId.isEmpty || normalizedToken.isEmpty) return;

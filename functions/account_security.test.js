@@ -4,6 +4,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
+  accountStoragePrefixes,
   cleanupAccountData,
   cleanupCrossOwnerSocialData,
   cleanupVehicleEncounters,
@@ -18,6 +19,12 @@ const recentAuth = {
   uid: "user-1",
   token: {auth_time: Math.floor(now.getTime() / 1000) - 30},
 };
+
+test("account cleanup includes V1 private declaration PDFs", () => {
+  const prefixes = accountStoragePrefixes("user-1");
+  assert.ok(prefixes.includes("verification_declarations/user-1/"));
+  assert.ok(prefixes.includes("profile_documents/user-1/"));
+});
 
 test("rejects account deletion without recent authentication", () => {
   assert.throws(

@@ -2,24 +2,23 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
 import '../../../shared/widgets/carisma_message_card.dart';
 import '../../../shared/widgets/carisma_sub_page_header.dart';
 import '../../../shared/widgets/glass_card.dart';
-import '../../settings/data/support_request_repository.dart';
-import '../../settings/presentation/support_settings_screens.dart';
-import '../data/profile_media_storage.dart';
 import '../data/profile_repository.dart';
 import '../data/profile_vehicle.dart';
 import '../data/profile_vehicle_repository.dart';
-import '../data/profile_verification_repository.dart';
-import '../data/profile_verification_request.dart';
 import '../data/user_profile.dart';
-import 'widgets/profile_verification_document_editor_screen.dart';
+import '../verification_v1/data/document_services.dart';
+import '../verification_v1/data/local_image_quality_service.dart';
+import '../verification_v1/data/verification_v1_repository.dart';
+import '../verification_v1/domain/verification_models.dart';
+import '../verification_v1/domain/verification_parsers.dart';
+import '../verification_v1/presentation/document_camera_screen.dart';
+import '../verification_v1/presentation/verification_v1_strings.dart';
 
 class ProfileVerificationScreen extends StatefulWidget {
   const ProfileVerificationScreen({
@@ -27,17 +26,24 @@ class ProfileVerificationScreen extends StatefulWidget {
     required this.userId,
     this.profileRepository,
     this.vehicleRepository,
-    this.verificationRepository,
-    this.mediaStorage,
-    this.imagePicker,
+    this.verificationV1Repository,
+    this.captureService,
+    this.ocrService,
+    this.imageQualityService,
+    this.temporaryFileService,
+    Object? verificationRepository,
+    Object? mediaStorage,
+    Object? imagePicker,
   });
 
   final String userId;
   final ProfileRepository? profileRepository;
   final ProfileVehicleRepository? vehicleRepository;
-  final ProfileVerificationRepository? verificationRepository;
-  final ProfileMediaStorage? mediaStorage;
-  final ImagePicker? imagePicker;
+  final VerificationV1Repository? verificationV1Repository;
+  final DocumentCaptureService? captureService;
+  final DocumentOcrService? ocrService;
+  final ImageQualityService? imageQualityService;
+  final VerificationTemporaryFileService? temporaryFileService;
 
   @override
   State<ProfileVerificationScreen> createState() =>
@@ -47,55 +53,32 @@ class ProfileVerificationScreen extends StatefulWidget {
 class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   late final ProfileRepository _profileRepository;
   late final ProfileVehicleRepository _vehicleRepository;
-  late final ProfileVerificationRepository _verificationRepository;
-  late final ProfileMediaStorage _mediaStorage;
-  late final ImagePicker _imagePicker;
+  late final VerificationV1Repository _verificationRepository;
+  late final DocumentOcrService _ocrService;
+  late final ImageQualityService _qualityService;
+  late final VerificationTemporaryFileService _temporaryFiles;
+  late final bool _ownsOcrService;
+  late final Stream<UserProfile?> _profileStream;
+  late final Stream<List<ProfileVehicle>> _vehicleStream;
 
-  StreamSubscription<UserProfile?>? _profileSubscription;
-  StreamSubscription<List<ProfileVehicle>>? _vehicleSubscription;
-  StreamSubscription<ProfileVerificationRequest?>? _requestSubscription;
-  StreamSubscription<List<ProfileVerificationHistoryEntry>>?
-  _historySubscription;
-  StreamSubscription<List<ProfileVerificationNotification>>?
-  _notificationSubscription;
-
-  UserProfile? _profile;
-  List<ProfileVehicle> _vehicles = const [];
-  ProfileVerificationRequest? _request;
-  List<ProfileVerificationHistoryEntry> _history = const [];
-  List<ProfileVerificationNotification> _notifications = const [];
+  VerificationIdentityDocumentType _documentType =
+      VerificationIdentityDocumentType.idCard;
+  VerificationVehicleRelation _relation =
+      VerificationVehicleRelation.registeredHolder;
   String? _selectedVehicleId;
-  ProfileVehicleRelationship _relationship = ProfileVehicleRelationship.owner;
-  ProfileVerificationIdentityDocumentType _identityDocumentType =
-      ProfileVerificationIdentityDocumentType.identityCard;
-  bool _consentAccepted = false;
-  bool _vehicleAssignmentConfirmed = false;
-  bool _isSubmitting = false;
-  String? _errorMessage;
-  String? _successMessage;
-  final Map<String, double> _uploadProgress = {};
-  final Set<String> _busyDocuments = {};
-  final Set<String> _dirtyExpirationKeys = {};
-  final Map<String, DateTime> _pendingExpirations = {};
-  final Map<String, XFile> _localDocumentPreviews = {};
-  final ScrollController _scrollController = ScrollController();
-  final Map<String, TextEditingController> _expirationControllers = {
-    for (final key in ProfileVerificationDocumentKeys.requiredExpirationKeys)
-      key: TextEditingController(),
-  };
-  final Map<String, FocusNode> _expirationFocusNodes = {
-    for (final key in ProfileVerificationDocumentKeys.requiredExpirationKeys)
-      key: FocusNode(debugLabel: 'verification-expiration-$key'),
-  };
-  bool _profileLoaded = false;
-  bool _vehiclesLoaded = false;
-  bool _requestLoaded = false;
-  bool _requestStreamFailed = false;
-  bool _identityDocumentTypeInitialized = false;
-  ProfileVerificationIdentityDocumentType? _pendingIdentityDocumentType;
-  bool _confirmationsInitialized = false;
-
-  bool get _isLoading => !_profileLoaded || !_vehiclesLoaded || !_requestLoaded;
+  IdentityDocumentData? _identity;
+  VehicleRegistrationData? _registration;
+  VerificationSession? _session;
+  VerificationSubmissionResult? _result;
+  List<ProfileVehicle> _vehicles = const [];
+  int _step = 0;
+  bool _busy = false;
+  bool _privacyOpened = false;
+  bool _privacyAccepted = false;
+  bool _declarationAccepted = false;
+  String? _error;
+  String? _success;
+  final List<List<Offset>> _signature = [];
 
   @override
   void initState() {
@@ -103,2864 +86,1150 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     _profileRepository = widget.profileRepository ?? ProfileRepository();
     _vehicleRepository = widget.vehicleRepository ?? ProfileVehicleRepository();
     _verificationRepository =
-        widget.verificationRepository ?? ProfileVerificationRepository();
-    _mediaStorage = widget.mediaStorage ?? ProfileMediaStorage();
-    _imagePicker = widget.imagePicker ?? ImagePicker();
-    _bindStreams();
-  }
-
-  void _bindStreams() {
-    final userId = widget.userId.trim();
-    _profileSubscription = _profileRepository.watchProfile(userId).listen(
-      (profile) {
-        if (mounted) {
-          final scrollOffset = _captureScrollOffset();
-          setState(() {
-            _profile = profile;
-            _profileLoaded = true;
-          });
-          _restoreScrollOffset(scrollOffset);
-        }
-      },
-      onError: (_) => _setLoadError(
-        'Deine persönlichen Daten konnten nicht geladen werden.',
-        profileLoaded: true,
-      ),
-    );
-    _vehicleSubscription = _vehicleRepository.watchOwnerVehicles(userId).listen(
-      (vehicles) {
-        if (!mounted) return;
-        final active = vehicles
-            .where((vehicle) => !vehicle.isArchived)
-            .toList(growable: false);
-        final scrollOffset = _captureScrollOffset();
-        setState(() {
-          _vehicles = active;
-          _vehiclesLoaded = true;
-          if (_selectedVehicleId == null ||
-              !active.any((vehicle) => vehicle.id == _selectedVehicleId)) {
-            _selectedVehicleId = active
-                .where((vehicle) => vehicle.isPrimary)
-                .firstOrNull
-                ?.id;
-            _selectedVehicleId ??= active.firstOrNull?.id;
-          }
-          if (_request == null) {
-            _relationship = _relationshipForVehicle(_selectedVehicle);
-          }
-        });
-        _restoreScrollOffset(scrollOffset);
-      },
-      onError: (_) => _setLoadError(
-        'Deine Fahrzeuge konnten nicht geladen werden.',
-        vehiclesLoaded: true,
-      ),
-    );
-    _bindRequestStream(userId);
-    _notificationSubscription = _verificationRepository
-        .watchNotifications(userId)
-        .listen(
-          (notifications) {
-            if (mounted) {
-              final scrollOffset = _captureScrollOffset();
-              setState(() => _notifications = notifications);
-              _restoreScrollOffset(scrollOffset);
-            }
-          },
-          onError: (_) {
-            if (mounted) setState(() => _notifications = const []);
-          },
-        );
-    _historySubscription = _verificationRepository
-        .watchHistory(userId)
-        .listen(
-          (history) {
-            if (mounted) {
-              final scrollOffset = _captureScrollOffset();
-              setState(() => _history = history);
-              _restoreScrollOffset(scrollOffset);
-            }
-          },
-          onError: (_) {
-            if (mounted) setState(() => _history = const []);
-          },
-        );
-  }
-
-  void _bindRequestStream(String userId) {
-    _requestSubscription = _verificationRepository
-        .watchCurrentRequest(userId)
-        .listen(
-          (request) {
-            if (!mounted) return;
-            _requestStreamFailed = false;
-            final scrollOffset = _captureScrollOffset();
-            setState(() {
-              _request = request;
-              _requestLoaded = true;
-              if (!_identityDocumentTypeInitialized) {
-                _identityDocumentType =
-                    request?.identityDocumentType ?? _identityDocumentType;
-                _identityDocumentTypeInitialized = true;
-              } else if (request != null) {
-                final pendingType = _pendingIdentityDocumentType;
-                if (pendingType == null) {
-                  _identityDocumentType = request.identityDocumentType;
-                } else if (request.identityDocumentType == pendingType) {
-                  _identityDocumentType = pendingType;
-                  _pendingIdentityDocumentType = null;
-                }
-              }
-              if (request != null) {
-                _relationship = request.vehicleRelationship;
-                if (request.vehicleId?.trim().isNotEmpty == true) {
-                  _selectedVehicleId = request.vehicleId;
-                }
-                if (!_confirmationsInitialized) {
-                  _consentAccepted = request.authorizationConfirmed;
-                  _vehicleAssignmentConfirmed =
-                      request.vehicleAssignmentConfirmed;
-                  _confirmationsInitialized = true;
-                }
-              } else if (!_confirmationsInitialized) {
-                _confirmationsInitialized = true;
-              }
-            });
-            _synchronizeExpirationFields(request);
-            _restoreScrollOffset(scrollOffset);
-          },
-          onError: (_) {
-            _requestStreamFailed = true;
-            _setLoadError(
-              'Der Verifizierungsstatus konnte nicht geladen werden.',
-              requestLoaded: true,
-            );
-          },
-        );
-  }
-
-  Future<void> _recoverRequestStreamIfNeeded() async {
-    if (!_requestStreamFailed) return;
-    await _requestSubscription?.cancel();
-    if (!mounted) return;
-    _requestStreamFailed = false;
-    _bindRequestStream(widget.userId.trim());
-  }
-
-  void _setLoadError(
-    String message, {
-    bool profileLoaded = false,
-    bool vehiclesLoaded = false,
-    bool requestLoaded = false,
-  }) {
-    if (!mounted) return;
-    setState(() {
-      _profileLoaded = _profileLoaded || profileLoaded;
-      _vehiclesLoaded = _vehiclesLoaded || vehiclesLoaded;
-      _requestLoaded = _requestLoaded || requestLoaded;
-      _errorMessage = message;
-    });
-  }
-
-  double? _captureScrollOffset() {
-    return _scrollController.hasClients ? _scrollController.offset : null;
-  }
-
-  void _restoreScrollOffset(double? offset) {
-    if (offset == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final position = _scrollController.position;
-      final target = offset
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
-      if ((_scrollController.offset - target).abs() > 0.5) {
-        _scrollController.jumpTo(target);
-      }
-    });
+        widget.verificationV1Repository ?? VerificationV1Repository();
+    _ownsOcrService = widget.ocrService == null;
+    _ocrService = widget.ocrService ?? MlKitDocumentOcrService();
+    _qualityService =
+        widget.imageQualityService ?? const LocalImageQualityService();
+    _temporaryFiles =
+        widget.temporaryFileService ?? LocalVerificationTemporaryFileService();
+    _profileStream = _profileRepository.watchProfile(widget.userId);
+    _vehicleStream = _vehicleRepository.watchOwnerVehicles(widget.userId);
+    unawaited(_temporaryFiles.cleanupOrphans());
   }
 
   @override
   void dispose() {
-    _profileSubscription?.cancel();
-    _vehicleSubscription?.cancel();
-    _requestSubscription?.cancel();
-    _historySubscription?.cancel();
-    _notificationSubscription?.cancel();
-    for (final controller in _expirationControllers.values) {
-      controller.dispose();
-    }
-    for (final focusNode in _expirationFocusNodes.values) {
-      focusNode.dispose();
-    }
-    _scrollController.dispose();
-    for (final preview in _localDocumentPreviews.values) {
-      _deleteTemporaryPreview(preview);
-    }
+    if (_ownsOcrService) unawaited(_ocrService.close());
+    unawaited(_temporaryFiles.cleanupOrphans());
     super.dispose();
   }
 
-  void _synchronizeExpirationFields(ProfileVerificationRequest? request) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      for (final key
-          in ProfileVerificationDocumentKeys.requiredExpirationKeys) {
-        final pendingExpiration = _pendingExpirations[key];
-        if (pendingExpiration != null) {
-          final remoteExpiration = request?.expirationFor(key);
-          if (_isSameDay(remoteExpiration, pendingExpiration)) {
-            _pendingExpirations.remove(key);
-            _dirtyExpirationKeys.remove(key);
-          } else {
-            continue;
-          }
-        }
-        if (_dirtyExpirationKeys.contains(key) ||
-            _expirationFocusNodes[key]?.hasFocus == true) {
-          continue;
-        }
-        final expiration = request?.expirationFor(key);
-        final nextText = expiration == null ? '' : _formatDate(expiration);
-        final controller = _expirationControllers[key];
-        if (controller != null && controller.text != nextText) {
-          controller.value = TextEditingValue(
-            text: nextText,
-            selection: TextSelection.collapsed(offset: nextText.length),
-          );
-        }
-      }
-    });
-  }
-
-  static bool _isSameDay(DateTime? first, DateTime? second) {
-    if (first == null || second == null) return false;
-    return first.year == second.year &&
-        first.month == second.month &&
-        first.day == second.day;
-  }
-
-  static void _deleteTemporaryPreview(XFile file) {
-    if (!file.path.startsWith(Directory.systemTemp.path)) return;
-    unawaited(_deleteFileIfPresent(File(file.path)));
-  }
-
-  static Future<void> _deleteFileIfPresent(File file) async {
-    try {
-      await file.delete();
-    } catch (_) {}
-  }
-
-  ProfileVehicle? get _selectedVehicle {
-    final selectedId = _selectedVehicleId;
-    if (selectedId == null) return null;
-    for (final vehicle in _vehicles) {
-      if (vehicle.id == selectedId) return vehicle;
-    }
-    return null;
-  }
-
-  bool get _hasCompleteName {
-    final profile = _profile;
-    return profile != null &&
-        profile.firstName.trim().isNotEmpty &&
-        profile.lastName.trim().isNotEmpty &&
-        profile.birthDate != null &&
-        profile.personalDataLocked;
-  }
-
-  bool get _hasProfilePhoto => _profile?.photoUrl?.trim().isNotEmpty == true;
-  bool get _hasVehicle => _selectedVehicle?.hasRequiredData == true;
-  bool get _hasPlate =>
-      _selectedVehicle?.displayPlate.trim().isNotEmpty == true;
-  bool get _isLocked => _request?.isLocked == true;
-  List<String> get _submittableGroups =>
-      _request?.submittableGroups ?? const <String>[];
-  bool get _submitsIdentity => _submittableGroups.contains(
-    ProfileVerificationDocumentKeys.identityGroup,
-  );
-  bool get _submitsVehicle =>
-      _submittableGroups.contains(ProfileVerificationDocumentKeys.vehicleGroup);
-  bool get _requiredExpirationsReady =>
-      !_submitsIdentity ||
-      _parseExpiration(
-            _expirationControllers[ProfileVerificationDocumentKeys
-                    .identityExpiration]
-                ?.text,
-          ) !=
-          null;
-  bool get _canSubmit =>
-      !_isLocked &&
-      !_isSubmitting &&
-      _busyDocuments.isEmpty &&
-      _hasCompleteName &&
-      _submittableGroups.isNotEmpty &&
-      (!_submitsVehicle || (_hasVehicle && _hasPlate)) &&
-      _requiredExpirationsReady &&
-      _consentAccepted &&
-      (!_submitsVehicle || _vehicleAssignmentConfirmed);
-
-  static String _formatDate(DateTime date) {
-    String twoDigits(int value) => value.toString().padLeft(2, '0');
-    return '${twoDigits(date.day)}.${twoDigits(date.month)}.${date.year}';
-  }
-
-  DateTime? _parseGermanDate(String? value) {
-    final parts = value?.trim().split('.') ?? const <String>[];
-    if (parts.length != 3) return null;
-    final day = int.tryParse(parts[0]);
-    final month = int.tryParse(parts[1]);
-    final year = int.tryParse(parts[2]);
-    if (day == null || month == null || year == null || year < 2000) {
-      return null;
-    }
-    final parsed = DateTime(year, month, day);
-    if (parsed.day != day || parsed.month != month || parsed.year != year) {
-      return null;
-    }
-    return parsed;
-  }
-
-  DateTime? _parseExpiration(String? value) {
-    final parsed = _parseGermanDate(value);
-    if (parsed == null) return null;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return parsed.isAfter(today) ? parsed : null;
-  }
-
-  String? _expirationValidationMessage(String value) {
-    final trimmed = value.trim();
-    if (trimmed.length < 10) return null;
-    final parsed = _parseGermanDate(trimmed);
-    if (parsed == null) {
-      return 'Bitte gib ein gültiges Datum im Format TT.MM.JJJJ ein.';
-    }
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    if (parsed.isBefore(today)) {
-      return 'Dieses Dokument ist abgelaufen.';
-    }
-    if (!parsed.isAfter(today)) {
-      return 'Das Ablaufdatum muss nach dem heutigen Tag liegen.';
-    }
-    return null;
-  }
-
-  Future<bool> _persistExpiration(String key) async {
-    final value = _expirationControllers[key]?.text ?? '';
-    final expiration = _parseExpiration(value);
-    if (expiration == null) {
-      _showError(
-        _expirationValidationMessage(value) ??
-            'Bitte gib ein gültiges, nicht abgelaufenes Datum ein.',
-      );
-      return false;
-    }
-    _pendingExpirations[key] = expiration;
-    try {
-      await _verificationRepository.saveDraftExpiration(
-        userId: widget.userId,
-        expirationKey: key,
-        expiresAt: expiration,
-      );
-      await _recoverRequestStreamIfNeeded();
-      return true;
-    } catch (error) {
-      _pendingExpirations.remove(key);
-      _showError(_errorText(error));
-      return false;
-    }
-  }
-
-  Future<bool> _persistAllExpirations() async {
-    if (_submitsIdentity &&
-        !await _persistExpiration(
-          ProfileVerificationDocumentKeys.identityExpiration,
-        )) {
-      return false;
-    }
-    return true;
-  }
-
-  Future<void> _selectIdentityDocumentType(
-    ProfileVerificationIdentityDocumentType? type,
-  ) async {
-    if (type == null || type == _identityDocumentType || _isLocked) return;
-    final scrollOffset = _captureScrollOffset();
-    setState(() {
-      _identityDocumentType = type;
-      _pendingIdentityDocumentType = type;
-      _consentAccepted = false;
-      _dirtyExpirationKeys.remove(
-        ProfileVerificationDocumentKeys.identityExpiration,
-      );
-      _clearMessages();
-    });
-    _restoreScrollOffset(scrollOffset);
-    try {
-      await _verificationRepository.saveDraftIdentityDocumentType(
-        userId: widget.userId,
-        identityDocumentType: type,
-      );
-      await _recoverRequestStreamIfNeeded();
-    } catch (error) {
-      _showError(_errorText(error));
-      return;
-    }
-
-    var cleanupFailed = false;
-    for (final key in const [
-      ProfileVerificationDocumentKeys.identityFront,
-      ProfileVerificationDocumentKeys.identityBack,
-    ]) {
-      final localPreview = _localDocumentPreviews.remove(key);
-      if (localPreview != null) _deleteTemporaryPreview(localPreview);
-      try {
-        await _mediaStorage.deleteVerificationDocument(
-          userId: widget.userId,
-          documentType: key,
-        );
-      } catch (_) {
-        cleanupFailed = true;
-      }
-    }
-    if (!mounted) return;
-    setState(() {
-      if (cleanupFailed) {
-        _errorMessage =
-            'Der Dokumenttyp wurde gespeichert. Alte lokale Nachweise konnten noch nicht vollständig entfernt werden.';
-      }
-    });
-  }
-
-  Future<bool> _ensureIdentityDocumentTypeSaved() async {
-    if (_pendingIdentityDocumentType == null) return true;
-    try {
-      await _verificationRepository.saveDraftIdentityDocumentType(
-        userId: widget.userId,
-        identityDocumentType: _identityDocumentType,
-      );
-      await _recoverRequestStreamIfNeeded();
-      return true;
-    } catch (error) {
-      _showError(_errorText(error));
-      return false;
-    }
-  }
-
-  Future<void> _persistConfirmations() async {
-    try {
-      await _verificationRepository.saveDraftConfirmations(
-        userId: widget.userId,
-        authorizationConfirmed: _consentAccepted,
-        vehicleAssignmentConfirmed: _vehicleAssignmentConfirmed,
-      );
-      await _recoverRequestStreamIfNeeded();
-    } catch (error) {
-      _showError(_errorText(error));
-    }
-  }
-
-  void _toggleConsent(bool value) {
-    if (_isLocked || !mounted) return;
-    final scrollOffset = _captureScrollOffset();
-    setState(() {
-      _consentAccepted = value;
-      _clearMessages();
-    });
-    _restoreScrollOffset(scrollOffset);
-    unawaited(_persistConfirmations());
-  }
-
-  void _toggleVehicleAssignment(bool value) {
-    if (_isLocked || !mounted) return;
-    setState(() {
-      _vehicleAssignmentConfirmed = value;
-      _clearMessages();
-    });
-    unawaited(_persistConfirmations());
-  }
-
-  Future<void> _selectVehicle(String? vehicleId) async {
-    if (vehicleId == null || vehicleId == _selectedVehicleId || _isLocked) {
-      return;
-    }
-    setState(() {
-      _selectedVehicleId = vehicleId;
-      _relationship = _relationshipForVehicle(_selectedVehicle);
-      _consentAccepted = false;
-      _vehicleAssignmentConfirmed = false;
-      _clearMessages();
-    });
-    await _persistRelationship();
-  }
-
-  Future<void> _selectRelationship(
-    ProfileVehicleRelationship? relationship,
-  ) async {
-    if (relationship == null || relationship == _relationship || _isLocked) {
-      return;
-    }
-    setState(() {
-      _relationship = relationship;
-      _consentAccepted = false;
-      _vehicleAssignmentConfirmed = false;
-      _clearMessages();
-    });
-    await _persistRelationship();
-  }
-
-  Future<void> _persistRelationship() async {
-    final vehicleId = _selectedVehicleId;
-    if (vehicleId == null) return;
-    try {
-      await _verificationRepository.saveDraftRelationship(
-        userId: widget.userId,
-        vehicleId: vehicleId,
-        relationship: _relationship,
-      );
-      await _recoverRequestStreamIfNeeded();
-    } catch (error) {
-      _showError(_errorText(error));
-    }
-  }
-
-  Future<void> _chooseDocumentSource(String documentKey) async {
-    if (_isLocked || _busyDocuments.contains(documentKey)) return;
-    final scrollOffset = _captureScrollOffset();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: CaRismaDesignTokens.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-
-      useSafeArea: true,
-
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-          child: Row(
-            children: [
-              Expanded(
-                child: _SourceAction(
-                  icon: Icons.camera_alt_outlined,
-                  label: 'Kamera',
-                  onTap: () =>
-                      Navigator.of(sheetContext).pop(ImageSource.camera),
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<UserProfile?>(
+      stream: _profileStream,
+      builder: (context, profileSnapshot) {
+        return StreamBuilder<List<ProfileVehicle>>(
+          stream: _vehicleStream,
+          builder: (context, vehicleSnapshot) {
+            _vehicles = (vehicleSnapshot.data ?? const <ProfileVehicle>[])
+                .where((vehicle) => !vehicle.isArchived)
+                .toList(growable: false);
+            if (_selectedVehicleId == null && _vehicles.isNotEmpty) {
+              _selectedVehicleId = _vehicles.first.id;
+            }
+            final loading =
+                profileSnapshot.connectionState == ConnectionState.waiting ||
+                vehicleSnapshot.connectionState == ConnectionState.waiting;
+            return Scaffold(
+              body: CaRismaBackground(
+                child: SafeArea(
+                  child: loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _buildContent(context),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SourceAction(
-                  icon: Icons.photo_library_outlined,
-                  label: 'Galerie',
-                  onTap: () =>
-                      Navigator.of(sheetContext).pop(ImageSource.gallery),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: CaRismaSubPageHeader(
+              icon: Icons.verified_user_rounded,
+              title: 'Identität & Fahrzeug',
+              onBack: _busy ? () {} : () => Navigator.of(context).maybePop(),
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          sliver: SliverList.list(
+            children: [
+              _FlowStepper(currentStep: _step),
+              const SizedBox(height: 14),
+              GlassCard(
+                padding: const EdgeInsets.all(18),
+                child: Text(
+                  VerificationV1Strings.intro,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: CaRismaDesignTokens.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 14),
+                CaRismaMessageCard(
+                  icon: Icons.error_outline_rounded,
+                  message: _error!,
+                ),
+              ],
+              if (_success != null) ...[
+                const SizedBox(height: 14),
+                CaRismaMessageCard(
+                  icon: Icons.check_circle_outline_rounded,
+                  message: _success!,
+                ),
+              ],
+              const SizedBox(height: 14),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: KeyedSubtree(
+                  key: ValueKey(_step),
+                  child: switch (_step) {
+                    0 => _buildIdentityStep(context),
+                    1 => _buildVehicleStep(context),
+                    2 => _buildDeclarationStep(context),
+                    _ => _buildCompletionStep(context),
+                  },
                 ),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
-    _restoreScrollOffset(scrollOffset);
-    if (source == null || !mounted) return;
-
-    try {
-      final picked = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 100,
-        maxWidth: 3200,
-      );
-      if (picked == null || !mounted) return;
-      final prepared = await Navigator.of(context).push<XFile>(
-        MaterialPageRoute(
-          builder: (_) =>
-              ProfileVerificationDocumentEditorScreen(sourceFile: picked),
-        ),
-      );
-      _restoreScrollOffset(scrollOffset);
-      if (prepared == null || !mounted) return;
-      if ((documentKey == ProfileVerificationDocumentKeys.identityFront ||
-              documentKey == ProfileVerificationDocumentKeys.identityBack) &&
-          !await _ensureIdentityDocumentTypeSaved()) {
-        return;
-      }
-      if (!mounted) return;
-      final previousPreview = _localDocumentPreviews[documentKey];
-      setState(() {
-        _localDocumentPreviews[documentKey] = prepared;
-        _clearMessages();
-      });
-      _restoreScrollOffset(scrollOffset);
-      if (previousPreview != null && previousPreview.path != prepared.path) {
-        _deleteTemporaryPreview(previousPreview);
-      }
-      await _uploadDocument(documentKey, prepared);
-      _restoreScrollOffset(scrollOffset);
-    } catch (_) {
-      _showError(
-        'Der Nachweis konnte nicht geöffnet werden. Bitte prüfe die Kamera- oder Fotoberechtigung.',
-      );
-    }
   }
 
-  Future<void> _uploadDocument(String documentKey, XFile prepared) async {
-    if (_busyDocuments.contains(documentKey)) return;
-    setState(() {
-      _busyDocuments.add(documentKey);
-      _uploadProgress[documentKey] = 0;
-      _clearMessages();
-    });
-    ProfileMediaUploadResult? upload;
-    try {
-      upload = await _mediaStorage.uploadVerificationDocument(
-        userId: widget.userId,
-        documentType: documentKey,
-        file: File(prepared.path),
-        onProgress: (progress) {
-          if (!mounted) return;
-          setState(() => _uploadProgress[documentKey] = progress);
-        },
-      );
-      await _verificationRepository.saveDraftDocument(
-        userId: widget.userId,
-        documentKey: documentKey,
-        storagePath: upload.path,
-      );
-      await _recoverRequestStreamIfNeeded();
-      if (!mounted) return;
-      setState(() {
-        _successMessage =
-            '${ProfileVerificationDocumentKeys.labelFor(documentKey)} '
-            '(${ProfileVerificationDocumentKeys.sideLabelFor(documentKey)}) '
-            'wurde sicher hochgeladen.';
-      });
-    } catch (error) {
-      if (upload != null) {
-        try {
-          await _mediaStorage.deleteVerificationDocument(
-            userId: widget.userId,
-            documentType: documentKey,
-          );
-        } catch (_) {}
-      }
-      _showError(_errorText(error));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busyDocuments.remove(documentKey);
-          _uploadProgress.remove(documentKey);
-        });
-      }
-    }
-  }
-
-  Future<void> _removeDocument(String documentKey) async {
-    if (_isLocked || _busyDocuments.contains(documentKey)) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: CaRismaDesignTokens.card,
-        title: const Text(
-          'Nachweis entfernen?',
-          style: TextStyle(
-            color: CaRismaDesignTokens.textPrimary,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        content: const Text(
-          'Der ausgewählte Nachweis wird aus dem privaten Speicher entfernt.',
-          style: TextStyle(color: CaRismaDesignTokens.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Abbrechen'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text(
-              'Entfernen',
-              style: TextStyle(color: CaRismaDesignTokens.danger),
+  Widget _buildIdentityStep(BuildContext context) {
+    return _StepCard(
+      title: 'Identität bestätigen',
+      subtitle:
+          'Nur die Vorderseite beziehungsweise Datenseite wird lokal gelesen.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<VerificationIdentityDocumentType>(
+            initialValue: _documentType,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Dokumenttyp',
+              prefixIcon: Icon(Icons.badge_outlined),
             ),
+            items: [
+              for (final type in VerificationIdentityDocumentType.values)
+                DropdownMenuItem(value: type, child: Text(type.label)),
+            ],
+            onChanged: _busy
+                ? null
+                : (value) {
+                    if (value == null || value == _documentType) return;
+                    setState(() {
+                      _documentType = value;
+                      _identity = null;
+                      _clearMessages();
+                    });
+                  },
+          ),
+          const SizedBox(height: 14),
+          if (_identity == null)
+            _CameraAction(
+              label: _documentType.captureLabel,
+              busy: _busy,
+              onPressed: _scanIdentity,
+            )
+          else
+            _IdentitySummary(
+              data: _identity!,
+              busy: _busy,
+              onRetake: _scanIdentity,
+            ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: !_busy && _identity != null
+                ? () => setState(() {
+                    _step = 1;
+                    _clearMessages();
+                  })
+                : null,
+            icon: const Icon(Icons.arrow_forward_rounded),
+            label: const Text('Weiter zum Fahrzeug'),
           ),
         ],
       ),
     );
-    if (confirmed != true) return;
-    final localPreview = _localDocumentPreviews.remove(documentKey);
-    if (localPreview != null) _deleteTemporaryPreview(localPreview);
-    setState(() => _busyDocuments.add(documentKey));
-    try {
-      await _mediaStorage.deleteVerificationDocument(
-        userId: widget.userId,
-        documentType: documentKey,
-      );
-      await _verificationRepository.removeDraftDocument(
-        userId: widget.userId,
-        documentKey: documentKey,
-      );
-      await _recoverRequestStreamIfNeeded();
-    } catch (error) {
-      _showError(_errorText(error));
-    } finally {
-      if (mounted) setState(() => _busyDocuments.remove(documentKey));
-    }
   }
 
-  Future<void> _previewDocument(String documentKey) async {
-    final localPreview = _localDocumentPreviews[documentKey];
-    if (localPreview != null) {
-      try {
-        final bytes = await localPreview.readAsBytes();
-        if (!mounted) return;
-        await _showDocumentPreview(documentKey, bytes);
-      } catch (_) {
-        _showError('Die ausgewählte Vorschau konnte nicht geöffnet werden.');
-      }
-      return;
-    }
-    final storagePath = _request?.documentStoragePaths[documentKey]?.trim();
-    if (storagePath == null || storagePath.isEmpty) {
-      _showError(
-        'Für diesen Nachweis ist nach der sicheren Löschung keine Vorschau mehr verfügbar.',
-      );
-      return;
-    }
-    try {
-      final bytes = await _mediaStorage.loadVerificationDocumentPreview(
-        userId: widget.userId,
-        documentType: documentKey,
-        storagePath: storagePath,
-      );
-      if (!mounted) return;
-      await _showDocumentPreview(documentKey, bytes);
-    } catch (error) {
-      _showError(_errorText(error));
-    }
-  }
-
-  Future<void> _showDocumentPreview(String documentKey, List<int> bytes) {
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) => Dialog.fullscreen(
-        backgroundColor: CaRismaDesignTokens.background,
-        child: SafeArea(
-          child: Column(
+  Widget _buildVehicleStep(BuildContext context) {
+    return _StepCard(
+      title: 'Fahrzeugbezug bestätigen',
+      subtitle:
+          'Fotografiere die Vorderseite der Zulassungsbescheinigung Teil I vollständig und gut lesbar.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_vehicles.isEmpty)
+            const CaRismaMessageCard(
+              icon: Icons.info_outline_rounded,
+              message: 'Lege zuerst ein Fahrzeug in deinem Profil an.',
+            )
+          else
+            DropdownButtonFormField<String>(
+              initialValue: _selectedVehicleId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Fahrzeug',
+                prefixIcon: Icon(Icons.directions_car_rounded),
+              ),
+              items: [
+                for (final vehicle in _vehicles)
+                  DropdownMenuItem(
+                    value: vehicle.id,
+                    child: Text(
+                      '${vehicle.displayName} · ${vehicle.displayPlate}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: _busy
+                  ? null
+                  : (value) => setState(() {
+                      _selectedVehicleId = value;
+                      _registration = null;
+                      _session = null;
+                      _clearMessages();
+                    }),
+            ),
+          const SizedBox(height: 18),
+          Text(
+            'Fahrzeugzuordnung',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          for (final relation in VerificationVehicleRelation.values)
+            _RelationOption(
+              relation: relation,
+              selected: relation == _relation,
+              enabled: !_busy,
+              onTap: () => setState(() {
+                _relation = relation;
+                _session = null;
+                _declarationAccepted = false;
+                _signature.clear();
+                _clearMessages();
+              }),
+            ),
+          const SizedBox(height: 12),
+          if (_registration == null)
+            _CameraAction(
+              label: 'Fahrzeugschein fotografieren',
+              busy: _busy,
+              onPressed: _selectedVehicleId == null ? null : _scanVehicle,
+            )
+          else
+            _VehicleSummary(
+              data: _registration!,
+              busy: _busy,
+              onRetake: _scanVehicle,
+            ),
+          const SizedBox(height: 14),
+          _PrivacyConfirmation(
+            opened: _privacyOpened,
+            accepted: _privacyAccepted,
+            enabled: !_busy,
+            onOpen: _openPrivacy,
+            onChanged: (value) => setState(() => _privacyAccepted = value),
+          ),
+          const SizedBox(height: 18),
+          Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: CaRismaSubPageHeader(
-                  icon: Icons.visibility_outlined,
-                  title:
-                      '${ProfileVerificationDocumentKeys.labelFor(documentKey)} · ${ProfileVerificationDocumentKeys.sideLabelFor(documentKey)}',
-                  titleFontSize: 16,
-                  onBack: () => Navigator.of(dialogContext).pop(),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() {
+                          _step = 0;
+                          _clearMessages();
+                        }),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('Zurück'),
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
-                child: InteractiveViewer(
-                  minScale: 1,
-                  maxScale: 5,
-                  child: Center(
-                    child: Image.memory(
-                      Uint8List.fromList(bytes),
-                      fit: BoxFit.contain,
-                      gaplessPlayback: true,
-                    ),
+                child: FilledButton.icon(
+                  onPressed: _canSubmitDocuments ? _submitDocuments : null,
+                  icon: _busy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.verified_outlined),
+                  label: Text(
+                    _relation.requiresDeclaration
+                        ? 'Zum Abgleich'
+                        : 'Abgleichen',
                   ),
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Future<void> _submit() async {
-    if (!_canSubmit) {
-      _showError(_submissionBlockReason());
-      return;
+  Widget _buildDeclarationStep(BuildContext context) {
+    final identity = _identity;
+    final registration = _registration;
+    if (identity == null || registration == null) {
+      return _StepCard(
+        title: 'Abgleich unvollständig',
+        subtitle: 'Bitte starte den Dokumentabgleich erneut.',
+        child: FilledButton(
+          onPressed: _restart,
+          child: const Text('Neu starten'),
+        ),
+      );
     }
-    final groups = _submittableGroups;
-    final vehicleId = _selectedVehicleId;
-    if (_submitsVehicle && vehicleId == null) return;
-    if (!await _ensureIdentityDocumentTypeSaved()) return;
-    if (!await _persistAllExpirations()) return;
+    final text = VerificationV1Strings.declaration(
+      fullName: '${identity.firstNames} ${identity.lastName}',
+      plate: registration.plate,
+      relation: _relation.label,
+    );
+    return _StepCard(
+      title: 'Eigenerklärung',
+      subtitle:
+          'Deine Unterschrift dokumentiert deine Erklärung. Sie ist keine amtliche Prüfung der Berechtigung.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: CaRismaDesignTokens.controlSurface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: CaRismaDesignTokens.border),
+            ),
+            child: SelectableText(
+              text,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 14),
+          CheckboxListTile(
+            value: _declarationAccepted,
+            enabled: !_busy,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            title: const Text(VerificationV1Strings.declarationConfirmation),
+            onChanged: (value) =>
+                setState(() => _declarationAccepted = value == true),
+          ),
+          const SizedBox(height: 8),
+          _SignaturePad(
+            strokes: _signature,
+            enabled: !_busy,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: _canFinalize ? _finalizeDeclaration : null,
+            icon: _busy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.draw_rounded),
+            label: const Text('Verbindlich bestätigen'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompletionStep(BuildContext context) {
+    final verified = _result?.status == VerificationV1Status.verified;
+    return _StepCard(
+      title: verified ? 'Fahrzeug verifiziert' : 'Abgleich abgeschlossen',
+      subtitle:
+          'Plaqa hat Dokumentdaten, Gültigkeit und Fahrzeugzuordnung abgeglichen. Dies ist keine amtliche Echtheitsprüfung.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Icon(
+            verified ? Icons.verified_rounded : Icons.task_alt_rounded,
+            size: 64,
+            color: CaRismaDesignTokens.success,
+          ),
+          const SizedBox(height: 16),
+          if (_result?.declarationId != null)
+            Text(
+              'Deine Eigenerklärung wurde privat gespeichert.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('Fertig'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool get _canSubmitDocuments =>
+      _step == 1 &&
+      !_busy &&
+      _identity != null &&
+      _registration != null &&
+      _selectedVehicleId != null &&
+      _privacyOpened &&
+      _privacyAccepted;
+
+  bool get _canFinalize =>
+      _step == 2 &&
+      !_busy &&
+      _session != null &&
+      _declarationAccepted &&
+      _signatureIsMeaningful;
+
+  bool get _signatureIsMeaningful {
+    final points = _signature.expand((stroke) => stroke).toList();
+    if (points.length < 8) return false;
+    final xs = points.map((point) => point.dx);
+    final ys = points.map((point) => point.dy);
+    return (xs.reduce((a, b) => a > b ? a : b) -
+                xs.reduce((a, b) => a < b ? a : b)) *
+            (ys.reduce((a, b) => a > b ? a : b) -
+                ys.reduce((a, b) => a < b ? a : b)) >=
+        0.004;
+  }
+
+  Future<void> _scanIdentity() async {
+    final kind = switch (_documentType) {
+      VerificationIdentityDocumentType.idCard =>
+        VerificationDocumentKind.identityCard,
+      VerificationIdentityDocumentType.passport =>
+        VerificationDocumentKind.passport,
+      VerificationIdentityDocumentType.residencePermit =>
+        VerificationDocumentKind.residencePermit,
+    };
+    final result = await _captureAndParse<IdentityDocumentData>(
+      kind: kind,
+      parser: (blocks) => switch (_documentType) {
+        VerificationIdentityDocumentType.idCard =>
+          const GermanIdCardFrontParser().parse(blocks),
+        VerificationIdentityDocumentType.passport =>
+          const PassportDataPageParser().parse(blocks),
+        VerificationIdentityDocumentType.residencePermit =>
+          const GermanResidencePermitFrontParser().parse(blocks),
+      },
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _identity = result;
+        _session = null;
+        _success = 'Identitätsdaten wurden lokal erkannt.';
+      });
+    }
+  }
+
+  Future<void> _scanVehicle() async {
+    if (_selectedVehicleId == null) return;
+    final result = await _captureAndParse<VehicleRegistrationData>(
+      kind: VerificationDocumentKind.vehicleRegistration,
+      parser: const GermanVehicleRegistrationFrontParser().parse,
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _registration = result;
+        _session = null;
+        _success = 'Das Kennzeichen wurde lokal erkannt.';
+      });
+    }
+  }
+
+  Future<T?> _captureAndParse<T>({
+    required VerificationDocumentKind kind,
+    required VerificationParseResult<T> Function(List<OcrBlock>) parser,
+  }) async {
+    if (_busy) return null;
     setState(() {
-      _isSubmitting = true;
+      _busy = true;
+      _clearMessages();
+    });
+    String? managedPath;
+    String? unmanagedCapturePath;
+    var deleteUnmanagedCapture = false;
+    try {
+      final captureService =
+          widget.captureService ??
+          CameraDocumentCaptureService(Navigator.of(context));
+      final capture = await captureService.capture(kind);
+      if (capture == null) return null;
+      if (capture.isManagedTemporaryFile) {
+        managedPath = capture.path;
+      } else {
+        unmanagedCapturePath = capture.path;
+        deleteUnmanagedCapture = capture.deleteSourceAfterAdoption;
+        managedPath = await _temporaryFiles.adopt(capture.path);
+      }
+      final quality = await _qualityService.inspect(managedPath);
+      final hardFailure = quality.failures.any(
+        (failure) => failure != ImageQualityFailure.blurry,
+      );
+      if (hardFailure) throw VerificationV1Exception(quality.userMessage);
+      final blocks = await _ocrService.recognize(managedPath);
+      final parsed = parser(blocks);
+      if (!parsed.isSuccess) {
+        throw VerificationV1Exception(
+          parsed.message ??
+              'Das Dokument wurde nicht vollständig erkannt. Bitte fotografiere es erneut.',
+        );
+      }
+      if (quality.failures.contains(ImageQualityFailure.blurry)) {
+        throw VerificationV1Exception(quality.userMessage);
+      }
+      return parsed.data;
+    } on VerificationV1Exception catch (error) {
+      if (mounted) setState(() => _error = error.message);
+      return null;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error =
+              'Das Dokument konnte nicht sicher gelesen werden. Bitte fotografiere es erneut.';
+        });
+      }
+      return null;
+    } finally {
+      if (deleteUnmanagedCapture && unmanagedCapturePath != null) {
+        await _deleteUnmanagedCapture(unmanagedCapturePath);
+      }
+      if (managedPath != null) await _temporaryFiles.delete(managedPath);
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submitDocuments() async {
+    if (!_canSubmitDocuments) return;
+    setState(() {
+      _busy = true;
       _clearMessages();
     });
     try {
-      await _verificationRepository.submitVerification(
-        userId: widget.userId,
-        vehicleId: vehicleId,
-        relationship: _relationship,
-        authorizationConfirmed: _consentAccepted,
-        vehicleAssignmentConfirmed: _vehicleAssignmentConfirmed,
-        identityDocumentType: _identityDocumentType,
-        documentGroups: groups,
+      final session =
+          _session ??
+          await _verificationRepository.createSession(
+            vehicleId: _selectedVehicleId!,
+            relation: _relation,
+          );
+      _session = session;
+      final result = await _verificationRepository.submitData(
+        session: session,
+        identity: _identity!,
+        vehicleRegistration: _registration!,
       );
       if (!mounted) return;
       setState(() {
-        _successMessage = groups.length == 2
-            ? 'Identität und Fahrzeug wurden zur Prüfung eingereicht.'
-            : groups.contains(ProfileVerificationDocumentKeys.identityGroup)
-            ? 'Dein Identitätsnachweis wurde zur Prüfung eingereicht.'
-            : 'Dein Fahrzeugnachweis wurde zur Prüfung eingereicht.';
+        _result = result;
+        _step = result.status == VerificationV1Status.requiresDeclaration
+            ? 2
+            : 3;
+        _success = result.status == VerificationV1Status.requiresDeclaration
+            ? 'Der Dokumentabgleich war erfolgreich. Bitte bestätige jetzt deine Nutzungsberechtigung.'
+            : 'Der Dokumentabgleich wurde erfolgreich abgeschlossen.';
       });
-    } catch (error) {
-      _showError(_errorText(error));
+    } on VerificationV1Exception catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.message;
+        if (error.reason == 'session-expired') _session = null;
+      });
     } finally {
-      if (mounted) setState(() => _isSubmitting = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  String _submissionBlockReason() {
-    if (!_hasCompleteName) {
-      return 'Bitte speichere zuerst Vorname, Nachname und Geburtsdatum.';
-    }
-    if (_submitsVehicle && (!_hasVehicle || !_hasPlate)) {
-      return 'Bitte hinterlege zuerst ein vollständiges Fahrzeug mit Kennzeichen.';
-    }
-    if (_submittableGroups.isEmpty) {
-      return 'Bitte vervollständige den Identitätsnachweis oder den Fahrzeugnachweis.';
-    }
-    if (!_requiredExpirationsReady) {
-      return 'Bitte gib für den Identitätsnachweis ein gültiges Ablaufdatum ein.';
-    }
-    if (!_consentAccepted) {
-      return 'Bitte bestätige deine Berechtigung und die Datenschutzhinweise.';
-    }
-    if (_submitsVehicle && !_vehicleAssignmentConfirmed) {
-      return 'Bitte bestätige, welches Fahrzeug geprüft werden soll.';
-    }
-    return 'Die Verifizierung kann gerade nicht eingereicht werden.';
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
+  Future<void> _finalizeDeclaration() async {
+    if (!_canFinalize) return;
     setState(() {
-      _errorMessage = message;
-      _successMessage = null;
+      _busy = true;
+      _clearMessages();
+    });
+    try {
+      final result = await _verificationRepository.finalizeDeclaration(
+        session: _session!,
+        signatureStrokes: [
+          for (final stroke in _signature)
+            [
+              for (final point in stroke) {'x': point.dx, 'y': point.dy},
+            ],
+        ],
+      );
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _signature.clear();
+        _step = 3;
+        _success = 'Die Eigenerklärung wurde sicher erstellt.';
+      });
+    } on VerificationV1Exception catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openPrivacy() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  VerificationV1Strings.privacyTitle,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 16),
+                for (final item in VerificationV1Strings.privacyItems)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.check_circle_outline, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(item)),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Information verstanden'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (mounted) setState(() => _privacyOpened = true);
+  }
+
+  void _restart() {
+    setState(() {
+      _step = 0;
+      _identity = null;
+      _registration = null;
+      _session = null;
+      _result = null;
+      _declarationAccepted = false;
+      _signature.clear();
+      _clearMessages();
     });
   }
 
   void _clearMessages() {
-    _errorMessage = null;
-    _successMessage = null;
+    _error = null;
+    _success = null;
   }
 
-  String _errorText(Object error) {
-    if (error is ProfileVerificationException ||
-        error is ProfileMediaStorageException) {
-      return error.toString();
-    }
-    return 'Die Verifizierung konnte gerade nicht aktualisiert werden. Bitte versuche es erneut.';
-  }
-
-  void _showConsentDetails() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: CaRismaDesignTokens.card,
-        title: const Text(
-          'Datenschutz & Berechtigung',
-          style: TextStyle(
-            color: CaRismaDesignTokens.textPrimary,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        content: const SingleChildScrollView(
-          child: Text.rich(
-            TextSpan(
-              style: TextStyle(
-                color: CaRismaDesignTokens.textSecondary,
-                height: 1.45,
-              ),
-              children: [
-                TextSpan(
-                  text:
-                      'Deine Dokumente werden ausschließlich zur freiwilligen Identitätsprüfung oder zur Prüfung deines Fahrzeugbezugs verwendet. Sie erscheinen niemals öffentlich und sind nur für dich und autorisierte Prüfer zugänglich. Nach Abschluss der Prüfung werden sie innerhalb der angegebenen Speicherfrist gelöscht. Beim Fahrzeugnachweis bestätigst du, dass du Halter bist oder das Fahrzeug nachweislich berechtigt nutzt. Falsche oder manipulierte Nachweise können zur Ablehnung, Kontoeinschränkung und ',
-                ),
-                TextSpan(
-                  text: 'rechtlichen Prüfung',
-                  style: TextStyle(
-                    color: CaRismaDesignTokens.danger,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                TextSpan(text: ' führen.'),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Verstanden'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openSupport([String? documentGroup]) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => SupportRequestScreen(
-          type: SupportRequestType.verification,
-          technicalReference: documentGroup == null
-              ? null
-              : SupportTechnicalReference(
-                  referenceId: widget.userId,
-                  referenceGroup: documentGroup,
-                ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _markNotificationRead(
-    ProfileVerificationNotification notification,
-  ) async {
-    if (notification.isRead) return;
+  static Future<void> _deleteUnmanagedCapture(String path) async {
     try {
-      await _verificationRepository.markNotificationRead(
-        userId: widget.userId,
-        notificationId: notification.id,
-      );
-    } catch (_) {
-      _showError(
-        'Die Benachrichtigung konnte gerade nicht aktualisiert werden.',
-      );
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } on FileSystemException {
+      // The source belongs to the camera cache and is retried by the OS.
     }
   }
+}
+
+class _FlowStepper extends StatelessWidget {
+  const _FlowStepper({required this.currentStep});
+
+  final int currentStep;
+
+  static const labels = ['Identität', 'Fahrzeug', 'Erklärung', 'Abschluss'];
 
   @override
   Widget build(BuildContext context) {
-    return CaRismaBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: _isLoading
-              ? _buildLoading()
-              : ListView(
-                  key: PageStorageKey<String>(
-                    'profile-verification-${widget.userId}',
-                  ),
-                  controller: _scrollController,
-                  physics: const ClampingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-                  children: [
-                    CaRismaSubPageHeader(
-                      icon: Icons.verified_user_outlined,
-                      title: 'Dokumente hochladen',
-                      titleFontSize: 19,
-                      onBack: () => Navigator.of(context).pop(),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildOverview(),
-                    if (_notifications.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      _buildNotifications(),
-                    ],
-                    const SizedBox(height: 12),
-                    _buildPrerequisites(),
-                    const SizedBox(height: 12),
-                    for (final group
-                        in ProfileVerificationDocumentKeys.groups) ...[
-                      _VerificationDocumentCard(
-                        group: group,
-                        backRequired:
-                            group.groupKey !=
-                                ProfileVerificationDocumentKeys.identityGroup ||
-                            _identityDocumentType.requiresBackSide,
-                        frontStatus: _effectiveDocumentStatus(group.frontKey),
-                        backStatus: _effectiveDocumentStatus(group.backKey),
-                        frontRejectionReason:
-                            _request?.documentRejectionReasons[group.frontKey],
-                        backRejectionReason:
-                            _request?.documentRejectionReasons[group.backKey],
-                        frontProgress: _uploadProgress[group.frontKey],
-                        backProgress: _uploadProgress[group.backKey],
-                        frontBusy: _busyDocuments.contains(group.frontKey),
-                        backBusy: _busyDocuments.contains(group.backKey),
-                        frontLocked: _isDocumentLocked(group.frontKey),
-                        backLocked: _isDocumentLocked(group.backKey),
-                        onSelectFront: () =>
-                            _chooseDocumentSource(group.frontKey),
-                        onSelectBack: () =>
-                            _chooseDocumentSource(group.backKey),
-                        onRemoveFront: () => _removeDocument(group.frontKey),
-                        onRemoveBack: () => _removeDocument(group.backKey),
-                        onPreviewFront: () => _previewDocument(group.frontKey),
-                        onPreviewBack: () => _previewDocument(group.backKey),
-                        frontLocalPreviewPath:
-                            _localDocumentPreviews[group.frontKey]?.path,
-                        backLocalPreviewPath:
-                            _localDocumentPreviews[group.backKey]?.path,
-                        frontPreviewAvailable:
-                            _localDocumentPreviews.containsKey(
-                              group.frontKey,
-                            ) ||
-                            _request?.documentStoragePaths[group.frontKey]
-                                    ?.trim()
-                                    .isNotEmpty ==
-                                true,
-                        backPreviewAvailable:
-                            _localDocumentPreviews.containsKey(group.backKey) ||
-                            _request?.documentStoragePaths[group.backKey]
-                                    ?.trim()
-                                    .isNotEmpty ==
-                                true,
-                        onReportProblem: () => _openSupport(group.groupKey),
-                        documentTypeField:
-                            group.groupKey ==
-                                ProfileVerificationDocumentKeys.identityGroup
-                            ? _buildIdentityDocumentTypeField()
-                            : null,
-                        vehicleAssignment: group.includesVehicleAssignment
-                            ? _buildVehicleAssignmentFields()
-                            : null,
-                        expirationField: group.expirationKey == null
-                            ? null
-                            : _buildExpirationField(group.expirationKey!),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    _buildConsent(),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 12),
-                      CaRismaMessageCard(
-                        icon: Icons.error_outline_rounded,
-                        message: _errorMessage!,
-                      ),
-                    ],
-                    if (_successMessage != null) ...[
-                      const SizedBox(height: 12),
-                      CaRismaMessageCard(
-                        icon: Icons.check_circle_outline_rounded,
-                        message: _successMessage!,
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    _SubmitVerificationAction(
-                      enabled: _canSubmit,
-                      isLoading: _isSubmitting,
-                      isLocked: _isLocked,
-                      onTap: _submit,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildRetentionAndRecheck(),
-                    if (_history.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      _buildHistory(),
-                    ],
-                  ],
-                ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoading() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-      child: Column(
+    return Semantics(
+      label: 'Schritt ${currentStep + 1} von 4: ${labels[currentStep]}',
+      child: Row(
         children: [
-          CaRismaSubPageHeader(
-            icon: Icons.verified_user_outlined,
-            title: 'Dokumente hochladen',
-            titleFontSize: 19,
-            onBack: () => Navigator.of(context).pop(),
-          ),
-          const Expanded(
-            child: Center(
-              child: CircularProgressIndicator(
-                color: CaRismaDesignTokens.bluePrimary,
+          for (var index = 0; index < labels.length; index++) ...[
+            Expanded(
+              child: Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: index <= currentStep
+                          ? CaRismaDesignTokens.blueBright
+                          : CaRismaDesignTokens.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    labels[index],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: index == currentStep
+                          ? CaRismaDesignTokens.textPrimary
+                          : CaRismaDesignTokens.textMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
+            if (index < labels.length - 1) const SizedBox(width: 6),
+          ],
         ],
       ),
     );
   }
+}
 
-  Widget _buildOverview() {
-    final request = _request;
-    final completed = request?.completedDocumentCount ?? 0;
-    final total = ProfileVerificationDocumentKeys.requiredFor(
-      request?.identityDocumentType ?? _identityDocumentType,
-    ).length;
-    final status = request?.status ?? ProfileVerificationStatus.draft;
-    final statusLabel = switch (status) {
-      ProfileVerificationStatus.pending => 'In Prüfung',
-      ProfileVerificationStatus.verified => 'Vollständig',
-      ProfileVerificationStatus.rejected => 'Abgelehnt',
-      ProfileVerificationStatus.expired => 'Abgelaufen',
-      ProfileVerificationStatus.draft =>
-        completed == 0 ? 'Nicht begonnen' : 'Unvollständig',
-    };
+class _StepCard extends StatelessWidget {
+  const _StepCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: CaRismaDesignTokens.textSecondary,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _CameraAction extends StatelessWidget {
+  const _CameraAction({
+    required this.label,
+    required this.busy,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool busy;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: OutlinedButton.icon(
+        onPressed: busy ? null : onPressed,
+        icon: busy
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.camera_alt_rounded),
+        label: Text(label),
+      ),
+    );
+  }
+}
+
+class _IdentitySummary extends StatelessWidget {
+  const _IdentitySummary({
+    required this.data,
+    required this.busy,
+    required this.onRetake,
+  });
+
+  final IdentityDocumentData data;
+  final bool busy;
+  final VoidCallback onRetake;
+
+  @override
+  Widget build(BuildContext context) => _ReadOnlySummary(
+    title: 'Lokal erkannt',
+    rows: [
+      ('Vorname(n)', data.firstNames),
+      ('Nachname', data.lastName),
+      ('Geburtsdatum', _formatDate(data.dateOfBirth)),
+      ('Gültig bis', _formatDate(data.expiresAt)),
+    ],
+    busy: busy,
+    onRetake: onRetake,
+  );
+}
+
+class _VehicleSummary extends StatelessWidget {
+  const _VehicleSummary({
+    required this.data,
+    required this.busy,
+    required this.onRetake,
+  });
+
+  final VehicleRegistrationData data;
+  final bool busy;
+  final VoidCallback onRetake;
+
+  @override
+  Widget build(BuildContext context) => _ReadOnlySummary(
+    title: 'Lokal erkannt',
+    rows: [('Kennzeichen', data.plate)],
+    busy: busy,
+    onRetake: onRetake,
+  );
+}
+
+class _ReadOnlySummary extends StatelessWidget {
+  const _ReadOnlySummary({
+    required this.title,
+    required this.rows,
+    required this.busy,
+    required this.onRetake,
+  });
+
+  final String title;
+  final List<(String, String)> rows;
+  final bool busy;
+  final VoidCallback onRetake;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: CaRismaDesignTokens.controlSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: CaRismaDesignTokens.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               const Icon(
-                Icons.fact_check_outlined,
-                color: CaRismaDesignTokens.bluePrimary,
+                Icons.check_circle_rounded,
+                color: CaRismaDesignTokens.success,
               ),
-              const SizedBox(width: 10),
-              const Expanded(
+              const SizedBox(width: 8),
+              Expanded(
                 child: Text(
-                  'Verifizierungsübersicht',
-                  maxLines: 1,
-                  style: TextStyle(
-                    color: CaRismaDesignTokens.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '$completed von $total Nachweisen vollständig',
-                    maxLines: 1,
-                    style: const TextStyle(
-                      color: CaRismaDesignTokens.textSecondary,
-                      fontWeight: FontWeight.w800,
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 112,
+                    child: Text(
+                      row.$1,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: CaRismaDesignTokens.textMuted,
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _StatusPill(label: statusLabel, status: status),
-            ],
-          ),
-          const SizedBox(height: 9),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: total == 0 ? 0 : completed / total,
-              minHeight: 7,
-              backgroundColor: CaRismaDesignTokens.controlSurface,
-              valueColor: const AlwaysStoppedAnimation(
-                CaRismaDesignTokens.bluePrimary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _VerificationStageRow(
-            title: 'Basis-Konto',
-            description: 'E-Mail, Profil und eigenes Kennzeichen',
-            complete: _hasCompleteName && _hasVehicle && _hasPlate,
-          ),
-          _VerificationStageRow(
-            title: 'Fahrzeug bestätigt',
-            description: 'Fahrzeugschein wurde geprüft',
-            complete: request?.isVehicleVerified == true,
-          ),
-          _VerificationStageRow(
-            title: 'Identität bestätigt',
-            description: 'Freiwilliger Identitätsnachweis wurde geprüft',
-            complete: request?.isIdentityVerified == true,
-          ),
-          _VerificationStageRow(
-            title: 'Vollständig verifiziert',
-            description: 'Fahrzeug und Identität sind bestätigt',
-            complete: request?.isFullyVerified == true,
-            isLast: true,
-          ),
-          if (request?.rejectionReason?.trim().isNotEmpty == true) ...[
-            const SizedBox(height: 11),
-            Text(
-              request!.rejectionReason!.trim(),
-              style: const TextStyle(
-                color: CaRismaDesignTokens.danger,
-                fontWeight: FontWeight.w800,
-                height: 1.35,
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _openSupport,
-              icon: const Icon(Icons.support_agent_outlined),
-              label: const Text('Verifizierungsproblem melden'),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPrerequisites() {
-    final vehicle = _selectedVehicle;
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _ProfilePhoto(photoUrl: _profile?.photoUrl),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  _profile?.displayName.trim().isNotEmpty == true
-                      ? _profile!.displayName.trim()
-                      : 'Persönliche Daten',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textPrimary,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
+                  Expanded(
+                    child: Text(
+                      row.$2,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _PrerequisiteRow(
-            icon: Icons.person_outline_rounded,
-            label: 'Name & Geburtsdatum',
-            complete: _hasCompleteName,
-          ),
-          _PrerequisiteRow(
-            icon: Icons.photo_camera_front_outlined,
-            label: 'Profilbild',
-            complete: _hasProfilePhoto,
-            optional: true,
-          ),
-          _PrerequisiteRow(
-            icon: Icons.directions_car_outlined,
-            label: vehicle?.displayName ?? 'Fahrzeug',
-            complete: _hasVehicle,
-          ),
-          _PrerequisiteRow(
-            icon: Icons.pin_outlined,
-            label: vehicle?.displayPlate ?? 'Kennzeichen',
-            complete: _hasPlate,
-            isLast: true,
-          ),
-          const SizedBox(height: 12),
-          const _VerificationInfoBox(
-            icon: Icons.rule_folder_outlined,
-            text:
-                'Name, Kennzeichen und Fahrzeug müssen für eine erfolgreiche Verifizierung exakt zu den Nachweisen passen.',
-            centerIcon: true,
+            ),
+          TextButton.icon(
+            onPressed: busy ? null : onRetake,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Neu fotografieren'),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildVehicleAssignmentFields() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(color: Color(0x1FFFFFFF), height: 26),
-        const Text(
-          'Fahrzeugzuordnung',
-          style: TextStyle(
-            color: CaRismaDesignTokens.textPrimary,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 10),
-        _DarkDropdown<String>(
-          value: _selectedVehicleId,
-          hint: 'Fahrzeug auswählen',
-          enabled:
-              !_isLocked &&
-              !_isGroupProtected(
-                ProfileVerificationDocumentKeys.vehicleGroup,
-              ) &&
-              _vehicles.isNotEmpty,
-          items: _vehicles
-              .map(
-                (vehicle) => DropdownMenuItem(
-                  value: vehicle.id,
-                  child: Text(
-                    '${vehicle.displayName} · ${vehicle.displayPlate}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(growable: false),
-          onChanged: _selectVehicle,
-        ),
-        const SizedBox(height: 10),
-        _DarkDropdown<ProfileVehicleRelationship>(
-          value: _relationship,
-          hint: 'Berechtigung auswählen',
-          enabled:
-              !_isLocked &&
-              !_isGroupProtected(ProfileVerificationDocumentKeys.vehicleGroup),
-          items: ProfileVehicleRelationship.values
-              .map(
-                (relationship) => DropdownMenuItem(
-                  value: relationship,
-                  child: Text(_relationshipLabel(relationship)),
-                ),
-              )
-              .toList(growable: false),
-          onChanged: _selectRelationship,
-        ),
-        const SizedBox(height: 10),
-        if (_selectedVehicle == null)
-          const _VerificationInfoBox(
-            icon: Icons.info_outline_rounded,
-            text: 'Bitte wähle zuerst ein Fahrzeug aus.',
-            centerIcon: true,
-          )
-        else
-          _InlineConfirmationRow(
-            value: _vehicleAssignmentConfirmed,
-            enabled: !_isLocked,
-            text:
-                'Dieses Fahrzeug prüfen: ${_selectedVehicle!.displayName} · ${_selectedVehicle!.displayPlate}',
-            onChanged: _toggleVehicleAssignment,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildIdentityDocumentTypeField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(color: Color(0x1FFFFFFF), height: 26),
-        const Text(
-          'Dokumenttyp',
-          style: TextStyle(
-            color: CaRismaDesignTokens.textPrimary,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 10),
-        _DarkDropdown<ProfileVerificationIdentityDocumentType>(
-          value: _identityDocumentType,
-          hint: 'Dokumenttyp auswählen',
-          enabled:
-              !_isLocked &&
-              !_isGroupProtected(ProfileVerificationDocumentKeys.identityGroup),
-          items: ProfileVerificationIdentityDocumentType.values
-              .map(
-                (type) =>
-                    DropdownMenuItem(value: type, child: Text(type.label)),
-              )
-              .toList(growable: false),
-          onChanged: _selectIdentityDocumentType,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildExpirationField(String expirationKey) {
-    const label = 'Ablaufdatum des Identitätsnachweises';
-    final controller = _expirationControllers[expirationKey]!;
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
-        builder: (context, value, _) {
-          final validationMessage = _expirationValidationMessage(value.text);
-          final errorBorder = OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(
-              color: CaRismaDesignTokens.danger,
-              width: 1.5,
-            ),
-          );
-          return TextField(
-            key: ValueKey('verification-expiration-$expirationKey'),
-            controller: controller,
-            focusNode: _expirationFocusNodes[expirationKey],
-            enabled: !_isExpirationLocked(expirationKey),
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.done,
-            inputFormatters: const [_GermanDateInputFormatter()],
-            maxLength: 10,
-            onChanged: (_) {
-              _dirtyExpirationKeys.add(expirationKey);
-              if (_errorMessage != null || _successMessage != null) {
-                setState(_clearMessages);
-              }
-            },
-            onEditingComplete: () {
-              _expirationFocusNodes[expirationKey]?.unfocus();
-              unawaited(_persistExpiration(expirationKey));
-            },
-            onTapOutside: (_) {
-              _expirationFocusNodes[expirationKey]?.unfocus();
-              if (_dirtyExpirationKeys.contains(expirationKey)) {
-                unawaited(_persistExpiration(expirationKey));
-              }
-            },
-            style: const TextStyle(
-              color: CaRismaDesignTokens.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: 'TT.MM.JJJJ',
-              prefixIcon: const Icon(Icons.event_outlined),
-              helperText: validationMessage == null
-                  ? 'Muss aktuell gültig sein'
-                  : null,
-              errorText: validationMessage,
-              errorMaxLines: 2,
-              counterText: '',
-              filled: true,
-              fillColor: CaRismaDesignTokens.controlSurface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              errorBorder: errorBorder,
-              focusedErrorBorder: errorBorder,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildConsent() {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                color: CaRismaDesignTokens.danger,
-                size: 20,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'UNBEDINGT LESEN!',
-                style: TextStyle(
-                  color: CaRismaDesignTokens.danger,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Bitte öffne und lies zuerst die Informationen zu Datenschutz und Berechtigung vollständig durch.',
-            style: TextStyle(
-              color: CaRismaDesignTokens.textSecondary,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _OutlineAction(
-            label: 'Datenschutz & Berechtigung ansehen',
-            icon: Icons.policy_outlined,
-            onTap: _showConsentDetails,
-          ),
-          const SizedBox(height: 12),
-          _InlineConfirmationRow(
-            key: const ValueKey('verification-consent-checkbox'),
-            value: _consentAccepted,
-            enabled: !_isLocked,
-            text:
-                'Ich bestätige, dass meine Angaben richtig sind, und stimme der Verarbeitung der ausgewählten Nachweise zur Verifizierung zu.',
-            onChanged: _toggleConsent,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRetentionAndRecheck() {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Datenschutzübersicht',
-            style: TextStyle(
-              color: CaRismaDesignTokens.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const _PrivacyOverviewRow(
-            icon: Icons.admin_panel_settings_outlined,
-            title: 'Prüfung',
-            text:
-                'Nur ausdrücklich berechtigte Prüfer dürfen deine Nachweise für die Verifizierung einsehen.',
-          ),
-          const _PrivacyOverviewRow(
-            icon: Icons.lock_outline_rounded,
-            title: 'Speicherung',
-            text:
-                'Dokumente werden geschützt und ausschließlich für die Identitäts- oder Fahrzeugprüfung gespeichert. Nicht benötigte Angaben wie Dokumentnummer, Zugangsnummer oder maschinenlesbare Zone dürfen geschwärzt werden, soweit die Prüfung möglich bleibt.',
-          ),
-          const _PrivacyOverviewRow(
-            icon: Icons.visibility_off_outlined,
-            title: 'Öffentliche Daten',
-            text:
-                'Dokumentbilder und persönliche Angaben bleiben privat. Öffentlich erscheint nur ein einfacher Identitätsstatus; die Fahrzeugprüfung wird getrennt geführt.',
-          ),
-          const _PrivacyOverviewRow(
-            icon: Icons.find_replace_outlined,
-            title: 'Nachreichung und Löschung',
-            text:
-                'Abgelehnte oder abgelaufene Nachweise können gezielt ersetzt werden. Nicht mehr benötigte Dateien werden nach den festgelegten Regeln entfernt.',
-            isLast: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistory() {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Verifizierungsverlauf',
-            style: TextStyle(
-              color: CaRismaDesignTokens.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 10),
-          for (var index = 0; index < _history.length; index++)
-            _HistoryRow(
-              entry: _history[index],
-              isLast: index == _history.length - 1,
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotifications() {
-    final visible = _notifications.take(5).toList(growable: false);
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Aktuelle Hinweise',
-            style: TextStyle(
-              color: CaRismaDesignTokens.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 10),
-          for (var index = 0; index < visible.length; index++)
-            _VerificationNotificationRow(
-              notification: visible[index],
-              isLast: index == visible.length - 1,
-              onMarkRead: () => _markNotificationRead(visible[index]),
-            ),
-        ],
-      ),
-    );
-  }
-
-  ProfileVerificationDocumentStatus _effectiveDocumentStatus(String key) {
-    if (_busyDocuments.contains(key)) {
-      return ProfileVerificationDocumentStatus.uploading;
-    }
-    return _request?.documentStatusFor(key) ??
-        ProfileVerificationDocumentStatus.missing;
-  }
-
-  bool _isDocumentLocked(String key) {
-    final request = _request;
-    if (request == null) return false;
-    return !request.canEditDocument(key);
-  }
-
-  bool _isExpirationLocked(String expirationKey) {
-    if (_isLocked) return true;
-    final request = _request;
-    if (request == null) return false;
-    return request.isGroupVerified(
-      ProfileVerificationDocumentKeys.identityGroup,
-    );
-  }
-
-  bool _isGroupProtected(String groupKey) {
-    return _request?.isGroupProtected(groupKey) ?? false;
   }
 }
 
-class _VerificationStageRow extends StatelessWidget {
-  const _VerificationStageRow({
-    required this.title,
-    required this.description,
-    required this.complete,
-    this.isLast = false,
+class _RelationOption extends StatelessWidget {
+  const _RelationOption({
+    required this.relation,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
   });
 
-  final String title;
-  final String description;
-  final bool complete;
-  final bool isLast;
+  final VerificationVehicleRelation relation;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = complete
-        ? CaRismaDesignTokens.success
-        : CaRismaDesignTokens.textMuted;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.08,
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      label: relation.label,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Material(
+          color: selected
+              ? CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            key: ValueKey('verification-relation-${relation.value}'),
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+              child: Row(
+                children: [
+                  Icon(
+                    selected
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: selected
+                        ? CaRismaDesignTokens.blueBright
+                        : CaRismaDesignTokens.textMuted,
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      relation.label,
+                      style: TextStyle(
+                        color: enabled
+                            ? CaRismaDesignTokens.textPrimary
+                            : CaRismaDesignTokens.textMuted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            complete ? Icons.check_circle_rounded : Icons.circle_outlined,
-            color: color,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textMuted,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _InlineConfirmationRow extends StatelessWidget {
-  const _InlineConfirmationRow({
-    super.key,
-    required this.value,
+class _PrivacyConfirmation extends StatelessWidget {
+  const _PrivacyConfirmation({
+    required this.opened,
+    required this.accepted,
     required this.enabled,
-    required this.text,
+    required this.onOpen,
     required this.onChanged,
   });
 
-  final bool value;
+  final bool opened;
+  final bool accepted;
   final bool enabled;
-  final String text;
+  final VoidCallback onOpen;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox.square(
-          dimension: 32,
-          child: Checkbox(
-            value: value,
-            onChanged: enabled
-                ? (nextValue) => onChanged(nextValue ?? false)
-                : null,
-            activeColor: CaRismaDesignTokens.bluePrimary,
-            checkColor: Colors.white,
-            side: const BorderSide(color: CaRismaDesignTokens.textMuted),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
+        OutlinedButton.icon(
+          onPressed: enabled ? onOpen : null,
+          icon: const Icon(Icons.privacy_tip_outlined),
+          label: const Text('Datenschutz & Berechtigung ansehen'),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: enabled ? () => onChanged(!value) : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              child: Text(
-                text,
-                style: const TextStyle(
-                  color: CaRismaDesignTokens.textSecondary,
-                  fontWeight: FontWeight.w700,
-                  height: 1.38,
-                ),
-              ),
-            ),
-          ),
+        CheckboxListTile(
+          value: accepted,
+          enabled: enabled && opened,
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          title: const Text('Ich habe die aktuelle Information gelesen.'),
+          onChanged: (value) => onChanged(value == true),
         ),
       ],
     );
   }
 }
 
-class _VerificationDocumentCard extends StatelessWidget {
-  const _VerificationDocumentCard({
-    required this.group,
-    required this.backRequired,
-    required this.frontStatus,
-    required this.backStatus,
-    required this.frontRejectionReason,
-    required this.backRejectionReason,
-    required this.frontProgress,
-    required this.backProgress,
-    required this.frontBusy,
-    required this.backBusy,
-    required this.frontLocked,
-    required this.backLocked,
-    required this.onSelectFront,
-    required this.onSelectBack,
-    required this.onRemoveFront,
-    required this.onRemoveBack,
-    required this.onPreviewFront,
-    required this.onPreviewBack,
-    required this.frontLocalPreviewPath,
-    required this.backLocalPreviewPath,
-    required this.frontPreviewAvailable,
-    required this.backPreviewAvailable,
-    required this.onReportProblem,
-    this.vehicleAssignment,
-    this.expirationField,
-    this.documentTypeField,
+class _SignaturePad extends StatelessWidget {
+  const _SignaturePad({
+    required this.strokes,
+    required this.enabled,
+    required this.onChanged,
   });
 
-  final ProfileVerificationDocumentGroup group;
-  final bool backRequired;
-  final ProfileVerificationDocumentStatus frontStatus;
-  final ProfileVerificationDocumentStatus backStatus;
-  final String? frontRejectionReason;
-  final String? backRejectionReason;
-  final double? frontProgress;
-  final double? backProgress;
-  final bool frontBusy;
-  final bool backBusy;
-  final bool frontLocked;
-  final bool backLocked;
-  final VoidCallback onSelectFront;
-  final VoidCallback onSelectBack;
-  final VoidCallback onRemoveFront;
-  final VoidCallback onRemoveBack;
-  final VoidCallback onPreviewFront;
-  final VoidCallback onPreviewBack;
-  final String? frontLocalPreviewPath;
-  final String? backLocalPreviewPath;
-  final bool frontPreviewAvailable;
-  final bool backPreviewAvailable;
-  final VoidCallback onReportProblem;
-  final Widget? vehicleAssignment;
-  final Widget? expirationField;
-  final Widget? documentTypeField;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = switch (group.iconName) {
-      'identity' => Icons.badge_outlined,
-      'driverLicense' => Icons.credit_card_rounded,
-      _ => Icons.description_outlined,
-    };
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: CaRismaDesignTokens.controlSurface,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: CaRismaDesignTokens.textPrimary.withValues(
-                      alpha: 0.12,
-                    ),
-                  ),
-                ),
-                child: Icon(icon, color: CaRismaDesignTokens.textPrimary),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      group.title,
-                      style: const TextStyle(
-                        color: CaRismaDesignTokens.textPrimary,
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      group.subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: CaRismaDesignTokens.textMuted,
-                        height: 1.3,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          ?documentTypeField,
-          ?vehicleAssignment,
-          ?expirationField,
-          const SizedBox(height: 12),
-          _DocumentSideSection(
-            label: 'Vorderseite',
-            status: frontStatus,
-            rejectionReason: frontRejectionReason,
-            progress: frontProgress,
-            isBusy: frontBusy,
-            isLocked: frontLocked,
-            onSelect: onSelectFront,
-            onRemove: onRemoveFront,
-            onPreview: onPreviewFront,
-            localPreviewPath: frontLocalPreviewPath,
-            previewAvailable: frontPreviewAvailable,
-            onReportProblem: onReportProblem,
-          ),
-          if (backRequired) ...[
-            const Divider(color: Color(0x1FFFFFFF), height: 24),
-            _DocumentSideSection(
-              label: 'Rückseite',
-              status: backStatus,
-              rejectionReason: backRejectionReason,
-              progress: backProgress,
-              isBusy: backBusy,
-              isLocked: backLocked,
-              onSelect: onSelectBack,
-              onRemove: onRemoveBack,
-              onPreview: onPreviewBack,
-              localPreviewPath: backLocalPreviewPath,
-              previewAvailable: backPreviewAvailable,
-              onReportProblem: onReportProblem,
-            ),
-          ] else ...[
-            const SizedBox(height: 12),
-            const _VerificationInfoBox(
-              icon: Icons.info_outline_rounded,
-              text: 'Beim Reisepass ist nur die Datenseite erforderlich.',
-              centerIcon: true,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _DocumentSideSection extends StatelessWidget {
-  const _DocumentSideSection({
-    required this.label,
-    required this.status,
-    required this.rejectionReason,
-    required this.progress,
-    required this.isBusy,
-    required this.isLocked,
-    required this.onSelect,
-    required this.onRemove,
-    required this.onPreview,
-    required this.localPreviewPath,
-    required this.previewAvailable,
-    required this.onReportProblem,
-  });
-
-  final String label;
-  final ProfileVerificationDocumentStatus status;
-  final String? rejectionReason;
-  final double? progress;
-  final bool isBusy;
-  final bool isLocked;
-  final VoidCallback onSelect;
-  final VoidCallback onRemove;
-  final VoidCallback onPreview;
-  final String? localPreviewPath;
-  final bool previewAvailable;
-  final VoidCallback onReportProblem;
-
-  bool get _hasDocument =>
-      localPreviewPath?.trim().isNotEmpty == true ||
-      !const {
-        ProfileVerificationDocumentStatus.missing,
-        ProfileVerificationDocumentStatus.uploading,
-        ProfileVerificationDocumentStatus.expired,
-      }.contains(status);
+  final List<List<Offset>> strokes;
+  final bool enabled;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
             Expanded(
               child: Text(
-                label,
-                style: const TextStyle(
-                  color: CaRismaDesignTokens.textPrimary,
-                  fontWeight: FontWeight.w900,
-                ),
+                'Mit dem Finger unterschreiben',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
             ),
-            if (status != ProfileVerificationDocumentStatus.missing)
-              _DocumentStatusLine(status: status),
+            IconButton(
+              tooltip: 'Unterschrift zurücksetzen',
+              onPressed: !enabled || strokes.isEmpty
+                  ? null
+                  : () {
+                      strokes.clear();
+                      onChanged();
+                    },
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
           ],
         ),
-        if (isBusy) ...[
-          const SizedBox(height: 10),
-          LinearProgressIndicator(
-            value: progress,
-            minHeight: 6,
-            backgroundColor: CaRismaDesignTokens.controlSurface,
-            color: CaRismaDesignTokens.bluePrimary,
-          ),
-        ],
-        if (rejectionReason?.trim().isNotEmpty == true) ...[
-          const SizedBox(height: 9),
-          Text(
-            rejectionReason!.trim(),
-            style: const TextStyle(
-              color: CaRismaDesignTokens.danger,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
-            ),
-          ),
-          TextButton.icon(
-            onPressed: onReportProblem,
-            icon: const Icon(Icons.support_agent_outlined, size: 18),
-            label: const Text('Problem melden'),
-          ),
-        ],
-        if (localPreviewPath?.trim().isNotEmpty == true) ...[
-          const SizedBox(height: 10),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onPreview,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: double.infinity,
-                height: 128,
-                child: Image.file(
-                  File(localPreviewPath!),
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, _, _) => const ColoredBox(
-                    color: CaRismaDesignTokens.controlSurface,
-                    child: Center(
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: CaRismaDesignTokens.textMuted,
-                      ),
+        const SizedBox(height: 8),
+        Semantics(
+          key: const ValueKey('verification-signature-pad'),
+          label: 'Unterschriftsfeld',
+          hint: 'Mit dem Finger innerhalb des Feldes unterschreiben',
+          child: SizedBox(
+            height: 190,
+            child: LayoutBuilder(
+              builder: (context, constraints) => GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: !enabled
+                    ? null
+                    : (details) {
+                        strokes.add([
+                          _normalized(
+                            details.localPosition,
+                            constraints.biggest,
+                          ),
+                        ]);
+                        onChanged();
+                      },
+                onPanUpdate: !enabled
+                    ? null
+                    : (details) {
+                        if (strokes.isEmpty) strokes.add([]);
+                        strokes.last.add(
+                          _normalized(
+                            details.localPosition,
+                            constraints.biggest,
+                          ),
+                        );
+                        onChanged();
+                      },
+                child: CustomPaint(
+                  painter: _SignaturePainter(strokes),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: CaRismaDesignTokens.border),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ],
-        if (previewAvailable) ...[
-          const SizedBox(height: 8),
-          _OutlineAction(
-            label: 'Sicher ansehen',
-            icon: Icons.visibility_outlined,
-            onTap: onPreview,
-          ),
-        ],
-        if (!isLocked) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _OutlineAction(
-                  label: _hasDocument ? 'Ersetzen' : 'Auswählen',
-                  icon: _hasDocument
-                      ? Icons.sync_rounded
-                      : Icons.add_photo_alternate_outlined,
-                  onTap: isBusy ? null : onSelect,
-                ),
-              ),
-              if (_hasDocument) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _OutlineAction(
-                    label: status == ProfileVerificationDocumentStatus.rejected
-                        ? 'Neu einreichen'
-                        : 'Entfernen',
-                    icon: status == ProfileVerificationDocumentStatus.rejected
-                        ? Icons.refresh_rounded
-                        : Icons.delete_outline_rounded,
-                    isDanger:
-                        status != ProfileVerificationDocumentStatus.rejected,
-                    onTap: isBusy
-                        ? null
-                        : status == ProfileVerificationDocumentStatus.rejected
-                        ? onSelect
-                        : onRemove,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _DocumentStatusLine extends StatelessWidget {
-  const _DocumentStatusLine({required this.status});
-
-  final ProfileVerificationDocumentStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, icon, color) = switch (status) {
-      ProfileVerificationDocumentStatus.missing => (
-        'Fehlt',
-        Icons.error_outline_rounded,
-        CaRismaDesignTokens.textMuted,
-      ),
-      ProfileVerificationDocumentStatus.uploading => (
-        'Wird hochgeladen',
-        Icons.cloud_upload_outlined,
-        CaRismaDesignTokens.bluePrimary,
-      ),
-      ProfileVerificationDocumentStatus.uploaded => (
-        'Hochgeladen',
-        Icons.cloud_done_outlined,
-        CaRismaDesignTokens.bluePrimary,
-      ),
-      ProfileVerificationDocumentStatus.inReview => (
-        'In Prüfung',
-        Icons.manage_search_rounded,
-        CaRismaDesignTokens.bluePrimary,
-      ),
-      ProfileVerificationDocumentStatus.verified => (
-        'Verifiziert',
-        Icons.verified_outlined,
-        CaRismaDesignTokens.success,
-      ),
-      ProfileVerificationDocumentStatus.rejected => (
-        'Abgelehnt',
-        Icons.cancel_outlined,
-        CaRismaDesignTokens.danger,
-      ),
-      ProfileVerificationDocumentStatus.expired => (
-        'Abgelaufen',
-        Icons.schedule_outlined,
-        CaRismaDesignTokens.danger,
-      ),
-    };
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(color: color, fontWeight: FontWeight.w900),
         ),
       ],
     );
   }
+
+  static Offset _normalized(Offset point, Size size) => Offset(
+    (point.dx / size.width).clamp(0.0, 1.0),
+    (point.dy / size.height).clamp(0.0, 1.0),
+  );
 }
 
-class _VerificationInfoBox extends StatelessWidget {
-  const _VerificationInfoBox({
-    required this.icon,
-    required this.text,
-    this.centerIcon = false,
-  });
+class _SignaturePainter extends CustomPainter {
+  const _SignaturePainter(this.strokes);
 
-  final IconData icon;
-  final String text;
-  final bool centerIcon;
+  final List<List<Offset>> strokes;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: CaRismaDesignTokens.controlSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: centerIcon
-            ? CrossAxisAlignment.center
-            : CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 21),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: CaRismaDesignTokens.textSecondary,
-                fontWeight: FontWeight.w700,
-                height: 1.36,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfilePhoto extends StatelessWidget {
-  const _ProfilePhoto({required this.photoUrl});
-
-  final String? photoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = photoUrl?.trim() ?? '';
-    return Container(
-      width: 54,
-      height: 54,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: CaRismaDesignTokens.controlSurface,
-        border: Border.all(
-          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
-        ),
-      ),
-      child: url.isEmpty
-          ? const Icon(
-              Icons.person_rounded,
-              color: CaRismaDesignTokens.textPrimary,
-              size: 28,
-            )
-          : Image.network(
-              url,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const Icon(
-                Icons.person_rounded,
-                color: CaRismaDesignTokens.textPrimary,
-                size: 28,
-              ),
-            ),
-    );
-  }
-}
-
-class _PrerequisiteRow extends StatelessWidget {
-  const _PrerequisiteRow({
-    required this.icon,
-    required this.label,
-    required this.complete,
-    this.optional = false,
-    this.isLast = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool complete;
-  final bool optional;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.08,
-                  ),
-                ),
-              ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: CaRismaDesignTokens.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          if (complete || optional)
-            Text(
-              complete ? 'Vorhanden' : 'Optional',
-              style: TextStyle(
-                color: complete
-                    ? CaRismaDesignTokens.success
-                    : CaRismaDesignTokens.textMuted,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.status});
-
-  final String label;
-  final ProfileVerificationStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (status) {
-      ProfileVerificationStatus.verified => CaRismaDesignTokens.success,
-      ProfileVerificationStatus.rejected ||
-      ProfileVerificationStatus.expired => CaRismaDesignTokens.danger,
-      _ => CaRismaDesignTokens.bluePrimary,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-        color: CaRismaDesignTokens.controlSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.7)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11.5,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _DarkDropdown<T> extends StatelessWidget {
-  const _DarkDropdown({
-    required this.value,
-    required this.hint,
-    required this.enabled,
-    required this.items,
-    required this.onChanged,
-  });
-
-  final T? value;
-  final String hint;
-  final bool enabled;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return InputDecorator(
-      key: ValueKey('dark-dropdown-$T-$value'),
-      isEmpty: value == null,
-      decoration: InputDecoration(
-        enabled: enabled,
-        filled: true,
-        fillColor: CaRismaDesignTokens.controlSurface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
-          ),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.08),
-          ),
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          isDense: true,
-          dropdownColor: CaRismaDesignTokens.card,
-          iconEnabledColor: Colors.white,
-          iconDisabledColor: CaRismaDesignTokens.textPrimary.withValues(
-            alpha: 0.45,
-          ),
-          style: const TextStyle(
-            color: CaRismaDesignTokens.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
-          hint: Text(
-            hint,
-            style: const TextStyle(color: CaRismaDesignTokens.textMuted),
-          ),
-          items: items,
-          onChanged: enabled ? onChanged : null,
-        ),
-      ),
-    );
-  }
-}
-
-class _GermanDateInputFormatter extends TextInputFormatter {
-  const _GermanDateInputFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length > 8) digits = digits.substring(0, 8);
-
-    final buffer = StringBuffer();
-    for (var index = 0; index < digits.length; index++) {
-      if (index == 2 || index == 4) buffer.write('.');
-      buffer.write(digits[index]);
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF09264D)
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (final stroke in strokes) {
+      if (stroke.length < 2) continue;
+      final path = Path()
+        ..moveTo(stroke.first.dx * size.width, stroke.first.dy * size.height);
+      for (final point in stroke.skip(1)) {
+        path.lineTo(point.dx * size.width, point.dy * size.height);
+      }
+      canvas.drawPath(path, paint);
     }
-    final formatted = buffer.toString();
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
   }
-}
-
-class _SourceAction extends StatelessWidget {
-  const _SourceAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        height: 86,
-        decoration: BoxDecoration(
-          color: CaRismaDesignTokens.controlSurface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.12),
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: CaRismaDesignTokens.textPrimary, size: 27),
-            const SizedBox(height: 7),
-            Text(
-              label,
-              style: const TextStyle(
-                color: CaRismaDesignTokens.textPrimary,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  bool shouldRepaint(covariant _SignaturePainter oldDelegate) => true;
 }
 
-class _OutlineAction extends StatelessWidget {
-  const _OutlineAction({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    this.isDanger = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback? onTap;
-  final bool isDanger;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isDanger
-        ? CaRismaDesignTokens.danger
-        : CaRismaDesignTokens.bluePrimary;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 140),
-        opacity: onTap == null ? 0.45 : 1,
-        child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: CaRismaDesignTokens.controlSurface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.8)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 19),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SubmitVerificationAction extends StatelessWidget {
-  const _SubmitVerificationAction({
-    required this.enabled,
-    required this.isLoading,
-    required this.isLocked,
-    required this.onTap,
-  });
-
-  final bool enabled;
-  final bool isLoading;
-  final bool isLocked;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = isLocked ? 'Prüfung läuft' : 'Zur Prüfung einreichen';
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: enabled ? onTap : null,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 150),
-        opacity: enabled || isLocked ? 1 : 0.46,
-        child: Container(
-          height: 58,
-          decoration: BoxDecoration(
-            color: CaRismaDesignTokens.controlSurface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isLocked
-                  ? CaRismaDesignTokens.textPrimary.withValues(alpha: 0.14)
-                  : CaRismaDesignTokens.bluePrimary,
-              width: 1.5,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isLoading)
-                  const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  Icon(
-                    isLocked ? Icons.lock_outline_rounded : Icons.send_rounded,
-                    color: CaRismaDesignTokens.textPrimary,
-                  ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: CaRismaDesignTokens.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VerificationNotificationRow extends StatelessWidget {
-  const _VerificationNotificationRow({
-    required this.notification,
-    required this.isLast,
-    required this.onMarkRead,
-  });
-
-  final ProfileVerificationNotification notification;
-  final bool isLast;
-  final VoidCallback onMarkRead;
-
-  @override
-  Widget build(BuildContext context) {
-    final isPositive =
-        notification.status == ProfileVerificationStatus.verified;
-    final color = isPositive
-        ? CaRismaDesignTokens.success
-        : notification.status == ProfileVerificationStatus.rejected
-        ? CaRismaDesignTokens.danger
-        : CaRismaDesignTokens.bluePrimary;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.08,
-                  ),
-                ),
-              ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            isPositive
-                ? Icons.verified_outlined
-                : notification.status == ProfileVerificationStatus.rejected
-                ? Icons.assignment_late_outlined
-                : Icons.notifications_none_rounded,
-            color: color,
-            size: 21,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  notification.message,
-                  style: TextStyle(
-                    color: notification.isRead
-                        ? CaRismaDesignTokens.textSecondary
-                        : Colors.white,
-                    fontWeight: notification.isRead
-                        ? FontWeight.w700
-                        : FontWeight.w900,
-                    height: 1.35,
-                  ),
-                ),
-                if (notification.createdAt != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatDate(notification.createdAt!),
-                    style: const TextStyle(
-                      color: CaRismaDesignTokens.textMuted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (!notification.isRead) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onMarkRead,
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(
-                  Icons.done_rounded,
-                  color: CaRismaDesignTokens.bluePrimary,
-                  size: 21,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.entry, required this.isLast});
-
-  final ProfileVerificationHistoryEntry entry;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (entry.eventType) {
-      'submitted' => 'Zur Prüfung eingereicht',
-      'reviewed' => 'Prüfung abgeschlossen',
-      'resubmissionRequested' => 'Erneute Prüfung angefordert',
-      _ => switch (entry.status) {
-        ProfileVerificationStatus.pending => 'Zur Prüfung eingereicht',
-        ProfileVerificationStatus.verified => 'Verifiziert',
-        ProfileVerificationStatus.rejected => 'Nachreichung erforderlich',
-        ProfileVerificationStatus.expired => 'Nachweis abgelaufen',
-        ProfileVerificationStatus.draft => 'Entwurf aktualisiert',
-      },
-    };
-    final dateLabel = switch (entry.eventType) {
-      'submitted' => 'Eingereicht am',
-      'reviewed' => 'Geprüft am',
-      'resubmissionRequested' => 'Angefordert am',
-      _ => 'Aktualisiert am',
-    };
-    final groupLabel = entry.documentGroups
-        .map(ProfileVerificationDocumentKeys.groupLabel)
-        .join(', ');
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.08,
-                  ),
-                ),
-              ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.history_rounded,
-            color: CaRismaDesignTokens.textPrimary,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (entry.reason?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    entry.reason!.trim(),
-                    style: const TextStyle(
-                      color: CaRismaDesignTokens.textSecondary,
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-                if (groupLabel.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Nachweise: $groupLabel',
-                    style: const TextStyle(
-                      color: CaRismaDesignTokens.textMuted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-                if (entry.validUntil != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    'Gültig bis ${_formatDate(entry.validUntil!)}',
-                    style: const TextStyle(
-                      color: CaRismaDesignTokens.textMuted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (entry.createdAt != null)
-            Flexible(
-              child: Text(
-                '$dateLabel\n${_formatDate(entry.createdAt!)}',
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  color: CaRismaDesignTokens.textMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PrivacyOverviewRow extends StatelessWidget {
-  const _PrivacyOverviewRow({
-    required this.icon,
-    required this.title,
-    required this.text,
-    this.isLast = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String text;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: CaRismaDesignTokens.textPrimary.withValues(
-                    alpha: 0.08,
-                  ),
-                ),
-              ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: CaRismaDesignTokens.bluePrimary, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textPrimary,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    color: CaRismaDesignTokens.textSecondary,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _relationshipLabel(ProfileVehicleRelationship relationship) {
-  return switch (relationship) {
-    ProfileVehicleRelationship.owner => 'Ich bin Halter',
-    ProfileVehicleRelationship.leasingCompany => 'Leasing- oder Firmenfahrzeug',
-    ProfileVehicleRelationship.authorizedUser =>
-      'Ich nutze das Fahrzeug mit Erlaubnis',
-  };
-}
-
-ProfileVehicleRelationship _relationshipForVehicle(ProfileVehicle? vehicle) {
-  return switch (vehicle?.useRelationship) {
-    ProfileVehicleUseRelationship.leasingCompany =>
-      ProfileVehicleRelationship.leasingCompany,
-    ProfileVehicleUseRelationship.authorizedUser =>
-      ProfileVehicleRelationship.authorizedUser,
-    _ => ProfileVehicleRelationship.owner,
-  };
-}
-
-String _formatDate(DateTime date) {
-  final day = date.day.toString().padLeft(2, '0');
-  final month = date.month.toString().padLeft(2, '0');
-  return '$day.$month.${date.year}';
+String _formatDate(DateTime value) {
+  String two(int part) => part.toString().padLeft(2, '0');
+  return '${two(value.day)}.${two(value.month)}.${value.year}';
 }

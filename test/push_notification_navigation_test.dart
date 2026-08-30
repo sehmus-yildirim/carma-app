@@ -4,23 +4,27 @@ import 'package:plaqa/shared/notifications/push_notification_navigation.dart';
 void main() {
   test('maps supported notification types to safe destinations', () {
     expect(
-      PushNotificationTarget.fromData(const {'type': 'contact_request'})
-          ?.destination,
+      PushNotificationTarget.fromData(const {
+        'type': 'contact_request',
+      })?.destination,
       PushNotificationDestination.chats,
     );
     expect(
-      PushNotificationTarget.fromData(const {'type': 'social_post'})
-          ?.destination,
+      PushNotificationTarget.fromData(const {
+        'type': 'social_post',
+      })?.destination,
       PushNotificationDestination.profile,
     );
     expect(
-      PushNotificationTarget.fromData(const {'type': 'plate_hint'})
-          ?.destination,
+      PushNotificationTarget.fromData(const {
+        'type': 'plate_hint',
+      })?.destination,
       PushNotificationDestination.reports,
     );
     expect(
-      PushNotificationTarget.fromData(const {'type': 'verification'})
-          ?.destination,
+      PushNotificationTarget.fromData(const {
+        'type': 'verification',
+      })?.destination,
       PushNotificationDestination.settings,
     );
   });

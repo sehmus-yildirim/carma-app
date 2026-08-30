@@ -8,7 +8,7 @@ const {
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
 const {Timestamp, doc, getDoc, setDoc, updateDoc} = require('firebase/firestore');
-const {getBytes, ref, uploadBytes} = require('firebase/storage');
+const {deleteObject, getBytes, ref, uploadBytes} = require('firebase/storage');
 
 const projectId = 'carma-a84e4';
 const ownerUserId = 'verification-owner';
@@ -102,11 +102,11 @@ describe('profile verification Firestore rules', () => {
     ));
   });
 
-  test('owner can create only a private draft with canonical paths', async () => {
+  test('legacy draft writes are disabled for V1 clients', async () => {
     const owner = testEnv.authenticatedContext(ownerUserId).firestore();
     const request = doc(owner, 'verification_requests', ownerUserId);
 
-    await assertSucceeds(setDoc(request, draftData()));
+    await assertFails(setDoc(request, draftData()));
     await assertFails(setDoc(request, draftData({status: 'pending'})));
     await assertFails(setDoc(request, draftData({
       documentStoragePaths: {
@@ -143,7 +143,7 @@ describe('profile verification Firestore rules', () => {
     const rejected = draftData({status: 'rejected'});
     await seedRequest(rejected);
 
-    await assertSucceeds(setDoc(request, draftData({
+    await assertFails(setDoc(request, draftData({
       createdAt: rejected.createdAt,
       documentStoragePaths: {},
       documentStatuses: {identityFront: 'missing'},
@@ -186,7 +186,7 @@ describe('profile verification Firestore rules', () => {
     });
     await seedRequest(reviewed);
 
-    await assertSucceeds(setDoc(request, draftData({
+    await assertFails(setDoc(request, draftData({
       createdAt: reviewed.createdAt,
       documentStoragePaths: reviewed.documentStoragePaths,
       documentStatuses: {
@@ -387,6 +387,39 @@ describe('profile verification Firestore rules', () => {
       'notice-1',
     )));
   });
+
+  test('V1 private records are owner-readable and server-write-only', async () => {
+    const paths = [
+      `users/${ownerUserId}/private_verification/identity`,
+      `users/${ownerUserId}/vehicle_verifications/vehicle-1`,
+      `users/${ownerUserId}/verification_declarations/declaration-1`,
+    ];
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      for (const path of paths) {
+        await setDoc(doc(context.firestore(), path), {
+          uid: ownerUserId,
+          status: 'verified',
+        });
+      }
+    });
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderUserId).firestore();
+    for (const path of paths) {
+      await assertSucceeds(getDoc(doc(owner, path)));
+      await assertFails(getDoc(doc(outsider, path)));
+      await assertFails(setDoc(doc(owner, path), {status: 'forged'}));
+    }
+  });
+
+  test('V1 sessions and rate limits are invisible to every client', async () => {
+    const owner = testEnv.authenticatedContext(ownerUserId).firestore();
+    const session = doc(owner, '_verification_sessions', 'session-1');
+    const limit = doc(owner, '_verification_rate_limits', ownerUserId);
+    await assertFails(getDoc(session));
+    await assertFails(setDoc(session, {uid: ownerUserId}));
+    await assertFails(getDoc(limit));
+    await assertFails(setDoc(limit, {attempts: []}));
+  });
 });
 
 describe('profile verification Storage rules', () => {
@@ -397,14 +430,14 @@ describe('profile verification Storage rules', () => {
   ]);
   const jpegBytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
 
-  test('owner can upload canonical PNG and JPEG evidence pages', async () => {
+  test('legacy evidence uploads are disabled in V1', async () => {
     const storage = testEnv.authenticatedContext(ownerUserId).storage();
-    await assertSucceeds(uploadBytes(ref(storage, validPath), pngBytes, {
+    await assertFails(uploadBytes(ref(storage, validPath), pngBytes, {
       contentType: 'image/png',
     }));
     const jpegPath =
       `profile_documents/${ownerUserId}/vehicleBack/vehicleBack.jpg`;
-    await assertSucceeds(uploadBytes(ref(storage, jpegPath), jpegBytes, {
+    await assertFails(uploadBytes(ref(storage, jpegPath), jpegBytes, {
       contentType: 'image/jpeg',
     }));
   });
@@ -438,31 +471,34 @@ describe('profile verification Storage rules', () => {
   });
 
   test('only owner and admin can read verification evidence', async () => {
-    const ownerStorage = testEnv.authenticatedContext(ownerUserId).storage();
-    await uploadBytes(ref(ownerStorage, validPath), pngBytes, {
-      contentType: 'image/png',
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadBytes(ref(context.storage(), validPath), pngBytes, {
+        contentType: 'image/png',
+      });
     });
-
+    const ownerStorage = testEnv.authenticatedContext(ownerUserId).storage();
     const outsider = testEnv.authenticatedContext(outsiderUserId).storage();
     const admin = testEnv.authenticatedContext(
       'verification-admin',
       {admin: true},
     ).storage();
+    await assertSucceeds(getBytes(ref(ownerStorage, validPath)));
     await assertFails(getBytes(ref(outsider, validPath)));
     await assertSucceeds(getBytes(ref(admin, validPath)));
   });
 
   test('owner cannot replace or delete evidence during review', async () => {
     const ownerStorage = testEnv.authenticatedContext(ownerUserId).storage();
-    await uploadBytes(ref(ownerStorage, validPath), pngBytes, {
-      contentType: 'image/png',
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadBytes(ref(context.storage(), validPath), pngBytes, {
+        contentType: 'image/png',
+      });
     });
     await seedRequest(draftData({status: 'pending'}));
 
     await assertFails(uploadBytes(ref(ownerStorage, validPath), pngBytes, {
       contentType: 'image/png',
     }));
-    const {deleteObject} = require('firebase/storage');
     await assertFails(deleteObject(ref(ownerStorage, validPath)));
   });
 
@@ -481,8 +517,27 @@ describe('profile verification Storage rules', () => {
     await assertFails(uploadBytes(ref(ownerStorage, validPath), pngBytes, {
       contentType: 'image/png',
     }));
-    await assertSucceeds(uploadBytes(ref(ownerStorage, vehiclePath), pngBytes, {
+    await assertFails(uploadBytes(ref(ownerStorage, vehiclePath), pngBytes, {
       contentType: 'image/png',
     }));
+  });
+
+  test('V1 declaration PDFs are owner-readable and server-write-only', async () => {
+    const pdfPath =
+      `verification_declarations/${ownerUserId}/vehicle-1/declaration-1.pdf`;
+    const pdfBytes = Uint8Array.from([0x25, 0x50, 0x44, 0x46]);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadBytes(ref(context.storage(), pdfPath), pdfBytes, {
+        contentType: 'application/pdf',
+      });
+    });
+    const owner = testEnv.authenticatedContext(ownerUserId).storage();
+    const outsider = testEnv.authenticatedContext(outsiderUserId).storage();
+    await assertSucceeds(getBytes(ref(owner, pdfPath)));
+    await assertFails(getBytes(ref(outsider, pdfPath)));
+    await assertFails(uploadBytes(ref(owner, pdfPath), pdfBytes, {
+      contentType: 'application/pdf',
+    }));
+    await assertFails(deleteObject(ref(owner, pdfPath)));
   });
 });

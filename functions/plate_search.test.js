@@ -10,7 +10,7 @@ const {
 
 const now = new Date("2026-07-23T12:00:00.000Z");
 
-function fakeFirestore(data, settings = null) {
+function fakeFirestore(data, settings = null, privateDocuments = {}) {
   const documents = new Map();
   return {
     lastPath: null,
@@ -47,6 +47,10 @@ function fakeFirestore(data, settings = null) {
                   "verified" : "unverified",
               }),
             };
+          }
+          if (path.startsWith("users/")) {
+            const stored = privateDocuments[path];
+            return {exists: stored != null, data: () => stored};
           }
           return {
             exists: data != null,
@@ -172,6 +176,40 @@ test("returns only the dynamic public hit fields", async () => {
   });
   assert.equal(Object.hasOwn(result, "privateEmail"), false);
   assert.equal(Object.hasOwn(result, "distanceKm"), false);
+});
+
+test("rejects a stale public vehicle Boolean when V1 has expired", async () => {
+  const vehicleId = "vehicle-mercedes-gls";
+  const firestore = fakeFirestore(validData(), visibleSettings(), {
+    "users/target-user/private_verification/identity": {
+      status: "verified",
+      documentExpiresAt: "2026-07-22",
+      verificationMethod: "on_device_ocr_front_v1",
+      assuranceLevel: "document_data_match",
+    },
+    [`users/target-user/vehicle_verifications/${vehicleId}`]: {
+      status: "verified",
+      plateNormalized: "FDRT2918",
+      verificationMethod: "on_device_ocr_front_v1",
+      assuranceLevel: "document_data_match",
+    },
+    [`users/target-user/vehicles/${vehicleId}`]: {
+      countryCode: "DE",
+      plateRegion: "FD",
+      plateLetters: "RT",
+      plateNumbers: "2918",
+      status: "active",
+    },
+  });
+
+  const result = await searchPlateDocument({
+    firestore,
+    requesterUserId: "searching-user",
+    input: validInput(),
+    now,
+  });
+
+  assert.deepEqual(result, {found: false});
 });
 
 test("blocks repeated coordinate probes for the same plate", async () => {

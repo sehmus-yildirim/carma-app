@@ -2,6 +2,11 @@ const {createHash} = require("node:crypto");
 const {Timestamp} = require("firebase-admin/firestore");
 const {HttpsError} = require("firebase-functions/v2/https");
 const {trustedProfilePhotoUrl} = require("./trusted_media_url");
+const {
+  isEffectiveIdentityVerification,
+  isEffectiveVehicleVerification,
+  usesVerificationV1,
+} = require("./verification_v1_policy");
 
 const supportedCountries = new Set(["DE", "AT", "CH"]);
 const supportedReasons = new Set([
@@ -55,11 +60,38 @@ function contactRequestDocumentId(senderUserId, countryCode, vehicleId) {
 }
 
 async function findVerifiedSenderVehicle(firestore, senderUserId) {
-  const profileSnapshot = await firestore
-    .doc(`public_profiles/${senderUserId}`).get();
+  const [profileSnapshot, identitySnapshot] = await Promise.all([
+    firestore.doc(`public_profiles/${senderUserId}`).get(),
+    firestore.doc(`users/${senderUserId}/private_verification/identity`).get(),
+  ]);
   const primaryVehicleId = safeString(
     profileSnapshot.data()?.primaryVehicleId,
   );
+  if (identitySnapshot.exists) {
+    const identity = identitySnapshot.data() ?? {};
+    if (!isEffectiveIdentityVerification(identity)) return null;
+    const verificationSnapshot = await firestore
+      .collection(`users/${senderUserId}/vehicle_verifications`)
+      .where("status", "==", "verified")
+      .limit(20)
+      .get();
+    const candidates = [...verificationSnapshot.docs].sort((left, right) =>
+      Number(right.id === primaryVehicleId) - Number(left.id === primaryVehicleId),
+    );
+    for (const candidate of candidates) {
+      const vehicleSnapshot = await firestore
+        .doc(`users/${senderUserId}/vehicles/${candidate.id}`)
+        .get();
+      if (vehicleSnapshot.exists && isEffectiveVehicleVerification({
+        identity,
+        verification: candidate.data() ?? {},
+        vehicle: vehicleSnapshot.data() ?? {},
+      })) {
+        return candidate.id;
+      }
+    }
+    return null;
+  }
   if (isSafeDocumentId(primaryVehicleId)) {
     const primaryReference = firestore.doc(
       `public_profiles/${senderUserId}/vehicles/${primaryVehicleId}`,
@@ -90,7 +122,10 @@ function profileDisplayName(privateProfile, publicProfile) {
   ) || "plaqa Nutzer";
 }
 
-function isIdentityVerified(privateProfile, publicProfile) {
+function isIdentityVerified(privateProfile, publicProfile, v1Identity, now) {
+  if (v1Identity != null) {
+    return isEffectiveIdentityVerification(v1Identity, now);
+  }
   return privateProfile.verificationStatus === "verified" ||
     privateProfile.isVerified === true ||
     publicProfile.verificationStatus === "verified" ||
@@ -184,8 +219,26 @@ async function createContactRequest({
   const senderVehicleReference = firestore.doc(
     `public_profiles/${senderId}/vehicles/${senderVehicleId}`,
   );
+  const senderPrivateVehicleReference = firestore.doc(
+    `users/${senderId}/vehicles/${senderVehicleId}`,
+  );
+  const senderIdentityV1Reference = firestore.doc(
+    `users/${senderId}/private_verification/identity`,
+  );
+  const senderVehicleV1Reference = firestore.doc(
+    `users/${senderId}/vehicle_verifications/${senderVehicleId}`,
+  );
   const receiverProfileReference = firestore.doc(
     `public_profiles/${targetUserId}`,
+  );
+  const receiverPrivateVehicleReference = firestore.doc(
+    `users/${targetUserId}/vehicles/${vehicleId}`,
+  );
+  const receiverIdentityV1Reference = firestore.doc(
+    `users/${targetUserId}/private_verification/identity`,
+  );
+  const receiverVehicleV1Reference = firestore.doc(
+    `users/${targetUserId}/vehicle_verifications/${vehicleId}`,
   );
   const receiverDeletionReference = firestore.doc(
     `account_deletions/${targetUserId}`,
@@ -238,7 +291,13 @@ async function createContactRequest({
       senderProfileSnapshot,
       senderPublicProfileSnapshot,
       senderVehicleSnapshot,
+      senderPrivateVehicleSnapshot,
+      senderIdentityV1Snapshot,
+      senderVehicleV1Snapshot,
       receiverProfileSnapshot,
+      receiverPrivateVehicleSnapshot,
+      receiverIdentityV1Snapshot,
+      receiverVehicleV1Snapshot,
       visibilitySnapshot,
       filterSnapshot,
       grantSnapshot,
@@ -252,7 +311,13 @@ async function createContactRequest({
       transaction.get(senderProfileReference),
       transaction.get(senderPublicProfileReference),
       transaction.get(senderVehicleReference),
+      transaction.get(senderPrivateVehicleReference),
+      transaction.get(senderIdentityV1Reference),
+      transaction.get(senderVehicleV1Reference),
       transaction.get(receiverProfileReference),
+      transaction.get(receiverPrivateVehicleReference),
+      transaction.get(receiverIdentityV1Reference),
+      transaction.get(receiverVehicleV1Reference),
       transaction.get(visibilityReference),
       transaction.get(filterReference),
       transaction.get(grantReference),
@@ -270,8 +335,20 @@ async function createContactRequest({
       senderPublicProfileSnapshot.data() || {} : {};
     const senderVehicle = senderVehicleSnapshot.exists ?
       senderVehicleSnapshot.data() || {} : {};
+    const senderPrivateVehicle = senderPrivateVehicleSnapshot.exists ?
+      senderPrivateVehicleSnapshot.data() || {} : {};
+    const senderIdentityV1 = senderIdentityV1Snapshot.exists ?
+      senderIdentityV1Snapshot.data() || {} : null;
+    const senderVehicleV1 = senderVehicleV1Snapshot.exists ?
+      senderVehicleV1Snapshot.data() || {} : null;
     const receiverProfile = receiverProfileSnapshot.exists ?
       receiverProfileSnapshot.data() || {} : {};
+    const receiverPrivateVehicle = receiverPrivateVehicleSnapshot.exists ?
+      receiverPrivateVehicleSnapshot.data() || {} : {};
+    const receiverIdentityV1 = receiverIdentityV1Snapshot.exists ?
+      receiverIdentityV1Snapshot.data() || {} : null;
+    const receiverVehicleV1 = receiverVehicleV1Snapshot.exists ?
+      receiverVehicleV1Snapshot.data() || {} : null;
     const visibility = visibilitySnapshot.exists ?
       visibilitySnapshot.data() || {} : {};
     const filters = filterSnapshot.exists ? filterSnapshot.data() || {} : {};
@@ -283,6 +360,25 @@ async function createContactRequest({
     const expectedPlateHash = createHash("sha256")
       .update(plateKey)
       .digest("hex");
+    const senderUsesV1 = usesVerificationV1(senderIdentityV1, senderVehicleV1);
+    const receiverUsesV1 = usesVerificationV1(
+      receiverIdentityV1,
+      receiverVehicleV1,
+    );
+    const senderVehicleVerified = senderUsesV1 ?
+      isEffectiveVehicleVerification({
+        identity: senderIdentityV1,
+        verification: senderVehicleV1,
+        vehicle: senderPrivateVehicle,
+        now,
+      }) : senderVehicle.isVerified === true;
+    const receiverVehicleVerified = receiverUsesV1 ?
+      isEffectiveVehicleVerification({
+        identity: receiverIdentityV1,
+        verification: receiverVehicleV1,
+        vehicle: receiverPrivateVehicle,
+        now,
+      }) : plate.isVerified === true;
 
     if (accountDeletionBlocksWrites(senderDeletion) ||
         accountDeletionBlocksWrites(receiverDeletion) ||
@@ -290,8 +386,8 @@ async function createContactRequest({
         plate.vehicleId !== vehicleId || plate.countryCode !== countryCode ||
         safeString(plate.plateKey).toUpperCase() !== plateKey ||
         plate.isActive !== true || plate.isDeleted !== false ||
-        plate.isVerified !== true || plate.allowContactRequests !== true ||
-        senderVehicle.isVerified !== true) {
+        !receiverVehicleVerified || plate.allowContactRequests !== true ||
+        !senderVehicleVerified) {
       throw new HttpsError("not-found", "Das Fahrzeug ist nicht verfügbar.");
     }
     if (!grantSnapshot.exists || grant.requesterUserId !== senderId ||
@@ -316,7 +412,12 @@ async function createContactRequest({
       ((filters.requireVerifiedRequester === true ||
         filters.autoRejectUnverified === true) ? "identityVerified" : "all");
     if (verificationLevel === "identityVerified" &&
-        !isIdentityVerified(senderProfile, senderPublicProfile)) {
+        !isIdentityVerified(
+          senderProfile,
+          senderPublicProfile,
+          senderIdentityV1,
+          now,
+        )) {
       throw new HttpsError(
         "permission-denied",
         "Für diese Anfrage ist eine bestätigte Identität erforderlich.",

@@ -640,13 +640,18 @@ service firebase.storage {
           request.auth.uid == userId
           || request.auth.token.get('admin', false) == true
         );
-      allow create, update: if isSignedIn()
-        && request.auth.uid == userId
-        && canMutateProfileVerificationDocument(userId, documentType)
-        && isValidProfileDocumentUpload(documentType, fileName);
-      allow delete: if isSignedIn()
-        && request.auth.uid == userId
-        && canMutateProfileVerificationDocument(userId, documentType);
+      // Legacy evidence remains owner-readable for migration only. V1 never
+      // uploads document photos and therefore blocks all client mutations.
+      allow create, update, delete: if false;
+    }
+
+    match /verification_declarations/{userId}/{vehicleId}/{fileName} {
+      allow read: if isSignedIn()
+        && (
+          request.auth.uid == userId
+          || request.auth.token.get('admin', false) == true
+        );
+      allow create, update, delete: if false;
     }
 
     match /{allPaths=**} {

@@ -261,6 +261,8 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
       .where("userId", "==", userId),
     firestore.collection("_media_upload_objects")
       .where("userId", "==", userId),
+    firestore.collection("_verification_sessions")
+      .where("uid", "==", userId),
   ]);
 
   await deleteDocumentIfPresent(
@@ -274,6 +276,9 @@ async function cleanupAccountData({firestore, bucket, userId, now}) {
   );
   await deleteDocumentIfPresent(
     firestore.doc(`_media_upload_limits/${userId}`),
+  );
+  await deleteDocumentIfPresent(
+    firestore.doc(`_verification_rate_limits/${userId}`),
   );
   await recursiveDeleteIfPresent(
     firestore,
@@ -664,6 +669,7 @@ function accountStoragePrefixes(userId) {
     `vehicle_gallery/${userId}/`,
     `vehicle_heroes/${userId}/`,
     `profile_documents/${userId}/`,
+    `verification_declarations/${userId}/`,
     `chat_stories/${userId}/`,
   ];
 }

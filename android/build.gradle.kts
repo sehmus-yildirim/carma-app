@@ -22,7 +22,13 @@ subprojects {
     project.evaluationDependsOn(":app")
     tasks.withType<KotlinCompile>().configureEach {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(
+                if (project.name.startsWith("google_mlkit_")) {
+                    JvmTarget.JVM_11
+                } else {
+                    JvmTarget.JVM_17
+                }
+            )
         }
     }
 }

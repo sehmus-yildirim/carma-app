@@ -5307,50 +5307,29 @@ Kennzeichen können verarbeitet werden, um:
 Kennzeichen dürfen nicht dazu verwendet werden, Personen systematisch zu verfolgen, Bewegungsprofile zu erstellen, Halterdaten unberechtigt zu ermitteln, Personen zu belästigen oder sonstige rechtswidrige Zwecke zu verfolgen.''',
           ),
           _LegalSection(
-            title: '11. Verifizierung und Verifizierungsdokumente',
+            title: '11. Verifizierung und lokaler Dokumentabgleich',
             body:
-                r'''plaqa kann eine freiwillige oder für bestimmte Funktionen erforderliche Verifizierung anbieten. Hierbei können Nutzer insbesondere folgende Dokumente oder Nachweise hochladen:
+                r'''plaqa kann einen freiwilligen oder für bestimmte Funktionen erforderlichen Dokumentdatenabgleich anbieten. Im aktuellen Verfahren werden ausschließlich die Vorderseite eines Personalausweises oder Aufenthaltstitels beziehungsweise die Datenseite eines Reisepasses sowie die Vorderseite der Zulassungsbescheinigung Teil I direkt mit der Kamera aufgenommen. Führerschein, Selfie, Rückseiten und bestehende Galerie- oder Dateiaufnahmen werden nicht verlangt.
 
-* Personalausweis, Reisepass oder Aufenthaltstitel als Identitätsnachweis,
-* Zulassungsbescheinigung beziehungsweise Fahrzeugschein als Fahrzeugnachweis.
+Bildqualität und Texterkennung werden auf dem Gerät verarbeitet. Dokumentbilder, Roh-OCR-Blöcke, Dokumentnummern, Lichtbilder, Anschriften, Staatsangehörigkeiten, maschinenlesbare Rohzeilen und die Unterschriftsgrafik werden nicht dauerhaft an plaqa übertragen oder gespeichert. Temporäre lokale Aufnahmen werden nach Abschluss, Abbruch, Abmeldung oder spätestens beim nächsten App-Start gelöscht.
 
-Solche Dokumente können besonders sensible Informationen enthalten, insbesondere:
+Für den Identitätsabgleich können dauerhaft privat gespeichert werden:
 
-* vollständigen Namen,
-* Geburtsdatum und Geburtsort,
-* Anschrift,
-* Lichtbild,
-* Dokumentennummer,
-* Unterschrift,
-* Staatsangehörigkeit,
-* Ausstellungs- und Gültigkeitsdaten,
-* Fahrzeug- und Halterdaten,
-* maschinenlesbare Bereiche,
-* Sicherheitsmerkmale.
+* Vorname beziehungsweise Vornamen,
+* Nachname,
+* Geburtsdatum,
+* Ablaufdatum,
+* Dokumentart,
+* Verifizierungsstatus und Prüfzeitpunkte,
+* technische Verfahrens-, Parser-, Datenschutz- und Assurance-Versionen.
 
-Nutzer sollen nur die ausdrücklich angeforderten Dokumente und Angaben übermitteln. Nicht benötigte Angaben sollten – soweit das Prüfverfahren dies zulässt – vor dem Upload abgedeckt oder geschwärzt werden.
+Kennzeichen sowie Haltername aus den Feldern C.1.1 und C.1.2 werden nur vorübergehend zum Datenabgleich verwendet. C.1.1 und C.1.2 werden danach nicht dauerhaft gespeichert. Für Fahrzeuge, bei denen der Nutzer nicht selbst als Halter eingetragen ist, wird eine Eigenerklärung verlangt. Gespeichert werden der Erklärungstext beziehungsweise dessen Prüfsumme, Version, Annahmezeitpunkt, Fahrzeugbezug, Zuordnungsart und eine serverseitig erstellte private PDF. Die gezeichnete Unterschrift wird nur für die PDF-Erzeugung verarbeitet und nicht als separate Grafik gespeichert.
 
-Ein Führerschein oder Selfie wird im aktuellen Verfahren nicht verlangt. Welche Felder für die Prüfung erforderlich bleiben und welche geschwärzt werden dürfen, wird im Upload-Schritt erklärt.
+Der Abgleich bestätigt ausschließlich, dass aus den fotografierten Dokumentseiten ausgelesene Daten zueinander passen und die angegebenen Dokumentdaten zum Prüfzeitpunkt gültig erscheinen. Er ist keine amtliche Echtheitsprüfung, keine Registerabfrage und kein Nachweis von Eigentum oder zukünftiger Berechtigung. Manipulierte Aufnahmen oder unzutreffende Angaben können technisch nicht in jedem Fall erkannt werden.
 
-Die Dokumente können manuell durch berechtigte Mitarbeiter oder zukünftig durch einen technischen Verifizierungsdienst geprüft werden.
+Beim Ablauf eines Identitätsdokuments, bei relevanten Änderungen der Identitäts- oder Fahrzeugdaten, bei Entfernung eines Fahrzeugs, Widerruf einer Nutzungsberechtigung oder Kontolöschung wird der abhängige Status zurückgesetzt oder widerrufen. Eine erneute Prüfung kann erforderlich sein.
 
-Gespeichert werden können:
-
-* Verifizierungsstatus,
-* Prüfzeitpunkt,
-* Art des geprüften Nachweises,
-* Ergebnis der Prüfung,
-* Ablehnungsgrund oder Prüfhistorie,
-* Hinweis auf erkannte Unstimmigkeiten,
-* gegebenenfalls die hochgeladene Datei für eine begrenzte Dauer.
-
-Eine erfolglose Verifizierung kann dokumentiert werden, soweit dies erforderlich ist, um erneute Täuschungsversuche zu erkennen, Nachfragen zu bearbeiten oder Missbrauch zu verhindern.
-
-Rechtsgrundlage ist – abhängig von der Ausgestaltung – Art. 6 Abs. 1 lit. b DSGVO, eine Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO oder unser berechtigtes Interesse nach Art. 6 Abs. 1 lit. f DSGVO.
-
-Verifizierungsdateien werden nur für die laufende Prüfung und eine begrenzte Nachbearbeitungszeit vorgehalten. Eine automatische Bereinigung spätestens 30 Tage nach dem maßgeblichen Prüf- oder Entwurfszeitpunkt ist technisch vorbereitet. Bis dieser Prozess veröffentlicht und live geprüft ist, wird die Dokumentenprüfung nicht für Produktionskonten freigeschaltet. Prüfstatus, Prüfzeitpunkte und Verlauf können getrennt von den Dokumentbildern weiter gespeichert werden.
-
-Verifizierungsdokumente dürfen nicht allgemein im Profil angezeigt werden.''',
+Rechtsgrundlage und endgültige Formulierung müssen vor einer Produktivfreigabe juristisch für den konkreten Einsatz geprüft werden. In Betracht kommen abhängig vom Zweck insbesondere Art. 6 Abs. 1 lit. b, lit. a oder lit. f DSGVO. Verifizierungsdaten und Erklärungs-PDFs sind nicht allgemein öffentlich sichtbar.''',
           ),
           _LegalSection(
             title: '12. Kennzeichen-Suche und räumlich-zeitliche Begrenzung',
@@ -5892,7 +5871,9 @@ Chatnachrichten	Bis zur angebotenen Löschung oder Kontolöschung; bei anderen T
 Story-Inhalte	Sichtbar grundsätzlich 24 Stunden; anschließend für die technische Bereinigung vorgesehen
 Story-Aufrufdaten	Zusammen mit der Story beziehungsweise solange für Meldungen oder Sicherheit erforderlich
 Standortdaten	Fahrzeugstandorte sind nach einer Stunde nicht mehr suchwirksam; aktiv geteilte Standorte folgen dem jeweiligen Inhalt
-Verifizierungsdokumente	Für die Prüfung und höchstens 30 Tage Nachbearbeitungszeit, sobald der Cleanup-Prozess produktiv freigegeben ist
+Lokale Verifizierungsaufnahmen	Nur während des lokalen Abgleichs; Löschung nach Abschluss, Abbruch, Abmeldung oder beim nächsten App-Start
+Private Identitätsdaten und Verifizierungsstatus	Bis zur Änderung, zum Widerruf, Ablauf des Dokuments oder zur Kontolöschung, soweit kein vorrangiger Aufbewahrungsgrund besteht
+Eigenerklärungs-PDF	Bis zum Widerruf, zur Entfernung des Fahrzeugs oder zur Kontolöschung, soweit kein vorrangiger Aufbewahrungsgrund besteht
 Verifizierungsstatus	Bis zur Änderung, Kontolöschung oder solange ein erforderlicher Prüf- beziehungsweise Sicherheitsnachweis besteht
 Push-Token	Derzeit nicht erhoben, da Push nicht aktiviert ist
 Sicherheits- und Missbrauchslogs	Nur solange für Sicherheit, Nachweis, Beschwerden oder gesetzliche Pflichten erforderlich
@@ -6710,17 +6691,17 @@ Verboten sind:
 
 10.3 Sensible Angaben
 
-Laden Sie nur die ausdrücklich angeforderten Angaben hoch.
-
-Nicht erforderliche Informationen sollen geschwärzt oder abgedeckt werden, soweit dies im jeweiligen Verifizierungsverfahren vorgesehen und technisch möglich ist.
+Fotografieren Sie nur die ausdrücklich angeforderte Vorder- oder Datenseite direkt im vorgesehenen Kameraablauf. Rückseiten, Führerschein, Selfie sowie Galerie- und Datei-Uploads gehören nicht zum aktuellen Verfahren.
 
 10.4 Keine fremden Dokumente
 
-Dokumente anderer Personen dürfen nicht ohne eine ausreichende Berechtigung hochgeladen werden.
+Identitätsdokumente anderer Personen dürfen nicht verwendet werden. Beim Fahrzeugschein darf eine abweichende Halterperson nur im vorgesehenen Ablauf mit wahrheitsgemäßer Angabe der eigenen Nutzungsberechtigung und Eigenerklärung verarbeitet werden.
 
 10.5 Bedeutung der Verifizierung
 
 Eine Verifizierung bestätigt nur die im jeweiligen Verfahren geprüften Merkmale.
+
+Der aktuelle Dokumentdatenabgleich ist keine amtliche Echtheitsprüfung und keine Registerabfrage.
 
 Sie ist keine Garantie für:
 

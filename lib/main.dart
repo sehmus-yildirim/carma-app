@@ -10,12 +10,14 @@ import 'package:flutter/services.dart';
 import 'app/carisma_app.dart';
 import 'firebase_options.dart';
 import 'features/settings/data/app_runtime_preferences.dart';
+import 'features/profile/verification_v1/data/document_services.dart';
 import 'shared/firebase/firebase_emulator_configuration.dart';
 import 'shared/notifications/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppRuntimePreferences.instance.initialize();
+  await LocalVerificationTemporaryFileService().cleanupOrphans();
 
   if (!kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||

@@ -4075,6 +4075,21 @@ service cloud.firestore {
           && request.resource.data.isRead is bool;
       }
 
+      match /private_verification/{documentId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;
+      }
+
+      match /vehicle_verifications/{vehicleId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;
+      }
+
+      match /verification_declarations/{declarationId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;
+      }
+
       match /settings/{settingsId} {
         allow read: if isOwner(userId);
         allow create, update: if isValidUserSettingsWrite(
@@ -4833,10 +4848,9 @@ service cloud.firestore {
             && request.auth.uid == requestId
           );
 
-      allow create: if isValidVerificationDraftCreate(requestId);
-      allow update: if isValidTargetedVerificationResubmission(requestId)
-        || isValidVerificationDraftUpdate(requestId);
-      allow delete: if false;
+      // Legacy records stay readable during migration, but V1 disables every
+      // direct client mutation and accepts data only through callable Functions.
+      allow create, update, delete: if false;
 
       match /history/{historyId} {
         allow read: if isAdmin()
@@ -4846,6 +4860,14 @@ service cloud.firestore {
           );
         allow write: if false;
       }
+    }
+
+    match /_verification_sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    match /_verification_rate_limits/{userId} {
+      allow read, write: if false;
     }
 
     match /{document=**} {

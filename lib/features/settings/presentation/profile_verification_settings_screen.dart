@@ -348,23 +348,23 @@ class _VerificationLevelOverview extends StatelessWidget {
           _VerificationLevelRow(
             icon: Icons.directions_car_outlined,
             color: CaRismaDesignTokens.bluePrimary,
-            title: 'Fahrzeug bestätigt',
+            title: 'Dokumentdaten abgeglichen',
             description:
-                'Fahrzeugschein prüfen lassen. Danach kann dein Kennzeichen auffindbar werden und du kannst Kontaktanfragen senden.',
+                'Vorderseiten direkt fotografieren und die ausgelesenen Identitäts-, Gültigkeits- und Fahrzeugdaten abgleichen. Das ist keine amtliche Echtheitsprüfung.',
           ),
           _VerificationLevelRow(
             icon: Icons.badge_outlined,
             color: Color(0xFF38BDF8),
-            title: 'Identität bestätigt',
+            title: 'Private Identitätsdaten',
             description:
-                'Identitätsnachweis freiwillig prüfen lassen. Dadurch erhältst du das öffentliche Verifiziert-Badge und erfüllst Identitätsfilter.',
+                'Name, Geburtsdatum, Dokumentart und Ablaufdatum bleiben privat. Dokumentbilder und Roh-OCR werden nicht dauerhaft gespeichert.',
           ),
           _VerificationLevelRow(
             icon: Icons.verified_user_outlined,
             color: CaRismaDesignTokens.success,
-            title: 'Vollständig verifiziert',
+            title: 'Berechtigung dokumentiert',
             description:
-                'Fahrzeug und Identität sind bestätigt. Dokumentarten und Dokumentbilder bleiben weiterhin privat.',
+                'Bei Leasing-, Firmen- und berechtigt genutzten Fahrzeugen hält eine private Eigenerklärung die ausgewählte Zuordnung fest.',
             isLast: true,
           ),
         ],

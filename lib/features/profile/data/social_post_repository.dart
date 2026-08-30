@@ -112,10 +112,7 @@ class SocialPostRepository {
         return (
           displayName: normalizedFallbackName,
           photoUrl:
-              trustedProfilePhotoUrl(
-                url: fallbackPhotoUrl,
-                userId: userId,
-              ) ??
+              trustedProfilePhotoUrl(url: fallbackPhotoUrl, userId: userId) ??
               '',
         );
       }
@@ -132,11 +129,7 @@ class SocialPostRepository {
       return (
         displayName: normalizedFallbackName,
         photoUrl:
-            trustedProfilePhotoUrl(
-              url: fallbackPhotoUrl,
-              userId: userId,
-            ) ??
-            '',
+            trustedProfilePhotoUrl(url: fallbackPhotoUrl, userId: userId) ?? '',
       );
     }
   }

@@ -42,9 +42,7 @@ bool isTrustedPlaqaFirebaseDownloadUrl(
       altValues.single == 'media' &&
       tokenValues.length <= 1 &&
       (tokenValues.isEmpty ||
-          RegExp(
-            r'^[A-Za-z0-9_%.,-]{1,512}$',
-          ).hasMatch(tokenValues.single));
+          RegExp(r'^[A-Za-z0-9_%.,-]{1,512}$').hasMatch(tokenValues.single));
 }
 
 String? trustedFirebaseMediaUrl({

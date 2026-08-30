@@ -45,8 +45,14 @@ const {
 const {
   cleanupVerificationDocuments,
   reviewProfileVerification,
-  submitProfileVerification,
 } = require("./profile_verification");
+const {
+  createVerificationSession,
+  expireIdentityVerifications,
+  finalizeVehicleDeclaration,
+  revokeOrInvalidateVerification,
+  submitVerificationData,
+} = require("./verification_v1");
 const {
   deactivateProfileVehicle,
   saveProfileVehicle,
@@ -487,16 +493,18 @@ exports.sendBrandedEmailChangeVerification = onCall(
 
 exports.submitProfileVerification = onCall(
   {
-    timeoutSeconds: 60,
-    memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
+    timeoutSeconds: 15,
+    memory: "128MiB",
   },
-  async (request) => submitProfileVerification({
-    firestore: db,
-    bucket: getStorage().bucket(),
-    authContext: request.auth,
-    input: request.data,
-    now: Timestamp.now(),
-  }),
+  async () => {
+    throw new HttpsError(
+      "failed-precondition",
+      "Diese App-Version unterstützt den neuen Verifizierungsablauf nicht. Bitte aktualisiere Plaqa.",
+      {reason: "verification-v1-update-required"},
+    );
+  },
 );
 
 exports.reviewProfileVerification = onCall(
@@ -507,6 +515,71 @@ exports.reviewProfileVerification = onCall(
   async (request) => reviewProfileVerification({
     firestore: db,
     authContext: request.auth,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.createVerificationSessionV1 = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
+  },
+  async (request) => createVerificationSession({
+    firestore: db,
+    authContext: request.auth,
+    appContext: request.app,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.submitVerificationDataV1 = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
+  },
+  async (request) => submitVerificationData({
+    firestore: db,
+    authContext: request.auth,
+    appContext: request.app,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.finalizeVehicleDeclarationV1 = onCall(
+  {
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
+  },
+  async (request) => finalizeVehicleDeclaration({
+    firestore: db,
+    bucket: getStorage().bucket(),
+    authContext: request.auth,
+    appContext: request.app,
+    input: request.data,
+    now: Timestamp.now(),
+  }),
+);
+
+exports.revokeOrInvalidateVerificationV1 = onCall(
+  {
+    timeoutSeconds: 30,
+    memory: "256MiB",
+    enforceAppCheck: true,
+    consumeAppCheckToken: true,
+  },
+  async (request) => revokeOrInvalidateVerification({
+    firestore: db,
+    authContext: request.auth,
+    appContext: request.app,
     input: request.data,
     now: Timestamp.now(),
   }),
@@ -1028,6 +1101,37 @@ exports.cleanupProfileVerificationDocuments = onSchedule(
       now: Timestamp.now(),
     });
     logger.info("Verification document cleanup completed", result);
+  },
+);
+
+exports.expireProfileVerificationV1 = onSchedule(
+  {
+    schedule: "every 60 minutes",
+    timeZone: "Europe/Berlin",
+    retryCount: 3,
+    maxRetrySeconds: 300,
+    timeoutSeconds: 300,
+    memory: "256MiB",
+  },
+  async () => {
+    const now = Timestamp.now();
+    const totals = {identityCount: 0, vehicleCount: 0, pages: 0};
+    let hasMore = false;
+    do {
+      const result = await expireIdentityVerifications({
+        firestore: db,
+        now,
+        pageSize: 100,
+      });
+      totals.identityCount += result.identityCount;
+      totals.vehicleCount += result.vehicleCount;
+      totals.pages += 1;
+      hasMore = result.hasMore;
+    } while (hasMore && totals.pages < 10);
+    logger.info("V1 identity expiry completed", {
+      ...totals,
+      continuationRequired: hasMore,
+    });
   },
 );
 

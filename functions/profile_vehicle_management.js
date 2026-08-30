@@ -454,6 +454,7 @@ const verificationCoreFields = [
   "plateRegion",
   "plateLetters",
   "plateNumbers",
+  "status",
   "useRelationship",
   "vehicleType",
   "plateType",
@@ -906,15 +907,27 @@ async function saveProfileVehicle({
   const targetPlateReference = firestore.doc(
     `plates/${vehicle.plateDocumentId}`,
   );
-  const verificationReference = firestore.doc(
+  const legacyVerificationReference = firestore.doc(
     `verification_requests/${userId}`,
+  );
+  const vehicleVerificationReference = firestore.doc(
+    `users/${userId}/vehicle_verifications/${vehicle.vehicleId}`,
   );
 
   return firestore.runTransaction(async (transaction) => {
-    const profileSnapshot = await transaction.get(profileReference);
-    const existingVehicleSnapshot = await transaction.get(vehicleReference);
-    const targetPlateSnapshot = await transaction.get(targetPlateReference);
-    const verificationSnapshot = await transaction.get(verificationReference);
+    const [
+      profileSnapshot,
+      existingVehicleSnapshot,
+      targetPlateSnapshot,
+      legacyVerificationSnapshot,
+      vehicleVerificationSnapshot,
+    ] = await Promise.all([
+      transaction.get(profileReference),
+      transaction.get(vehicleReference),
+      transaction.get(targetPlateReference),
+      transaction.get(legacyVerificationReference),
+      transaction.get(vehicleVerificationReference),
+    ]);
     if (!profileSnapshot.exists) {
       throw new HttpsError(
         "failed-precondition",
@@ -974,9 +987,22 @@ async function saveProfileVehicle({
       ));
     }
 
+    const vehicleVerification = vehicleVerificationSnapshot.exists ?
+      vehicleVerificationSnapshot.data() ?? {} : null;
+    const declarationId = safeString(vehicleVerification?.declarationId);
+    const declarationReference = declarationId.length === 0 ? null :
+      firestore.doc(
+        `users/${userId}/verification_declarations/${declarationId}`,
+      );
+    const declarationSnapshot = declarationReference == null ? null :
+      await transaction.get(declarationReference);
+
     const wasVerified = existing?.isVerified === true ||
       safeString(existing?.verificationStatus) === "verified";
-    const resetVerification = wasVerified && coreChanged;
+    const hasActiveV1Verification = ["verified", "requires_declaration"]
+      .includes(safeString(vehicleVerification?.status));
+    const resetVerification = coreChanged &&
+      (wasVerified || hasActiveV1Verification);
     const isVerified = resetVerification ? false : wasVerified;
     const verificationStatus = resetVerification ? "evidenceMissing" :
       safeString(existing?.verificationStatus) || "unverified";
@@ -1030,8 +1056,8 @@ async function saveProfileVehicle({
       }
     }
 
-    const verificationRequest = verificationSnapshot.exists ?
-      verificationSnapshot.data() ?? {} : {};
+    const verificationRequest = legacyVerificationSnapshot.exists ?
+      legacyVerificationSnapshot.data() ?? {} : {};
     const vehicleRequestReset = resetVerification &&
       safeString(verificationRequest.vehicleId) === vehicle.vehicleId;
     if (becomesPrimary) {
@@ -1108,7 +1134,7 @@ async function saveProfileVehicle({
 
     if (vehicleRequestReset) {
       transaction.set(
-        verificationReference,
+        legacyVerificationReference,
         vehicleVerificationResetPatch(
             verificationRequest,
             now,
@@ -1116,6 +1142,23 @@ async function saveProfileVehicle({
         ),
         {merge: true},
       );
+    }
+
+    if (resetVerification && vehicleVerificationSnapshot.exists) {
+      transaction.set(vehicleVerificationReference, {
+        status: "invalidated",
+        invalidatedReason: "vehicle_core_changed",
+        invalidatedAt: now,
+        updatedAt: now,
+      }, {merge: true});
+      if (declarationSnapshot?.exists === true) {
+        transaction.set(declarationReference, {
+          status: "revoked",
+          revokedReason: "vehicle_core_changed",
+          revokedAt: now,
+          updatedAt: now,
+        }, {merge: true});
+      }
     }
 
     return {
@@ -1296,10 +1339,17 @@ async function deactivateProfileVehicle({
   const publicVehicleReference = firestore.doc(
     `public_profiles/${userId}/vehicles/${vehicleId}`,
   );
+  const vehicleVerificationReference = firestore.doc(
+    `users/${userId}/vehicle_verifications/${vehicleId}`,
+  );
 
   return firestore.runTransaction(async (transaction) => {
-    const profileSnapshot = await transaction.get(profileReference);
-    const vehicleSnapshot = await transaction.get(vehicleReference);
+    const [profileSnapshot, vehicleSnapshot, vehicleVerificationSnapshot] =
+      await Promise.all([
+        transaction.get(profileReference),
+        transaction.get(vehicleReference),
+        transaction.get(vehicleVerificationReference),
+      ]);
     if (!vehicleSnapshot.exists) {
       return {vehicleId, alreadyDeactivated: true};
     }
@@ -1324,6 +1374,15 @@ async function deactivateProfileVehicle({
         `plates/${plateIdentity.plateDocumentId}`,
       ));
     }
+    const declarationId = safeString(
+      vehicleVerificationSnapshot.data()?.declarationId,
+    );
+    const declarationReference = declarationId.length === 0 ? null :
+      firestore.doc(
+        `users/${userId}/verification_declarations/${declarationId}`,
+      );
+    const declarationSnapshot = declarationReference == null ? null :
+      await transaction.get(declarationReference);
     transaction.set(vehicleReference, {
       status: "archived",
       visibility: "onlyMe",
@@ -1332,6 +1391,9 @@ async function deactivateProfileVehicle({
       discoverableByPlate: false,
       selectableInStories: false,
       allowContactRequests: false,
+      isVerified: false,
+      verificationStatus: "unverified",
+      verificationLocked: false,
       deactivatedAt: now,
       updatedAt: now,
     }, {merge: true});
@@ -1344,6 +1406,22 @@ async function deactivateProfileVehicle({
         deactivatedPlateProjection(now),
         {merge: true},
       );
+    }
+    if (vehicleVerificationSnapshot.exists) {
+      transaction.set(vehicleVerificationReference, {
+        status: "revoked",
+        revokedReason: "vehicle_removed",
+        revokedAt: now,
+        updatedAt: now,
+      }, {merge: true});
+    }
+    if (declarationSnapshot?.exists === true) {
+      transaction.set(declarationReference, {
+        status: "revoked",
+        revokedReason: "vehicle_removed",
+        revokedAt: now,
+        updatedAt: now,
+      }, {merge: true});
     }
     return {vehicleId, alreadyDeactivated: false};
   });

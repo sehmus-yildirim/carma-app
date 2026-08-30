@@ -134,11 +134,7 @@ void main() {
         'carma-a84e4.firebasestorage.app/o/'
         'profile_photos%2Fuser-a%2Fprofile.png?alt=media';
     expect(
-      trustedProfilePhotoUrl(
-        url: ownerUrl,
-        userId: '.*',
-        allowEmulator: false,
-      ),
+      trustedProfilePhotoUrl(url: ownerUrl, userId: '.*', allowEmulator: false),
       isNull,
     );
     expect(

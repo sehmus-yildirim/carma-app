@@ -2,6 +2,11 @@ const {createHash} = require("node:crypto");
 const {Timestamp} = require("firebase-admin/firestore");
 const {HttpsError} = require("firebase-functions/v2/https");
 const {trustedProfilePhotoUrl} = require("./trusted_media_url");
+const {
+  isEffectiveIdentityVerification,
+  isEffectiveVehicleVerification,
+  usesVerificationV1,
+} = require("./verification_v1_policy");
 
 const supportedCountries = new Set(["DE", "AT", "CH"]);
 const maxSearchRadiusKm = 5;
@@ -339,14 +344,49 @@ async function loadVisibilitySettings(firestore, userId) {
   }
 }
 
-async function loadPublicIdentityStatus(firestore, userId) {
+async function loadEffectiveVerificationStatus(
+  firestore,
+  userId,
+  vehicleId,
+  now,
+) {
   try {
-    const snapshot = await firestore.doc(`public_profiles/${userId}`).get();
-    const data = snapshot.exists ? snapshot.data() || {} : {};
-    return safeString(data.verificationStatus) === "verified" ||
-      data.isVerified === true;
+    const [
+      publicProfileSnapshot,
+      identitySnapshot,
+      verificationSnapshot,
+      vehicleSnapshot,
+    ] = await Promise.all([
+      firestore.doc(`public_profiles/${userId}`).get(),
+      firestore.doc(`users/${userId}/private_verification/identity`).get(),
+      firestore.doc(`users/${userId}/vehicle_verifications/${vehicleId}`).get(),
+      firestore.doc(`users/${userId}/vehicles/${vehicleId}`).get(),
+    ]);
+    const publicProfile = publicProfileSnapshot.exists ?
+      publicProfileSnapshot.data() || {} : {};
+    const identity = identitySnapshot.exists ? identitySnapshot.data() || {} : null;
+    const verification = verificationSnapshot.exists ?
+      verificationSnapshot.data() || {} : null;
+    if (usesVerificationV1(identity, verification)) {
+      return {
+        identityVerified: isEffectiveIdentityVerification(identity, now),
+        vehicleVerified: vehicleSnapshot.exists &&
+          isEffectiveVehicleVerification({
+            identity,
+            verification,
+            vehicle: vehicleSnapshot.data() || {},
+            now,
+          }),
+      };
+    }
+    return {
+      identityVerified:
+        safeString(publicProfile.verificationStatus) === "verified" ||
+        publicProfile.isVerified === true,
+      vehicleVerified: true,
+    };
   } catch (_) {
-    return false;
+    return {identityVerified: false, vehicleVerified: false};
   }
 }
 
@@ -408,9 +448,14 @@ async function searchPlateDocument({
     return notFoundResult();
   }
 
-  const [visibilitySettings, ownerIdentityVerified] = await Promise.all([
+  const [visibilitySettings, verificationStatus] = await Promise.all([
     loadVisibilitySettings(firestore, ownerUserId),
-    loadPublicIdentityStatus(firestore, ownerUserId),
+    loadEffectiveVerificationStatus(
+      firestore,
+      ownerUserId,
+      vehicleId,
+      now,
+    ),
   ]);
   const settingsAllowContactRequests =
     visibilitySettings.allowContactRequests !== false;
@@ -419,6 +464,7 @@ async function searchPlateDocument({
   const settingsShowVehicle = visibilitySettings.showVehicle !== false;
   const settingsShowPlate = visibilitySettings.showPlate !== false;
   if (!settingsAllowContactRequests ||
+      !verificationStatus.vehicleVerified ||
       settingsPlateSearchVisibility === "onlyMe") {
     return notFoundResult();
   }
@@ -474,7 +520,7 @@ async function searchPlateDocument({
       data.profilePhotoUrl || data.photoUrl,
       ownerUserId,
     ),
-    isVerified: ownerIdentityVerified,
+    isVerified: verificationStatus.identityVerified,
     vehicleId,
     plateKey,
     displayPlate: showAnyPlate ?

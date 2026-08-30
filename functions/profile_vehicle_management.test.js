@@ -8,6 +8,7 @@ const {
   setPrimaryProfileVehicle,
   syncProfileVisibilityReferences,
   updatePrimaryVehicleLocation,
+  verificationCoreChanged,
 } = require("./profile_vehicle_management");
 
 function fakeFirestore(initialDocuments = {}) {
@@ -207,6 +208,17 @@ function plateData(userId, vehicle, overrides = {}) {
     ...overrides,
   };
 }
+
+test("vehicle ownership status is verification-critical", () => {
+  const active = storedVehicle("user-1", {isPrimary: false});
+  for (const status of ["sold", "deregistered", "noLongerOwned"]) {
+    assert.equal(
+      verificationCoreChanged(active, {...active, status}),
+      true,
+      status,
+    );
+  }
+});
 
 test("validates DACH plates, types and season data", () => {
   assert.equal(
@@ -629,6 +641,13 @@ test("verified core changes reset only the vehicle verification", async () => {
       documentRejectionReasons: {},
       submittedDocumentGroups: [],
     },
+    [`users/${userId}/vehicle_verifications/vehicle-1`]: {
+      status: "verified",
+      declarationId: "declaration-1",
+    },
+    [`users/${userId}/verification_declarations/declaration-1`]: {
+      status: "active",
+    },
   });
 
   const result = await saveProfileVehicle({
@@ -659,6 +678,12 @@ test("verified core changes reset only the vehicle verification", async () => {
   assert.equal(request.documentStatuses.driverLicenseFront, "verified");
   assert.equal(request.documentStatuses.vehicleFront, "expired");
   assert.equal(request.documentStatuses.vehicleBack, "expired");
+  assert.equal(firestore.documents.get(
+    `users/${userId}/vehicle_verifications/vehicle-1`,
+  ).status, "invalidated");
+  assert.equal(firestore.documents.get(
+    `users/${userId}/verification_declarations/declaration-1`,
+  ).status, "revoked");
 });
 
 test("visibility-only changes preserve vehicle verification", async () => {
@@ -721,6 +746,13 @@ test("deactivation is soft, private and releases the exact plate", async () => {
     [`users/${userId}/vehicles/vehicle-archive`]: archived,
     [`public_profiles/${userId}/vehicles/vehicle-archive`]: archived,
     "plates/DE_BCD2": plateData(userId, archived),
+    [`users/${userId}/vehicle_verifications/vehicle-archive`]: {
+      status: "verified",
+      declarationId: "declaration-archive",
+    },
+    [`users/${userId}/verification_declarations/declaration-archive`]: {
+      status: "active",
+    },
   });
 
   await deactivateProfileVehicle({
@@ -740,4 +772,12 @@ test("deactivation is soft, private and releases the exact plate", async () => {
     `public_profiles/${userId}/vehicles/vehicle-archive`,
   ), false);
   assert.equal(firestore.documents.get("plates/DE_BCD2").isActive, false);
+  assert.equal(stored.isVerified, false);
+  assert.equal(stored.verificationStatus, "unverified");
+  assert.equal(firestore.documents.get(
+    `users/${userId}/vehicle_verifications/vehicle-archive`,
+  ).status, "revoked");
+  assert.equal(firestore.documents.get(
+    `users/${userId}/verification_declarations/declaration-archive`,
+  ).status, "revoked");
 });

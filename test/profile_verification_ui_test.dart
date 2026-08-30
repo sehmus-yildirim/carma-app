@@ -1,613 +1,541 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plaqa/features/profile/data/profile_repository.dart';
 import 'package:plaqa/features/profile/data/profile_vehicle.dart';
 import 'package:plaqa/features/profile/data/profile_vehicle_repository.dart';
-import 'package:plaqa/features/profile/data/profile_verification_repository.dart';
-import 'package:plaqa/features/profile/data/profile_verification_request.dart';
 import 'package:plaqa/features/profile/data/user_profile.dart';
 import 'package:plaqa/features/profile/presentation/profile_verification_screen.dart';
-import 'package:plaqa/shared/theme/carisma_design_tokens.dart';
+import 'package:plaqa/features/profile/verification_v1/data/document_services.dart';
+import 'package:plaqa/features/profile/verification_v1/data/verification_v1_repository.dart';
+import 'package:plaqa/features/profile/verification_v1/domain/verification_models.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets('replaces the legacy double-upload UI', (tester) async {
+    await _pumpScreen(tester);
 
-  testWidgets('shows staged identity and vehicle evidence without licence', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      profile: UserProfile.empty(uid: 'user-1', email: 'test@plaqa.de'),
-      vehicles: const [],
-      request: null,
-    );
-
-    expect(find.text('Nicht begonnen'), findsOneWidget);
-    expect(find.text('0 von 4 Nachweisen vollständig'), findsOneWidget);
-    expect(find.text('Persönliche Daten'), findsOneWidget);
-    expect(find.text('Identität bestätigen'), findsOneWidget);
-    expect(find.textContaining('Führerschein'), findsNothing);
-    expect(find.text('Fahrzeugbezug bestätigen'), findsOneWidget);
-    expect(find.text('Vorderseite'), findsNWidgets(2));
-    expect(find.text('Rückseite'), findsNWidgets(2));
-    expect(find.text('Fahrzeugzuordnung'), findsOneWidget);
-    expect(find.text('Ablaufdatum des Identitätsnachweises'), findsOneWidget);
-    expect(find.text('Basis-Konto'), findsOneWidget);
-    expect(find.text('Fahrzeug bestätigt'), findsOneWidget);
-    expect(find.text('Identität bestätigt'), findsOneWidget);
-    expect(find.text('Vollständig verifiziert'), findsOneWidget);
-    expect(find.text('UNBEDINGT LESEN!'), findsOneWidget);
-    expect(find.text('Datenschutzübersicht'), findsOneWidget);
+    expect(find.text('Identität & Fahrzeug'), findsOneWidget);
+    expect(find.textContaining('Rückseite'), findsNothing);
+    expect(find.text('Auswählen'), findsNothing);
     expect(
-      find.textContaining('Nur ausdrücklich berechtigte Prüfer'),
-      findsOneWidget,
+      find.textContaining('Ablaufdatum des Identitätsnachweises'),
+      findsNothing,
     );
-    expect(
-      find.textContaining('Dokumentbilder und persönliche Angaben'),
-      findsOneWidget,
-    );
-    expect(find.text('Löschstatus'), findsNothing);
-    expect(find.text('Fehlt'), findsNothing);
-    expect(find.byType(Image), findsNothing);
+    expect(find.text('Personalausweis'), findsOneWidget);
+    expect(find.text('Vorderseite fotografieren'), findsOneWidget);
   });
 
-  testWidgets('shows a locked in-review state without mutable upload actions', (
+  testWidgets('shows OCR identity values read-only and advances', (
     tester,
   ) async {
-    await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: _request(
-        status: ProfileVerificationStatus.pending,
-        documentStatus: ProfileVerificationDocumentStatus.inReview,
-      ),
-    );
+    await _pumpScreen(tester);
 
-    expect(find.text('In Prüfung'), findsWidgets);
-    expect(find.text('4 von 4 Nachweisen vollständig'), findsOneWidget);
-    expect(find.text('Prüfung läuft'), findsOneWidget);
-    expect(find.text('Ersetzen'), findsNothing);
-    expect(find.text('Entfernen'), findsNothing);
-  });
-
-  testWidgets('shows rejection reason and a clear resubmission action', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: _request(
-        status: ProfileVerificationStatus.rejected,
-        documentStatus: ProfileVerificationDocumentStatus.rejected,
-        reason: 'Das Dokument ist nicht vollständig lesbar.',
-      ),
-    );
-
-    expect(find.text('Abgelehnt'), findsWidgets);
-    expect(
-      find.text('Das Dokument ist nicht vollständig lesbar.'),
-      findsWidgets,
-    );
-    expect(find.text('Neu einreichen'), findsNWidgets(4));
-    expect(find.text('Verifizierungsproblem melden'), findsOneWidget);
-  });
-
-  testWidgets('consent and expiration input survive interaction lifecycle', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: null,
-    );
-
-    await tester.tap(
-      find.byKey(const ValueKey('verification-consent-checkbox')),
-    );
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-
-    final expiration = find.byKey(
-      const ValueKey('verification-expiration-identity'),
-    );
-    await tester.tap(expiration);
-    await tester.enterText(expiration, '31122035');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-    final field = tester.widget<TextField>(expiration);
-    expect(field.controller?.text, '31.12.2035');
-    expect(find.text('Muss aktuell gültig sein'), findsOneWidget);
-    expect(find.text('Dokumente hochladen'), findsOneWidget);
-    expect(tester.widget<Checkbox>(find.byType(Checkbox).last).value, isTrue);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('expired document date is marked red and is not saved', (
-    tester,
-  ) async {
-    final repository = await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: null,
-    );
-
-    final expiration = find.byKey(
-      const ValueKey('verification-expiration-identity'),
-    );
-    await tester.enterText(expiration, '01012020');
-    await tester.pump();
-
-    const message = 'Dieses Dokument ist abgelaufen.';
-    expect(find.text(message), findsOneWidget);
-    final field = tester.widget<TextField>(expiration);
-    expect(field.decoration?.errorText, message);
-    expect(
-      field.decoration?.errorBorder?.borderSide.color,
-      CaRismaDesignTokens.danger,
-    );
-
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pump();
-    expect(repository.expirationSaveCount, 0);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('privacy details precede consent and highlight legal review', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: null,
-    );
-
-    final privacyAction = find.text('Datenschutz & Berechtigung ansehen');
-    final consent = find.byKey(const ValueKey('verification-consent-checkbox'));
-    expect(
-      tester.getTopLeft(privacyAction).dy,
-      lessThan(tester.getTopLeft(consent).dy),
-    );
-
-    await tester.tap(privacyAction);
+    await tester.tap(find.text('Vorderseite fotografieren'));
     await tester.pumpAndSettle();
-    final legalText = tester.widget<Text>(
+
+    expect(find.text('Erika Maria'), findsOneWidget);
+    expect(find.text('Muster'), findsOneWidget);
+    expect(find.text('01.01.1990'), findsOneWidget);
+    expect(find.text('31.12.2030'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Erika Maria'), findsNothing);
+
+    await tester.tap(find.text('Weiter zum Fahrzeug'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fahrzeugbezug bestätigen'), findsOneWidget);
+  });
+
+  testWidgets('updates the camera CTA for every document type', (tester) async {
+    await _pumpScreen(tester);
+
+    await tester.tap(find.text('Personalausweis'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reisepass').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Datenseite fotografieren'), findsOneWidget);
+
+    await tester.tap(find.text('Reisepass'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aufenthaltstitel').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Vorderseite fotografieren'), findsOneWidget);
+  });
+
+  testWidgets('requires an existing vehicle before a registration scan', (
+    tester,
+  ) async {
+    await _pumpScreen(tester, vehicleRepository: _EmptyVehicleRepository());
+    await tester.tap(find.text('Vorderseite fotografieren'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Weiter zum Fahrzeug'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Lege zuerst ein Fahrzeug in deinem Profil an.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Fahrzeugschein fotografieren'),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('offers exactly four separate vehicle relations', (tester) async {
+    await _reachVehicleStep(tester);
+
+    for (final relation in VerificationVehicleRelation.values) {
+      expect(find.text(relation.label), findsOneWidget);
+    }
+    expect(find.text('Leasing- oder Firmenfahrzeug'), findsNothing);
+  });
+
+  testWidgets('requires privacy information before server submit', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    await _reachVehicleStep(tester, gateway: gateway);
+    await tester.tap(find.text('Fahrzeugschein fotografieren'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('HH AB 123'), findsOneWidget);
+    final submit = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Abgleichen'),
+    );
+    expect(submit.onPressed, isNull);
+
+    await _acceptPrivacy(tester);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Abgleichen'))
+          .onPressed,
+      isNotNull,
+    );
+    expect(gateway.calls, isEmpty);
+  });
+
+  testWidgets('registered holder completes without declaration', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    await _prepareAndSubmit(tester, gateway: gateway);
+
+    expect(find.text('Fahrzeug verifiziert'), findsOneWidget);
+    expect(find.text('Eigenerklärung'), findsNothing);
+    expect(gateway.calls.map((call) => call.command), [
+      'createVerificationSessionV1',
+      'submitVerificationDataV1',
+    ]);
+  });
+
+  for (final error in const [
+    'Der Name im Identitätsnachweis stimmt nicht mit deinem Profil überein.',
+    'Das Kennzeichen im Fahrzeugschein stimmt nicht mit dem ausgewählten Fahrzeug überein.',
+  ]) {
+    testWidgets('shows the safe server validation error: $error', (
+      tester,
+    ) async {
+      final gateway = _FakeGateway(submitError: VerificationV1Exception(error));
+      await _prepareAndSubmit(tester, gateway: gateway);
+
+      expect(find.text(error), findsOneWidget);
+      expect(find.text('Fahrzeug verifiziert'), findsNothing);
+      expect(find.text('Neu fotografieren'), findsWidgets);
+    });
+  }
+
+  testWidgets('shows a loading state and prevents a second submit', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway(submitDelay: const Duration(milliseconds: 80));
+    await _reachVehicleStep(tester, gateway: gateway);
+    await tester.tap(find.text('Fahrzeugschein fotografieren'));
+    await tester.pumpAndSettle();
+    await _acceptPrivacy(tester);
+
+    await tester.tap(find.text('Abgleichen'));
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Abgleichen'))
+          .onPressed,
+      isNull,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Fahrzeug verifiziert'), findsOneWidget);
+  });
+
+  testWidgets('non-holder requires declaration, checkbox and signature', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    await _reachVehicleStep(tester, gateway: gateway);
+    await tester.tap(
+      find.byKey(const ValueKey('verification-relation-leasing_vehicle')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Zum Abgleich'), findsOneWidget);
+    await tester.tap(find.text('Fahrzeugschein fotografieren'));
+    await tester.pumpAndSettle();
+    expect(find.text('Zum Abgleich'), findsOneWidget);
+    await _acceptPrivacy(tester);
+    expect(
+      find.text('Zum Abgleich'),
+      findsOneWidget,
+      reason: 'the non-holder relation must survive privacy confirmation',
+    );
+    await tester.tap(find.text('Zum Abgleich'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Eigenerklärung'), findsWidgets);
+    final finalizeFinder = find.widgetWithText(
+      FilledButton,
+      'Verbindlich bestätigen',
+    );
+    expect(tester.widget<FilledButton>(finalizeFinder).onPressed, isNull);
+
+    await tester.tap(find.textContaining('Ich habe die Eigenerklärung'));
+    await tester.pump();
+    final signature = find.byKey(const ValueKey('verification-signature-pad'));
+    await tester.timedDrag(
+      signature,
+      const Offset(260, 90),
+      const Duration(milliseconds: 700),
+    );
+    await tester.pump();
+
+    expect(tester.widget<FilledButton>(finalizeFinder).onPressed, isNotNull);
+    await tester.tap(finalizeFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('Fahrzeug verifiziert'), findsOneWidget);
+    expect(find.textContaining('privat gespeichert'), findsOneWidget);
+  });
+
+  testWidgets('shows safe scan errors and supports retry', (tester) async {
+    await _pumpScreen(
+      tester,
+      captureService: _FakeCaptureService(
+        error: const VerificationV1Exception(
+          'Der Kamerazugriff wurde verweigert.',
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Vorderseite fotografieren'));
+    await tester.pumpAndSettle();
+    expect(find.text('Der Kamerazugriff wurde verweigert.'), findsOneWidget);
+    expect(find.text('Vorderseite fotografieren'), findsOneWidget);
+  });
+
+  testWidgets('uses a camera-managed capture without adopting it twice', (
+    tester,
+  ) async {
+    final temporaryFiles = _FakeTemporaryFileService();
+    await _pumpScreen(
+      tester,
+      captureService: _FakeCaptureService(managed: true),
+      temporaryFileService: temporaryFiles,
+    );
+
+    await tester.tap(find.text('Vorderseite fotografieren'));
+    await tester.pumpAndSettle();
+
+    expect(temporaryFiles.adoptedPaths, isEmpty);
+    expect(temporaryFiles.deletedPaths, contains('synthetic-identityCard.jpg'));
+    expect(find.text('Erika Maria'), findsOneWidget);
+  });
+
+  testWidgets('does not overflow on a small display with large text', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      surfaceSize: const Size(320, 640),
+      textScaler: const TextScaler.linear(1.7),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Identität & Fahrzeug'), findsOneWidget);
+  });
+
+  testWidgets('exposes the flow and camera action to screen readers', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _pumpScreen(tester);
+
+    expect(
       find.byWidgetPredicate(
         (widget) =>
-            widget is Text &&
-            widget.textSpan?.toPlainText().contains('rechtlichen Prüfung') ==
-                true,
+            widget is Semantics &&
+            widget.properties.label == 'Schritt 1 von 4: Identität',
       ),
+      findsOneWidget,
     );
-    final rootSpan = legalText.textSpan! as TextSpan;
-    final highlightedSpan = rootSpan.children!
-        .whereType<TextSpan>()
-        .singleWhere((span) => span.text == 'rechtlichen Prüfung');
-    expect(highlightedSpan.style?.color, CaRismaDesignTokens.danger);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('selected identity type ignores stale request snapshots', (
-    tester,
-  ) async {
-    final repository = await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: _request(
-        status: ProfileVerificationStatus.draft,
-        documentStatus: ProfileVerificationDocumentStatus.missing,
-      ),
-    );
-
-    await tester.tap(find.text('Personalausweis'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Reisepass').hitTestable().last);
-    await tester.pumpAndSettle();
     expect(
-      _selectedIdentityDocumentType(tester),
-      ProfileVerificationIdentityDocumentType.passport,
-    );
-
-    repository.emit(
-      _request(
-        status: ProfileVerificationStatus.draft,
-        documentStatus: ProfileVerificationDocumentStatus.missing,
-        identityDocumentType:
-            ProfileVerificationIdentityDocumentType.identityCard,
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Vorderseite fotografieren',
       ),
+      findsOneWidget,
     );
-    await tester.pump();
-    expect(
-      _selectedIdentityDocumentType(tester),
-      ProfileVerificationIdentityDocumentType.passport,
-    );
-
-    repository.emit(
-      _request(
-        status: ProfileVerificationStatus.draft,
-        documentStatus: ProfileVerificationDocumentStatus.missing,
-        identityDocumentType: ProfileVerificationIdentityDocumentType.passport,
-      ),
-    );
-    await tester.pump();
-    expect(
-      _selectedIdentityDocumentType(tester),
-      ProfileVerificationIdentityDocumentType.passport,
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('selected identity type stays visible when draft save fails', (
-    tester,
-  ) async {
-    final repository = await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: _request(
-        status: ProfileVerificationStatus.draft,
-        documentStatus: ProfileVerificationDocumentStatus.missing,
-      ),
-    );
-    repository.failIdentityTypeSave = true;
-
-    await tester.tap(find.text('Personalausweis'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Aufenthaltstitel').hitTestable().last);
-    await tester.pumpAndSettle();
-
-    expect(
-      _selectedIdentityDocumentType(tester),
-      ProfileVerificationIdentityDocumentType.residencePermit,
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('document source opens immediately while type save is pending', (
-    tester,
-  ) async {
-    final repository = await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: _request(
-        status: ProfileVerificationStatus.draft,
-        documentStatus: ProfileVerificationDocumentStatus.missing,
-      ),
-    );
-    repository.failIdentityTypeSave = true;
-
-    await tester.tap(find.text('Personalausweis'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Reisepass').hitTestable().last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Auswählen').first);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Kamera'), findsOneWidget);
-    expect(find.text('Galerie'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('load error never returns the form to a full-screen loader', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [],
-      request: null,
-      requestStreamFails: true,
-    );
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-
-    final expiration = find.byKey(
-      const ValueKey('verification-expiration-identity'),
-    );
-    await tester.enterText(expiration, '31122035');
-    await tester.pump();
-    await tester.tap(
-      find.byKey(const ValueKey('verification-consent-checkbox')),
-    );
-    await tester.pump();
-
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Dokumente hochladen'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('missing vehicle uses an information row without a checkbox', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [],
-      request: null,
-    );
-
-    expect(find.text('Bitte wähle zuerst ein Fahrzeug aus.'), findsOneWidget);
-    expect(find.byType(Checkbox), findsOneWidget);
-  });
-
-  testWidgets('request updates keep the document list at its scroll position', (
-    tester,
-  ) async {
-    final repository = await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: null,
-      surfaceSize: const Size(430, 850),
-    );
-    final list = find.byType(ListView);
-    await tester.drag(list, const Offset(0, -1800));
-    await tester.pump();
-    final controller = tester.widget<ListView>(list).controller!;
-    final offsetBefore = controller.offset;
-    expect(offsetBefore, greaterThan(0));
-
-    repository.emit(
-      _request(
-        status: ProfileVerificationStatus.draft,
-        documentStatus: ProfileVerificationDocumentStatus.missing,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(controller.offset, closeTo(offsetBefore, 0.5));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('shows submission, review and resubmission history clearly', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      profile: _completeProfile,
-      vehicles: const [_vehicle],
-      request: _request(
-        status: ProfileVerificationStatus.rejected,
-        documentStatus: ProfileVerificationDocumentStatus.rejected,
-      ),
-      history: [
-        ProfileVerificationHistoryEntry(
-          id: 'submitted',
-          status: ProfileVerificationStatus.pending,
-          eventType: 'submitted',
-          documentGroups: const ['identity', 'vehicle'],
-          createdAt: DateTime.utc(2026, 8, 10),
-        ),
-        ProfileVerificationHistoryEntry(
-          id: 'reviewed',
-          status: ProfileVerificationStatus.verified,
-          eventType: 'reviewed',
-          validUntil: DateTime.utc(2030, 8, 10),
-          createdAt: DateTime.utc(2026, 8, 11),
-        ),
-        ProfileVerificationHistoryEntry(
-          id: 'recheck',
-          status: ProfileVerificationStatus.expired,
-          eventType: 'resubmissionRequested',
-          documentGroups: const ['identity'],
-          createdAt: DateTime.utc(2030, 7, 11),
-        ),
-      ],
-    );
-
-    expect(find.text('Verifizierungsverlauf'), findsOneWidget);
-    expect(find.text('Zur Prüfung eingereicht'), findsOneWidget);
-    expect(find.text('Prüfung abgeschlossen'), findsOneWidget);
-    expect(find.text('Erneute Prüfung angefordert'), findsOneWidget);
-    expect(find.textContaining('Eingereicht am'), findsOneWidget);
-    expect(find.textContaining('Geprüft am'), findsOneWidget);
-    expect(find.textContaining('Angefordert am'), findsOneWidget);
-    expect(find.textContaining('Gültig bis'), findsOneWidget);
+    handle.dispose();
   });
 }
 
-ProfileVerificationIdentityDocumentType? _selectedIdentityDocumentType(
-  WidgetTester tester,
-) {
-  final finder = find.byWidgetPredicate(
-    (widget) =>
-        widget is DropdownButton<ProfileVerificationIdentityDocumentType>,
-  );
-  return tester
-      .widget<DropdownButton<ProfileVerificationIdentityDocumentType>>(finder)
-      .value;
-}
-
-Future<_FakeVerificationRepository> _pumpScreen(
+Future<void> _prepareAndSubmit(
   WidgetTester tester, {
-  required UserProfile? profile,
-  required List<ProfileVehicle> vehicles,
-  required ProfileVerificationRequest? request,
-  List<ProfileVerificationHistoryEntry> history = const [],
+  required _FakeGateway gateway,
+}) async {
+  await _reachVehicleStep(tester, gateway: gateway);
+  await tester.tap(find.text('Fahrzeugschein fotografieren'));
+  await tester.pumpAndSettle();
+  await _acceptPrivacy(tester);
+  await tester.tap(find.text('Abgleichen'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _reachVehicleStep(
+  WidgetTester tester, {
+  _FakeGateway? gateway,
+}) async {
+  await _pumpScreen(tester, gateway: gateway);
+  await tester.tap(find.text('Vorderseite fotografieren'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Weiter zum Fahrzeug'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _acceptPrivacy(WidgetTester tester) async {
+  await tester.tap(find.text('Datenschutz & Berechtigung ansehen'));
+  await tester.pumpAndSettle();
+  expect(
+    find.textContaining('keine amtliche Echtheitsprüfung'),
+    findsOneWidget,
+  );
+  await tester.tap(find.text('Information verstanden'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Ich habe die aktuelle Information gelesen.'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpScreen(
+  WidgetTester tester, {
+  _FakeGateway? gateway,
+  DocumentCaptureService? captureService,
+  VerificationTemporaryFileService? temporaryFileService,
+  ProfileVehicleRepository? vehicleRepository,
   Size surfaceSize = const Size(430, 5000),
-  bool requestStreamFails = false,
+  TextScaler textScaler = TextScaler.noScaling,
 }) async {
   await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final verificationRepository = _FakeVerificationRepository(
-    request,
-    history,
-    requestStreamFails: requestStreamFails,
-  );
-  addTearDown(verificationRepository.dispose);
+  final effectiveGateway = gateway ?? _FakeGateway();
   await tester.pumpWidget(
     MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+        child: child!,
+      ),
       home: ProfileVerificationScreen(
         userId: 'user-1',
-        profileRepository: _FakeProfileRepository(profile),
-        vehicleRepository: _FakeVehicleRepository(vehicles),
-        verificationRepository: verificationRepository,
+        profileRepository: _FakeProfileRepository(),
+        vehicleRepository: vehicleRepository ?? _FakeVehicleRepository(),
+        verificationV1Repository: VerificationV1Repository(
+          gateway: effectiveGateway,
+        ),
+        captureService: captureService ?? _FakeCaptureService(),
+        ocrService: _FakeOcrService(),
+        imageQualityService: const _FakeQualityService(),
+        temporaryFileService:
+            temporaryFileService ?? _FakeTemporaryFileService(),
       ),
     ),
   );
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 100));
-  return verificationRepository;
-}
-
-final _completeProfile = UserProfile(
-  uid: 'user-1',
-  email: 'test@plaqa.de',
-  firstName: 'Sehmus',
-  lastName: 'Yildirim',
-  displayName: 'Sehmus Y.',
-  country: 'Deutschland',
-  birthDate: DateTime.utc(1990, 1, 1, 12),
-  personalDataLocked: true,
-);
-
-const _vehicle = ProfileVehicle(
-  id: 'vehicle-1',
-  ownerUserId: 'user-1',
-  brand: 'BMW',
-  model: 'X6',
-  color: 'Schwarz',
-  countryCode: 'DE',
-  plateRegion: 'HH',
-  plateLetters: 'SY',
-  plateNumbers: '4700',
-  isPrimary: true,
-);
-
-ProfileVerificationRequest _request({
-  required ProfileVerificationStatus status,
-  required ProfileVerificationDocumentStatus documentStatus,
-  String? reason,
-  ProfileVerificationIdentityDocumentType identityDocumentType =
-      ProfileVerificationIdentityDocumentType.identityCard,
-}) {
-  return ProfileVerificationRequest(
-    requestId: 'user-1',
-    userId: 'user-1',
-    profilePath: 'users/user-1/profiles/main',
-    status: status,
-    displayName: 'Sehmus Y.',
-    documentStoragePaths: {
-      for (final key in ProfileVerificationDocumentKeys.required)
-        key: 'profile_documents/user-1/$key/$key.png',
-    },
-    documentStatuses: {
-      for (final key in ProfileVerificationDocumentKeys.required)
-        key: documentStatus,
-    },
-    documentRejectionReasons: reason == null
-        ? const {}
-        : {
-            for (final key in ProfileVerificationDocumentKeys.required)
-              key: reason,
-          },
-    vehicleId: 'vehicle-1',
-    vehicleRelationship: ProfileVehicleRelationship.owner,
-    authorizationConfirmed: true,
-    rejectionReason: reason,
-    identityDocumentType: identityDocumentType,
-  );
+  await tester.pumpAndSettle();
 }
 
 class _FakeProfileRepository extends ProfileRepository {
-  _FakeProfileRepository(this.profile);
-
-  final UserProfile? profile;
-
   @override
-  Stream<UserProfile?> watchProfile(String uid) => Stream.value(profile);
+  Stream<UserProfile?> watchProfile(String uid) => Stream.value(
+    UserProfile(
+      uid: uid,
+      email: 'synthetic@example.test',
+      firstName: 'Erika',
+      lastName: 'Muster',
+      displayName: 'Erika M.',
+      country: 'Deutschland',
+      birthDate: DateTime(1990),
+    ),
+  );
 }
 
 class _FakeVehicleRepository extends ProfileVehicleRepository {
-  _FakeVehicleRepository(this.vehicles);
-
-  final List<ProfileVehicle> vehicles;
-
   @override
-  Stream<List<ProfileVehicle>> watchOwnerVehicles(String userId) {
-    return Stream.value(vehicles);
-  }
-}
-
-class _FakeVerificationRepository extends ProfileVerificationRepository {
-  _FakeVerificationRepository(
-    this.request,
-    this.history, {
-    this.requestStreamFails = false,
-  });
-
-  final ProfileVerificationRequest? request;
-  final List<ProfileVerificationHistoryEntry> history;
-  final bool requestStreamFails;
-  bool failIdentityTypeSave = false;
-  int expirationSaveCount = 0;
-  final StreamController<ProfileVerificationRequest?> _requestController =
-      StreamController<ProfileVerificationRequest?>.broadcast();
-
-  @override
-  Stream<ProfileVerificationRequest?> watchCurrentRequest(String userId) {
-    if (requestStreamFails) {
-      return Stream.error(
-        const ProfileVerificationException(
-          'Der Verifizierungsstatus konnte nicht geladen werden.',
+  Stream<List<ProfileVehicle>> watchOwnerVehicles(String userId) =>
+      Stream.value([
+        const ProfileVehicle(
+          id: 'vehicle-1',
+          ownerUserId: 'user-1',
+          brand: 'BMW',
+          model: 'X6',
+          color: 'Schwarz',
+          countryCode: 'DE',
+          plateRegion: 'HH',
+          plateLetters: 'AB',
+          plateNumbers: '123',
+          isPrimary: true,
         ),
-      );
-    }
-    return (() async* {
-      yield request;
-      yield* _requestController.stream;
-    })();
-  }
+      ]);
+}
 
-  void emit(ProfileVerificationRequest? next) => _requestController.add(next);
+class _EmptyVehicleRepository extends ProfileVehicleRepository {
+  @override
+  Stream<List<ProfileVehicle>> watchOwnerVehicles(String userId) =>
+      Stream.value(const []);
+}
 
-  Future<void> dispose() => _requestController.close();
+class _FakeCaptureService implements DocumentCaptureService {
+  _FakeCaptureService({this.error, this.managed = false});
+
+  final Object? error;
+  final bool managed;
 
   @override
-  Stream<List<ProfileVerificationHistoryEntry>> watchHistory(String userId) {
-    return Stream.value(history);
-  }
-
-  @override
-  Stream<List<ProfileVerificationNotification>> watchNotifications(
-    String userId,
-  ) {
-    return Stream.value(const []);
-  }
-
-  @override
-  Future<void> saveDraftConfirmations({
-    required String userId,
-    required bool authorizationConfirmed,
-    required bool vehicleAssignmentConfirmed,
-  }) async {}
-
-  @override
-  Future<void> saveDraftExpiration({
-    required String userId,
-    required String expirationKey,
-    required DateTime expiresAt,
-  }) async {
-    expirationSaveCount += 1;
-  }
-
-  @override
-  Future<void> saveDraftIdentityDocumentType({
-    required String userId,
-    required ProfileVerificationIdentityDocumentType identityDocumentType,
-  }) async {
-    if (failIdentityTypeSave) {
-      throw const ProfileVerificationException(
-        'Der Dokumenttyp konnte nicht gespeichert werden.',
-      );
-    }
+  Future<CapturedVerificationDocument?> capture(
+    VerificationDocumentKind kind,
+  ) async {
+    if (error != null) throw error!;
+    return CapturedVerificationDocument(
+      path: 'synthetic-${kind.name}.jpg',
+      kind: kind,
+      deleteSourceAfterAdoption: false,
+      isManagedTemporaryFile: managed,
+    );
   }
 }
+
+class _FakeOcrService implements DocumentOcrService {
+  @override
+  Future<void> close() async {}
+
+  @override
+  Future<List<OcrBlock>> recognize(String imagePath) async {
+    if (imagePath.contains('vehicleRegistration')) {
+      return [
+        _block('A', 10, 10, 25, 30),
+        _block('HH AB 123', 50, 10, 160, 30),
+        _block('C.1.1', 10, 50, 60, 70),
+        _block('Muster', 90, 50, 160, 70),
+        _block('C.1.2', 10, 90, 60, 110),
+        _block('Erika Maria', 90, 90, 190, 110),
+      ];
+    }
+    return [
+      _block('Familienname', 10, 10, 130, 30),
+      _block('Muster', 150, 10, 250, 30),
+      _block('Vornamen', 10, 50, 130, 70),
+      _block('Erika Maria', 150, 50, 270, 70),
+      _block('Geburtsdatum', 10, 90, 130, 110),
+      _block('01.01.1990', 150, 90, 250, 110),
+      _block('Gültig bis', 10, 130, 130, 150),
+      _block('31.12.2030', 150, 130, 250, 150),
+    ];
+  }
+}
+
+class _FakeQualityService implements ImageQualityService {
+  const _FakeQualityService();
+
+  @override
+  Future<ImageQualityResult> inspect(String imagePath) async =>
+      const ImageQualityResult(
+        width: 1600,
+        height: 1000,
+        averageLuminance: 120,
+        contrast: 42,
+        sharpness: 8,
+      );
+}
+
+class _FakeTemporaryFileService implements VerificationTemporaryFileService {
+  final List<String> adoptedPaths = [];
+  final List<String> deletedPaths = [];
+
+  @override
+  Future<String> adopt(String sourcePath) async {
+    adoptedPaths.add(sourcePath);
+    return sourcePath;
+  }
+
+  @override
+  Future<void> cleanupOrphans() async {}
+
+  @override
+  Future<void> delete(String path) async => deletedPaths.add(path);
+}
+
+class _GatewayCall {
+  const _GatewayCall(this.command, this.payload);
+
+  final String command;
+  final Map<String, Object?> payload;
+}
+
+class _FakeGateway implements VerificationV1Gateway {
+  _FakeGateway({this.submitError, this.submitDelay = Duration.zero});
+
+  final List<_GatewayCall> calls = [];
+  final VerificationV1Exception? submitError;
+  final Duration submitDelay;
+  String relation = 'registered_holder';
+
+  @override
+  Future<Map<String, dynamic>> call(
+    String command,
+    Map<String, Object?> payload,
+  ) async {
+    calls.add(_GatewayCall(command, payload));
+    if (command == 'createVerificationSessionV1') {
+      relation = payload['relation']!.toString();
+      return {
+        'sessionId': 'session-1',
+        'nonce': List.filled(40, 'n').join(),
+        'expiresAt': '2026-08-30T12:15:00.000Z',
+        'state': 'created',
+      };
+    }
+    if (command == 'submitVerificationDataV1') {
+      if (submitDelay > Duration.zero) await Future<void>.delayed(submitDelay);
+      if (submitError != null) throw submitError!;
+      return {
+        'status': relation == 'registered_holder'
+            ? 'verified'
+            : 'requires_declaration',
+        'holderMatch': relation == 'registered_holder',
+      };
+    }
+    if (command == 'finalizeVehicleDeclarationV1') {
+      return {
+        'status': 'verified',
+        'holderMatch': false,
+        'declarationId': 'declaration-1',
+      };
+    }
+    return const {};
+  }
+}
+
+OcrBlock _block(
+  String text,
+  double left,
+  double top,
+  double right,
+  double bottom,
+) => OcrBlock(
+  text: text,
+  bounds: OcrRect(left: left, top: top, right: right, bottom: bottom),
+);

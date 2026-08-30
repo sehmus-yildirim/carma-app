@@ -18,18 +18,18 @@ void main() {
     expect(find.text('Fahrzeuge'), findsOneWidget);
     expect(find.text('Verifizierungsstufen'), findsOneWidget);
     expect(find.text('Basis-Konto'), findsOneWidget);
-    expect(find.text('Fahrzeug bestätigt'), findsOneWidget);
-    expect(find.text('Identität bestätigt'), findsOneWidget);
-    expect(find.text('Vollständig verifiziert'), findsOneWidget);
+    expect(find.text('Dokumentdaten abgeglichen'), findsOneWidget);
+    expect(find.text('Private Identitätsdaten'), findsOneWidget);
+    expect(find.text('Berechtigung dokumentiert'), findsOneWidget);
     expect(
       find.textContaining('Kontaktanfragen sind noch nicht möglich'),
       findsOneWidget,
     );
-    expect(find.textContaining('Fahrzeugschein prüfen lassen'), findsOneWidget);
     expect(
-      find.textContaining('Identitätsnachweis freiwillig'),
+      find.textContaining('Vorderseiten direkt fotografieren'),
       findsOneWidget,
     );
+    expect(find.textContaining('Dokumentbilder und Roh-OCR'), findsOneWidget);
     expect(find.textContaining('Führerschein'), findsNothing);
     expect(find.text('Fahrzeug hinzufügen'), findsOneWidget);
     expect(

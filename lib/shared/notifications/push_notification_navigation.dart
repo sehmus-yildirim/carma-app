@@ -3,10 +3,7 @@ import 'package:flutter/foundation.dart';
 enum PushNotificationDestination { profile, chats, reports, settings }
 
 class PushNotificationTarget {
-  const PushNotificationTarget({
-    required this.destination,
-    this.resourceId,
-  });
+  const PushNotificationTarget({required this.destination, this.resourceId});
 
   final PushNotificationDestination destination;
   final String? resourceId;
@@ -15,10 +12,12 @@ class PushNotificationTarget {
     final type = (data['type'] as String? ?? '').trim().toLowerCase();
     final resourceId = (data['resourceId'] as String?)?.trim();
     final destination = switch (type) {
-      'profile' || 'follow' || 'social_post' =>
-        PushNotificationDestination.profile,
-      'chat' || 'message' || 'contact_request' =>
-        PushNotificationDestination.chats,
+      'profile' ||
+      'follow' ||
+      'social_post' => PushNotificationDestination.profile,
+      'chat' ||
+      'message' ||
+      'contact_request' => PushNotificationDestination.chats,
       'report' || 'plate_hint' => PushNotificationDestination.reports,
       'verification' || 'security' => PushNotificationDestination.settings,
       _ => null,

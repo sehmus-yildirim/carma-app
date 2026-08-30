@@ -187,6 +187,40 @@ test("requires a fresh successful plate-search grant", async () => {
   );
 });
 
+test("rejects stale public verification when receiver V1 has expired", async () => {
+  const seed = validSeed();
+  seed["users/target-user/private_verification/identity"] = {
+    status: "verified",
+    documentExpiresAt: "2026-08-28",
+    verificationMethod: "on_device_ocr_front_v1",
+    assuranceLevel: "document_data_match",
+  };
+  seed["users/target-user/vehicle_verifications/target-vehicle"] = {
+    status: "verified",
+    plateNormalized: "HHCR2026",
+    verificationMethod: "on_device_ocr_front_v1",
+    assuranceLevel: "document_data_match",
+  };
+  seed["users/target-user/vehicles/target-vehicle"] = {
+    ownerUserId: "target-user",
+    countryCode: "DE",
+    plateRegion: "HH",
+    plateLetters: "CR",
+    plateNumbers: "2026",
+    status: "active",
+  };
+
+  await assert.rejects(
+    createContactRequest({
+      firestore: fakeFirestore(seed),
+      senderUserId: "sender-user",
+      input: validInput(),
+      now,
+    }),
+    (error) => error.code === "not-found",
+  );
+});
+
 test("rejects a target account whose deletion is already reserved", async () => {
   const seed = validSeed();
   seed["account_deletions/target-user"] = {status: "processing"};

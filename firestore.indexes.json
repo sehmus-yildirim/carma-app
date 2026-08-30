@@ -1,6 +1,20 @@
 {
   "indexes": [
     {
+      "collectionGroup": "private_verification",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "documentExpiresAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "chat_stories",
       "queryScope": "COLLECTION",
       "fields": [

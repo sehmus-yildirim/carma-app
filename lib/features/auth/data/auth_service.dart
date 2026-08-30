@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../shared/firebase/firebase_emulator_configuration.dart';
 import '../../../shared/notifications/push_notification_service.dart';
+import '../../profile/verification_v1/data/document_services.dart';
 
 enum AuthLoginProvider { password, google, apple, unknown }
 
@@ -364,6 +365,11 @@ class AuthService implements AccountAuthGateway {
   }
 
   Future<void> _signOutBestEffort() async {
+    try {
+      await LocalVerificationTemporaryFileService().cleanupOrphans();
+    } catch (_) {
+      // A locked temporary file is retried during the next app startup.
+    }
     try {
       await PushNotificationService.instance.removeCurrentToken();
     } catch (_) {
