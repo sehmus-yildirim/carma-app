@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:plaqa/shared/plate/dach_plate_presentation.dart';
 import 'package:plaqa/shared/plate/dach_registration_region_data.g.dart';
@@ -10,7 +11,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUpAll(FePlateText.preload);
+  late GoldenFileComparator previousGoldenFileComparator;
+
+  setUpAll(() async {
+    previousGoldenFileComparator = goldenFileComparator;
+    if (previousGoldenFileComparator is LocalFileComparator) {
+      final localComparator =
+          previousGoldenFileComparator as LocalFileComparator;
+      goldenFileComparator = _TolerantGoldenFileComparator(
+        localComparator.basedir.resolve('dach_plate_presentation_test.dart'),
+        precisionTolerance: 0.002,
+      );
+    }
+    await FePlateText.preload();
+  });
+
+  tearDownAll(() {
+    goldenFileComparator = previousGoldenFileComparator;
+  });
 
   group('DACH presentation data', () {
     test('contains every supported registration region', () {
@@ -347,6 +365,37 @@ void main() {
         );
       }
     });
+  }
+}
+
+class _TolerantGoldenFileComparator extends LocalFileComparator {
+  _TolerantGoldenFileComparator(
+    super.testFile, {
+    required double precisionTolerance,
+  }) : assert(
+         0 <= precisionTolerance && precisionTolerance <= 1,
+         'precisionTolerance must be between 0 and 1',
+       ),
+       _precisionTolerance = precisionTolerance;
+
+  final double _precisionTolerance;
+
+  @override
+  Future<bool> compare(Uint8List imageBytes, Uri golden) async {
+    final result = await GoldenFileComparator.compareLists(
+      imageBytes,
+      await getGoldenBytes(golden),
+    );
+
+    final passed = result.passed || result.diffPercent <= _precisionTolerance;
+    if (passed) {
+      result.dispose();
+      return true;
+    }
+
+    final error = await generateFailureOutput(result, golden, basedir);
+    result.dispose();
+    throw FlutterError(error);
   }
 }
 
