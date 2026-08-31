@@ -63,17 +63,17 @@ flutter build appbundle --release
 - Parsermatrix: **240/240** bestanden
 - Functions: **173/173** bestanden
 - Firestore/Storage Rules: **113/113** in 16 Suites bestanden
-- Deterministischer V1-Flow: **18/18** bestanden; der native ML-Kit-Fall wird
-  auf Android separat ausgefuehrt
+- Android-V1-Flow auf dem Redmi: **19/19** bestanden, bestehend aus der nativen
+  ML-Kit-Bruecke und den 18 deterministischen End-to-End-Szenarien
 - Android Release AAB: erfolgreich, 85,6 MB unter
   `build/app/outputs/bundle/release/app-release.aab`
 
 Der erste Redmi-Lauf installierte und startete erfolgreich. 11 Szenarien
 bestanden; 5 deckten auf, dass Serverfehler am oberen Ende der Scrollansicht
-nicht sichtbar waren. Der Fehler wurde behoben und die 18 deterministischen
-Regressionen sind danach gruen. Der korrigierte Hardware-Rerun ist noch offen,
-weil MIUI die erneute ADB-Installation mit `INSTALL_FAILED_USER_RESTRICTED`
-blockiert, bis `Installation ueber USB` am Geraet manuell bestaetigt wird.
+nicht sichtbar waren. Der Fehler wurde behoben. Der anschliessende korrigierte
+Hardware-Rerun bestand alle **19/19** Szenarien, einschliesslich der nativen
+ML-Kit-Bruecke. Die aktuelle Debug-App wurde danach erneut erfolgreich auf dem
+Redmi installiert und gestartet.
 
 Der Security-Diff-Scan fand keine Critical-, High- oder Medium-Befunde. Ein
 Low-Risiko bleibt dokumentiert: Client-OCR-Werte sind nicht kryptografisch an

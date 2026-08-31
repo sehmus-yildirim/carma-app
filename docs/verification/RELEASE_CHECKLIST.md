@@ -8,7 +8,7 @@
 - [x] 240 synthetische Parser-Matrixfaelle gruen
 - [x] Functions-Tests gruen
 - [x] Firestore- und Storage-Rules-Tests im Emulator gruen
-- [ ] Integrationstest auf Android gruen
+- [x] Integrationstest auf Android gruen
 - [x] Android Release AAB erfolgreich gebaut
 - [x] Security-Diff-Scan ohne Critical/High
 - [x] keine Dokumentbilder, Signaturen, Secrets oder personenbezogene Fixtures im Git-Diff
@@ -20,10 +20,10 @@ Parser-Matrixfaelle bestanden. Das AAB wurde mit 85,6 MB erzeugt. Der
 Security-Diff-Scan meldet einen Low-Befund zur fehlenden kryptografischen
 Bindung lokaler OCR-Werte, aber keine Critical-, High- oder Medium-Befunde.
 
-Der Android-Haken bleibt offen: Der erste Redmi-Lauf fand einen inzwischen
-behobenen Sichtbarkeitsfehler; der korrigierte Rerun wird aktuell von MIUI mit
-`INSTALL_FAILED_USER_RESTRICTED` blockiert, bis die Installation ueber USB am
-Geraet manuell bestaetigt wird.
+Der korrigierte Redmi-Rerun ist abgeschlossen: 19/19 Szenarien bestanden,
+einschliesslich der nativen Android-ML-Kit-Bruecke und der 18 deterministischen
+End-to-End-Szenarien. Die aktuelle Debug-App wurde anschliessend erfolgreich
+auf dem Redmi installiert und gestartet.
 
 ## Externe Gates - niemals automatisch abhaken
 
