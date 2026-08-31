@@ -112,7 +112,9 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxHeight < 760;
-              final horizontalPadding = constraints.maxWidth < 380 ? 14.0 : 20.0;
+              final horizontalPadding = constraints.maxWidth < 380
+                  ? 14.0
+                  : 20.0;
               final sectionGap = compact ? 6.0 : 14.0;
 
               return Padding(
@@ -145,14 +147,15 @@ class _OnboardingFlowScreenState extends State<OnboardingFlowScreen> {
                         duration: const Duration(milliseconds: 240),
                         switchInCurve: Curves.easeOut,
                         switchOutCurve: Curves.easeIn,
-                        layoutBuilder: (currentChild, previousChildren) => Stack(
-                          fit: StackFit.expand,
-                          alignment: Alignment.center,
-                          children: <Widget>[
-                            ...previousChildren,
-                            ?currentChild,
-                          ],
-                        ),
+                        layoutBuilder: (currentChild, previousChildren) =>
+                            Stack(
+                              fit: StackFit.expand,
+                              alignment: Alignment.center,
+                              children: <Widget>[
+                                ...previousChildren,
+                                ?currentChild,
+                              ],
+                            ),
                         transitionBuilder: (child, animation) {
                           final offsetAnimation = Tween<Offset>(
                             begin: const Offset(0.035, 0),
@@ -406,7 +409,8 @@ class _VerificationStep extends StatelessWidget {
       description:
           'Ausweis und Fahrzeugschein werden nur auf deinem Gerät gelesen. Dokumentfotos werden nicht dauerhaft gespeichert.',
       noteIcon: Icons.lock_outline_rounded,
-      note: 'Name und Fahrzeugbezug werden bestätigt; Profilbild und Sichtbarkeit bleiben änderbar.',
+      note:
+          'Name und Fahrzeugbezug werden bestätigt; Profilbild und Sichtbarkeit bleiben änderbar.',
       points: const [
         _HeroInfoPoint(
           icon: Icons.assignment_ind_outlined,

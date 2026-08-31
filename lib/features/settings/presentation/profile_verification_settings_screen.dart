@@ -84,12 +84,17 @@ class _ProfileVerificationSettingsScreenState
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Abbrechen'),
           ),
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text(
-              'Entfernen',
-              style: TextStyle(color: CaRismaDesignTokens.danger),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: CaRismaDesignTokens.textPrimary,
+              backgroundColor: CaRismaDesignTokens.controlSurface,
+              side: BorderSide(
+                color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88),
+                width: 1.4,
+              ),
             ),
+            child: const Text('Entfernen'),
           ),
         ],
       ),
@@ -156,6 +161,7 @@ class _ProfileVerificationSettingsScreenState
               label: 'Fahrzeug hinzufügen',
               icon: Icons.add_rounded,
               surfaceOutlined: true,
+              surfaceTextColor: CaRismaDesignTokens.textPrimary,
               showShadow: false,
               onPressed: () => _openVehicleEditor(),
             ),

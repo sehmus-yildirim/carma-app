@@ -1,3 +1,5 @@
+import '../domain/verification_models.dart';
+
 class VerificationV1Strings {
   const VerificationV1Strings._();
 
@@ -5,19 +7,19 @@ class VerificationV1Strings {
       'Wir gleichen die Angaben deines Identitätsnachweises und des Fahrzeugscheins mit dem ausgewählten Fahrzeug ab. Bist du nicht im Fahrzeugschein als Halter eingetragen, bestätigst du deine Nutzungsberechtigung mit einer Eigenerklärung.';
 
   static const privacyTitle = 'Datenschutz & Berechtigung';
-  static const privacyVersion = 'verification_privacy_de_v1.0.0';
+  static const privacyVersion = VerificationV1Policy.privacyVersion;
   static const privacyItems = <String>[
-    'Es werden nur Vorderseite beziehungsweise Datenseite aufgenommen oder bewusst aus der Galerie ausgewählt.',
+    'Es wird nur die vom Dokumentprofil benötigte Seite direkt mit der In-App-Kamera aufgenommen.',
     'Die Dokumentbilder werden lokal verarbeitet und weder hochgeladen noch dauerhaft gespeichert.',
     'Aus dem Identitätsnachweis werden nur Vorname, Nachname, Geburtsdatum und Ablaufdatum verwendet.',
-    'Aus dem Fahrzeugschein werden nur A, C.1.1 und C.1.2 für den Abgleich verwendet.',
-    'C.1.1 und C.1.2 werden nach dem Abgleich nicht dauerhaft gespeichert.',
+    'Aus dem Fahrzeugdokument werden nur Kennzeichen und Haltername beziehungsweise Firma für den Abgleich verwendet.',
+    'Die Halterdaten aus dem Fahrzeugdokument werden nach dem Abgleich nicht dauerhaft gespeichert.',
     'Bei Nicht-Haltern wird die unterschriebene Eigenerklärung als privates PDF gespeichert.',
     'Es findet keine Gesichtserkennung, kein Face Match und keine Liveness-Prüfung statt.',
     'Der Ablauf gleicht Dokumentdaten ab. Er ist keine amtliche Echtheitsprüfung.',
   ];
 
-  static const declarationVersion = 'vehicle_authorization_de_v1.0.0';
+  static const declarationVersion = VerificationV1Policy.declarationVersion;
   static const declarationConfirmation =
       'Ich habe die Eigenerklärung vollständig gelesen und bestätige ihre Richtigkeit verbindlich.';
 

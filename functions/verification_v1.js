@@ -7,9 +7,9 @@ const {
   verificationMethod,
 } = require("./verification_v1_policy");
 
-const schemaVersion = 1;
-const privacyVersion = "verification_privacy_de_v1.0.0";
-const declarationVersion = "vehicle_authorization_de_v1.0.0";
+const schemaVersion = 2;
+const privacyVersion = "verification_privacy_international_v2.0.0";
+const declarationVersion = "vehicle_authorization_international_v2.0.0";
 const sessionLifetimeMs = 15 * 60 * 1000;
 const minimumAge = 16;
 const hourlyAttemptLimit = 5;
@@ -22,11 +22,28 @@ const blockingAccountDeletionStatuses = new Set([
 ]);
 const relations = new Set([
   "registered_holder",
-  "leasing_vehicle",
-  "company_vehicle",
-  "authorized_by_holder",
+  "leasing",
+  "company_car",
+  "authorized_private_vehicle",
+  "other_authorized",
+]);
+const legacyRelations = new Map([
+  ["leasing_vehicle", "leasing"],
+  ["company_vehicle", "company_car"],
+  ["authorized_by_holder", "authorized_private_vehicle"],
 ]);
 const documentTypes = new Set(["id_card", "passport", "residence_permit"]);
+const supportedIdentityCountries = new Set([
+  "DE", "TR", "UA", "SY", "RO", "PL", "IT", "AF", "BG", "HR", "GR",
+  "XK", "IN", "RU", "RS", "AT", "BA", "ES", "FR", "NL", "CH",
+]);
+const passportProfileVersion = "icao_td3_eighth_edition_v1";
+const germanIdentityProfileVersions = new Set([
+  "deu_bo_02004_2021_v1",
+  "deu_bo_02001_2010_v1",
+]);
+const germanResidenceProfileVersions = new Set(["de_eat_card_family_v1"]);
+const germanVehicleProfileVersions = new Set(["deu_go_01001_2005_v1"]);
 
 const declarationTemplate = `Eigenerklärung zur Fahrzeugnutzungsberechtigung
 
@@ -40,9 +57,10 @@ Mir ist bekannt, dass falsche Angaben zur Sperrung der Fahrzeugzuordnung oder me
 
 const relationLabels = {
   registered_holder: "Ich bin im Fahrzeugschein als Halter eingetragen",
-  leasing_vehicle: "Leasingfahrzeug",
-  company_vehicle: "Firmen-/Dienstwagen",
-  authorized_by_holder: "Ich nutze das Fahrzeug mit Erlaubnis des Halters",
+  leasing: "Leasingfahrzeug",
+  company_car: "Firmen-/Dienstwagen",
+  authorized_private_vehicle: "Fahrzeug mit Erlaubnis des Halters",
+  other_authorized: "Sonstiges berechtigt genutztes Fahrzeug",
 };
 
 function ensureTrustedCaller(authContext, appContext, {requireAppCheck = true} = {}) {
@@ -97,7 +115,7 @@ function plateSnapshotMatchesVehicle(snapshot, userId, vehicleId) {
 
 function normalizeCreateSessionInput(input) {
   const vehicleId = normalizeId(input?.vehicleId, "Fahrzeug");
-  const relation = safeString(input?.relation);
+  const relation = normalizeRelation(input?.relation);
   if (!relations.has(relation)) {
     throw new HttpsError("invalid-argument", "Wähle eine gültige Fahrzeugzuordnung.");
   }
@@ -136,6 +154,21 @@ function normalizeIdentityInput(value) {
   const dateOfBirth = parseDateOnly(value.dateOfBirth, "Geburtsdatum");
   const expiresAt = parseDateOnly(value.expiresAt, "Ablaufdatum");
   const parserVersion = normalizeParserVersion(value.parserVersion);
+  const issuingCountryCode = normalizeCountryCode(
+    safeString(value.issuingCountryCode).length === 0 ?
+      "DE" : value.issuingCountryCode,
+    "Ausstellungsland",
+  );
+  const documentProfileVersion = normalizeParserVersion(
+    safeString(value.documentProfileVersion).length === 0 ?
+      legacyIdentityProfileVersion(documentType) :
+      value.documentProfileVersion,
+  );
+  validateIdentityProfile({
+    issuingCountryCode,
+    documentType,
+    documentProfileVersion,
+  });
   return {
     firstNames,
     lastName,
@@ -143,6 +176,8 @@ function normalizeIdentityInput(value) {
     expiresAt,
     documentType,
     parserVersion,
+    issuingCountryCode,
+    documentProfileVersion,
   };
 }
 
@@ -158,12 +193,70 @@ function normalizeVehicleRegistrationInput(value) {
   const rawFirstNames = safeString(value.holderFirstNames);
   const holderFirstNames = rawFirstNames.length === 0 ? null :
     normalizeDisplayName(rawFirstNames, "Haltervorname");
+  const registrationCountryCode = normalizeCountryCode(
+    safeString(value.registrationCountryCode).length === 0 ?
+      "DE" : value.registrationCountryCode,
+    "Zulassungsland",
+  );
+  const documentProfileVersion = normalizeParserVersion(
+    safeString(value.documentProfileVersion).length === 0 ?
+      "deu_go_01001_2005_v1" : value.documentProfileVersion,
+  );
+  if (registrationCountryCode !== "DE" ||
+      !germanVehicleProfileVersions.has(documentProfileVersion)) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Dieses Fahrzeugdokument ist noch nicht zuverlässig unterstützt.",
+      {reason: "unsupported-document-profile"},
+    );
+  }
   return {
     plate,
     holderNameOrCompany,
     holderFirstNames,
     parserVersion: normalizeParserVersion(value.parserVersion),
+    registrationCountryCode,
+    documentProfileVersion,
   };
+}
+
+function legacyIdentityProfileVersion(documentType) {
+  if (documentType === "passport") return passportProfileVersion;
+  if (documentType === "residence_permit") return "de_eat_card_family_v1";
+  return "deu_bo_02004_2021_v1";
+}
+
+function normalizeRelation(value) {
+  const relation = safeString(value);
+  return legacyRelations.get(relation) ?? relation;
+}
+
+function normalizeCountryCode(value, fieldName) {
+  const result = safeString(value).toUpperCase();
+  if (!/^[A-Z]{2}$/u.test(result) || !supportedIdentityCountries.has(result)) {
+    throw new HttpsError("invalid-argument", `${fieldName} ist ungültig.`);
+  }
+  return result;
+}
+
+function validateIdentityProfile({
+  issuingCountryCode,
+  documentType,
+  documentProfileVersion,
+}) {
+  const supported = documentType === "passport" ?
+    documentProfileVersion === passportProfileVersion :
+    issuingCountryCode === "DE" &&
+      (documentType === "id_card" ?
+        germanIdentityProfileVersions.has(documentProfileVersion) :
+        germanResidenceProfileVersions.has(documentProfileVersion));
+  if (!supported) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Dieser Dokumenttyp ist noch nicht zuverlässig unterstützt.",
+      {reason: "unsupported-document-profile"},
+    );
+  }
 }
 
 function validateIdentity(identity, serverNow, {ageLimit = minimumAge} = {}) {
@@ -253,6 +346,8 @@ async function createVerificationSession({
       vehicleId: normalized.vehicleId,
       relation: normalized.relation,
       state: "created",
+      flowState: "not_started",
+      vehicleCountryCode: safeString(vehicle.countryCode).toUpperCase(),
       nonceHash,
       createdAt: now,
       updatedAt: now,
@@ -325,6 +420,15 @@ async function submitVerificationData({
     }
     const vehicle = vehicleSnapshot.data() ?? {};
     const vehicleId = safeString(session.vehicleId);
+    const vehicleCountryCode = safeString(vehicle.countryCode).toUpperCase();
+    if (normalized.vehicleRegistration.registrationCountryCode !==
+        vehicleCountryCode) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Das Zulassungsland des Dokuments stimmt nicht mit dem Fahrzeug überein.",
+        {reason: "vehicle-country-mismatch"},
+      );
+    }
     const expectedPlate = plateFromVehicle(vehicle);
     const plateReference = firestore.doc(`plates/DE_${expectedPlate}`);
     const plateSnapshot = await transaction.get(plateReference);
@@ -347,7 +451,7 @@ async function submitVerificationData({
       normalized.identity,
       normalized.vehicleRegistration,
     );
-    const relation = safeString(session.relation);
+    const relation = normalizeRelation(session.relation);
     const identityChanged = identitySnapshot.exists &&
       identityCoreChanged(identitySnapshot.data(), normalized.identity);
     const previousIdentityVersion = safeString(
@@ -392,7 +496,11 @@ async function submitVerificationData({
     transaction.set(identityReference, {
       schemaVersion,
       status: "verified",
+      flowState: "identity_data_checked",
+      identityDocumentDataChecked: true,
       documentType: normalized.identity.documentType,
+      issuingCountryCode: normalized.identity.issuingCountryCode,
+      documentProfileVersion: normalized.identity.documentProfileVersion,
       verifiedFirstNames: normalized.identity.firstNames,
       verifiedLastName: normalized.identity.lastName,
       dateOfBirth: dateOnlyString(normalized.identity.dateOfBirth),
@@ -409,9 +517,18 @@ async function submitVerificationData({
     transaction.set(vehicleVerificationReference, {
       schemaVersion,
       status,
+      flowState: requiresDeclaration ? "awaiting_declaration" : "verified",
       relation,
       plateNormalized: expectedPlate,
+      registrationCountryCode:
+        normalized.vehicleRegistration.registrationCountryCode,
+      documentProfileVersion:
+        normalized.vehicleRegistration.documentProfileVersion,
+      identityDocumentDataChecked: true,
+      vehicleDocumentDataChecked: true,
+      plateMatch: true,
       holderMatch,
+      declarationRequired: requiresDeclaration,
       identityVerificationRef: identityReference.path,
       identityVersion,
       declarationId: null,
@@ -451,6 +568,7 @@ async function submitVerificationData({
     }, {merge: true});
     transaction.set(sessionReference, {
       state: requiresDeclaration ? "requires_declaration" : "completed",
+      flowState: requiresDeclaration ? "awaiting_declaration" : "verified",
       submissionHash,
       holderMatch,
       attemptCount: Number(session.attemptCount ?? 0) + 1,
@@ -632,6 +750,7 @@ async function finalizeVehicleDeclaration({
       plateNormalized: plate,
       relation,
       declarationVersion,
+      declarationAccepted: true,
       declarationTextHash,
       signatureHash,
       pdfPath,
@@ -769,6 +888,7 @@ async function finalizeVehicleDeclaration({
       }, {merge: true});
       transaction.set(reservation.vehicleVerificationReference, {
         status: "verified",
+        flowState: "verified",
         declarationId: reservation.declarationId,
         verifiedAt: now,
         updatedAt: now,
@@ -793,6 +913,7 @@ async function finalizeVehicleDeclaration({
       }, {merge: true});
       transaction.set(sessionReference, {
         state: "completed",
+        flowState: "verified",
         declarationId: reservation.declarationId,
         completedAt: now,
         updatedAt: now,
@@ -860,6 +981,7 @@ async function revokeOrInvalidateVerification({
       await transaction.get(plateReference);
     transaction.set(verificationReference, {
       status: "revoked",
+      flowState: "reverification_required",
       revokedReason: reason,
       revokedAt: now,
       updatedAt: now,
@@ -993,6 +1115,7 @@ async function invalidateAllVehicleVerifications({
   if (identityReference != null) {
     batch.update(identityReference, {
       status: "expired",
+      flowState: "reverification_required",
       invalidatedReason: reason,
       invalidatedAt: now,
       updatedAt: now,
@@ -1011,6 +1134,7 @@ async function invalidateAllVehicleVerifications({
   for (const document of active) {
     batch.update(document.ref, {
       status: "invalidated",
+      flowState: "reverification_required",
       invalidatedReason: reason,
       invalidatedAt: now,
       updatedAt: now,
@@ -1084,7 +1208,11 @@ function identityCoreChanged(previous, next) {
       normalizePersonName(next.firstNames) ||
     normalizePersonName(previous.verifiedLastName) !==
       normalizePersonName(next.lastName) ||
-    safeString(previous.dateOfBirth) !== dateOnlyString(next.dateOfBirth);
+    safeString(previous.dateOfBirth) !== dateOnlyString(next.dateOfBirth) ||
+    (safeString(previous.documentType).length > 0 &&
+      safeString(previous.documentType) !== next.documentType) ||
+    (safeString(previous.issuingCountryCode).length > 0 &&
+      safeString(previous.issuingCountryCode) !== next.issuingCountryCode);
 }
 
 function normalizeSignature(value) {
@@ -1267,6 +1395,8 @@ function serializeIdentityForHash(identity) {
     expiresAt: dateOnlyString(identity.expiresAt),
     documentType: identity.documentType,
     parserVersion: identity.parserVersion,
+    issuingCountryCode: identity.issuingCountryCode,
+    documentProfileVersion: identity.documentProfileVersion,
   };
 }
 
@@ -1328,6 +1458,7 @@ module.exports = {
   normalizeIdentityInput,
   normalizePersonName,
   normalizePlate,
+  normalizeRelation,
   normalizeSignature,
   normalizeSubmissionInput,
   normalizeVehicleRegistrationInput,
@@ -1335,5 +1466,6 @@ module.exports = {
   revokeOrInvalidateVerification,
   submitVerificationData,
   validateIdentity,
+  validateIdentityProfile,
   verificationMethod,
 };

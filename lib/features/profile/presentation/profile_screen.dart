@@ -4763,6 +4763,7 @@ class _SaveProfileButton extends StatelessWidget {
       isEnabled: isEnabled,
       isLoading: isLoading,
       surfaceOutlined: true,
+      surfaceTextColor: CaRismaDesignTokens.textPrimary,
       onPressed: onPressed,
     );
   }

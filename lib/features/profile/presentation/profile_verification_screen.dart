@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/theme/carisma_design_tokens.dart';
 import '../../../shared/widgets/carisma_background.dart';
@@ -15,12 +13,28 @@ import '../data/profile_vehicle_repository.dart';
 import '../data/user_profile.dart';
 import '../verification_v1/data/document_services.dart';
 import '../verification_v1/data/local_image_quality_service.dart';
+import '../verification_v1/data/verification_document_processor.dart';
 import '../verification_v1/data/verification_v1_repository.dart';
+import '../verification_v1/domain/document_profiles.dart';
 import '../verification_v1/domain/verification_models.dart';
 import '../verification_v1/domain/verification_parsers.dart';
+import '../verification_v1/domain/verification_state_machine.dart';
 import '../verification_v1/presentation/document_camera_screen.dart';
 import '../verification_v1/presentation/verification_v1_strings.dart';
-import 'widgets/profile_verification_document_editor_screen.dart';
+
+ButtonStyle _verificationActionButtonStyle() {
+  return OutlinedButton.styleFrom(
+    foregroundColor: CaRismaDesignTokens.textPrimary,
+    backgroundColor: CaRismaDesignTokens.controlSurface,
+    disabledForegroundColor: CaRismaDesignTokens.textMuted,
+    side: BorderSide(
+      color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88),
+      width: 1.4,
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  );
+}
 
 class ProfileVerificationScreen extends StatefulWidget {
   const ProfileVerificationScreen({
@@ -33,7 +47,6 @@ class ProfileVerificationScreen extends StatefulWidget {
     this.ocrService,
     this.imageQualityService,
     this.temporaryFileService,
-    this.imagePicker,
     Object? verificationRepository,
     Object? mediaStorage,
   });
@@ -46,7 +59,6 @@ class ProfileVerificationScreen extends StatefulWidget {
   final DocumentOcrService? ocrService;
   final ImageQualityService? imageQualityService;
   final VerificationTemporaryFileService? temporaryFileService;
-  final ImagePicker? imagePicker;
 
   @override
   State<ProfileVerificationScreen> createState() =>
@@ -60,15 +72,17 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   late final DocumentOcrService _ocrService;
   late final ImageQualityService _qualityService;
   late final VerificationTemporaryFileService _temporaryFiles;
-  late final ImagePicker _imagePicker;
+  late final VerificationDocumentProcessor _documentProcessor;
   late final bool _ownsOcrService;
   late final Stream<UserProfile?> _profileStream;
   late final Stream<List<ProfileVehicle>> _vehicleStream;
 
   VerificationIdentityDocumentType _documentType =
       VerificationIdentityDocumentType.idCard;
+  String _identityIssuingCountryCode = 'DE';
   VerificationVehicleRelation _relation =
       VerificationVehicleRelation.registeredHolder;
+  VerificationStateMachine _flowState = VerificationStateMachine();
   String? _selectedVehicleId;
   IdentityDocumentData? _identity;
   VehicleRegistrationData? _registration;
@@ -83,6 +97,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   String? _error;
   String? _success;
   final List<List<Offset>> _signature = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -97,7 +112,11 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         widget.imageQualityService ?? const LocalImageQualityService();
     _temporaryFiles =
         widget.temporaryFileService ?? LocalVerificationTemporaryFileService();
-    _imagePicker = widget.imagePicker ?? ImagePicker();
+    _documentProcessor = VerificationDocumentProcessor(
+      ocrService: _ocrService,
+      qualityService: _qualityService,
+      temporaryFiles: _temporaryFiles,
+    );
     _profileStream = _profileRepository.watchProfile(widget.userId);
     _vehicleStream = _vehicleRepository.watchOwnerVehicles(widget.userId);
     unawaited(_temporaryFiles.cleanupOrphans());
@@ -107,6 +126,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   void dispose() {
     if (_ownsOcrService) unawaited(_ocrService.close());
     unawaited(_temporaryFiles.cleanupOrphans());
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -144,6 +164,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
 
   Widget _buildContent(BuildContext context) {
     return CustomScrollView(
+      controller: _scrollController,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       slivers: [
         SliverPadding(
@@ -214,6 +235,42 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          DropdownButtonFormField<String>(
+            initialValue: _identityIssuingCountryCode,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Ausstellungsland des Dokuments',
+              prefixIcon: Icon(Icons.public_rounded),
+            ),
+            items: [
+              for (final country in DocumentProfileRegistry.countries)
+                DropdownMenuItem(
+                  value: country.code,
+                  child: Text(country.label),
+                ),
+            ],
+            onChanged: _busy
+                ? null
+                : (value) {
+                    if (value == null || value == _identityIssuingCountryCode) {
+                      return;
+                    }
+                    final types = DocumentProfileRegistry.identityTypesFor(
+                      value,
+                    );
+                    setState(() {
+                      _identityIssuingCountryCode = value;
+                      _documentType = types.contains(_documentType)
+                          ? _documentType
+                          : types.first;
+                      _identity = null;
+                      _session = null;
+                      _flowState = VerificationStateMachine();
+                      _clearMessages();
+                    });
+                  },
+          ),
+          const SizedBox(height: 14),
           DropdownButtonFormField<VerificationIdentityDocumentType>(
             initialValue: _documentType,
             isExpanded: true,
@@ -222,7 +279,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               prefixIcon: Icon(Icons.badge_outlined),
             ),
             items: [
-              for (final type in VerificationIdentityDocumentType.values)
+              for (final type in DocumentProfileRegistry.identityTypesFor(
+                _identityIssuingCountryCode,
+              ))
                 DropdownMenuItem(value: type, child: Text(type.label)),
             ],
             onChanged: _busy
@@ -232,6 +291,8 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                     setState(() {
                       _documentType = value;
                       _identity = null;
+                      _session = null;
+                      _flowState = VerificationStateMachine();
                       _clearMessages();
                     });
                   },
@@ -250,13 +311,14 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               onRetake: _scanIdentity,
             ),
           const SizedBox(height: 18),
-          FilledButton.icon(
+          OutlinedButton.icon(
             onPressed: !_busy && _identity != null
                 ? () => setState(() {
                     _step = 1;
                     _clearMessages();
                   })
                 : null,
+            style: _verificationActionButtonStyle(),
             icon: const Icon(Icons.arrow_forward_rounded),
             label: const Text('Weiter zum Fahrzeug'),
           ),
@@ -266,10 +328,16 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   }
 
   Widget _buildVehicleStep(BuildContext context) {
+    final selectedVehicle = _selectedVehicle;
+    final vehicleProfile = selectedVehicle == null
+        ? null
+        : DocumentProfileRegistry.vehicleRegistrationProfile(
+            selectedVehicle.countryCode,
+          );
     return _StepCard(
       title: 'Fahrzeugbezug bestätigen',
       subtitle:
-          'Fotografiere die Vorderseite der Zulassungsbescheinigung Teil I oder wähle ein gut lesbares Bild aus.',
+          'Fotografiere die im Dokumentprofil festgelegte Seite des Zulassungsdokuments.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -302,6 +370,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                       _selectedVehicleId = value;
                       _registration = null;
                       _session = null;
+                      _flowState = VerificationStateMachine(
+                        initialState: VerificationFlowState.identityDataChecked,
+                      );
                       _clearMessages();
                     }),
             ),
@@ -327,11 +398,21 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               }),
             ),
           const SizedBox(height: 12),
+          if (selectedVehicle != null && vehicleProfile == null) ...[
+            CaRismaMessageCard(
+              icon: Icons.info_outline_rounded,
+              message:
+                  'Das Zulassungsdokument für ${selectedVehicle.countryCode.toUpperCase()} ist noch nicht zuverlässig unterstützt. Wir raten bei Dokumentdaten nicht.',
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_registration == null)
             _CameraAction(
               label: 'Fahrzeugschein fotografieren',
               busy: _busy,
-              onPressed: _selectedVehicleId == null ? null : _scanVehicle,
+              onPressed: _selectedVehicleId == null || vehicleProfile == null
+                  ? null
+                  : _scanVehicle,
             )
           else
             _VehicleSummary(
@@ -364,8 +445,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: FilledButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: _canSubmitDocuments ? _submitDocuments : null,
+                  style: _verificationActionButtonStyle(),
                   icon: _busy
                       ? const SizedBox.square(
                           dimension: 18,
@@ -393,8 +475,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       return _StepCard(
         title: 'Abgleich unvollständig',
         subtitle: 'Bitte starte den Dokumentabgleich erneut.',
-        child: FilledButton(
+        child: OutlinedButton(
           onPressed: _restart,
+          style: _verificationActionButtonStyle(),
           child: const Text('Neu starten'),
         ),
       );
@@ -442,8 +525,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: 18),
-          FilledButton.icon(
+          OutlinedButton.icon(
             onPressed: _canFinalize ? _finalizeDeclaration : null,
+            style: _verificationActionButtonStyle(),
             icon: _busy
                 ? const SizedBox.square(
                     dimension: 18,
@@ -479,8 +563,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           const SizedBox(height: 18),
-          FilledButton.icon(
+          OutlinedButton.icon(
             onPressed: () => Navigator.of(context).maybePop(),
+            style: _verificationActionButtonStyle(),
             icon: const Icon(Icons.check_rounded),
             label: const Text('Fertig'),
           ),
@@ -497,6 +582,15 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _selectedVehicleId != null &&
       _privacyOpened &&
       _privacyAccepted;
+
+  ProfileVehicle? get _selectedVehicle {
+    final id = _selectedVehicleId;
+    if (id == null) return null;
+    for (final vehicle in _vehicles) {
+      if (vehicle.id == id) return vehicle;
+    }
+    return null;
+  }
 
   bool get _canFinalize =>
       _step == 2 &&
@@ -526,16 +620,23 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       VerificationIdentityDocumentType.residencePermit =>
         VerificationDocumentKind.residencePermit,
     };
+    final profile = DocumentProfileRegistry.identityProfile(
+      countryCode: _identityIssuingCountryCode,
+      documentType: _documentType,
+    );
+    if (profile == null) {
+      setState(() {
+        _error = 'Dieser Dokumenttyp ist noch nicht zuverlässig unterstützt.';
+      });
+      return;
+    }
     final result = await _captureAndParse<IdentityDocumentData>(
       kind: kind,
-      parser: (blocks) => switch (_documentType) {
-        VerificationIdentityDocumentType.idCard =>
-          const GermanIdCardFrontParser().parse(blocks),
-        VerificationIdentityDocumentType.passport =>
-          const PassportDataPageParser().parse(blocks),
-        VerificationIdentityDocumentType.residencePermit =>
-          const GermanResidencePermitFrontParser().parse(blocks),
-      },
+      parser: ProfileDrivenIdentityDocumentParser(profile: profile).parse,
+      capturingState: VerificationFlowState.capturingIdentity,
+      processingState: VerificationFlowState.processingIdentity,
+      successState: VerificationFlowState.identityDataChecked,
+      retryState: VerificationFlowState.identityRetryRequired,
     );
     if (result != null && mounted) {
       setState(() {
@@ -547,10 +648,28 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   }
 
   Future<void> _scanVehicle() async {
-    if (_selectedVehicleId == null) return;
+    final vehicle = _selectedVehicle;
+    if (vehicle == null) return;
+    final profile = DocumentProfileRegistry.vehicleRegistrationProfile(
+      vehicle.countryCode,
+    );
+    if (profile == null) {
+      setState(() {
+        _error =
+            'Dieses Fahrzeugdokument ist noch nicht zuverlässig unterstützt.';
+      });
+      return;
+    }
+    if (_flowState.state == VerificationFlowState.processingVehicle) {
+      _flowState.transitionTo(VerificationFlowState.vehicleRetryRequired);
+    }
     final result = await _captureAndParse<VehicleRegistrationData>(
       kind: VerificationDocumentKind.vehicleRegistration,
-      parser: const GermanVehicleRegistrationFrontParser().parse,
+      parser: ProfileDrivenVehicleRegistrationParser(profile: profile).parse,
+      capturingState: VerificationFlowState.capturingVehicle,
+      processingState: VerificationFlowState.processingVehicle,
+      successState: VerificationFlowState.processingVehicle,
+      retryState: VerificationFlowState.vehicleRetryRequired,
     );
     if (result != null && mounted) {
       setState(() {
@@ -564,148 +683,75 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   Future<T?> _captureAndParse<T>({
     required VerificationDocumentKind kind,
     required VerificationParseResult<T> Function(List<OcrBlock>) parser,
+    required VerificationFlowState capturingState,
+    required VerificationFlowState processingState,
+    required VerificationFlowState successState,
+    required VerificationFlowState retryState,
   }) async {
     if (_busy) return null;
     setState(() {
       _clearMessages();
     });
-    String? managedPath;
-    String? unmanagedCapturePath;
-    var deleteUnmanagedCapture = false;
     try {
+      _flowState.transitionTo(capturingState);
       final captureService = widget.captureService;
       final capture = captureService == null
           ? await _captureDocument(kind)
           : await captureService.capture(kind);
-      if (capture == null) return null;
+      if (capture == null) {
+        _resetFlowAfterCancelledCapture(kind);
+        return null;
+      }
       if (mounted) setState(() => _busy = true);
-      if (capture.isManagedTemporaryFile) {
-        managedPath = capture.path;
-      } else {
-        unmanagedCapturePath = capture.path;
-        deleteUnmanagedCapture = capture.deleteSourceAfterAdoption;
-        managedPath = await _temporaryFiles.adopt(capture.path);
-      }
-      final quality = await _qualityService.inspect(managedPath);
-      final hardFailure = quality.failures.any(
-        (failure) => failure != ImageQualityFailure.blurry,
+      _flowState.transitionTo(processingState);
+      final processed = await _documentProcessor.process<T>(
+        capture: capture,
+        parser: parser,
       );
-      if (hardFailure) throw VerificationV1Exception(quality.userMessage);
-      final blocks = await _ocrService.recognize(managedPath);
-      final parsed = parser(blocks);
-      if (!parsed.isSuccess) {
-        throw VerificationV1Exception(
-          parsed.message ??
-              'Das Dokument wurde nicht vollständig erkannt. Bitte fotografiere es erneut.',
-        );
+      if (successState != processingState) {
+        _flowState.transitionTo(successState);
       }
-      if (quality.failures.contains(ImageQualityFailure.blurry)) {
-        throw VerificationV1Exception(quality.userMessage);
-      }
-      return parsed.data;
+      return processed.data;
     } on VerificationV1Exception catch (error) {
+      if (_flowState.canTransitionTo(retryState)) {
+        _flowState.transitionTo(retryState);
+      }
+      if (mounted) setState(() => _error = error.message);
+      return null;
+    } on VerificationDocumentProcessingException catch (error) {
+      if (_flowState.canTransitionTo(retryState)) {
+        _flowState.transitionTo(retryState);
+      }
       if (mounted) setState(() => _error = error.message);
       return null;
     } catch (_) {
+      if (_flowState.canTransitionTo(retryState)) {
+        _flowState.transitionTo(retryState);
+      }
       if (mounted) {
         setState(() {
           _error =
-              'Das Dokument konnte nicht sicher gelesen werden. Bitte nimm es erneut auf oder wähle ein anderes Bild.';
+              'Das Dokument konnte nicht sicher gelesen werden. Bitte fotografiere es erneut.';
         });
       }
       return null;
     } finally {
-      if (deleteUnmanagedCapture && unmanagedCapturePath != null) {
-        await _deleteUnmanagedCapture(unmanagedCapturePath);
-      }
-      if (managedPath != null) await _temporaryFiles.delete(managedPath);
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<CapturedVerificationDocument?> _captureDocument(
     VerificationDocumentKind kind,
-  ) async {
-    final source = await showGeneralDialog<_DocumentImageSource>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 160),
-      pageBuilder: (dialogContext, _, _) => SafeArea(
-        child: Material(
-          type: MaterialType.transparency,
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DocumentSourceAction(
-                    icon: Icons.photo_camera_rounded,
-                    title: 'Kamera',
-                    subtitle: 'Dokument jetzt aufnehmen',
-                    onTap: () => Navigator.of(
-                      dialogContext,
-                    ).pop(_DocumentImageSource.camera),
-                  ),
-                  const SizedBox(height: 8),
-                  _DocumentSourceAction(
-                    icon: Icons.photo_library_rounded,
-                    title: 'Galerie',
-                    subtitle: 'Vorhandenes Foto auswählen und ausrichten',
-                    onTap: () => Navigator.of(
-                      dialogContext,
-                    ).pop(_DocumentImageSource.gallery),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-      transitionBuilder: (context, animation, _, child) => FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.08),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-      ),
-    );
-    if (source == null || !mounted) return null;
+  ) => CameraDocumentCaptureService(
+    Navigator.of(context),
+    temporaryFiles: _temporaryFiles,
+  ).capture(kind);
 
-    if (source == _DocumentImageSource.camera) {
-      return CameraDocumentCaptureService(
-        Navigator.of(context),
-        temporaryFiles: _temporaryFiles,
-      ).capture(kind);
-    }
-
-    final selected = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 100,
-      maxWidth: 4096,
-    );
-    if (selected == null || !mounted) return null;
-    final prepared = await Navigator.of(context).push<XFile>(
-      MaterialPageRoute(
-        builder: (_) => ProfileVerificationDocumentEditorScreen(
-          sourceFile: selected,
-          kind: kind,
-        ),
-        fullscreenDialog: true,
-      ),
-    );
-    if (prepared == null) return null;
-    return CapturedVerificationDocument(
-      path: prepared.path,
-      kind: kind,
-      deleteSourceAfterAdoption: true,
-    );
+  void _resetFlowAfterCancelledCapture(VerificationDocumentKind kind) {
+    final target = kind == VerificationDocumentKind.vehicleRegistration
+        ? VerificationFlowState.identityDataChecked
+        : VerificationFlowState.notStarted;
+    if (_flowState.canTransitionTo(target)) _flowState.transitionTo(target);
   }
 
   Future<void> _submitDocuments() async {
@@ -727,6 +773,13 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         identity: _identity!,
         vehicleRegistration: _registration!,
       );
+      final nextFlowState =
+          result.status == VerificationV1Status.requiresDeclaration
+          ? VerificationFlowState.awaitingDeclaration
+          : VerificationFlowState.verified;
+      if (_flowState.canTransitionTo(nextFlowState)) {
+        _flowState.transitionTo(nextFlowState);
+      }
       if (!mounted) return;
       setState(() {
         _result = result;
@@ -743,6 +796,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         _error = error.message;
         if (error.reason == 'session-expired') _session = null;
       });
+      _revealStatusMessage();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -755,6 +809,11 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _clearMessages();
     });
     try {
+      if (_flowState.canTransitionTo(
+        VerificationFlowState.declarationSigning,
+      )) {
+        _flowState.transitionTo(VerificationFlowState.declarationSigning);
+      }
       final result = await _verificationRepository.finalizeDeclaration(
         session: _session!,
         signatureStrokes: [
@@ -764,6 +823,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
             ],
         ],
       );
+      if (_flowState.canTransitionTo(VerificationFlowState.verified)) {
+        _flowState.transitionTo(VerificationFlowState.verified);
+      }
       if (!mounted) return;
       setState(() {
         _result = result;
@@ -772,10 +834,24 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
         _success = 'Die Eigenerklärung wurde sicher erstellt.';
       });
     } on VerificationV1Exception catch (error) {
-      if (mounted) setState(() => _error = error.message);
+      if (mounted) {
+        setState(() => _error = error.message);
+        _revealStatusMessage();
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _revealStatusMessage() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   Future<void> _openPrivacy() async {
@@ -810,8 +886,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
                     ),
                   ),
                 const SizedBox(height: 8),
-                FilledButton(
+                OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
+                  style: _verificationActionButtonStyle(),
                   child: const Text('Information verstanden'),
                 ),
               ],
@@ -830,6 +907,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       _registration = null;
       _session = null;
       _result = null;
+      _flowState = VerificationStateMachine();
       _declarationAccepted = false;
       _signature.clear();
       _clearMessages();
@@ -839,15 +917,6 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
   void _clearMessages() {
     _error = null;
     _success = null;
-  }
-
-  static Future<void> _deleteUnmanagedCapture(String path) async {
-    try {
-      final file = File(path);
-      if (await file.exists()) await file.delete();
-    } on FileSystemException {
-      // The source belongs to the camera cache and is retried by the OS.
-    }
   }
 }
 
@@ -966,58 +1035,6 @@ class _CameraAction extends StatelessWidget {
               )
             : const Icon(Icons.camera_alt_rounded),
         label: Text(label),
-      ),
-    );
-  }
-}
-
-enum _DocumentImageSource { camera, gallery }
-
-class _DocumentSourceAction extends StatelessWidget {
-  const _DocumentSourceAction({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: CaRismaDesignTokens.controlSurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: CaRismaDesignTokens.textPrimary.withValues(alpha: 0.10),
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        onTap: onTap,
-        leading: Container(
-          width: 44,
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.42),
-            ),
-          ),
-          child: Icon(icon, color: CaRismaDesignTokens.blueBright),
-        ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: CaRismaDesignTokens.textSecondary),
-        ),
-        trailing: const Icon(Icons.chevron_right_rounded),
       ),
     );
   }

@@ -8,8 +8,10 @@ const {
   expireIdentityVerifications,
   finalizeVehicleDeclaration,
   identityCoreChanged,
+  normalizeIdentityInput,
   normalizePersonName,
   normalizePlate,
+  normalizeRelation,
   normalizeSignature,
   privacyVersion,
   revokeOrInvalidateVerification,
@@ -143,6 +145,24 @@ test("normalizes names and plates without lookalike guessing", () => {
   assert.equal(normalizePersonName("  Yılmaz-Müller "), "yilmaz-mueller");
   assert.equal(normalizePlate("hh - ab 123"), "HHAB123");
   assert.notEqual(normalizePlate("HH OI 1"), normalizePlate("HH 01 1"));
+});
+
+test("validates international document profiles without guessing layouts", () => {
+  const passport = normalizeIdentityInput(identityPayload({
+    documentType: "passport",
+    issuingCountryCode: "TR",
+    documentProfileVersion: "icao_td3_eighth_edition_v1",
+  }));
+  assert.equal(passport.issuingCountryCode, "TR");
+  assert.equal(normalizeRelation("leasing_vehicle"), "leasing");
+  assert.throws(
+    () => normalizeIdentityInput(identityPayload({
+      documentType: "id_card",
+      issuingCountryCode: "TR",
+      documentProfileVersion: "invented_layout_v1",
+    })),
+    (error) => error.details.reason === "unsupported-document-profile",
+  );
 });
 
 test("detects only identity-core changes", () => {
@@ -280,7 +300,17 @@ test("registered holder completes atomically and does not persist C.1 fields", a
     "users/user-1/vehicle_verifications/vehicle-1",
   );
   assert.equal(identity.verifiedFirstNames, "Erika Maria");
+  assert.equal(identity.schemaVersion, 2);
+  assert.equal(identity.identityDocumentDataChecked, true);
+  assert.equal(identity.issuingCountryCode, "DE");
+  assert.equal(identity.documentProfileVersion, "deu_bo_02004_2021_v1");
   assert.equal(verification.status, "verified");
+  assert.equal(verification.flowState, "verified");
+  assert.equal(verification.identityDocumentDataChecked, true);
+  assert.equal(verification.vehicleDocumentDataChecked, true);
+  assert.equal(verification.plateMatch, true);
+  assert.equal(verification.declarationRequired, false);
+  assert.equal(verification.registrationCountryCode, "DE");
   assert.match(identity.identityVersion, /^[0-9a-f-]{36}$/u);
   assert.equal(verification.identityVersion, identity.identityVersion);
   assert.equal(firestore.documents.get("public_profiles/user-1").isVerified, true);
@@ -311,6 +341,20 @@ test("rejects plate mismatch and holder mismatch", async () => {
       vehicleRegistration: registrationPayload({holderNameOrCompany: "Anders"}),
     }),
     (error) => error.details.reason === "holder-mismatch",
+  );
+
+  const countryFirestore = firestoreWithVehicle();
+  const countrySession = await createSession(countryFirestore);
+  await assert.rejects(
+    submit(countryFirestore, countrySession, {
+      vehicleRegistration: registrationPayload({
+        registrationCountryCode: "TR",
+      }),
+    }),
+    (error) => [
+      "unsupported-document-profile",
+      "vehicle-country-mismatch",
+    ].includes(error.details.reason),
   );
 });
 
@@ -343,7 +387,7 @@ test("rejects expired sessions and replay with changed data", async () => {
 
 test("non-holder requires a declaration and finalizes the PDF exactly once", async () => {
   const firestore = firestoreWithVehicle();
-  const session = await createSession(firestore, "leasing_vehicle");
+  const session = await createSession(firestore, "leasing");
   const submitted = await submit(firestore, session, {
     vehicleRegistration: registrationPayload({
       holderNameOrCompany: "Muster Leasing GmbH",
@@ -442,7 +486,7 @@ test("former owner cannot revoke a successor's plate verification", async () => 
 
 test("concurrent revocation cannot be restored by declaration finalization", async () => {
   const firestore = firestoreWithVehicle();
-  const session = await createSession(firestore, "leasing_vehicle");
+  const session = await createSession(firestore, "authorized_private_vehicle");
   await submit(firestore, session, {
     vehicleRegistration: registrationPayload({
       holderNameOrCompany: "Muster Leasing GmbH",
@@ -494,7 +538,7 @@ test("concurrent revocation cannot be restored by declaration finalization", asy
 
 test("account deletion aborts finalization and removes the staged PDF", async () => {
   const firestore = firestoreWithVehicle();
-  const session = await createSession(firestore, "company_vehicle");
+  const session = await createSession(firestore, "company_car");
   await submit(firestore, session, {
     vehicleRegistration: registrationPayload({
       holderNameOrCompany: "Muster GmbH",
@@ -703,6 +747,8 @@ function identityPayload(overrides = {}) {
     expiresAt: "2030-12-31",
     documentType: "id_card",
     parserVersion: "de_id_front_v1.0.0",
+    issuingCountryCode: "DE",
+    documentProfileVersion: "deu_bo_02004_2021_v1",
     ...overrides,
   };
 }
@@ -725,6 +771,8 @@ function registrationPayload(overrides = {}) {
     holderNameOrCompany: "Muster",
     holderFirstNames: "Erika Maria",
     parserVersion: "de_vehicle_registration_front_v1.0.0",
+    registrationCountryCode: "DE",
+    documentProfileVersion: "deu_go_01001_2005_v1",
     ...overrides,
   };
 }

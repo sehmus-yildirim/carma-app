@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../../firebase_options.dart';
 import 'push_notification_navigation.dart';
@@ -24,6 +25,9 @@ class PushNotificationService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final PushTokenRepository _tokenRepository = PushTokenRepository();
+  static const MethodChannel _androidNotifications = MethodChannel(
+    'plaqa/notifications',
+  );
 
   final List<StreamSubscription<dynamic>> _subscriptions =
       <StreamSubscription<dynamic>>[];
@@ -48,6 +52,11 @@ class PushNotificationService {
           alert: true,
           badge: true,
           sound: true,
+        );
+      }
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        _androidNotifications.setMethodCallHandler(
+          _handleAndroidNotificationCall,
         );
       }
 
@@ -162,7 +171,42 @@ class PushNotificationService {
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    // iOS presents these through the configured native foreground options.
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+
+    final title =
+        message.notification?.title ?? message.data['title']?.toString();
+    final body = message.notification?.body ?? message.data['body']?.toString();
+    if ((title == null || title.trim().isEmpty) &&
+        (body == null || body.trim().isEmpty)) {
+      return;
+    }
+
+    unawaited(
+      _guard(
+        () => _androidNotifications.invokeMethod<void>('showNotification', {
+          'id':
+              message.messageId?.hashCode ??
+              DateTime.now().millisecondsSinceEpoch.remainder(0x7fffffff),
+          'title': title?.trim() ?? 'plaqa',
+          'body': body?.trim() ?? '',
+          'type': message.data['type']?.toString(),
+          'resourceId': message.data['resourceId']?.toString(),
+        }),
+      ),
+    );
+  }
+
+  Future<void> _handleAndroidNotificationCall(MethodCall call) async {
+    if (call.method != 'notificationOpened') return;
+    final arguments = call.arguments;
+    if (arguments is! Map) return;
+
+    final data = <String, dynamic>{
+      for (final entry in arguments.entries)
+        if (entry.key is String) entry.key as String: entry.value,
+    };
+    final target = PushNotificationTarget.fromData(data);
+    if (target != null) PushNotificationNavigation.instance.open(target);
   }
 
   void _openMessage(RemoteMessage message) {

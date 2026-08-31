@@ -1,4 +1,5 @@
-const verificationMethod = "on_device_ocr_front_v1";
+const verificationMethod = "on_device_document_ocr_v1";
+const legacyVerificationMethod = "on_device_ocr_front_v1";
 const assuranceLevel = "document_data_match";
 
 function safeString(value) {
@@ -40,7 +41,7 @@ function isEffectiveIdentityVerification(identity, now = new Date()) {
   const today = serverDateKey(now);
   const expiresAt = safeString(identity?.documentExpiresAt);
   return safeString(identity?.status) === "verified" &&
-    safeString(identity?.verificationMethod) === verificationMethod &&
+    isSupportedVerificationMethod(identity?.verificationMethod) &&
     safeString(identity?.assuranceLevel) === assuranceLevel &&
     /^\d{4}-\d{2}-\d{2}$/u.test(expiresAt) &&
     expiresAt >= today;
@@ -57,13 +58,18 @@ function isEffectiveVehicleVerification({
   return isEffectiveIdentityVerification(identity, now) &&
     identityVersion.length > 0 &&
     safeString(verification?.status) === "verified" &&
-    safeString(verification?.verificationMethod) === verificationMethod &&
+    isSupportedVerificationMethod(verification?.verificationMethod) &&
     safeString(verification?.assuranceLevel) === assuranceLevel &&
     safeString(verification?.identityVersion) === identityVersion &&
     normalizePlate(verification?.plateNormalized) === expectedPlate &&
     expectedPlate.length > 0 &&
     vehicle?.isDeleted !== true &&
     safeString(vehicle?.status || "active") === "active";
+}
+
+function isSupportedVerificationMethod(value) {
+  const method = safeString(value);
+  return method === verificationMethod || method === legacyVerificationMethod;
 }
 
 function usesVerificationV1(identity, verification = null) {
@@ -74,6 +80,7 @@ module.exports = {
   assuranceLevel,
   isEffectiveIdentityVerification,
   isEffectiveVehicleVerification,
+  legacyVerificationMethod,
   normalizePlate,
   plateFromVehicle,
   serverDateKey,

@@ -874,6 +874,7 @@ Future<bool> showProfileVehicleEditorSheet(
                         icon: Icons.check_rounded,
                         isLoading: isSaving,
                         surfaceOutlined: true,
+                        surfaceTextColor: CaRismaDesignTokens.textPrimary,
                         showShadow: false,
                         onPressed: submit,
                       ),

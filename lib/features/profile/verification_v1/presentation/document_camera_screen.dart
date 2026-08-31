@@ -453,7 +453,12 @@ class _DocumentOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ratio = kind == VerificationDocumentKind.passport ? 1.42 : 1.58;
+    final ratio = switch (kind) {
+      VerificationDocumentKind.passport => 1.42,
+      VerificationDocumentKind.vehicleRegistration => 1.414,
+      VerificationDocumentKind.identityCard ||
+      VerificationDocumentKind.residencePermit => 1.586,
+    };
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = math.min(

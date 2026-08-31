@@ -290,10 +290,7 @@ class ProfileRepository {
     required bool allowAnonymousReports,
   }) async {
     final document = _profileDocument(uid);
-    final trustedPhotoUrl = trustedProfilePhotoUrl(
-      url: photoUrl,
-      userId: uid,
-    );
+    final trustedPhotoUrl = trustedProfilePhotoUrl(url: photoUrl, userId: uid);
     await document.set({
       'photoUrl': trustedPhotoUrl,
       'profilePhotoLocalPath': null,

@@ -5309,7 +5309,7 @@ Kennzeichen dürfen nicht dazu verwendet werden, Personen systematisch zu verfol
           _LegalSection(
             title: '11. Verifizierung und lokaler Dokumentabgleich',
             body:
-                r'''plaqa kann einen freiwilligen oder für bestimmte Funktionen erforderlichen Dokumentdatenabgleich anbieten. Im aktuellen Verfahren werden ausschließlich die Vorderseite eines Personalausweises oder Aufenthaltstitels beziehungsweise die Datenseite eines Reisepasses sowie die Vorderseite der Zulassungsbescheinigung Teil I mit der Kamera aufgenommen oder bewusst aus der Galerie ausgewählt und lokal ausgerichtet. Führerschein, Selfie, Rückseiten und beliebige Datei-Uploads werden nicht verlangt.
+                r'''plaqa kann einen freiwilligen oder für bestimmte Funktionen erforderlichen Dokumentdatenabgleich anbieten. Im aktuellen Verfahren wird ausschließlich die vom jeweiligen Dokumentprofil benötigte Vorder- oder Datenseite direkt mit der In-App-Kamera aufgenommen. Galerie- und Datei-Uploads sind im Verifizierungsablauf deaktiviert. Führerschein, Selfie und global verpflichtende Rückseiten werden nicht verlangt.
 
 Bildqualität und Texterkennung werden auf dem Gerät verarbeitet. Dokumentbilder, Roh-OCR-Blöcke, Dokumentnummern, Lichtbilder, Anschriften, Staatsangehörigkeiten, maschinenlesbare Rohzeilen und die Unterschriftsgrafik werden nicht dauerhaft an plaqa übertragen oder gespeichert. Temporäre lokale Aufnahmen werden nach Abschluss, Abbruch, Abmeldung oder spätestens beim nächsten App-Start gelöscht.
 
@@ -5320,10 +5320,11 @@ Für den Identitätsabgleich können dauerhaft privat gespeichert werden:
 * Geburtsdatum,
 * Ablaufdatum,
 * Dokumentart,
+* Ausstellungsland und Dokumentprofilversion,
 * Verifizierungsstatus und Prüfzeitpunkte,
 * technische Verfahrens-, Parser-, Datenschutz- und Assurance-Versionen.
 
-Kennzeichen sowie Haltername aus den Feldern C.1.1 und C.1.2 werden nur vorübergehend zum Datenabgleich verwendet. C.1.1 und C.1.2 werden danach nicht dauerhaft gespeichert. Für Fahrzeuge, bei denen der Nutzer nicht selbst als Halter eingetragen ist, wird eine Eigenerklärung verlangt. Gespeichert werden der Erklärungstext beziehungsweise dessen Prüfsumme, Version, Annahmezeitpunkt, Fahrzeugbezug, Zuordnungsart und eine serverseitig erstellte private PDF. Die gezeichnete Unterschrift wird nur für die PDF-Erzeugung verarbeitet und nicht als separate Grafik gespeichert.
+Kennzeichen und Halterangaben aus dem Fahrzeugdokument werden nur vorübergehend zum Datenabgleich verwendet. Haltername beziehungsweise Firma und Haltervornamen werden danach nicht dauerhaft gespeichert. Für Fahrzeuge, bei denen der Nutzer nicht selbst als Halter eingetragen ist, wird eine Eigenerklärung verlangt. Gespeichert werden der Erklärungstext beziehungsweise dessen Prüfsumme, Version, Annahmezeitpunkt, Fahrzeugbezug, Zuordnungsart und eine serverseitig erstellte private PDF. Die gezeichnete Unterschrift wird nur für die PDF-Erzeugung verarbeitet und nicht als separate Grafik gespeichert.
 
 Der Abgleich bestätigt ausschließlich, dass aus den fotografierten Dokumentseiten ausgelesene Daten zueinander passen und die angegebenen Dokumentdaten zum Prüfzeitpunkt gültig erscheinen. Er ist keine amtliche Echtheitsprüfung, keine Registerabfrage und kein Nachweis von Eigentum oder zukünftiger Berechtigung. Manipulierte Aufnahmen oder unzutreffende Angaben können technisch nicht in jedem Fall erkannt werden.
 
@@ -6691,7 +6692,7 @@ Verboten sind:
 
 10.3 Sensible Angaben
 
-Verwenden Sie nur die ausdrücklich angeforderte Vorder- oder Datenseite im vorgesehenen Kamera- oder Galerieablauf. Rückseiten, Führerschein, Selfie sowie beliebige Datei-Uploads gehören nicht zum aktuellen Verfahren.
+Verwenden Sie nur die ausdrücklich angeforderte Vorder- oder Datenseite im vorgesehenen In-App-Kameraablauf. Galerie- und Datei-Uploads, Führerschein, Selfie sowie nicht vom Dokumentprofil verlangte Rückseiten gehören nicht zum aktuellen Verfahren.
 
 10.4 Keine fremden Dokumente
 

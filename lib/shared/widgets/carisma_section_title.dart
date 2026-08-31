@@ -8,11 +8,13 @@ class CaRismaSectionTitle extends StatelessWidget {
     required this.number,
     required this.title,
     this.optional = false,
+    this.outlinedNumber = false,
   });
 
   final String number;
   final String title;
   final bool optional;
+  final bool outlinedNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -24,20 +26,33 @@ class CaRismaSectionTitle extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                CaRismaDesignTokens.bluePrimary,
-                CaRismaDesignTokens.bluePrimary,
-                CaRismaDesignTokens.bluePrimary,
-              ],
-            ),
+            color: outlinedNumber ? CaRismaDesignTokens.controlSurface : null,
+            gradient: outlinedNumber
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
+                      CaRismaDesignTokens.bluePrimary,
+                    ],
+                  ),
+            border: outlinedNumber
+                ? Border.all(
+                    color: CaRismaDesignTokens.bluePrimary.withValues(
+                      alpha: 0.88,
+                    ),
+                    width: 1.4,
+                  )
+                : null,
           ),
           child: Text(
             number,
-            style: const TextStyle(
-              color: CaRismaDesignTokens.onAccent,
+            style: TextStyle(
+              color: outlinedNumber
+                  ? CaRismaDesignTokens.bluePrimary
+                  : CaRismaDesignTokens.onAccent,
               fontWeight: FontWeight.w900,
               fontSize: 14,
             ),

@@ -92,9 +92,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: OnboardingFlowScreen(onCompleted: () async {}),
-      ),
+      MaterialApp(home: OnboardingFlowScreen(onCompleted: () async {})),
     );
 
     const headings = <String>[

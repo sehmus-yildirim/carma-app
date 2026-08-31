@@ -21,15 +21,16 @@ enum VerificationIdentityDocumentType {
 }
 
 enum VerificationVehicleRelation {
-  registeredHolder(
-    'registered_holder',
-    'Ich bin im Fahrzeugschein als Halter eingetragen',
+  registeredHolder('registered_holder', 'Ich bin eingetragener Halter'),
+  leasing('leasing', 'Leasingfahrzeug'),
+  companyCar('company_car', 'Firmen-/Dienstwagen'),
+  authorizedPrivateVehicle(
+    'authorized_private_vehicle',
+    'Fahrzeug mit Erlaubnis des Halters',
   ),
-  leasingVehicle('leasing_vehicle', 'Leasingfahrzeug'),
-  companyVehicle('company_vehicle', 'Firmen-/Dienstwagen'),
-  authorizedByHolder(
-    'authorized_by_holder',
-    'Ich nutze das Fahrzeug mit Erlaubnis des Halters',
+  otherAuthorized(
+    'other_authorized',
+    'Sonstiges berechtigt genutztes Fahrzeug',
   );
 
   const VerificationVehicleRelation(this.value, this.label);
@@ -45,6 +46,16 @@ enum VerificationDocumentKind {
   passport,
   residencePermit,
   vehicleRegistration,
+}
+
+enum VerificationField {
+  firstNames,
+  lastName,
+  dateOfBirth,
+  documentExpiryDate,
+  plateNumber,
+  holderLastNameOrCompany,
+  holderFirstNames,
 }
 
 enum VerificationV1Status {
@@ -123,6 +134,12 @@ enum VerificationSessionState {
 }
 
 enum VerificationParseFailure {
+  imageBlurry,
+  imageTooDark,
+  imageOverexposed,
+  documentCropped,
+  strongReflection,
+  documentNotRecognized,
   missingRequiredField,
   ambiguousField,
   invalidDate,
@@ -167,6 +184,8 @@ class IdentityDocumentData {
     required this.expiresAt,
     required this.documentType,
     required this.parserVersion,
+    this.issuingCountryCode = 'DE',
+    this.documentProfileVersion = '',
   });
 
   final String firstNames;
@@ -175,6 +194,8 @@ class IdentityDocumentData {
   final DateTime expiresAt;
   final VerificationIdentityDocumentType documentType;
   final String parserVersion;
+  final String issuingCountryCode;
+  final String documentProfileVersion;
 
   Map<String, Object> toSubmissionJson() => {
     'firstNames': firstNames.trim(),
@@ -183,6 +204,10 @@ class IdentityDocumentData {
     'expiresAt': _dateOnly(expiresAt),
     'documentType': documentType.value,
     'parserVersion': parserVersion,
+    'issuingCountryCode': issuingCountryCode.trim().toUpperCase(),
+    'documentProfileVersion': documentProfileVersion.trim().isEmpty
+        ? parserVersion
+        : documentProfileVersion.trim(),
   };
 }
 
@@ -193,33 +218,45 @@ class VehicleRegistrationData {
     required this.holderNameOrCompany,
     required this.holderFirstNames,
     required this.parserVersion,
+    this.registrationCountryCode = 'DE',
+    this.documentProfileVersion = '',
   });
 
   final String plate;
   final String holderNameOrCompany;
   final String? holderFirstNames;
   final String parserVersion;
+  final String registrationCountryCode;
+  final String documentProfileVersion;
 
   Map<String, Object?> toSubmissionJson() => {
     'plate': plate.trim(),
     'holderNameOrCompany': holderNameOrCompany.trim(),
     'holderFirstNames': holderFirstNames?.trim(),
     'parserVersion': parserVersion,
+    'registrationCountryCode': registrationCountryCode.trim().toUpperCase(),
+    'documentProfileVersion': documentProfileVersion.trim().isEmpty
+        ? parserVersion
+        : documentProfileVersion.trim(),
   };
 }
 
 @immutable
 class VerificationParseResult<T> {
-  const VerificationParseResult.success(this.data)
-    : failure = null,
-      message = null;
+  const VerificationParseResult.success(
+    this.data, {
+    this.fieldConfidence = const {},
+  }) : failure = null,
+       message = null;
 
   const VerificationParseResult.failure(this.failure, this.message)
-    : data = null;
+    : data = null,
+      fieldConfidence = const {};
 
   final T? data;
   final VerificationParseFailure? failure;
   final String? message;
+  final Map<VerificationField, FieldConfidence> fieldConfidence;
 
   bool get isSuccess => data != null;
 }
@@ -239,7 +276,19 @@ class CapturedVerificationDocument {
   final bool isManagedTemporaryFile;
 }
 
-enum ImageQualityFailure { tooSmall, tooDark, overexposed, blurry }
+enum FieldConfidence { high, medium, low }
+
+enum ImageQualityFailure {
+  tooSmall,
+  tooDark,
+  overexposed,
+  blurry,
+  documentTooSmall,
+  documentCropped,
+  documentRotated,
+  perspectiveDistortion,
+  strongReflection,
+}
 
 @immutable
 class ImageQualityResult {
@@ -270,6 +319,21 @@ class ImageQualityResult {
     }
     if (failures.contains(ImageQualityFailure.blurry)) {
       return 'Das Foto ist unscharf. Bitte halte das Smartphone ruhig und fotografiere erneut.';
+    }
+    if (failures.contains(ImageQualityFailure.strongReflection)) {
+      return 'Auf dem Dokument wurde eine starke Reflexion erkannt. Bitte ändere den Winkel und fotografiere erneut.';
+    }
+    if (failures.contains(ImageQualityFailure.documentTooSmall)) {
+      return 'Das Dokument ist zu klein im Bild. Bitte positioniere es näher und vollständig im Rahmen.';
+    }
+    if (failures.contains(ImageQualityFailure.documentCropped)) {
+      return 'Das Dokument ist abgeschnitten. Bitte positioniere alle Ränder vollständig im Rahmen.';
+    }
+    if (failures.contains(ImageQualityFailure.documentRotated)) {
+      return 'Das Dokument ist zu stark gedreht. Bitte richte es am Rahmen aus.';
+    }
+    if (failures.contains(ImageQualityFailure.perspectiveDistortion)) {
+      return 'Das Dokument wurde zu schräg fotografiert. Bitte halte die Kamera möglichst parallel darüber.';
     }
     return 'Das Dokument wurde nicht vollständig erkannt. Bitte positioniere es vollständig im Rahmen.';
   }
@@ -325,6 +389,14 @@ class VerificationV1Record {
 }
 
 abstract final class VerificationV1Policy {
+  static const String verificationMethod = 'on_device_document_ocr_v1';
+  static const String legacyVerificationMethod = 'on_device_ocr_front_v1';
+  static const String assuranceLevel = 'document_data_match';
+  static const String privacyVersion =
+      'verification_privacy_international_v2.0.0';
+  static const String declarationVersion =
+      'vehicle_authorization_international_v2.0.0';
+
   static VerificationV1Status effectiveIdentityStatus(
     VerificationV1Record record, {
     required DateTime serverToday,

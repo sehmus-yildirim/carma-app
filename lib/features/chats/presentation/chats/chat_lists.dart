@@ -680,11 +680,17 @@ class _EmptyListCard extends StatelessWidget {
                 height: 42,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: CaRismaDesignTokens.blueGradient,
+                  color: CaRismaDesignTokens.controlSurface,
+                  border: Border.all(
+                    color: CaRismaDesignTokens.bluePrimary.withValues(
+                      alpha: 0.88,
+                    ),
+                    width: 1.4,
+                  ),
                 ),
                 child: Icon(
                   icon,
-                  color: CaRismaDesignTokens.onAccent,
+                  color: CaRismaDesignTokens.bluePrimary,
                   size: 20,
                 ),
               ),

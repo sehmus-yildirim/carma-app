@@ -24,21 +24,16 @@ void main() {
     expect(find.text('Vorderseite fotografieren'), findsOneWidget);
   });
 
-  testWidgets('offers camera and gallery for a verification document', (
+  testWidgets('opens the configured camera flow without a gallery chooser', (
     tester,
   ) async {
-    await _pumpScreen(tester, useDefaultCapture: true);
+    await _pumpScreen(tester);
 
     await tester.tap(find.text('Vorderseite fotografieren'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Kamera'), findsOneWidget);
-    expect(find.text('Dokument jetzt aufnehmen'), findsOneWidget);
-    expect(find.text('Galerie'), findsOneWidget);
-    expect(
-      find.text('Vorhandenes Foto auswählen und ausrichten'),
-      findsOneWidget,
-    );
+    expect(find.text('Erika Maria'), findsOneWidget);
+    expect(find.text('Galerie'), findsNothing);
   });
 
   testWidgets('shows OCR identity values read-only and advances', (
@@ -99,7 +94,7 @@ void main() {
     );
   });
 
-  testWidgets('offers exactly four separate vehicle relations', (tester) async {
+  testWidgets('offers exactly five separate vehicle relations', (tester) async {
     await _reachVehicleStep(tester);
 
     for (final relation in VerificationVehicleRelation.values) {
@@ -117,15 +112,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('HH AB 123'), findsOneWidget);
-    final submit = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Abgleichen'),
+    final submit = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Abgleichen'),
     );
     expect(submit.onPressed, isNull);
 
     await _acceptPrivacy(tester);
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Abgleichen'))
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Abgleichen'),
+          )
           .onPressed,
       isNotNull,
     );
@@ -176,7 +173,9 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(
       tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Abgleichen'))
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Abgleichen'),
+          )
           .onPressed,
       isNull,
     );
@@ -190,7 +189,7 @@ void main() {
     final gateway = _FakeGateway();
     await _reachVehicleStep(tester, gateway: gateway);
     await tester.tap(
-      find.byKey(const ValueKey('verification-relation-leasing_vehicle')),
+      find.byKey(const ValueKey('verification-relation-leasing')),
     );
     await tester.pumpAndSettle();
     expect(find.text('Zum Abgleich'), findsOneWidget);
@@ -208,10 +207,10 @@ void main() {
 
     expect(find.text('Eigenerklärung'), findsWidgets);
     final finalizeFinder = find.widgetWithText(
-      FilledButton,
+      OutlinedButton,
       'Verbindlich bestätigen',
     );
-    expect(tester.widget<FilledButton>(finalizeFinder).onPressed, isNull);
+    expect(tester.widget<OutlinedButton>(finalizeFinder).onPressed, isNull);
 
     await tester.tap(find.textContaining('Ich habe die Eigenerklärung'));
     await tester.pump();
@@ -223,7 +222,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(tester.widget<FilledButton>(finalizeFinder).onPressed, isNotNull);
+    expect(tester.widget<OutlinedButton>(finalizeFinder).onPressed, isNotNull);
     await tester.tap(finalizeFinder);
     await tester.pumpAndSettle();
     expect(find.text('Fahrzeug verifiziert'), findsOneWidget);
@@ -345,7 +344,6 @@ Future<void> _pumpScreen(
   DocumentCaptureService? captureService,
   VerificationTemporaryFileService? temporaryFileService,
   ProfileVehicleRepository? vehicleRepository,
-  bool useDefaultCapture = false,
   Size surfaceSize = const Size(430, 5000),
   TextScaler textScaler = TextScaler.noScaling,
 }) async {
@@ -365,9 +363,7 @@ Future<void> _pumpScreen(
         verificationV1Repository: VerificationV1Repository(
           gateway: effectiveGateway,
         ),
-        captureService: useDefaultCapture
-            ? null
-            : captureService ?? _FakeCaptureService(),
+        captureService: captureService ?? _FakeCaptureService(),
         ocrService: _FakeOcrService(),
         imageQualityService: const _FakeQualityService(),
         temporaryFileService:

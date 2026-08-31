@@ -2,7 +2,11 @@ package de.plaqa.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
@@ -22,6 +26,7 @@ import android.provider.OpenableColumns
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -39,6 +44,9 @@ import java.util.Locale
 
 class MainActivity : FlutterActivity() {
     private val channelName = "plaqa/chat_tools"
+    private val notificationChannelName = "plaqa/notifications"
+    private val pushNotificationChannelId = "plaqa_messages"
+    private var notificationMethodChannel: MethodChannel? = null
     private val pickPhoneContactRequestCode = 4701
     private val pickDocumentRequestCode = 4702
     private val recordAudioPermissionRequestCode = 4703
@@ -74,6 +82,27 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        notificationMethodChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            notificationChannelName,
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "showNotification" -> showPushNotification(
+                        id = call.argument<Int>("id"),
+                        title = call.argument<String>("title"),
+                        body = call.argument<String>("body"),
+                        type = call.argument<String>("type"),
+                        resourceId = call.argument<String>("resourceId"),
+                        result = result,
+                    )
+                    else -> result.notImplemented()
+                }
+            }
+        }
+        createPushNotificationChannel()
+        dispatchLocalNotificationIntent(intent)
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -98,6 +127,91 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        dispatchLocalNotificationIntent(intent)
+    }
+
+    private fun showPushNotification(
+        id: Int?,
+        title: String?,
+        body: String?,
+        type: String?,
+        resourceId: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            result.success(false)
+            return
+        }
+
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        createPushNotificationChannel()
+
+        val notificationId = id ?: (System.currentTimeMillis() and 0x7fffffff).toInt()
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("plaqaLocalNotification", true)
+            putExtra("type", type)
+            putExtra("resourceId", resourceId)
+        }
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            notificationId,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val notification = NotificationCompat.Builder(this, pushNotificationChannelId)
+            .setSmallIcon(R.drawable.plaqa_notification_icon)
+            .setContentTitle(title?.trim().takeUnless { it.isNullOrEmpty() } ?: "plaqa")
+            .setContentText(body?.trim().orEmpty())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body?.trim().orEmpty()))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+
+        notificationManager.notify(notificationId, notification)
+        result.success(true)
+    }
+
+    private fun createPushNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                pushNotificationChannelId,
+                "Nachrichten und Hinweise",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Mitteilungen zu Chats, Anfragen und wichtigen Hinweisen"
+            },
+        )
+    }
+
+    private fun dispatchLocalNotificationIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("plaqaLocalNotification", false) != true) return
+
+        val payload = mapOf(
+            "type" to intent.getStringExtra("type"),
+            "resourceId" to intent.getStringExtra("resourceId"),
+        )
+        intent.removeExtra("plaqaLocalNotification")
+        notificationMethodChannel?.invokeMethod("notificationOpened", payload)
     }
 
     private fun playMessageSound(result: MethodChannel.Result) {

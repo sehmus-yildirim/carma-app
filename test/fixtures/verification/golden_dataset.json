@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "notice": "PLAQA TEST DOCUMENT - SAMPLE - NOT VALID",
+  "conditions": [
+    "perfect_front",
+    "rotated_left",
+    "rotated_right",
+    "perspective",
+    "darker",
+    "brighter",
+    "slightly_blurred",
+    "smaller_in_frame",
+    "shadow",
+    "moderate_reflection"
+  ],
+  "passport": {
+    "countries": ["DE", "TR", "UA", "SY", "RO", "PL", "IT", "AF", "BG", "HR", "GR", "XK", "IN", "RU", "RS", "AT", "BA", "ES", "FR", "NL", "CH"],
+    "documentType": "passport",
+    "documentVersion": "icao_td3_eighth_edition_v1",
+    "expectedFirstNames": "ERIKA MARIA",
+    "expectedLastName": "MUSTERMANN",
+    "expectedDateOfBirth": "1990-01-01",
+    "expectedExpiry": "2030-12-31",
+    "expectedOutcome": "parser_success_real_document_validation_required"
+  },
+  "germanIdentity": {
+    "country": "DE",
+    "documentType": "id_card",
+    "documentVersion": "deu_bo_02004_2021_v1",
+    "expectedFirstNames": "ERIKA MARIA",
+    "expectedLastName": "MUSTERMANN",
+    "expectedDateOfBirth": "1990-01-01",
+    "expectedExpiry": "2030-12-31",
+    "expectedOutcome": "parser_success_real_document_validation_required"
+  },
+  "germanResidencePermit": {
+    "country": "DE",
+    "documentType": "residence_permit",
+    "documentVersion": "de_eat_card_family_v1",
+    "expectedFirstNames": "ERIKA MARIA",
+    "expectedLastName": "MUSTERMANN",
+    "expectedDateOfBirth": "1990-01-01",
+    "expectedExpiry": "2030-12-31",
+    "expectedOutcome": "parser_success_real_document_validation_required"
+  },
+  "germanVehicleRegistration": {
+    "country": "DE",
+    "documentType": "vehicle_registration",
+    "documentVersion": "deu_go_01001_2005_v1",
+    "expectedPlate": "HH AB 123",
+    "expectedHolderName": "MUSTERMANN",
+    "expectedHolderFirstNames": "ERIKA MARIA",
+    "expectedOutcome": "parser_success_real_document_validation_required"
+  }
+}

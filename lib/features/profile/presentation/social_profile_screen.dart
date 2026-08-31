@@ -1467,8 +1467,16 @@ class _SocialProfileScreenState extends State<SocialProfileScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Abbrechen'),
           ),
-          FilledButton(
+          OutlinedButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: CaRismaDesignTokens.textPrimary,
+              backgroundColor: CaRismaDesignTokens.controlSurface,
+              side: BorderSide(
+                color: CaRismaDesignTokens.bluePrimary.withValues(alpha: 0.88),
+                width: 1.4,
+              ),
+            ),
             child: const Text('Entfernen'),
           ),
         ],

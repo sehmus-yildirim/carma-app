@@ -1,3 +1,6 @@
+import 'document_profiles.dart';
+import 'mrz_parser.dart';
+import 'verification_confidence.dart';
 import 'verification_models.dart';
 import 'verification_normalization.dart';
 
@@ -9,128 +12,54 @@ abstract interface class VehicleRegistrationParser {
   VerificationParseResult<VehicleRegistrationData> parse(List<OcrBlock> blocks);
 }
 
-class GermanIdCardFrontParser extends _LabelledIdentityParser {
-  const GermanIdCardFrontParser()
-    : super(
-        documentType: VerificationIdentityDocumentType.idCard,
-        parserVersion: 'de_id_front_v1.0.0',
-      );
-}
-
-class GermanResidencePermitFrontParser extends _LabelledIdentityParser {
-  const GermanResidencePermitFrontParser()
-    : super(
-        documentType: VerificationIdentityDocumentType.residencePermit,
-        parserVersion: 'de_residence_front_v1.0.0',
-      );
-}
-
-class PassportDataPageParser implements IdentityDocumentParser {
-  const PassportDataPageParser({this.now});
-
-  final DateTime? now;
+class GermanIdCardFrontParser implements IdentityDocumentParser {
+  const GermanIdCardFrontParser();
 
   @override
   VerificationParseResult<IdentityDocumentData> parse(List<OcrBlock> blocks) {
-    final hasMrz = blocks.any(
-      (block) => block.text
-          .split(RegExp(r'[\r\n]+'))
-          .any((line) => line.trimLeft().toUpperCase().startsWith('P<')),
-    );
-    final visual = const _LabelledIdentityParser(
-      documentType: VerificationIdentityDocumentType.passport,
-      parserVersion: 'passport_data_page_v1.0.0',
-    ).parse(blocks);
-    final mrz = _parseMrz(blocks);
-    if (visual.isSuccess && mrz.isSuccess) {
-      final visualData = visual.data!;
-      final mrzData = mrz.data!;
-      if (!conservativeLastNameMatch(visualData.lastName, mrzData.lastName) ||
-          !conservativeFirstNamesMatch(
-            visualData.firstNames,
-            mrzData.firstNames,
-          ) ||
-          !_sameDay(visualData.dateOfBirth, mrzData.dateOfBirth) ||
-          !_sameDay(visualData.expiresAt, mrzData.expiresAt)) {
-        return const VerificationParseResult.failure(
-          VerificationParseFailure.conflictingMrz,
-          'Die sichtbaren Angaben und die maschinenlesbare Zone widersprechen sich. Bitte fotografiere die Datenseite erneut.',
-        );
-      }
-      return mrz;
-    }
-    if (mrz.isSuccess) return mrz;
-    if (hasMrz) return mrz;
-    return visual;
+    final profile = DocumentProfileRegistry.identityProfile(
+      countryCode: 'DE',
+      documentType: VerificationIdentityDocumentType.idCard,
+    )!;
+    return ProfileDrivenIdentityDocumentParser(profile: profile).parse(blocks);
   }
+}
 
-  VerificationParseResult<IdentityDocumentData> _parseMrz(
-    List<OcrBlock> blocks,
-  ) {
-    final lines = blocks
-        .expand((block) => block.text.split(RegExp(r'[\r\n]+')))
-        .map((line) => line.toUpperCase().replaceAll(RegExp(r'\s+'), ''))
-        .where((line) => line.length >= 40)
-        .toList(growable: false);
-    String? firstLine;
-    String? secondLine;
-    for (var index = 0; index < lines.length; index += 1) {
-      final line = lines[index];
-      if (line.startsWith('P<') && line.length >= 44) {
-        firstLine = line.substring(0, 44);
-        if (index + 1 < lines.length && lines[index + 1].length >= 44) {
-          secondLine = lines[index + 1].substring(0, 44);
-        }
-        break;
-      }
-    }
-    if (firstLine == null || secondLine == null) {
-      return const VerificationParseResult.failure(
-        VerificationParseFailure.missingRequiredField,
-        'Die Datenseite wurde nicht vollständig erkannt. Bitte positioniere sie vollständig im Rahmen.',
-      );
-    }
-    final names = firstLine.substring(5).split('<<');
-    if (names.length < 2) {
-      return const VerificationParseResult.failure(
-        VerificationParseFailure.ambiguousField,
-        'Vor- und Nachname konnten nicht eindeutig erkannt werden.',
-      );
-    }
-    final lastName = names.first.replaceAll('<', ' ').trim();
-    final firstNames = names.sublist(1).join(' ').replaceAll('<', ' ').trim();
-    final dateOfBirthRaw = secondLine.substring(13, 19);
-    final dateOfBirthCheck = secondLine.substring(19, 20);
-    final expiresAtRaw = secondLine.substring(21, 27);
-    final expiresAtCheck = secondLine.substring(27, 28);
-    if (!mrzCheckDigitIsValid(dateOfBirthRaw, dateOfBirthCheck) ||
-        !mrzCheckDigitIsValid(expiresAtRaw, expiresAtCheck)) {
-      return const VerificationParseResult.failure(
-        VerificationParseFailure.ambiguousField,
-        'Die maschinenlesbare Zone ist nicht eindeutig. Bitte fotografiere die Datenseite erneut.',
-      );
-    }
-    final dateOfBirth = parseMrzDateOfBirth(dateOfBirthRaw, now: now);
-    final expiresAt = parseMrzExpiryDate(expiresAtRaw);
-    if (lastName.isEmpty ||
-        firstNames.isEmpty ||
-        dateOfBirth == null ||
-        expiresAt == null) {
-      return const VerificationParseResult.failure(
-        VerificationParseFailure.invalidDate,
-        'Geburts- oder Ablaufdatum konnte nicht eindeutig erkannt werden.',
-      );
-    }
-    return VerificationParseResult.success(
-      IdentityDocumentData(
-        firstNames: firstNames,
-        lastName: lastName,
-        dateOfBirth: dateOfBirth,
-        expiresAt: expiresAt,
-        documentType: VerificationIdentityDocumentType.passport,
-        parserVersion: 'passport_mrz_v1.0.0',
-      ),
+class GermanResidencePermitFrontParser implements IdentityDocumentParser {
+  const GermanResidencePermitFrontParser();
+
+  @override
+  VerificationParseResult<IdentityDocumentData> parse(List<OcrBlock> blocks) {
+    final profile = DocumentProfileRegistry.identityProfile(
+      countryCode: 'DE',
+      documentType: VerificationIdentityDocumentType.residencePermit,
+    )!;
+    return ProfileDrivenIdentityDocumentParser(profile: profile).parse(blocks);
+  }
+}
+
+class PassportDataPageParser implements IdentityDocumentParser {
+  const PassportDataPageParser({this.now, this.countryCode = 'DE'});
+
+  final DateTime? now;
+  final String countryCode;
+
+  @override
+  VerificationParseResult<IdentityDocumentData> parse(List<OcrBlock> blocks) {
+    final profile = DocumentProfileRegistry.identityProfile(
+      countryCode: countryCode,
+      documentType: VerificationIdentityDocumentType.passport,
     );
+    if (profile == null) {
+      return const VerificationParseResult.failure(
+        VerificationParseFailure.unsupportedDocument,
+        'Dieser Reisepass ist für die automatische Prüfung noch nicht freigegeben.',
+      );
+    }
+    return ProfileDrivenIdentityDocumentParser(
+      profile: profile,
+      now: now,
+    ).parse(blocks);
   }
 }
 
@@ -142,10 +71,89 @@ class GermanVehicleRegistrationFrontParser
   VerificationParseResult<VehicleRegistrationData> parse(
     List<OcrBlock> blocks,
   ) {
+    final profile = DocumentProfileRegistry.vehicleRegistrationProfile('DE')!;
+    return ProfileDrivenVehicleRegistrationParser(
+      profile: profile,
+    ).parse(blocks);
+  }
+}
+
+class ProfileDrivenIdentityDocumentParser implements IdentityDocumentParser {
+  const ProfileDrivenIdentityDocumentParser({required this.profile, this.now});
+
+  final DocumentProfile profile;
+  final DateTime? now;
+
+  @override
+  VerificationParseResult<IdentityDocumentData> parse(List<OcrBlock> blocks) {
+    if (!profile.parserAvailable || profile.identityDocumentType == null) {
+      return const VerificationParseResult.failure(
+        VerificationParseFailure.unsupportedDocument,
+        'Dieser Dokumenttyp ist noch nicht zuverlässig unterstützt.',
+      );
+    }
+    final mrzConfiguration = profile.mrzConfiguration;
+    if (mrzConfiguration?.required == true) {
+      final mrz = MrzParser(
+        now: now,
+      ).parse(blocks, allowedFormats: mrzConfiguration!.formats);
+      if (!mrz.isSuccess) {
+        return VerificationParseResult.failure(mrz.failure, mrz.message);
+      }
+      final data = mrz.data!;
+      final country = DocumentProfileRegistry.country(profile.countryCode)!;
+      if (data.issuingCountryCode != country.icaoCode) {
+        return const VerificationParseResult.failure(
+          VerificationParseFailure.ambiguousField,
+          'Das Ausstellungsland im Dokument stimmt nicht mit der Auswahl überein.',
+        );
+      }
+      return VerificationParseResult.success(
+        IdentityDocumentData(
+          firstNames: data.firstNames,
+          lastName: data.lastName,
+          dateOfBirth: data.dateOfBirth,
+          expiresAt: data.documentExpiryDate,
+          documentType: profile.identityDocumentType!,
+          issuingCountryCode: profile.countryCode,
+          documentProfileVersion: profile.documentVersion,
+          parserVersion: '${profile.parserVersion}_mrz',
+        ),
+        fieldConfidence: mrz.fieldConfidence,
+      );
+    }
+    return _LabelledIdentityParser(profile: profile, now: now).parse(blocks);
+  }
+}
+
+class ProfileDrivenVehicleRegistrationParser
+    implements VehicleRegistrationParser {
+  const ProfileDrivenVehicleRegistrationParser({required this.profile});
+
+  final DocumentProfile profile;
+
+  @override
+  VerificationParseResult<VehicleRegistrationData> parse(
+    List<OcrBlock> blocks,
+  ) {
+    if (!profile.parserAvailable ||
+        profile.documentKind != VerificationDocumentKind.vehicleRegistration) {
+      return const VerificationParseResult.failure(
+        VerificationParseFailure.unsupportedDocument,
+        'Dieses Fahrzeugdokument ist noch nicht zuverlässig unterstützt.',
+      );
+    }
     final layout = _OcrLayout(blocks);
-    final plate = layout.valueForLabels(const ['A'], exactLabel: true);
-    final holderName = layout.valueForLabels(const ['C.1.1', 'C 1.1']);
-    final holderFirstNames = layout.valueForLabels(const ['C.1.2', 'C 1.2']);
+    final plate = layout.valueForLabels(
+      profile.aliasesFor(VerificationField.plateNumber),
+      exactLabel: true,
+    );
+    final holderName = layout.valueForLabels(
+      profile.aliasesFor(VerificationField.holderLastNameOrCompany),
+    );
+    final holderFirstNames = layout.valueForLabels(
+      profile.aliasesFor(VerificationField.holderFirstNames),
+    );
     final normalizedPlate = plate
         ?.toUpperCase()
         .replaceAll(RegExp(r'[^A-ZÄÖÜ0-9\- ]'), '')
@@ -153,13 +161,13 @@ class GermanVehicleRegistrationFrontParser
     if (normalizedPlate == null || normalizedPlate.length < 3) {
       return const VerificationParseResult.failure(
         VerificationParseFailure.missingRequiredField,
-        'Das Kennzeichen in Feld A wurde nicht erkannt. Bitte fotografiere den Fahrzeugschein erneut.',
+        'Das Kennzeichen wurde nicht sicher erkannt. Bitte fotografiere das Fahrzeugdokument erneut.',
       );
     }
     if (holderName == null || holderName.trim().length < 2) {
       return const VerificationParseResult.failure(
         VerificationParseFailure.missingRequiredField,
-        'Das Halterfeld C.1.1 wurde nicht erkannt. Bitte fotografiere den Fahrzeugschein erneut.',
+        'Der Haltername wurde nicht sicher erkannt. Bitte fotografiere das Fahrzeugdokument erneut.',
       );
     }
     return VerificationParseResult.success(
@@ -169,115 +177,50 @@ class GermanVehicleRegistrationFrontParser
         holderFirstNames: holderFirstNames?.trim().isEmpty == true
             ? null
             : holderFirstNames?.trim(),
-        parserVersion: 'de_vehicle_registration_front_v1.0.0',
+        registrationCountryCode: profile.countryCode,
+        documentProfileVersion: profile.documentVersion,
+        parserVersion: profile.parserVersion,
       ),
+      fieldConfidence: {
+        VerificationField.plateNumber: FieldConfidence.high,
+        VerificationField.holderLastNameOrCompany: FieldConfidence.high,
+        if (holderFirstNames?.trim().isNotEmpty == true)
+          VerificationField.holderFirstNames: FieldConfidence.high,
+      },
     );
   }
 }
 
 class _LabelledIdentityParser implements IdentityDocumentParser {
-  const _LabelledIdentityParser({
-    required this.documentType,
-    required this.parserVersion,
-  });
+  const _LabelledIdentityParser({required this.profile, this.now});
 
-  final VerificationIdentityDocumentType documentType;
-  final String parserVersion;
+  final DocumentProfile profile;
+  final DateTime? now;
 
   @override
   VerificationParseResult<IdentityDocumentData> parse(List<OcrBlock> blocks) {
     final layout = _OcrLayout(blocks);
-    final firstNames = layout.valueForLabels(const [
-      'Vornamen',
-      'Vorname',
-      'Vorname(n)',
-      'Given names',
-      'Given name',
-      'Forenames',
-      'Forename',
-      'Prénoms',
-      'Prenoms',
-      'Given names/Prénoms',
-      'Given names/Prenoms',
-      'Vornamen/Given names/Prénoms',
-      'Vornamen/Given names/Prenoms',
-      'Vornamen/Given name(s)/Prénom(s)',
-      'Vornamen/Given name(s)/Prenom(s)',
-      'Vorname(n)/Given name(s)/Prénom(s)',
-      'Vorname(n)/Given name(s)/Prenom(s)',
-    ]);
-    final rawLastName = layout.valueForLabels(const [
-      'Familienname',
-      'Surname',
-      'Nom',
-      'Name',
-      'Surname/Nom',
-      'Name/Surname/Nom',
-      'Familienname/Surname/Nom',
-    ]);
+    final firstNames = layout.valueForLabels(
+      profile.aliasesFor(VerificationField.firstNames),
+    );
+    final rawLastName = layout.valueForLabels(
+      profile.aliasesFor(VerificationField.lastName),
+    );
     final lastName = rawLastName == null
         ? null
         : _cleanIdentitySurname(rawLastName);
-    final birthValue = layout.valueForLabels(const [
-      'Geburtsdatum',
-      'Geburtstag',
-      'Tag der Geburt',
-      'Date of birth',
-      'Date de naissance',
-      'Date of birth/Date de naissance',
-      'Geburtsdatum/Date of birth/Date de naissance',
-      'Tag der Geburt/Date of birth/Date de naissance',
-    ]);
-    final expiryValue = layout.valueForLabels(const [
-      'Gültig bis',
-      'Gueltig bis',
-      'Gultig bis',
-      'Date of expiry',
-      'Date of expiration',
-      "Date d'expiration",
-      'Date d expiration',
-      "Date of expiry/Date d'expiration",
-      'Date of expiry/Date d expiration',
-      "Gültig bis/Date of expiry/Date d'expiration",
-      'Gültig bis/Date of expiry/Date d expiration',
-      "Gueltig bis/Date of expiry/Date d'expiration",
-      'Gueltig bis/Date of expiry/Date d expiration',
-      "Gultig bis/Date of expiry/Date d'expiration",
-      'Gultig bis/Date of expiry/Date d expiration',
-      'Expiry',
-    ]);
-    var dateOfBirth = birthValue == null ? null : parseDocumentDate(birthValue);
-    var expiresAt = expiryValue == null ? null : parseDocumentDate(expiryValue);
-    final recognizedDates = <DateTime>[];
-    for (final block in blocks) {
-      final parsed = parseDocumentDate(block.text);
-      if (parsed != null &&
-          !recognizedDates.any((date) => _sameDay(date, parsed))) {
-        recognizedDates.add(parsed);
-      }
-    }
-    final today = DateTime.now();
-    if (dateOfBirth == null) {
-      final candidates = recognizedDates
-          .where((date) {
-            final age = ageOn(date, today);
-            return age >= 16 && age <= 120;
-          })
-          .toList(growable: false);
-      if (candidates.length == 1) dateOfBirth = candidates.single;
-    }
-    if (expiresAt == null) {
-      final candidates = recognizedDates
-          .where((date) {
-            if (dateOfBirth case final birthDate?
-                when _sameDay(date, birthDate)) {
-              return false;
-            }
-            return date.year >= today.year - 1 && date.year <= today.year + 20;
-          })
-          .toList(growable: false);
-      if (candidates.length == 1) expiresAt = candidates.single;
-    }
+    final birthValue = layout.valueForLabels(
+      profile.aliasesFor(VerificationField.dateOfBirth),
+    );
+    final expiryValue = layout.valueForLabels(
+      profile.aliasesFor(VerificationField.documentExpiryDate),
+    );
+    final dateOfBirth = birthValue == null
+        ? null
+        : parseDocumentDate(birthValue);
+    final expiresAt = expiryValue == null
+        ? null
+        : parseDocumentDate(expiryValue);
     if (firstNames == null || firstNames.trim().length < 2) {
       return const VerificationParseResult.failure(
         VerificationParseFailure.missingRequiredField,
@@ -308,15 +251,59 @@ class _LabelledIdentityParser implements IdentityDocumentParser {
         'Das Ablaufdatum konnte nicht eindeutig erkannt werden.',
       );
     }
+    final today = now ?? DateTime.now();
+    if (!dateOfBirth.isBefore(today) || ageOn(dateOfBirth, today) > 120) {
+      return const VerificationParseResult.failure(
+        VerificationParseFailure.invalidDate,
+        'Das Geburtsdatum ist nicht plausibel.',
+      );
+    }
+    final confidenceEngine = VerificationConfidenceEngine();
+    final confidence = <VerificationField, FieldConfidence>{};
+    for (final field in const {
+      VerificationField.firstNames,
+      VerificationField.lastName,
+      VerificationField.dateOfBirth,
+      VerificationField.documentExpiryDate,
+    }) {
+      confidence[field] = confidenceEngine
+          .assess(
+            field: field,
+            signals: const {
+              ConfidenceSignal.anchorFound,
+              ConfidenceSignal.formatValid,
+              ConfidenceSignal.uniqueCandidate,
+            },
+            thresholds: profile.confidenceThresholds,
+          )
+          .level;
+    }
+    if (!confidenceEngine.permitsAutomaticAcceptance(
+      confidence,
+      requiredFields: const {
+        VerificationField.firstNames,
+        VerificationField.lastName,
+        VerificationField.dateOfBirth,
+        VerificationField.documentExpiryDate,
+      },
+    )) {
+      return const VerificationParseResult.failure(
+        VerificationParseFailure.ambiguousField,
+        'Wir konnten die Angaben nicht eindeutig erkennen. Bitte fotografiere das Dokument erneut.',
+      );
+    }
     return VerificationParseResult.success(
       IdentityDocumentData(
         firstNames: firstNames.trim(),
         lastName: lastName.trim(),
         dateOfBirth: dateOfBirth,
         expiresAt: expiresAt,
-        documentType: documentType,
-        parserVersion: parserVersion,
+        documentType: profile.identityDocumentType!,
+        issuingCountryCode: profile.countryCode,
+        documentProfileVersion: profile.documentVersion,
+        parserVersion: profile.parserVersion,
       ),
+      fieldConfidence: confidence,
     );
   }
 }
@@ -352,7 +339,7 @@ class _OcrLayout {
         }
         if (_isLabel(block.text, label, exactLabel: exactLabel)) {
           if (!matches.any((match) => identical(match.block, block))) {
-            matches.add(_LabelMatch(block, label));
+            matches.add(_LabelMatch(block));
           }
         }
       }
@@ -509,16 +496,10 @@ class _OcrLayout {
 }
 
 class _LabelMatch {
-  const _LabelMatch(this.block, this.label);
+  const _LabelMatch(this.block);
 
   final OcrBlock block;
-  final String label;
 }
-
-bool _sameDay(DateTime left, DateTime right) =>
-    left.year == right.year &&
-    left.month == right.month &&
-    left.day == right.day;
 
 String _cleanIdentitySurname(String value) {
   var cleaned = value.trim();

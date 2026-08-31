@@ -11,7 +11,7 @@ Branch: `main`
 | 2 | Functions- und Rules-Tests im Emulator | PASS | 100/100 Functions-Tests, 104/104 Rules-Tests |
 | 3 | Flutter-Integrationstests | PASS | 4/4 Integrationsdateien; 234/234 Flutter-Regressionstests |
 | 4 | Maestro UI-Automation | PASS | 3/3 Flows in 4m 12s; 234/234 Flutter-Regressionstests |
-| 5 | Mehrkonten- und echte Gerätetests | PASS | Lokaler/Redmi-Umfang bestanden; Push und App Check separat `MANUAL REQUIRED` |
+| 5 | Mehrkonten- und echte Gerätetests | PASS | Lokaler/Redmi-Umfang bestanden; echte Android-Push-Zustellung nachtraeglich bestanden; App Check separat `MANUAL REQUIRED` |
 | 6 | Android Release Candidate | PASS LOCAL | AAB/APK signiert und validiert; Release-Smoke auf Redmi bestanden; kein Upload |
 | 7 | iOS Readiness | PASS WINDOWS / MANUAL REQUIRED | aktuell 126/126 Konfigurationschecks; Mac/Xcode/iPhone/TestFlight offen |
 | 8 | Finale technische Release-Abnahme | COMPLETE LOCAL / PUBLIC NO-GO | 245/245 Flutter, 136/136 Functions, 110/110 Rules, 30/30 Website, 126/126 iOS; 11/11 Security-Befunde lokal behoben |
@@ -140,7 +140,7 @@ Erzwingung, Deployments und Veröffentlichungen blieben unverändert.
 | DEV-PERF-001 | Start und Speicher | ADB/Profile | Kaltstart 1.600/1.595/1.567 ms; 256.482 KB PSS, 369.244 KB RSS; keine Flutter-Ausnahme oder ANR | PASS |
 | DEV-REGRESSION-001 | Flutter-Abschlussregression | Unit/Widget/Statisch | 234/234 und Analyze ohne Befund | PASS |
 | DEV-EXTERNAL-001 | Externe KI im lokalen Testbetrieb | Auth-/Functions-Emulator | Fahrzeugbildgenerierung vor Datenzugriff und Vertex-Aufruf gesperrt | PASS |
-| DEV-PUSH-001 | Push foreground/background/terminated | Echtes Backend erforderlich | Kein lokaler Firebase-Messaging-Emulator; produktive Zustellung nicht angefasst | MANUAL REQUIRED |
+| DEV-PUSH-001 | Push foreground/background/terminated | Echtes FCM/Redmi | Vordergrund, Hintergrund und beendeter Prozess am 31.08.2026 real zugestellt; Kanal, Inhalt, Icon und Prozessstatus nachgewiesen | PASS ANDROID |
 | DEV-APPCHECK-001 | App-Check-Token und Metriken | Echtes Backend erforderlich | Release-Konfiguration statisch geprüft; produktive Token/Metriken und Erzwingung nicht verändert | MANUAL REQUIRED |
 
 Android `gfxinfo` erfasst Flutter-Surface-Rendering auf diesem Gerät nicht
@@ -237,5 +237,7 @@ Block 4 bedient ausgewählte Kernreisen als Black-box über die gerenderte
 Android-Oberfläche. Block 5 ergänzt lokale Mehrkontenpfade und ein echtes Redmi.
 Gate 6 prüft das gehärtete, signierte Android-Release-Artefakt. Gate 7 prüft die
 iOS-Vorbereitung unter Windows, ersetzt aber keinen Xcode-Build und keinen
-iPhone-/TestFlight-Test. Keiner dieser lokalen Gates ist ein Nachweis für
-produktive Push-, App-Check-, Store- oder Live-Backend-Abläufe.
+iPhone-/TestFlight-Test. Die nachtraegliche Android-Push-Abnahme ist in
+`PUSH_NOTIFICATION_ACCEPTANCE_2026-08-31.md` dokumentiert; fuer iOS-Push,
+App Check, Stores und weitere Live-Backend-Ablaufe bleiben externe Nachweise
+erforderlich.

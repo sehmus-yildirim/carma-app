@@ -2,7 +2,7 @@
 
 ## Test data safety
 
-Use synthetic printed fixtures that contain no real identity, document number, address, portrait, VIN, or real plate. Do not capture another person's document. Before and after each run, verify that no image appears in the gallery and that the local temporary directory is empty after leaving the flow.
+Use synthetic printed fixtures that contain no real identity, document number, address, portrait, VIN, or real plate. Do not capture another person's document. Before and after each run, verify that the in-app verification flow offers no gallery import and that the local temporary directory is empty after leaving the flow. The current profile matrix and external gates are maintained in `docs/verification/`.
 
 ## Real-device matrix
 
@@ -34,7 +34,7 @@ Use synthetic printed fixtures that contain no real identity, document number, a
 - User below the configured Plaqa minimum age is rejected.
 - Surname/first-name mismatch is rejected without automatic relation switching.
 - Plate mismatch is rejected for every relation.
-- Leasing, company, and authorized-use relations each require the exact declaration, checkbox, meaningful finger signature, and one private PDF.
+- Leasing, company car, authorized private vehicle, and other authorized use each require the exact declaration, checkbox, meaningful finger signature, and one private PDF.
 - Company C.1.1 with empty C.1.2 reaches the declaration step.
 - Camera denial presents retry/settings guidance without a stack trace.
 - Network loss before submit keeps only in-memory extracted values and safely retries the same session.

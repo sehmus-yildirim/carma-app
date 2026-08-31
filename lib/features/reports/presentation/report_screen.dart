@@ -779,6 +779,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     const CaRismaSectionTitle(
                       number: '1',
                       title: 'Was möchtest du melden?',
+                      outlinedNumber: true,
                     ),
                     const SizedBox(height: 10),
                     _CategoryGrid(
@@ -789,6 +790,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     const CaRismaSectionTitle(
                       number: '2',
                       title: 'Kennzeichen',
+                      outlinedNumber: true,
                     ),
                     const SizedBox(height: 10),
                     CaRismaCountrySelectorCard(
@@ -822,6 +824,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     const CaRismaSectionTitle(
                       number: '3',
                       title: 'Ort des Hinweises',
+                      outlinedNumber: true,
                     ),
                     const SizedBox(height: 10),
                     _LocationCard(
@@ -848,6 +851,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       number: '4',
                       title: 'Foto aufnehmen',
                       optional: true,
+                      outlinedNumber: true,
                     ),
                     const SizedBox(height: 10),
                     _PhotoCard(
@@ -860,6 +864,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       number: '5',
                       title: 'Kurzer Hinweis',
                       optional: true,
+                      outlinedNumber: true,
                     ),
                     const SizedBox(height: 10),
                     _NoteCard(controller: _noteController),

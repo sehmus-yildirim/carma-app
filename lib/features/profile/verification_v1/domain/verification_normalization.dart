@@ -102,7 +102,7 @@ DateTime? parseMrzDateOfBirth(String raw, {DateTime? now}) {
         _validDate(2000 + yearPart, month, day),
       ].whereType<DateTime>().where((date) {
         final age = ageOn(date, today);
-        return age >= 16 && age <= 120;
+        return !date.isAfter(today) && age >= 0 && age <= 120;
       }).toList();
   if (candidates.length != 1) return null;
   return candidates.single;

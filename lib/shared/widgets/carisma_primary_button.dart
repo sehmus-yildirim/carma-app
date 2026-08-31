@@ -17,6 +17,7 @@ class CaRismaPrimaryButton extends StatelessWidget {
     this.fontSize = 19,
     this.showShadow = false,
     this.surfaceOutlined = false,
+    this.surfaceTextColor,
   });
 
   final String label;
@@ -31,6 +32,7 @@ class CaRismaPrimaryButton extends StatelessWidget {
   final double fontSize;
   final bool showShadow;
   final bool surfaceOutlined;
+  final Color? surfaceTextColor;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +106,7 @@ class CaRismaPrimaryButton extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: surfaceOutlined
-                          ? CaRismaDesignTokens.bluePrimary
+                          ? surfaceTextColor ?? CaRismaDesignTokens.bluePrimary
                           : CaRismaDesignTokens.onAccent,
                       fontWeight: FontWeight.w900,
                       fontSize: fontSize,

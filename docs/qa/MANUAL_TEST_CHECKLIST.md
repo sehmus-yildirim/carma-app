@@ -15,7 +15,8 @@ Nachweis auszufüllen
   Berechtigungen
 - [ ] Kamera, Mikrofon, Standort, Fotos und Benachrichtigungen nach späterer
   Freigabe in Systemeinstellungen
-- [ ] Push im Vordergrund, Hintergrund und vollständig beendet
+- [x] Android-Push im Vordergrund, Hintergrund und bei beendetem App-Prozess
+  real auf dem Redmi geprueft; iPhone/APNs bleibt im ausgesetzten iOS-Block
 - [ ] Offline/Online, App-Wechsel, Prozessende, Neustart und Tokenwechsel
 - [ ] Kontolöschung einschließlich Fremdpfaden, Begegnungen und Auth-Widerruf
 - [ ] Datenexport mit Identitätsprüfung, Zustellung und Frist

@@ -17,7 +17,7 @@ void main() {
 
       final session = await repository.createSession(
         vehicleId: ' vehicle-1 ',
-        relation: VerificationVehicleRelation.companyVehicle,
+        relation: VerificationVehicleRelation.companyCar,
       );
 
       expect(session.sessionId, 'session-1');
@@ -25,7 +25,7 @@ void main() {
       expect(session.state, VerificationSessionState.created);
       expect(gateway.lastPayload, {
         'vehicleId': 'vehicle-1',
-        'relation': 'company_vehicle',
+        'relation': 'company_car',
       });
     });
 
@@ -184,6 +184,8 @@ final _identity = IdentityDocumentData(
   expiresAt: DateTime(2030, 12, 31),
   documentType: VerificationIdentityDocumentType.idCard,
   parserVersion: 'identity-test-v1',
+  issuingCountryCode: 'DE',
+  documentProfileVersion: 'deu_bo_02004_2021_v1',
 );
 
 const _registration = VehicleRegistrationData(
@@ -191,6 +193,8 @@ const _registration = VehicleRegistrationData(
   holderNameOrCompany: 'Muster',
   holderFirstNames: 'Erika Maria',
   parserVersion: 'vehicle-test-v1',
+  registrationCountryCode: 'DE',
+  documentProfileVersion: 'deu_go_01001_2005_v1',
 );
 
 class _RecordingGateway implements VerificationV1Gateway {

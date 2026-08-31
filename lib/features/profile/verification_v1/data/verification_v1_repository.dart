@@ -57,8 +57,9 @@ class VerificationV1Repository {
        _firestore = firestore,
        _storage = storage;
 
-  static const String privacyVersion = 'verification_privacy_de_v1.0.0';
-  static const String declarationVersion = 'vehicle_authorization_de_v1.0.0';
+  static const String privacyVersion = VerificationV1Policy.privacyVersion;
+  static const String declarationVersion =
+      VerificationV1Policy.declarationVersion;
 
   final VerificationV1Gateway _gateway;
   final FirebaseFirestore? _firestore;
