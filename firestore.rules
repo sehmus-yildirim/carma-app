@@ -1287,42 +1287,33 @@ service cloud.firestore {
         ])
         && connectionData.requestId is string
         && connectionData.chatId is string
-        && exists(
-          /databases/$(database)/documents/contact_requests/$(connectionData.requestId)
-        )
-        && get(
-          /databases/$(database)/documents/contact_requests/$(connectionData.requestId)
-        ).data.status == 'accepted'
-        && exists(
-          /databases/$(database)/documents/chats/$(connectionData.chatId)
-        )
-        && get(
-          /databases/$(database)/documents/chats/$(connectionData.chatId)
-        ).data.requestId == connectionData.requestId
-        && get(
-          /databases/$(database)/documents/chats/$(connectionData.chatId)
-        ).data.participants.hasAll([request.auth.uid, targetUserId])
-        && isOpenChatStatus(
-          get(
-            /databases/$(database)/documents/chats/$(connectionData.chatId)
-          ).data.status
-        )
-        && get(
-          /databases/$(database)/documents/chats/$(connectionData.chatId)
-        ).data.get('deletedBy', {}).get(request.auth.uid, false) != true
-        && get(
-          /databases/$(database)/documents/chats/$(connectionData.chatId)
-        ).data.get('deletedBy', {}).get(targetUserId, false) != true;
+        && isBackedByAcceptedOpenChat(connectionData, targetUserId);
+    }
+
+    function isBackedByAcceptedOpenChat(connectionData, targetUserId) {
+      let contactRequest = get(
+        /databases/$(database)/documents/contact_requests/$(connectionData.requestId)
+      );
+      let chat = get(
+        /databases/$(database)/documents/chats/$(connectionData.chatId)
+      );
+      return contactRequest.data != null
+        && contactRequest.data.status == 'accepted'
+        && chat.data != null
+        && chat.data.requestId == connectionData.requestId
+        && chat.data.participants.hasAll([request.auth.uid, targetUserId])
+        && isOpenChatStatus(chat.data.status)
+        && chat.data.get('deletedBy', {}).get(request.auth.uid, false) != true
+        && chat.data.get('deletedBy', {}).get(targetUserId, false) != true;
     }
 
     function hasActiveProfileConnectionById(connectionId, targetUserId) {
-      return exists(
-          /databases/$(database)/documents/profile_connections/$(connectionId)
-        )
+      let connection = get(
+        /databases/$(database)/documents/profile_connections/$(connectionId)
+      );
+      return connection.data != null
         && isActiveProfileConnectionData(
-          get(
-            /databases/$(database)/documents/profile_connections/$(connectionId)
-          ).data,
+          connection.data,
           targetUserId
         );
     }
@@ -4360,7 +4351,25 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
 
         match /likes/{likerUserId} {
-          allow read: if isOwner(userId)
+          allow get: if (
+              isSignedIn()
+              && request.auth.uid == likerUserId
+            )
+            || isOwner(userId)
+            || (
+              hasActiveProfileConnection(userId)
+              && profileAllowsAccess(userId)
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.visibility in ['public', 'contacts']
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.isDeleted == false
+              && get(
+                /databases/$(database)/documents/users/$(userId)/social_posts/$(postId)
+              ).data.get('isArchived', false) == false
+            );
+          allow list: if isOwner(userId)
             || (
               hasActiveProfileConnection(userId)
               && profileAllowsAccess(userId)

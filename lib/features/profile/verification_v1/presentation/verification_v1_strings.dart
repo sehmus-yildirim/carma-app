@@ -9,7 +9,7 @@ class VerificationV1Strings {
   static const privacyTitle = 'Datenschutz & Berechtigung';
   static const privacyVersion = VerificationV1Policy.privacyVersion;
   static const privacyItems = <String>[
-    'Es wird nur die vom Dokumentprofil benötigte Seite direkt mit der In-App-Kamera aufgenommen.',
+    'Es wird nur die vom Dokumentprofil benötigte Seite mit der In-App-Kamera aufgenommen oder von dir aktiv aus der Galerie ausgewählt.',
     'Die Dokumentbilder werden lokal verarbeitet und weder hochgeladen noch dauerhaft gespeichert.',
     'Aus dem Identitätsnachweis werden nur Vorname, Nachname, Geburtsdatum und Ablaufdatum verwendet.',
     'Aus dem Fahrzeugdokument werden nur Kennzeichen und Haltername beziehungsweise Firma für den Abgleich verwendet.',

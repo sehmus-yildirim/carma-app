@@ -2,7 +2,7 @@
 
 ## Test data safety
 
-Use synthetic printed fixtures that contain no real identity, document number, address, portrait, VIN, or real plate. Do not capture another person's document. Before and after each run, verify that the in-app verification flow offers no gallery import and that the local temporary directory is empty after leaving the flow. The current profile matrix and external gates are maintained in `docs/verification/`.
+Use synthetic printed fixtures that contain no real identity, document number, address, portrait, VIN, or real plate. Do not capture or import another person's document. Before and after each run, verify that the in-app verification flow offers camera and explicit gallery selection, that gallery images can be aligned locally, and that the local temporary directory is empty after leaving the flow. The current profile matrix and external gates are maintained in `docs/verification/`.
 
 ## Real-device matrix
 
@@ -45,7 +45,7 @@ Use synthetic printed fixtures that contain no real identity, document number, a
 
 ## Visual and accessibility checks
 
-- No `Rückseite`, gallery `Auswählen`, editable expiry, or combined leasing/company option exists.
+- No `Rückseite`, arbitrary file upload, editable expiry, or combined leasing/company option exists. Camera and gallery selection are both available for the requested document page.
 - Every camera, flash, capture, retake, and signature control has a spoken label and at least a 48 dp target.
 - Focus order follows title, step, content, actions.
 - Errors include text and icon, not color alone.

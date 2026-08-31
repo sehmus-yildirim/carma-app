@@ -5,6 +5,7 @@ const test = require("node:test");
 
 const {
   accountStoragePrefixes,
+  anonymizeSharedChats,
   cleanupAccountData,
   cleanupCrossOwnerSocialData,
   cleanupVehicleEncounters,
@@ -227,6 +228,109 @@ test("account cleanup removes or anonymizes cross-owner social data", async () =
   assert.equal(comment.isDeleted, true);
 });
 
+test("shared chat anonymization removes deleted-user identity map keys", async () => {
+  const userId = "user-1";
+  const pseudonym = "deleted_hash";
+  const chatPath = "chats/chat-1";
+  const messagePath = `${chatPath}/messages/message-1`;
+  const documents = new Map([
+    [chatPath, {
+      participants: [userId, "user-2"],
+      senderUserId: userId,
+      receiverUserId: "user-2",
+      favoriteBy: {[userId]: true, "user-2": false},
+      pinnedBy: {[userId]: true},
+      mutedBy: {[userId]: false},
+      archivedBy: {[userId]: false, "user-2": false},
+      archivedUpdatedAtBy: {[userId]: now, "user-2": now},
+      manualUnreadBy: {[userId]: false, "user-2": false},
+      manualUnreadUpdatedAtBy: {[userId]: now, "user-2": now},
+      lastReadAtBy: {[userId]: now, "user-2": now},
+      typingBy: {[userId]: true, "user-2": false},
+      typingUpdatedAtBy: {[userId]: now, "user-2": now},
+      deletedBy: {[userId]: false, "user-2": false},
+      accountDeletedBy: {[userId]: false},
+      unblockedBy: userId,
+    }],
+    [messagePath, {
+      senderUserId: userId,
+      viewOnceOpenedAtBy: {[userId]: now, "user-2": now},
+      reactionBy: {[userId]: "like", "user-2": "like"},
+      deletedFor: {[userId]: true, "user-2": false},
+    }],
+  ]);
+  const messageReference = {path: messagePath};
+  const chatReference = {
+    path: chatPath,
+    collection() {
+      return {
+        async get() {
+          return {
+            docs: [{
+              ref: messageReference,
+              data: () => documents.get(messagePath),
+            }],
+          };
+        },
+      };
+    },
+  };
+  const firestore = {
+    batch() {
+      const updates = [];
+      return {
+        update(reference, data) {
+          updates.push(() => documents.set(reference.path, {
+            ...documents.get(reference.path),
+            ...data,
+          }));
+        },
+        async commit() {
+          for (const update of updates) update();
+        },
+      };
+    },
+  };
+
+  await anonymizeSharedChats({
+    firestore,
+    chatDocuments: [{
+      ref: chatReference,
+      data: () => documents.get(chatPath),
+    }],
+    userId,
+    pseudonym,
+    now,
+  });
+
+  const chat = documents.get(chatPath);
+  for (const field of [
+    "favoriteBy",
+    "pinnedBy",
+    "mutedBy",
+    "archivedBy",
+    "archivedUpdatedAtBy",
+    "manualUnreadBy",
+    "manualUnreadUpdatedAtBy",
+    "lastReadAtBy",
+    "typingBy",
+    "typingUpdatedAtBy",
+    "deletedBy",
+    "accountDeletedBy",
+  ]) {
+    assert.equal(Object.hasOwn(chat[field], userId), false, field);
+  }
+  assert.equal(chat.senderUserId, pseudonym);
+  assert.equal(chat.unblockedBy, pseudonym);
+  assert.equal(chat.deletedBy[pseudonym], true);
+
+  const message = documents.get(messagePath);
+  assert.equal(message.senderUserId, pseudonym);
+  assert.equal(Object.hasOwn(message.viewOnceOpenedAtBy, userId), false);
+  assert.equal(Object.hasOwn(message.reactionBy, userId), false);
+  assert.equal(Object.hasOwn(message.deletedFor, userId), false);
+});
+
 test("cross-owner cleanup resumes bounded pages after a failed batch", async () => {
   const initialDocuments = {};
   for (let index = 0; index < 425; index += 1) {
@@ -285,10 +389,17 @@ test("account deletion collection-group indexes are configured", () => {
       candidate.fieldPath === fieldPath,
     );
     assert.ok(override, `missing ${collectionGroup}.${fieldPath} index`);
-    assert.deepEqual(override.indexes, [{
+    const expectedIndexes = [{
       order: "ASCENDING",
       queryScope: "COLLECTION_GROUP",
-    }]);
+    }];
+    if (collectionGroup === "reports") {
+      expectedIndexes.unshift({
+        order: "ASCENDING",
+        queryScope: "COLLECTION",
+      });
+    }
+    assert.deepEqual(override.indexes, expectedIndexes);
   }
 });
 
@@ -451,6 +562,12 @@ function fakeIndexedFirestore(initialDocuments, {failCommitAt} = {}) {
           mutations.push(() => documents.delete(ref.path));
         },
         set(ref, data) {
+          mutations.push(() => documents.set(ref.path, {
+            ...(documents.get(ref.path) ?? {}),
+            ...data,
+          }));
+        },
+        update(ref, data) {
           mutations.push(() => documents.set(ref.path, {
             ...(documents.get(ref.path) ?? {}),
             ...data,

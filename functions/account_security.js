@@ -451,8 +451,18 @@ async function anonymizeSharedChats({
       pinnedBy: withoutMapKey(chat.pinnedBy, userId),
       mutedBy: withoutMapKey(chat.mutedBy, userId),
       archivedBy: withoutMapKey(chat.archivedBy, userId),
+      archivedUpdatedAtBy: withoutMapKey(
+        chat.archivedUpdatedAtBy,
+        userId,
+      ),
       manualUnreadBy: withoutMapKey(chat.manualUnreadBy, userId),
+      manualUnreadUpdatedAtBy: withoutMapKey(
+        chat.manualUnreadUpdatedAtBy,
+        userId,
+      ),
       lastReadAtBy: withoutMapKey(chat.lastReadAtBy, userId),
+      typingBy: withoutMapKey(chat.typingBy, userId),
+      typingUpdatedAtBy: withoutMapKey(chat.typingUpdatedAtBy, userId),
       deletedBy: {
         ...withoutMapKey(chat.deletedBy, userId),
         [pseudonym]: true,
@@ -462,6 +472,10 @@ async function anonymizeSharedChats({
         [pseudonym]: true,
       },
     };
+
+    if (safeString(chat.unblockedBy) === userId) {
+      update.unblockedBy = pseudonym;
+    }
 
     if (safeString(chat.senderUserId) === userId) {
       update.senderDisplayName = "Gelöschtes Konto";
@@ -478,14 +492,14 @@ async function anonymizeSharedChats({
       update.vehicleColor = null;
       update.vehicleLabel = null;
     }
-    mutations.push({type: "set", reference: chatDocument.ref, data: update});
+    mutations.push({type: "update", reference: chatDocument.ref, data: update});
 
     const messages = await chatDocument.ref.collection("messages").get();
     for (const message of messages.docs) {
       const messageData = message.data() ?? {};
       const sentByDeletedUser = safeString(messageData.senderUserId) === userId;
       mutations.push({
-        type: "set",
+        type: "update",
         reference: message.ref,
         data: {
           ...(sentByDeletedUser ? {
@@ -615,6 +629,8 @@ async function commitMutations(firestore, mutations) {
     for (const mutation of mutations.slice(index, index + firestoreBatchSize)) {
       if (mutation.type === "delete") {
         batch.delete(mutation.reference);
+      } else if (mutation.type === "update") {
+        batch.update(mutation.reference, mutation.data);
       } else {
         batch.set(mutation.reference, mutation.data, {merge: true});
       }
@@ -751,6 +767,7 @@ function safeDocumentId(value) {
 
 module.exports = {
   accountStoragePrefixes,
+  anonymizeSharedChats,
   cleanupAccountData,
   cleanupCrossOwnerSocialData,
   cleanupVehicleEncounters,

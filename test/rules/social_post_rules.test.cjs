@@ -99,7 +99,9 @@ async function seedProfileConnection() {
     const database = context.firestore();
     const requestId = 'request-1';
     const chatId = 'chat-1';
-    const connectionId = `${contactUserId}_${ownerUserId}`;
+    // Production IDs are sorted, so the valid connection may be the second
+    // direction checked by the rules (owner first, viewer second).
+    const connectionId = `${ownerUserId}_${contactUserId}`;
     await setDoc(doc(database, 'public_profiles', ownerUserId), {
       uid: ownerUserId,
       displayName: 'Sehmus Y.',
@@ -272,6 +274,8 @@ describe('social post Firestore and Storage rules', () => {
     const contactPhotoUrl = storageUrl(
       `profile_photos/${contactUserId}/profile.png`,
     );
+    await assertSucceeds(getDoc(doc(contact.firestore(), ...likePath)));
+    await assertFails(getDoc(doc(outsider.firestore(), ...likePath)));
     await assertFails(setDoc(doc(contact.firestore(), ...likePath), {
       userId: contactUserId,
       postOwnerUserId: ownerUserId,
@@ -286,6 +290,7 @@ describe('social post Firestore and Storage rules', () => {
       photoUrl: contactPhotoUrl,
       createdAt: Timestamp.now(),
     }));
+    await assertSucceeds(getDoc(doc(contact.firestore(), ...likePath)));
     await assertFails(setDoc(doc(outsider.firestore(), ...likePath), {
       userId: contactUserId,
       postOwnerUserId: ownerUserId,

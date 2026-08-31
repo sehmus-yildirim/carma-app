@@ -18,7 +18,8 @@ nicht Bestandteil des Flows.
 1. Der Nutzer waehlt das Ausstellungsland und einen dafuer freigegebenen
    Identitaetsdokumenttyp.
 2. `DocumentCameraScreen` nimmt die im Profil definierte Datenseite direkt in
-   der App auf. Galerie- und Dateiimport sind im aktiven Flow deaktiviert.
+   der App auf oder werden aktiv aus der Galerie ausgewählt und lokal im
+   Dokumentrahmen ausgerichtet. Beliebige Dateiimporte bleiben deaktiviert.
 3. `LocalVerificationTemporaryFileService` korrigiert EXIF-Orientierung,
    begrenzt die Bildgroesse und verwaltet ausschliesslich temporaere Dateien.
 4. `LocalImageQualityService` prueft Aufloesung, Belichtung, Schaerfe,

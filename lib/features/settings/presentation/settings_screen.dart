@@ -5309,7 +5309,7 @@ Kennzeichen dürfen nicht dazu verwendet werden, Personen systematisch zu verfol
           _LegalSection(
             title: '11. Verifizierung und lokaler Dokumentabgleich',
             body:
-                r'''plaqa kann einen freiwilligen oder für bestimmte Funktionen erforderlichen Dokumentdatenabgleich anbieten. Im aktuellen Verfahren wird ausschließlich die vom jeweiligen Dokumentprofil benötigte Vorder- oder Datenseite direkt mit der In-App-Kamera aufgenommen. Galerie- und Datei-Uploads sind im Verifizierungsablauf deaktiviert. Führerschein, Selfie und global verpflichtende Rückseiten werden nicht verlangt.
+                r'''plaqa kann einen freiwilligen oder für bestimmte Funktionen erforderlichen Dokumentdatenabgleich anbieten. Im aktuellen Verfahren wird ausschließlich die vom jeweiligen Dokumentprofil benötigte Vorder- oder Datenseite direkt mit der In-App-Kamera aufgenommen oder vom Nutzer aktiv aus der Galerie ausgewählt und im vorgesehenen Rahmen ausgerichtet. Beliebige Datei-Uploads sind deaktiviert. Führerschein, Selfie und global verpflichtende Rückseiten werden nicht verlangt.
 
 Bildqualität und Texterkennung werden auf dem Gerät verarbeitet. Dokumentbilder, Roh-OCR-Blöcke, Dokumentnummern, Lichtbilder, Anschriften, Staatsangehörigkeiten, maschinenlesbare Rohzeilen und die Unterschriftsgrafik werden nicht dauerhaft an plaqa übertragen oder gespeichert. Temporäre lokale Aufnahmen werden nach Abschluss, Abbruch, Abmeldung oder spätestens beim nächsten App-Start gelöscht.
 
@@ -6692,7 +6692,7 @@ Verboten sind:
 
 10.3 Sensible Angaben
 
-Verwenden Sie nur die ausdrücklich angeforderte Vorder- oder Datenseite im vorgesehenen In-App-Kameraablauf. Galerie- und Datei-Uploads, Führerschein, Selfie sowie nicht vom Dokumentprofil verlangte Rückseiten gehören nicht zum aktuellen Verfahren.
+Verwenden Sie nur die ausdrücklich angeforderte Vorder- oder Datenseite über die In-App-Kamera oder die aktive Galerieauswahl mit anschließender Ausrichtung im vorgesehenen Rahmen. Beliebige Datei-Uploads, Führerschein, Selfie sowie nicht vom Dokumentprofil verlangte Rückseiten gehören nicht zum aktuellen Verfahren.
 
 10.4 Keine fremden Dokumente
 

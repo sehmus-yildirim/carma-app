@@ -7,7 +7,7 @@
 - Synthetische Matrix: `golden_dataset.json` expandiert 21 Laender,
   implementierte Dokumentfamilien und zehn Aufnahmebedingungen in 240
   deterministische Parserfaelle
-- Widgettests: Auswahl, direkter Kameraflow, Read-only-Ergebnis, Fehler,
+- Widgettests: Dokumentauswahl, Kamera-/Galerieauswahl, Read-only-Ergebnis, Fehler,
   Relationen, Datenschutz, Erklaerung, Checkbox, Unterschrift und A11y
 - Integrationstest: 18 deterministische End-to-End-Szenarien fuer Halter,
   Nicht-Halter, Ablauf, Alter, Plate-Mismatch, unscharfe Aufnahme, unbekanntes
