@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
@@ -57,7 +57,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
           script: bash .github/scripts/run-verification-v1-android.sh
       - run: node --test --test-concurrency=1 functions/*.test.js
-      - run: npx firebase-tools emulators:exec --project carma-a84e4 --only firestore,storage "node --test --test-concurrency=1 test/rules/*.test.cjs"
+      - run: npx --yes firebase-tools@15.28.2 emulators:exec --project carma-a84e4 --only firestore,storage "node --test --test-concurrency=1 test/rules/*.test.cjs"
       - run: flutter build apk --debug
 
   android-release:
