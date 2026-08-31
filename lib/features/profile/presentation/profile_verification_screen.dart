@@ -812,6 +812,7 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       source: ImageSource.gallery,
       imageQuality: 100,
       maxWidth: 4096,
+      maxHeight: 4096,
     );
     if (selected == null || !mounted) return null;
     final prepared = await Navigator.of(context).push<XFile>(

@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../shared/theme/carisma_design_tokens.dart';
 import '../../../../shared/widgets/carisma_background.dart';
 import '../../../../shared/widgets/carisma_sub_page_header.dart';
+import '../../verification_v1/data/document_services.dart';
 import '../../verification_v1/domain/verification_models.dart';
 
 class ProfileVerificationDocumentEditorScreen extends StatefulWidget {
@@ -70,14 +71,35 @@ class _ProfileVerificationDocumentEditorScreenState
 
   Future<void> _loadImageSize() async {
     try {
-      final bytes = await File(widget.sourceFile.path).readAsBytes();
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      final decoded = frame.image;
-      final ratio = decoded.width / decoded.height;
-      decoded.dispose();
-      codec.dispose();
+      final source = File(widget.sourceFile.path);
+      final byteLength = await source.length();
+      if (byteLength > verificationDocumentMaxSourceBytes) {
+        throw const FormatException(
+          'Das ausgewählte Bild ist zu groß. Bitte wähle ein kleineres Foto.',
+        );
+      }
+      final bytes = await source.readAsBytes();
+      final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      late final double ratio;
+      try {
+        final descriptor = await ui.ImageDescriptor.encoded(buffer);
+        try {
+          validateVerificationSourceImage(
+            byteLength: byteLength,
+            width: descriptor.width,
+            height: descriptor.height,
+          );
+          ratio = descriptor.width / descriptor.height;
+        } finally {
+          descriptor.dispose();
+        }
+      } finally {
+        buffer.dispose();
+      }
       if (mounted) setState(() => _sourceAspectRatio = ratio);
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      setState(() => _loadError = error.message);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -115,8 +137,10 @@ class _ProfileVerificationDocumentEditorScreenState
       rendered.dispose();
       if (pngData == null) throw StateError('Bilddaten fehlen.');
 
+      final outputRoot = defaultVerificationTemporaryDirectory();
+      await outputRoot.create(recursive: true);
       final output = File(
-        '${Directory.systemTemp.path}${Platform.pathSeparator}'
+        '${outputRoot.path}${Platform.pathSeparator}'
         'plaqa_verification_${DateTime.now().microsecondsSinceEpoch}.png',
       );
       await output.writeAsBytes(

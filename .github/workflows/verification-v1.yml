@@ -51,9 +51,11 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
+          ram-size: 1536M
+          heap-size: 512M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
-          script: flutter test integration_test/verification_v1_flow_test.dart -d emulator-5554
+          script: bash .github/scripts/run-verification-v1-android.sh
       - run: node --test --test-concurrency=1 functions/*.test.js
       - run: npx firebase-tools emulators:exec --project carma-a84e4 --only firestore,storage "node --test --test-concurrency=1 test/rules/*.test.cjs"
       - run: flutter build apk --debug

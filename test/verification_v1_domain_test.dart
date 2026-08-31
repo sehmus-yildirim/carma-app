@@ -675,6 +675,36 @@ void main() {
 
       expect(await source.exists(), isFalse);
     });
+
+    test('accepts bounded verification source images', () {
+      expect(
+        () => validateVerificationSourceImage(
+          byteLength: verificationDocumentMaxSourceBytes,
+          width: verificationDocumentMaxDimension,
+          height: verificationDocumentMaxDimension,
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('rejects oversized verification source images', () {
+      expect(
+        () => validateVerificationSourceImage(
+          byteLength: verificationDocumentMaxSourceBytes + 1,
+          width: 1200,
+          height: 800,
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => validateVerificationSourceImage(
+          byteLength: 1024,
+          width: verificationDocumentMaxDimension,
+          height: verificationDocumentMaxDimension + 1,
+        ),
+        throwsFormatException,
+      );
+    });
   });
 }
 

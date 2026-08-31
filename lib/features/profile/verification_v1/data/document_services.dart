@@ -7,6 +7,29 @@ import 'package:image/image.dart' as image;
 
 import '../domain/verification_models.dart';
 
+const verificationDocumentMaxSourceBytes = 20 * 1024 * 1024;
+const verificationDocumentMaxDimension = 4096;
+
+Directory defaultVerificationTemporaryDirectory() =>
+    Directory('${Directory.systemTemp.path}/plaqa_verify_v1');
+
+void validateVerificationSourceImage({
+  required int byteLength,
+  required int width,
+  required int height,
+}) {
+  if (byteLength <= 0 || width <= 0 || height <= 0) {
+    throw const FormatException('Das ausgewählte Bild ist beschädigt.');
+  }
+  if (byteLength > verificationDocumentMaxSourceBytes ||
+      width > verificationDocumentMaxDimension ||
+      height > verificationDocumentMaxDimension) {
+    throw const FormatException(
+      'Das ausgewählte Bild ist zu groß. Bitte wähle ein kleineres Foto.',
+    );
+  }
+}
+
 abstract interface class DocumentCaptureService {
   Future<CapturedVerificationDocument?> capture(VerificationDocumentKind kind);
 }
@@ -64,7 +87,7 @@ class MlKitDocumentOcrService implements DocumentOcrService {
 class LocalVerificationTemporaryFileService
     implements VerificationTemporaryFileService {
   LocalVerificationTemporaryFileService({Directory? root})
-    : _root = root ?? Directory('${Directory.systemTemp.path}/plaqa_verify_v1');
+    : _root = root ?? defaultVerificationTemporaryDirectory();
 
   final Directory _root;
 
