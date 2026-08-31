@@ -448,11 +448,26 @@ class _PlateSearchScreenState extends State<PlateSearchScreen> {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 15),
+          ),
+        );
+      } on TimeoutException {
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position == null) {
+        setState(() {
+          _locationError =
+              'Standort konnte nicht rechtzeitig geladen werden. Bitte bewege dich kurz ins Freie und versuche es erneut.';
+          _isLoadingLocation = false;
+        });
+        return;
+      }
 
       setState(() {
         _position = position;

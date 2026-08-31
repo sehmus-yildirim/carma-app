@@ -85,3 +85,47 @@ nach Abschluss aller hohen Befunde bauen.
 
 Store-Upload, Deployment, App-Check-Erzwingung und Veröffentlichung bleiben
 gesondert freigabepflichtig.
+
+## Live-Test-Zwischenstand 2026-08-31
+
+Der aktuelle signierte Release-Build wurde auf dem Redmi `cf1d4c97` mit zwei
+synthetischen Produktionskonten geprüft. Bestätigt sind Anmeldung/Onboarding,
+Fahrzeuganlage, Kennzeichensuche mit echtem Standort, Kontaktanfrage und
+Annahme, Zwei-Wege-Chat inklusive Lesestatus, Blockieren/Entblocken,
+Beitragserstellung sowie das Anfordern eines Datenexports.
+
+Noch nicht abgeschlossen sind Follow-Annahme, Feed-Like/-Kommentar, MFA mit
+echtem SMS-Code, Kontolöschung, der finale Regressionlauf, Security-Diff-Scan,
+neue APK/AAB und der abschließende Redmi-Smoke-Test.
+
+Aktive, gesicherte Test-Fixtures:
+
+- Konto A: `Mg7IaWEnHxZ8pvyY8UnG91RRXr22`
+- Konto B: `fVKPjd9JgzYj6OnqsVX2gX9A33B2`
+- lokale Sicherung: `C:\Users\Admin\Documents\New project\plaqa_live_test_backup.json`
+- Testhelfer: `C:\Users\Admin\Documents\New project\live_test_admin.cjs`
+
+Die Fixtures dürfen erst nach den verbleibenden Produktionsprüfungen mit
+`node live_test_admin.cjs cleanup` zurückgespielt werden. Das muss vor der
+Kontolöschung von Konto B erfolgen, da die Wiederherstellung sonst Dokumente
+des gelöschten Kontos neu anlegen würde.
+
+Gefundene Live-Befunde:
+
+1. Standortermittlung konnte auf Xiaomi unbegrenzt warten; lokaler Fix nutzt
+   Timeout und den letzten bekannten Standort als Fallback.
+2. Die Profilverbindung aus einem akzeptierten Chat wird im Live-Backend
+   abgewiesen. Eine temporäre, gesicherte Verbindung hält die restlichen Tests
+   ausführbar; Regeln und Deploymentstand müssen abgeglichen werden.
+3. Nach einem Profilaufruf blockierte der geschützte `profileViewCount` die
+   erneute Anmeldung, weil öffentliche Profilprojektionen ohne Merge
+   geschrieben wurden. Der lokale Fix bewahrt servergeschützte Felder.
+4. Die Liste blockierter Nutzer enthält korrekte Semantik, Text und Aktion,
+   rendert diese auf dem Redmi aber unsichtbar und reagiert nur per
+   Tastaturfokus. Dieser UI-Befund ist noch offen.
+5. Ein Follow-Request wird korrekt als `requested` gespeichert, der sichtbare
+   Buttonstatus aktualisiert sich im aktuellen Release jedoch nicht.
+
+Zusätzlich ist lokal der fehlende kombinierte Firestore-Index für aktive
+`chat_stories` ergänzt. Es wurde in diesem Zwischenstand nichts deployt oder
+veröffentlicht.

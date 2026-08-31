@@ -147,6 +147,7 @@ class ProfileRepository {
             existingProfile.profileAccessEnabled,
           ),
         ),
+        SetOptions(merge: true),
       );
       await batch.commit();
       return;
@@ -167,6 +168,7 @@ class ProfileRepository {
         displayName: user.displayName,
         photoUrl: trustedAuthPhotoUrl,
       ),
+      SetOptions(merge: true),
     );
     await batch.commit();
   }
@@ -205,6 +207,7 @@ class ProfileRepository {
           profile.profileAccessEnabled,
         ),
       ),
+      SetOptions(merge: true),
     );
     await batch.commit();
   }
@@ -324,6 +327,7 @@ class ProfileRepository {
           profile.profileAccessEnabled,
         ),
       ),
+      SetOptions(merge: true),
     );
   }
 
@@ -413,6 +417,7 @@ class ProfileRepository {
         followersVisibility: followersVisibility,
         followingVisibility: followingVisibility,
       ),
+      SetOptions(merge: true),
     );
     await batch.commit();
   }
@@ -469,7 +474,11 @@ class ProfileRepository {
       'isPrivateProfile': true,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-    batch.set(_publicProfileDocument(normalizedUid), publicData);
+    batch.set(
+      _publicProfileDocument(normalizedUid),
+      publicData,
+      SetOptions(merge: true),
+    );
     await batch.commit();
   }
 
