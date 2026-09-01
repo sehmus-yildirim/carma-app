@@ -176,6 +176,12 @@ class AppFeatureGate {
   static AppFeatureDecision _evaluateProfileVerification(
     AppUserState userState,
   ) {
+    if (!CaRismaAppConfig.profileVerificationEnabled) {
+      return const AppFeatureDecision.blocked(
+        reason: 'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+      );
+    }
+
     final appAccess = _evaluateAppAccess(userState);
 
     if (!appAccess.isAllowed) {

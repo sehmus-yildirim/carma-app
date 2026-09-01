@@ -73,7 +73,7 @@ class _SupportFaqScreenState extends State<SupportFaqScreen> {
     _FaqEntry(
       question: 'Wie verwalte ich mehrere Fahrzeuge?',
       answer:
-          'Unter Einstellungen, Profil & Verifizierung und Fahrzeuge kannst du weitere Fahrzeuge hinterlegen. Das Hauptfahrzeug bestimmt die Darstellung im Profil; jedes aktive und freigegebene Kennzeichen kann unabhängig davon gesucht werden.',
+          'Unter Einstellungen, Profil und Fahrzeuge kannst du weitere Fahrzeuge hinterlegen. Das Hauptfahrzeug bestimmt die Darstellung im Profil; jedes aktive und freigegebene Kennzeichen kann unabhängig davon gesucht werden.',
       keywords: 'fahrzeug hauptfahrzeug kennzeichen hinzufügen verwalten',
     ),
     _FaqEntry(

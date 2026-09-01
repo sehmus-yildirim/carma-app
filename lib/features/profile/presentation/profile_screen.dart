@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/domain/app_feature_gate.dart';
 import '../../../shared/models/carisma_models.dart';
 import '../../../shared/plate/plate_country_config.dart';
@@ -1172,18 +1173,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return false;
     }
 
-    final gateDecision = _verificationGateDecision;
+    if (CaRismaAppConfig.profileVerificationEnabled) {
+      final gateDecision = _verificationGateDecision;
 
-    if (!gateDecision.isAllowed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            gateDecision.reason ??
-                'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+      if (!gateDecision.isAllowed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              gateDecision.reason ??
+                  'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+            ),
           ),
-        ),
-      );
-      return false;
+        );
+        return false;
+      }
     }
 
     final firebaseUser = FirebaseAuth.instance.currentUser;
@@ -1545,6 +1548,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _openVerificationScreen() async {
+    if (!CaRismaAppConfig.profileVerificationEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+          ),
+        ),
+      );
+      return;
+    }
+
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) =>
@@ -1647,6 +1661,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildDirectDocumentsEntry() {
+    if (!CaRismaAppConfig.profileVerificationEnabled) {
+      return CaRismaBackground(
+        child: Material(
+          color: Colors.transparent,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  CaRismaSubPageHeader(
+                    icon: Icons.upload_file_rounded,
+                    title: 'Dokumente hochladen',
+                    onBack: _handleBack,
+                  ),
+                  const Expanded(
+                    child: Center(
+                      child: CaRismaMessageCard(
+                        icon: Icons.shield_outlined,
+                        message:
+                            'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return ProfileVerificationScreen(userId: widget.userState.userId);
   }
 
@@ -1836,33 +1881,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           totalDocumentCount: _documentFiles.length,
                           onProfilePhotoTap: _showProfilePhotoSourceSheet,
                         ),
-                        const SizedBox(height: 14),
-                        _ProfileNextStepCard(
-                          hasNameInput: _hasNameInput,
-                          hasPlateInput: _hasPlateInput,
-                          allDocumentsUploaded: _allDocumentsUploaded,
-                          canSubmitProfileForVerification:
-                              _canSubmitProfileForVerification,
-                          isSubmittedForVerification:
-                              _isSubmittedForVerification,
-                          isVerified: _isVerified,
-                          isVerificationRejected: _isVerificationRejected,
-                          isSaving: _isSaving,
-                          onOpenVerification: _openVerificationScreen,
-                          onSaveProfile: _saveProfile,
-                        ),
-                        if (_isVerificationRejected) ...[
+                        if (CaRismaAppConfig.profileVerificationEnabled) ...[
                           const SizedBox(height: 14),
-                          _RejectedVerificationActionCard(
-                            rejectionReason: _verificationRejectionReason,
-                            reviewedAt: _verificationReviewedAt,
+                          _ProfileNextStepCard(
+                            hasNameInput: _hasNameInput,
+                            hasPlateInput: _hasPlateInput,
+                            allDocumentsUploaded: _allDocumentsUploaded,
                             canSubmitProfileForVerification:
                                 _canSubmitProfileForVerification,
+                            isSubmittedForVerification:
+                                _isSubmittedForVerification,
+                            isVerified: _isVerified,
+                            isVerificationRejected: _isVerificationRejected,
                             isSaving: _isSaving,
                             onOpenVerification: _openVerificationScreen,
                             onSaveProfile: _saveProfile,
-                            onCreateNewProfile: _confirmNewProfile,
                           ),
+                          if (_isVerificationRejected) ...[
+                            const SizedBox(height: 14),
+                            _RejectedVerificationActionCard(
+                              rejectionReason: _verificationRejectionReason,
+                              reviewedAt: _verificationReviewedAt,
+                              canSubmitProfileForVerification:
+                                  _canSubmitProfileForVerification,
+                              isSaving: _isSaving,
+                              onOpenVerification: _openVerificationScreen,
+                              onSaveProfile: _saveProfile,
+                              onCreateNewProfile: _confirmNewProfile,
+                            ),
+                          ],
                         ],
                         if (_isProfileLocked) ...[
                           const SizedBox(height: 14),
@@ -1895,22 +1942,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onBirthDateChanged: _handleBirthDateChanged,
                           onManageMfa: _openMfaManagement,
                         ),
+                        if (CaRismaAppConfig.profileVerificationEnabled) ...[
+                          const SizedBox(height: 18),
+                          const CaRismaSectionTitle(
+                            number: '2',
+                            title: 'Verifizierung',
+                          ),
+                          const SizedBox(height: 10),
+                          _VerificationSummaryCard(
+                            uploadedDocumentCount: _uploadedDocumentCount,
+                            totalDocumentCount: _documentFiles.length,
+                            verificationProgress: _verificationProgress,
+                            allDocumentsUploaded: _allDocumentsUploaded,
+                            onOpenVerification: _openVerificationScreen,
+                          ),
+                        ],
                         const SizedBox(height: 18),
-                        const CaRismaSectionTitle(
-                          number: '2',
-                          title: 'Verifizierung',
-                        ),
-                        const SizedBox(height: 10),
-                        _VerificationSummaryCard(
-                          uploadedDocumentCount: _uploadedDocumentCount,
-                          totalDocumentCount: _documentFiles.length,
-                          verificationProgress: _verificationProgress,
-                          allDocumentsUploaded: _allDocumentsUploaded,
-                          onOpenVerification: _openVerificationScreen,
-                        ),
-                        const SizedBox(height: 18),
-                        const CaRismaSectionTitle(
-                          number: '3',
+                        CaRismaSectionTitle(
+                          number: CaRismaAppConfig.profileVerificationEnabled
+                              ? '3'
+                              : '2',
                           title: 'Mein Fahrzeug',
                         ),
                         const SizedBox(height: 10),
@@ -1949,8 +2000,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onColorChanged: _onColorChanged,
                         ),
                         const SizedBox(height: 18),
-                        const CaRismaSectionTitle(
-                          number: '4',
+                        CaRismaSectionTitle(
+                          number: CaRismaAppConfig.profileVerificationEnabled
+                              ? '4'
+                              : '3',
                           title: 'Sichtbarkeit',
                         ),
                         const SizedBox(height: 10),
@@ -1976,6 +2029,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             isEnabled: _hasUnsavedChanges && !_isSaving,
                             isLoading: _isSaving,
                             canSubmitProfileForVerification:
+                                CaRismaAppConfig.profileVerificationEnabled &&
                                 !_isProfileLocked &&
                                 _canSubmitProfileForVerification,
                             onPressed: _saveProfile,

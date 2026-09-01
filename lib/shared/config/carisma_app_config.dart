@@ -33,6 +33,13 @@ class CaRismaAppConfig {
   // restrict contact requests while the community is being established.
   static const bool enforceMonthlyContactRequestLimit = false;
 
+  // Keep the implementation available for development, but do not expose an
+  // unreliable document-verification flow in production release builds.
+  static const bool profileVerificationEnabled = bool.fromEnvironment(
+    'PLAQA_PROFILE_VERIFICATION_ENABLED',
+    defaultValue: !kReleaseMode,
+  );
+
   static const String firebaseRegion = 'europe-west3';
 
   static String get appVersionLabel {

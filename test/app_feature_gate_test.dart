@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plaqa/shared/config/carisma_app_config.dart';
 import 'package:plaqa/shared/domain/app_feature_gate.dart';
 import 'package:plaqa/shared/models/carisma_models.dart';
 import 'package:plaqa/features/auth/domain/registration_legal_consent_builder.dart';
@@ -167,6 +168,14 @@ void main() {
         userState: state(),
         feature: AppFeature.profileVerification,
       );
+
+      if (!CaRismaAppConfig.profileVerificationEnabled) {
+        expect(pending.isAllowed, isFalse);
+        expect(verified.isAllowed, isFalse);
+        expect(eligible.isAllowed, isFalse);
+        expect(eligible.reason, contains('aktuell nicht verfügbar'));
+        return;
+      }
 
       expect(pending.isAllowed, isFalse);
       expect(pending.reason, contains('bereits geprüft'));

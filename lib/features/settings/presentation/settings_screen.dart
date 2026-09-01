@@ -1338,6 +1338,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _openProfileManagement(ProfileSettingsArea area) {
+    if (area == ProfileSettingsArea.documents &&
+        !CaRismaAppConfig.profileVerificationEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Die Profil-Verifizierung ist aktuell nicht verfügbar.',
+          ),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => switch (area) {
@@ -1625,7 +1637,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 18),
                   _SettingsGroupCard(
-                    title: 'Profil & Verifizierung',
+                    title: CaRismaAppConfig.profileVerificationEnabled
+                        ? 'Profil & Verifizierung'
+                        : 'Profil',
                     icon: Icons.verified_user_outlined,
                     children: [
                       _SettingsRow(
@@ -1637,16 +1651,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ProfileSettingsArea.personalData,
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      _SettingsRow(
-                        icon: Icons.upload_file_rounded,
-                        title: 'Dokumente hochladen',
-                        description:
-                            'Identität und Fahrzeugbezug sicher nachweisen.',
-                        onTap: () => _openProfileManagement(
-                          ProfileSettingsArea.documents,
+                      if (CaRismaAppConfig.profileVerificationEnabled) ...[
+                        const SizedBox(height: 10),
+                        _SettingsRow(
+                          icon: Icons.upload_file_rounded,
+                          title: 'Dokumente hochladen',
+                          description:
+                              'Identität und Fahrzeugbezug sicher nachweisen.',
+                          onTap: () => _openProfileManagement(
+                            ProfileSettingsArea.documents,
+                          ),
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 10),
                       _SettingsRow(
                         icon: Icons.directions_car_rounded,
@@ -1748,22 +1764,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                       ),
-                      const SizedBox(height: 10),
-                      CaRismaSwitchRow(
-                        icon: Icons.verified_user_outlined,
-                        title: 'Verifizierung',
-                        description:
-                            'Statusänderungen zu Konto- und Fahrzeugprüfung.',
-                        value: _notifyVerification,
-                        onChanged: (value) {
-                          _updateNotificationPreference(
-                            value: value,
-                            applyValue: (nextValue) {
-                              _notifyVerification = nextValue;
-                            },
-                          );
-                        },
-                      ),
+                      if (CaRismaAppConfig.profileVerificationEnabled) ...[
+                        const SizedBox(height: 10),
+                        CaRismaSwitchRow(
+                          icon: Icons.verified_user_outlined,
+                          title: 'Verifizierung',
+                          description:
+                              'Statusänderungen zu Konto- und Fahrzeugprüfung.',
+                          value: _notifyVerification,
+                          onChanged: (value) {
+                            _updateNotificationPreference(
+                              value: value,
+                              applyValue: (nextValue) {
+                                _notifyVerification = nextValue;
+                              },
+                            );
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       _SettingsRow(
                         icon: Icons.tune_rounded,

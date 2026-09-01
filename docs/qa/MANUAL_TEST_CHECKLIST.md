@@ -1,6 +1,6 @@
 # plaqa Manuelle Release-Testliste
 
-Stand: 2026-08-29
+Stand: 2026-09-01
 Status: vor öffentlichem Release vollständig mit Datum, Gerät, Tester und
 Nachweis auszufüllen
 
@@ -51,8 +51,8 @@ Nachweis auszufüllen
   freigegeben
 - [ ] Support-, Datenschutz- und Kontolösch-URLs öffentlich erreichbar
 - [ ] interne Testspur/TestFlight abgeschlossen; Rückmeldungen triagiert
-- [ ] Monitoring-Dashboard, Alarmempfänger und Rollback-Verantwortlicher benannt
-- [ ] Rollbackübung und Incident-Kontaktkette protokolliert
+- [x] Monitoring-Dashboard, Alarmempfänger und Rollback-Verantwortlicher benannt
+- [x] Rollbackübung und Incident-Kontaktkette protokolliert
 
 ## Abschlussprotokoll
 
