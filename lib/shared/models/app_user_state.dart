@@ -1,5 +1,6 @@
 import 'account_status.dart';
 import '../config/carisma_app_config.dart';
+import '../legal/legal_versions.dart';
 import 'legal_consent.dart';
 import 'moderation_action.dart';
 import 'search_credit.dart';
@@ -44,26 +45,33 @@ class AppUserState {
   }
 
   bool get hasAcceptedTerms {
-    return legalConsents.any(
-      (consent) => consent.type == LegalConsentType.terms,
-    );
+    return _hasCurrentConsent(LegalConsentType.terms, LegalVersions.terms);
   }
 
   bool get hasAcceptedPrivacy {
-    return legalConsents.any(
-      (consent) => consent.type == LegalConsentType.privacy,
-    );
+    return _hasCurrentConsent(LegalConsentType.privacy, LegalVersions.privacy);
   }
 
   bool get hasAcceptedResponsibleUse {
-    return legalConsents.any(
-      (consent) => consent.type == LegalConsentType.responsibleUse,
+    return _hasCurrentConsent(
+      LegalConsentType.responsibleUse,
+      LegalVersions.responsibleUse,
     );
   }
 
   bool get hasAcceptedNoEmergencyUse {
+    return _hasCurrentConsent(
+      LegalConsentType.noEmergencyUse,
+      LegalVersions.noEmergencyUse,
+    );
+  }
+
+  bool _hasCurrentConsent(LegalConsentType type, String version) {
     return legalConsents.any(
-      (consent) => consent.type == LegalConsentType.noEmergencyUse,
+      (consent) =>
+          consent.userId == userId &&
+          consent.type == type &&
+          consent.version == version,
     );
   }
 

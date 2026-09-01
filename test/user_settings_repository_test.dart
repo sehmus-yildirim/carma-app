@@ -157,7 +157,7 @@ void main() {
           id: 'current-terms',
           userId: 'user-1',
           type: LegalConsentType.terms,
-          version: '1.0.0',
+          version: '1.1.0',
           acceptedAt: DateTime.utc(2026, 2, 1),
         ),
       ]);
@@ -169,7 +169,7 @@ void main() {
         (status) => status.type == LegalConsentType.privacy,
       );
 
-      expect(terms.acceptedVersion, '1.0.0');
+      expect(terms.acceptedVersion, '1.1.0');
       expect(terms.isCurrent, isTrue);
       expect(privacy.acceptedVersion, isNull);
       expect(privacy.isAvailable, isFalse);

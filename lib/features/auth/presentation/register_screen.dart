@@ -12,6 +12,8 @@ import '../../../shared/widgets/glass_card.dart';
 import '../../legal/presentation/privacy_policy_screen.dart';
 import '../../legal/presentation/terms_screen.dart';
 import '../data/auth_service.dart';
+import '../data/legal_consent_repository.dart';
+import '../domain/registration_legal_consent_builder.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
@@ -31,6 +33,8 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final AuthService _authService = AuthService();
+  final LegalConsentRepository _legalConsentRepository =
+      LegalConsentRepository();
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -146,7 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_acceptedPrivacy) {
       setState(() {
         _errorMessage =
-            'Bitte akzeptiere die Datenschutzerklärung, um fortzufahren.';
+            'Bitte nimm die Datenschutzerklärung zur Kenntnis, um fortzufahren.';
         _successMessage = null;
       });
       return;
@@ -181,6 +185,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           message: 'Das Benutzerkonto konnte nicht geladen werden.',
         );
       }
+
+      await _recordAcceptedLegalConsents(user);
 
       final verificationMessage = await _sendVerificationEmailIfNeeded(user);
 
@@ -267,6 +273,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
 
+      await _recordAcceptedLegalConsents(user);
+
       if (!mounted) {
         return;
       }
@@ -345,6 +353,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         throw FirebaseAuthException(code: 'missing-user');
       }
 
+      await _recordAcceptedLegalConsents(user);
+
       if (!mounted) return;
 
       setState(() {
@@ -378,6 +388,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _recordAcceptedLegalConsents(User user) {
+    return _legalConsentRepository.saveRegistrationConsents(
+      userId: user.uid,
+      consents: RegistrationLegalConsentBuilder.buildLocalConsents(
+        userId: user.uid,
+      ),
+    );
   }
 
   String _mapFirebaseAuthError(FirebaseAuthException error) {
@@ -713,16 +732,17 @@ class _RegistrationLegalCard extends StatelessWidget {
           _ConsentRow(
             value: acceptedPrivacy,
             onChanged: onPrivacyChanged,
-            semanticLabel: 'Datenschutzerklärung akzeptieren',
-            text: 'Ich akzeptiere die',
-            linkLabel: 'Datenschutzerklärung.',
+            semanticLabel: 'Datenschutzerklärung zur Kenntnis nehmen',
+            text: 'Ich habe die',
+            linkLabel: 'Datenschutzerklärung zur Kenntnis genommen.',
             onLinkPressed: onPrivacyPressed,
           ),
           _ConsentRow(
             value: acceptedResponsibleUse,
             onChanged: onResponsibleUseChanged,
             semanticLabel: 'Verantwortungsvolle Nutzung bestätigen',
-            text: 'Ich nutze plaqa verantwortungsvoll.',
+            text:
+                'Ich bin mindestens 16 Jahre alt und nutze plaqa verantwortungsvoll. plaqa ist kein Notrufdienst.',
           ),
         ],
       ),

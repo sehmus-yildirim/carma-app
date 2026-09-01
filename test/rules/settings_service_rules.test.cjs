@@ -7,7 +7,12 @@ const {
   assertSucceeds,
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
-const {doc, getDoc, setDoc} = require('firebase/firestore');
+const {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp: firestoreServerTimestamp,
+} = require('firebase/firestore');
 
 const projectId = 'carma-a84e4';
 const userId = 'settings-owner';
@@ -34,6 +39,10 @@ function serverTimestamp() {
   return new Date();
 }
 
+function daysFromNow(days) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
 describe('settings service request rules', () => {
   test('owner creates and reads a valid support request only', async () => {
     const owner = testEnv.authenticatedContext(userId).firestore();
@@ -53,6 +62,7 @@ describe('settings service request rules', () => {
       status: 'received',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      retentionUntil: daysFromNow(365),
     };
 
     await assertSucceeds(setDoc(doc(owner, ...pathParts), payload));
@@ -68,6 +78,7 @@ describe('settings service request rules', () => {
           type: 'safety',
           category: 'Schutz von Minderjährigen',
           affectedArea: 'Chat',
+          retentionUntil: daysFromNow(730),
           description:
             'Ich möchte ein mögliches Sicherheitsproblem im Chat melden.',
         },
@@ -97,6 +108,7 @@ describe('settings service request rules', () => {
       status: 'received',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      retentionUntil: daysFromNow(365),
     };
 
     await assertFails(setDoc(reference, {...base, description: 'Zu kurz'}));
@@ -118,6 +130,7 @@ describe('settings service request rules', () => {
       appVersion: 'plaqa 1.0.0',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      retentionUntil: daysFromNow(1095),
     };
 
     await assertSucceeds(setDoc(doc(owner, ...pathParts), payload));
@@ -126,6 +139,49 @@ describe('settings service request rules', () => {
     await assertFails(
       setDoc(doc(owner, ...pathParts), {...payload, status: 'completed'}),
     );
+  });
+});
+
+describe('legal consent rules', () => {
+  test('only the current explicit immutable consent can be recorded', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const outsider = testEnv.authenticatedContext(outsiderId).firestore();
+    const consentId = `${userId}_terms_1.1.0`;
+    const payload = {
+      id: consentId,
+      userId,
+      type: 'terms',
+      typeLabel: 'AGB',
+      version: '1.1.0',
+      acceptedAt: new Date().toISOString(),
+      ipAddress: null,
+      userAgent: null,
+      createdAt: firestoreServerTimestamp(),
+      source: 'renewal',
+    };
+    const reference = doc(owner, 'users', userId, 'legal_consents', consentId);
+
+    await assertSucceeds(setDoc(reference, payload));
+    const staleId = `${userId}_terms_0.9.0`;
+    await assertFails(setDoc(
+      doc(owner, 'users', userId, 'legal_consents', staleId),
+      {...payload, id: staleId, version: '0.9.0'},
+    ));
+    const automaticId = `${userId}_privacy_1.1.0`;
+    await assertFails(setDoc(
+      doc(owner, 'users', userId, 'legal_consents', automaticId),
+      {
+        ...payload,
+        id: automaticId,
+        type: 'privacy',
+        typeLabel: 'Datenschutz',
+        source: 'automatic',
+      },
+    ));
+    await assertFails(setDoc(
+      doc(outsider, 'users', userId, 'legal_consents', consentId),
+      payload,
+    ));
   });
 });
 

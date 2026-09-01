@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/firebase/carisma_firestore_paths.dart';
+import '../../../shared/privacy/data_retention_policy.dart';
 
 enum SupportRequestType { problem, verification, safety, feedback }
 
@@ -85,6 +86,11 @@ class SupportRequestRepository {
       'status': 'received',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'retentionUntil': Timestamp.fromDate(
+        DataRetentionPolicy.supportRequestExpiry(
+          isSafetyRequest: draft.type == SupportRequestType.safety,
+        ),
+      ),
     });
     return reference.id;
   }

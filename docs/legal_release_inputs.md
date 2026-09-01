@@ -1,6 +1,6 @@
 # Rechtlicher Release-Stand
 
-Stand: 2026-08-22
+Stand: 2026-09-01
 
 Diese Datei fasst den fachlich belegten Stand der In-App-Rechtstexte und der
 oeffentlichen plaqa-Seiten zusammen. Offene Punkte sind keine sichtbaren
@@ -21,14 +21,14 @@ Aktuell verwendet:
 - Datenschutz: privacy@plaqa.de
 - Automatischer Versand: no-reply@plaqa.de
 - Partnerschaften: partners@plaqa.de
-- Betreiber: Privatperson; keine nicht bestaetigte Rechtsform wird behauptet
-- Betreiberstatus am 22. August 2026 bestaetigt: vorerst allein und ohne
+- Betreiber: Sehmus Yildirim, auftretend unter der Bezeichnung plaqa; keine
+  nicht bestaetigte Rechtsform wird behauptet
+- Betreiberstatus und Anschrift am 1. September 2026 bestaetigt: vorerst allein und ohne
   bestaetigte Gesellschafts-, Register- oder Umsatzsteuerangaben
 
 Vor Release erneut bestaetigen:
 
-- Neue ladungsfaehige Anschrift nach dem vor Release stattfindenden Umzug; die
-  derzeit eingetragene Anschrift darf nicht ungeprueft in den Release uebergehen
+- Erneute Bestaetigung der ladungsfaehigen Anschrift unmittelbar vor Release
 - Rechtsform, Register- und Steuerangaben, falls sich der Betreiberstatus aendert
 - Verpflichtung und Teilnahmebereitschaft zur Verbraucherstreitbeilegung; das
   geplante Team bleibt zunaechst unter zehn Personen
@@ -57,10 +57,11 @@ Im Code und in der Konfiguration belegt:
 - Kamera, Mikrofon und Medienzugriff nur fuer vom Nutzer gestartete Funktionen
 - Kontaktfreigabe ueber System-Picker statt vollstaendigem Adressbuchzugriff
 
-Technisch eingebunden, aber noch nicht produktiv end-to-end abgenommen:
+Technisch eingebunden:
 
-- Firebase Cloud Messaging / Push-Token-Verarbeitung
-- Apple-Anmeldung ueber Firebase Authentication
+- Firebase Cloud Messaging / Push-Token-Verarbeitung; der Android-Live-Test
+  wurde vorbereitet und ist im finalen Release-Build erneut zu bestaetigen
+- Apple-Anmeldung ueber Firebase Authentication; iOS-Endabnahme bleibt offen
 
 Derzeit nicht aktiv eingebunden:
 
@@ -114,11 +115,21 @@ Technisch belegt:
 - Nutzer koennen einen geschuetzten Datenexportauftrag anlegen; eine vollstaendig
   automatisierte Auslieferung ist noch nicht umgesetzt
 
+Technisch festgelegt beziehungsweise dokumentiert:
+
+- Storys und fahrzeugbezogene Kurzzeitmeldungen: 24 Stunden
+- ausstehende Kontaktanfragen: 48 Stunden
+- normale Supportvorgaenge: 365 Tage
+- Kinderschutz-/Sicherheits-Supportvorgaenge: 730 Tage
+- Sicherheitsaktivitaeten: 365 Tage
+- Datenrechts- und Kontoloeschungsnachweise: drei Jahre
+- Bearbeitungsprozess des Datenexports ist manuell dokumentiert; eine
+  automatische Auslieferung wird nicht behauptet
+
 Noch rechtlich und organisatorisch festzulegen:
 
-- Aufbewahrungsfristen fuer Chats, Kontaktanfragen, Support, Meldungen,
-  Sicherheitsereignisse, technische Protokolle und Backups
-- Bearbeitungsprozess und Ausgabeformat des Datenexports
+- konkrete Fristen fuer aktive Chats, Moderationsbeweise, Backups und
+  gesetzliche Sperrfaelle
 - Dokumentierte Behandlung gesetzlicher Aufbewahrungspflichten und
   Beweissicherungsfaelle
 

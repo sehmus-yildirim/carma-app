@@ -1,6 +1,6 @@
 # plaqa Kinderschutzprozess
 
-Stand: 21. August 2026
+Stand: 1. September 2026
 
 Dieses interne Dokument beschreibt den nachweisbaren technischen Stand und die
 vor einer Veröffentlichung noch verbindlich festzulegenden Arbeitsschritte.
@@ -84,8 +84,10 @@ Behördenmeldeprozess besteht.
 - Namen, Kennzeichen, Standortdaten und Kontaktdaten werden nur verarbeitet,
   soweit sie für Prüfung, Schutzmaßnahmen oder gesetzliche Pflichten
   erforderlich sind.
-- Aufbewahrungs- und Löschfristen werden vor Veröffentlichung rechtlich
-  festgelegt. Bis dahin werden keine festen Fristen öffentlich zugesagt.
+- Kinderschutz-/Sicherheits-Supportvorgänge erhalten technisch eine
+  Höchstfrist von 730 Tagen. Für eigentliche Moderationsbeweise, gesetzliche
+  Sicherungen und Behördenfälle muss die Rechtsberatung die konkrete Frist
+  und Sperrlogik noch bestätigen.
 - Zugriffe und Maßnahmen müssen nachvollziehbar protokolliert werden, ohne den
   gemeldeten Inhalt in Logs zu kopieren.
 

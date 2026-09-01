@@ -11,6 +11,8 @@ const staleProcessingWindowMs = 15 * 60 * 1000;
 const firestoreBatchSize = 200;
 const storagePageSize = 100;
 const storageDeleteConcurrency = 20;
+const securityActivityRetentionMs = 365 * 24 * 60 * 60 * 1000;
+const accountDeletionEvidenceRetentionMs = 3 * 365 * 24 * 60 * 60 * 1000;
 
 function requireRecentAuthentication(authContext, now = new Date()) {
   const userId = safeString(authContext?.uid);
@@ -144,6 +146,9 @@ async function reserveDeletionRequest({
       requestedAt: Timestamp.fromDate(now),
       updatedAt: Timestamp.fromDate(now),
       attempts,
+      retentionUntil: Timestamp.fromDate(new Date(
+        now.getTime() + accountDeletionEvidenceRetentionMs,
+      )),
       failureCode: FieldValue.delete(),
     }, {merge: true});
     return {shouldProcess: true, status: "requested"};
@@ -706,6 +711,9 @@ async function writeSecurityActivity({
     occurredAt: Timestamp.fromDate(now),
     platform,
     status,
+    retentionUntil: Timestamp.fromDate(new Date(
+      now.getTime() + securityActivityRetentionMs,
+    )),
   });
 }
 

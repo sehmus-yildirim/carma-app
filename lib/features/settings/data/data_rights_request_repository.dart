@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/firebase/carisma_firestore_paths.dart';
+import '../../../shared/privacy/data_retention_policy.dart';
 
 class DataRightsRequestRepository {
   DataRightsRequestRepository({FirebaseFirestore? firestore})
@@ -45,6 +46,9 @@ class DataRightsRequestRepository {
         'appVersion': CaRismaAppConfig.appVersionLabel,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'retentionUntil': Timestamp.fromDate(
+          DataRetentionPolicy.dataRightsEvidenceExpiry(),
+        ),
       });
       return exportReference.id;
     });

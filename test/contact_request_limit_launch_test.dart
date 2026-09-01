@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:plaqa/shared/config/carisma_app_config.dart';
 import 'package:plaqa/shared/domain/app_feature_gate.dart';
 import 'package:plaqa/shared/models/carisma_models.dart';
+import 'package:plaqa/features/auth/domain/registration_legal_consent_builder.dart';
 
 void main() {
   test('launch mode keeps plate search available after quota exhaustion', () {
@@ -23,17 +24,10 @@ void main() {
         limit: 2,
         resetPeriod: SearchCreditResetPeriod.monthly,
       ),
-      legalConsents: LegalConsentType.values
-          .map(
-            (type) => LegalConsent(
-              id: type.name,
-              userId: userId,
-              type: type,
-              version: '1.0',
-              acceptedAt: timestamp,
-            ),
-          )
-          .toList(),
+      legalConsents: RegistrationLegalConsentBuilder.buildLocalConsents(
+        userId: userId,
+        acceptedAt: timestamp,
+      ),
     );
 
     expect(CaRismaAppConfig.enforceMonthlyContactRequestLimit, isFalse);

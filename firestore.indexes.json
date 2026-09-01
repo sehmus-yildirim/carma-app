@@ -131,6 +131,114 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "support_requests",
+      "fieldPath": "retentionUntil",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "data_rights_requests",
+      "fieldPath": "retentionUntil",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "security_activities",
+      "fieldPath": "retentionUntil",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "account_deletions",
+      "fieldPath": "retentionUntil",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "_system_website_contact_rate_limits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "_system_website_contact_duplicates",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "_system_website_contact_submissions",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "_system_mailbox_auto_replies",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "_system_mailbox_sender_cooldowns",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "_system_email_rate_limits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "plate_search_rate_limits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "plate_search_probes",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "plate_search_target_limits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "plate_contact_grants",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "contact_request_rate_limits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "contact_request_target_limits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "profile_view_events",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "profile_view_rate_limits",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "_verification_sessions",
       "fieldPath": "expiresAt",
       "ttl": true,

@@ -4164,6 +4164,19 @@ service cloud.firestore {
           && request.resource.data.status == 'received'
           && request.resource.data.createdAt is timestamp
           && request.resource.data.updatedAt is timestamp
+          && request.resource.data.retentionUntil is timestamp
+          && (
+            (
+              request.resource.data.type == 'safety'
+              && request.resource.data.retentionUntil > request.time + duration.value(729, 'd')
+              && request.resource.data.retentionUntil < request.time + duration.value(731, 'd')
+            )
+            || (
+              request.resource.data.type != 'safety'
+              && request.resource.data.retentionUntil > request.time + duration.value(364, 'd')
+              && request.resource.data.retentionUntil < request.time + duration.value(366, 'd')
+            )
+          )
           && request.resource.data.keys().hasOnly([
             'requestId',
             'userId',
@@ -4179,7 +4192,8 @@ service cloud.firestore {
             'appVersion',
             'status',
             'createdAt',
-            'updatedAt'
+            'updatedAt',
+            'retentionUntil'
           ]);
         allow update, delete: if false;
       }
@@ -4209,6 +4223,9 @@ service cloud.firestore {
           && request.resource.data.appVersion.size() <= 40
           && request.resource.data.createdAt is timestamp
           && request.resource.data.updatedAt is timestamp
+          && request.resource.data.retentionUntil is timestamp
+          && request.resource.data.retentionUntil > request.time + duration.value(1094, 'd')
+          && request.resource.data.retentionUntil < request.time + duration.value(1096, 'd')
           && request.resource.data.keys().hasOnly([
             'requestId',
             'userId',
@@ -4218,13 +4235,58 @@ service cloud.firestore {
             'note',
             'appVersion',
             'createdAt',
-            'updatedAt'
+            'updatedAt',
+            'retentionUntil'
           ]);
         allow update, delete: if false;
       }
 
       match /legal_consents/{consentId} {
-        allow read, create: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.id == consentId
+          && request.resource.data.userId == userId
+          && request.resource.data.source in ['registration', 'renewal']
+          && request.resource.data.acceptedAt is string
+          && request.resource.data.acceptedAt.size() >= 20
+          && request.resource.data.acceptedAt.size() <= 40
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.ipAddress == null
+          && request.resource.data.userAgent == null
+          && (
+            (
+              request.resource.data.type == 'terms'
+              && request.resource.data.typeLabel == 'AGB'
+              && request.resource.data.version == '1.1.0'
+            )
+            || (
+              request.resource.data.type == 'privacy'
+              && request.resource.data.typeLabel == 'Datenschutz'
+              && request.resource.data.version == '1.1.0'
+            )
+            || (
+              request.resource.data.type == 'responsibleUse'
+              && request.resource.data.typeLabel == 'Verantwortungsvolle Nutzung'
+              && request.resource.data.version == '1.1.0'
+            )
+            || (
+              request.resource.data.type == 'noEmergencyUse'
+              && request.resource.data.typeLabel == 'Keine Notfall-App'
+              && request.resource.data.version == '1.0.0'
+            )
+          )
+          && request.resource.data.keys().hasOnly([
+            'id',
+            'userId',
+            'type',
+            'typeLabel',
+            'version',
+            'acceptedAt',
+            'ipAddress',
+            'userAgent',
+            'createdAt',
+            'source'
+          ]);
         allow update, delete: if false;
       }
 

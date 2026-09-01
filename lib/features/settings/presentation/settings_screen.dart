@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/config/carisma_app_config.dart';
 import '../../../shared/legal/legal_versions.dart';
@@ -1299,6 +1302,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
+    final externalUrl = switch (title) {
+      'Kinderschutzstandard' => Uri.parse('https://plaqa.de/kinderschutz/'),
+      'Kontolöschung' => Uri.parse('https://plaqa.de/konto-loeschen/'),
+      _ => null,
+    };
+    if (externalUrl != null) {
+      unawaited(launchUrl(externalUrl, mode: LaunchMode.externalApplication));
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CaRismaLegalContentScreen.forTitle(title: title),
@@ -1549,6 +1562,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.business_rounded,
           title: 'Impressum',
           description: 'Anbieterkennzeichnung und Kontaktinformationen.',
+        ),
+        _SettingsDetailItem(
+          icon: Icons.child_care_rounded,
+          title: 'Kinderschutzstandard',
+          description: 'Mindestalter, Schutzregeln und Meldeweg öffnen.',
+        ),
+        _SettingsDetailItem(
+          icon: Icons.person_remove_alt_1_rounded,
+          title: 'Kontolöschung',
+          description: 'Öffentliche Anleitung und Datenschutzkontakt öffnen.',
         ),
         _SettingsDetailItem(
           icon: Icons.info_outline_rounded,
@@ -3897,8 +3920,8 @@ class _LegalContent {
             body:
                 r'''Allgemeine Geschäftsbedingungen und Nutzungsbedingungen für plaqa
 
-Stand: 22. August 2026
-Version: 1.0.0''',
+Stand: 1. September 2026
+Version: 1.1.0''',
           ),
           _LegalSection(
             title: '1. Anbieter und Geltungsbereich',
@@ -5061,8 +5084,8 @@ Fragen zu den Bedingungen können an info@plaqa.de, Sicherheits- und Supportanfr
             title: 'Stand und Version',
             body: r'''Datenschutzerklärung für die mobile App „plaqa“
 
-Stand: 22. August 2026
-Version: 1.0.0''',
+Stand: 1. September 2026
+Version: 1.1.0''',
           ),
           _LegalSection(
             title: '1. Geltungsbereich und Zweck dieser Datenschutzerklärung',
@@ -5876,9 +5899,10 @@ Lokale Verifizierungsaufnahmen	Nur während des lokalen Abgleichs; Löschung nac
 Private Identitätsdaten und Verifizierungsstatus	Bis zur Änderung, zum Widerruf, Ablauf des Dokuments oder zur Kontolöschung, soweit kein vorrangiger Aufbewahrungsgrund besteht
 Eigenerklärungs-PDF	Bis zum Widerruf, zur Entfernung des Fahrzeugs oder zur Kontolöschung, soweit kein vorrangiger Aufbewahrungsgrund besteht
 Verifizierungsstatus	Bis zur Änderung, Kontolöschung oder solange ein erforderlicher Prüf- beziehungsweise Sicherheitsnachweis besteht
-Push-Token	Derzeit nicht erhoben, da Push nicht aktiviert ist
-Sicherheits- und Missbrauchslogs	Nur solange für Sicherheit, Nachweis, Beschwerden oder gesetzliche Pflichten erforderlich
-Supportanfragen	Bis zum Abschluss und darüber hinaus nur solange ein berechtigter Nachweis- oder Rechtsgrund besteht
+Push-Token	Bis zur Abmeldung, Kontolöschung, Tokenrotation oder technischen Bereinigung inaktiver Token
+Sicherheits- und Missbrauchslogs	Grundsätzlich höchstens 365 Tage, soweit kein dokumentierter Rechts- oder Sicherheitsfall eine längere Sperrung erfordert
+Supportanfragen	Normale Vorgänge höchstens 365 Tage; Kinderschutz- und Sicherheitsvorgänge höchstens 730 Tage, soweit keine vorrangige Pflicht besteht
+Datenrechts- und Kontolöschungsnachweise	Grundsätzlich höchstens drei Jahre zur Bearbeitung und Rechtsverteidigung
 Kauf- und Abrechnungsdaten	Derzeit nicht durch plaqa erhoben, da keine In-App-Käufe angeboten werden
 Einwilligungsnachweise	Für die Dauer der Verarbeitung und erforderliche Nachweiszeit
 Backups	Nach den technischen Sicherungs- und Wiederherstellungszyklen des jeweiligen Dienstes; keine unbegrenzte Aufbewahrung
@@ -6090,8 +6114,8 @@ Datenschutzanfragen, Auskunfts-, Berichtigungs-, Lösch- oder Widerspruchsanlieg
             title: 'Stand und Version',
             body: r'''Community-Richtlinien und Verhaltensregeln für plaqa
 
-Stand: 22. August 2026
-Version: 1.0.0''',
+Stand: 1. September 2026
+Version: 1.1.0''',
           ),
           _LegalSection(
             title: '1. Zweck der Community-Richtlinien',

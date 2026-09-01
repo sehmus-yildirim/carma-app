@@ -16,6 +16,7 @@ import '../data/search_credit_repository.dart';
 import '../data/user_profile_repository.dart';
 import '../domain/registration_legal_consent_builder.dart';
 import 'auth_flow_screen.dart';
+import 'legal_consent_renewal_screen.dart';
 
 enum _LocalTestMode {
   normal,
@@ -48,6 +49,8 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
 
   final Set<String> _onboardingCompletedUserIds = <String>{};
   final Set<String> _verificationDismissedUserIds = <String>{};
+  final Map<String, List<LegalConsent>> _legalConsentsByUserId =
+      <String, List<LegalConsent>>{};
   String? _provisioningUserId;
   Future<void>? _provisioningFuture;
   bool _isSendingVerificationEmail = false;
@@ -58,9 +61,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     final userId = user.uid;
     final now = DateTime.now();
 
-    final legalConsents = RegistrationLegalConsentBuilder.buildLocalConsents(
-      userId: userId,
-    );
+    final legalConsents = _legalConsentsByUserId[userId] ?? const [];
 
     var baseState = AppUserState.localRegistered(
       userId: userId,
@@ -134,6 +135,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     setState(() {
       _onboardingCompletedUserIds.clear();
       _verificationDismissedUserIds.clear();
+      _legalConsentsByUserId.clear();
       _provisioningUserId = null;
       _provisioningFuture = null;
       _verificationMessage = null;
@@ -302,12 +304,8 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     }
     await _profileRepository.createProfileIfMissing(user);
     await _searchCreditRepository.createSearchCreditIfMissing(userId: user.uid);
-    await _legalConsentRepository.saveRegistrationConsents(
-      userId: user.uid,
-      consents: RegistrationLegalConsentBuilder.buildLocalConsents(
-        userId: user.uid,
-      ),
-    );
+    _legalConsentsByUserId[user.uid] = await _legalConsentRepository
+        .loadConsents(user.uid);
     final settings = await _userSettingsRepository.load(user.uid);
     AppRuntimePreferences.instance.apply(settings.appPreferences);
   }
@@ -366,11 +364,18 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           return _buildProvisioningError(user);
         }
 
+        final userState = _buildUserState(user);
+        if (!userState.hasRequiredLegalConsents) {
+          return LegalConsentRenewalScreen(
+            key: ValueKey('legal_consent_renewal_${user.uid}'),
+            onAccept: () => _acceptCurrentLegalConsents(user),
+            onLogout: _logout,
+          );
+        }
+
         if (_needsEmailVerificationNotice(user)) {
           return _buildEmailVerificationNotice(user);
         }
-
-        final userState = _buildUserState(user);
         final isOnboardingCompleted =
             userState.accountStatus.isOnboardingCompleted;
 
@@ -389,6 +394,21 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         );
       },
     );
+  }
+
+  Future<void> _acceptCurrentLegalConsents(User user) async {
+    await _legalConsentRepository.saveConsents(
+      userId: user.uid,
+      consents: RegistrationLegalConsentBuilder.buildLocalConsents(
+        userId: user.uid,
+      ),
+      source: 'renewal',
+    );
+    final consents = await _legalConsentRepository.loadConsents(user.uid);
+    if (!mounted) return;
+    setState(() {
+      _legalConsentsByUserId[user.uid] = consents;
+    });
   }
 
   Widget _buildProvisioningLoading() {

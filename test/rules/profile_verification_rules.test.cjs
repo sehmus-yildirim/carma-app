@@ -250,6 +250,9 @@ describe('profile verification Firestore rules', () => {
       status: 'received',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
+      retentionUntil: Timestamp.fromDate(
+        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      ),
     };
     await assertSucceeds(setDoc(
       doc(owner, 'users', ownerUserId, 'support_requests', 'support-1'),

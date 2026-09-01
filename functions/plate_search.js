@@ -252,6 +252,9 @@ async function reservePlateSearchProbe({
     `account_deletions/${requesterUserId}`,
   );
   const nowTimestamp = Timestamp.fromDate(now);
+  const metadataExpiresAt = Timestamp.fromDate(
+    new Date(now.getTime() + 2 * plateSearchWindowMs),
+  );
 
   await firestore.runTransaction(async (transaction) => {
     const requesterDeletionSnapshot = await transaction.get(
@@ -313,6 +316,7 @@ async function reservePlateSearchProbe({
       windowStartedAt: hasActiveWindow ? limit.windowStartedAt : nowTimestamp,
       searchCount,
       updatedAt: nowTimestamp,
+      expiresAt: metadataExpiresAt,
     }, {merge: true});
     transaction.set(probeReference, {
       requesterUserId,
@@ -320,6 +324,7 @@ async function reservePlateSearchProbe({
       plateHash: createHash("sha256").update(plateKey).digest("hex"),
       lastSearchedAt: nowTimestamp,
       updatedAt: nowTimestamp,
+      expiresAt: metadataExpiresAt,
     }, {merge: true});
     transaction.set(targetReference, {
       plateHash: createHash("sha256")
@@ -329,6 +334,7 @@ async function reservePlateSearchProbe({
         target.windowStartedAt : nowTimestamp,
       searchCount: targetSearchCount,
       updatedAt: nowTimestamp,
+      expiresAt: metadataExpiresAt,
     }, {merge: true});
   });
 }

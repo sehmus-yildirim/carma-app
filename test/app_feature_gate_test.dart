@@ -1,22 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plaqa/shared/domain/app_feature_gate.dart';
 import 'package:plaqa/shared/models/carisma_models.dart';
+import 'package:plaqa/features/auth/domain/registration_legal_consent_builder.dart';
 
 void main() {
   final timestamp = DateTime.utc(2026, 8, 27, 10);
 
   List<LegalConsent> requiredConsents(String userId) {
-    return LegalConsentType.values
-        .map(
-          (type) => LegalConsent(
-            id: type.name,
-            userId: userId,
-            type: type,
-            version: '1.0',
-            acceptedAt: timestamp,
-          ),
-        )
-        .toList();
+    return RegistrationLegalConsentBuilder.buildLocalConsents(
+      userId: userId,
+      acceptedAt: timestamp,
+    );
   }
 
   AppUserState state({
@@ -60,6 +54,22 @@ void main() {
     test('requires all legal consents before app access', () {
       final decision = AppFeatureGate.evaluate(
         userState: state(consents: const []),
+        feature: AppFeature.appAccess,
+      );
+
+      expect(decision.isAllowed, isFalse);
+      expect(decision.reason, contains('Nutzungsbedingungen'));
+    });
+
+    test('rejects a superseded legal text version', () {
+      final consents = requiredConsents('user-a');
+      final termsIndex = consents.indexWhere(
+        (consent) => consent.type == LegalConsentType.terms,
+      );
+      consents[termsIndex] = consents[termsIndex].copyWith(version: '1.0.0');
+
+      final decision = AppFeatureGate.evaluate(
+        userState: state(consents: consents),
         feature: AppFeature.appAccess,
       );
 

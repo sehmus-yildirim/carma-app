@@ -1,6 +1,6 @@
 # Legal-Pruefstellen-Inventar
 
-Stand: 2026-08-22
+Stand: 2026-09-01
 
 Dieses Inventar dokumentiert die fachliche Bereinigung der sichtbaren
 Rechts-Pruefmarker in plaqa. Es ersetzt keine Rechtsberatung. Aussagen wurden
@@ -52,8 +52,9 @@ tatsaechlichen Vorkommen.
 - Standort: keine Android-Berechtigung fuer Hintergrundstandort.
 - Kontakte: Auswahl ueber den System-Picker, kein pauschaler Zugriff auf das
   gesamte Adressbuch.
-- Push-Mitteilungen, Firebase Analytics, Crashlytics, Werbung, Tracking,
-  In-App-Kaeufe und Zahlungs-SDKs sind aktuell nicht aktiv eingebunden.
+- Push-Mitteilungen sind ueber Firebase Cloud Messaging aktiv eingebunden.
+  Firebase Analytics, Crashlytics, Werbung, Tracking, In-App-Kaeufe und
+  Zahlungs-SDKs sind aktuell nicht aktiv eingebunden.
 - Dokumentenverifizierung: Identitaetsdokument und Fahrzeugschein; kein
   Fuehrerschein und kein Selfie. Die geplante Dokumentbereinigung nach 30 Tagen
   muss vor Live-Freigabe deployt und getestet werden.
@@ -65,11 +66,11 @@ tatsaechlichen Vorkommen.
 
 ## Offene persoenliche Bestaetigungen
 
-Persoenliche Angaben bestaetigt am 22. August 2026:
+Persoenliche Angaben bestaetigt am 1. September 2026:
 
 | Thema | Bestaetigter Ist-Stand | Verbleibende Entscheidung | Sichtbarer Platzhalter | Release-Blocker |
 | --- | --- | --- | --- | --- |
-| Anschrift | `Bremer Strasse 254e, 21077 Hamburg` ist derzeit noch gueltig; der Umzug findet vor dem Release statt | Neue ladungsfaehige Anschrift nach dem Umzug bestaetigen und gleichzeitig in App, Impressum und Datenschutz aktualisieren | Nein | Ja |
+| Anschrift | `Bremer Strasse 254e, 21077 Hamburg` wurde aktuell bestaetigt | Ladungsfaehigkeit unmittelbar vor Release erneut bestaetigen | Nein | Ja |
 | Verbraucherstreitbeilegung | Das geplante Team bleibt zunaechst unter zehn Personen | Teilnahmebereitschaft und moegliche gesetzliche Verpflichtung rechtlich pruefen; nicht abschliessend entschieden | Nein | Ja |
 | Datenschutzbeauftragter | Geplant ist ein kleines Team mit weniger als 20 Personen; die genaue Teamgroesse steht noch nicht fest | Erforderlichkeit insbesondere wegen einer moeglichen Datenschutz-Folgenabschaetzung extern pruefen; nicht abschliessend entschieden | Nein | Ja |
 | Betreiberstatus | plaqa wird vorerst allein als Privatperson ohne bestaetigte Gesellschafts- oder Registerangaben betrieben | Status vor Release erneut kontrollieren und nur tatsaechlich vorhandene Rechtsform-, Register- oder Steuerangaben ergaenzen | Nein | Bei Aenderung des Status |
@@ -79,7 +80,7 @@ Fuer Datenschutzbeauftragten und Verbraucherstreitbeilegung gilt ausdruecklich:
 
 ## Extern rechtlich zu pruefen
 
-1. Anbieterkennzeichnung nach DDG, insbesondere nach Umzug oder Gruendung
+1. Anbieterkennzeichnung nach DDG, insbesondere bei Gruendung oder Aenderung
    (https://www.gesetze-im-internet.de/ddg/__5.html).
 2. AGB-Klauseln zu Haftung, Sperrung, Kuendigung, Aenderungen und Gerichtsstand.
 3. Rechtsgrundlagen und Verhaeltnismaessigkeit vollstaendiger Identitaets- und
