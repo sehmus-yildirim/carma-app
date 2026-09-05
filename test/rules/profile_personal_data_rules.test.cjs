@@ -7,7 +7,7 @@ const {
   assertSucceeds,
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
-const {doc, setDoc, updateDoc, writeBatch} = require('firebase/firestore');
+const {deleteField, doc, setDoc, updateDoc, writeBatch} = require('firebase/firestore');
 
 const projectId = 'carma-a84e4';
 const userId = 'personal-data-owner';
@@ -300,6 +300,85 @@ describe('personal profile data lock', () => {
     });
 
     await assertSucceeds(batch.commit());
+  });
+
+  test('login provisioning preserves server vehicle projection fields', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const privateReference = doc(owner, 'users', userId, 'profiles', 'main');
+    const publicReference = doc(owner, 'public_profiles', userId);
+    for (const verified of [false, true]) {
+      const status = verified ? 'verified' : 'unverified';
+      const basePublic = {...publicProfile(null), verificationStatus: status};
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'users', userId, 'profiles', 'main'),
+          {...privateProfile({locked: true}), verificationStatus: status},
+        );
+        await setDoc(doc(context.firestore(), 'public_profiles', userId), {
+          ...basePublic,
+          isVerified: verified,
+          plateDisplayLabel: verified ? 'HH-AB ****' : null,
+        });
+      });
+      const batch = writeBatch(owner);
+      batch.set(privateReference, {
+        email: 'owner@example.test',
+        photoUrl: null,
+        updatedAt: new Date(),
+      }, {merge: true});
+      batch.set(publicReference, basePublic, {merge: true});
+      await assertSucceeds(batch.commit());
+    }
+  });
+
+  test('owner cannot modify or delete server vehicle projection fields', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const reference = doc(owner, 'public_profiles', userId);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'users', userId, 'profiles', 'main'),
+        privateProfile(),
+      );
+      await setDoc(doc(context.firestore(), 'public_profiles', userId), {
+        ...publicProfile(null),
+        isVerified: false,
+        plateDisplayLabel: null,
+      });
+    });
+    for (const patch of [
+      {isVerified: true},
+      {isVerified: deleteField()},
+      {plateDisplayLabel: 'HH-AB 1234'},
+      {plateDisplayLabel: deleteField()},
+    ]) {
+      await assertFails(updateDoc(reference, {...patch, updatedAt: new Date()}));
+    }
+    const stranger = testEnv.authenticatedContext('another-owner').firestore();
+    await assertFails(updateDoc(doc(stranger, 'public_profiles', userId), {
+      publicBio: 'Foreign update',
+      updatedAt: new Date(),
+    }));
+  });
+
+  test('owner cannot initialize server vehicle projection fields', async () => {
+    const owner = testEnv.authenticatedContext(userId).firestore();
+    const reference = doc(owner, 'public_profiles', userId);
+    await setDoc(
+      doc(owner, 'users', userId, 'profiles', 'main'),
+      privateProfile(),
+    );
+    for (const patch of [
+      {isVerified: true},
+      {isVerified: false},
+      {isVerified: null},
+      {plateDisplayLabel: 'HH-AB 1234'},
+      {plateDisplayLabel: null},
+    ]) {
+      await assertFails(setDoc(reference, {...publicProfile(null), ...patch}));
+    }
+    await assertSucceeds(setDoc(reference, publicProfile(null)));
+    await assertFails(updateDoc(reference, {isVerified: false}));
+    await assertFails(updateDoc(reference, {plateDisplayLabel: null}));
   });
 
   test('public profile photo must use the owner canonical Storage path', async () => {

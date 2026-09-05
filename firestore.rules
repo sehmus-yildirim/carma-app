@@ -470,6 +470,8 @@ service cloud.firestore {
           'plateRegion',
           'plateLetters',
           'plateNumbers',
+          'isVerified',
+          'plateDisplayLabel',
           'profileViewCount',
           'profileViewedAt',
           'updatedAt',
@@ -521,6 +523,13 @@ service cloud.firestore {
           == resource.data.get('profileViewCount', null)
         && request.resource.data.get('profileViewedAt', null)
           == resource.data.get('profileViewedAt', null);
+    }
+
+    function keepsServerManagedPublicProfileFields() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'isVerified',
+        'plateDisplayLabel',
+      ]);
     }
 
     function isValidVehicleStatus(status) {
@@ -3865,9 +3874,12 @@ service cloud.firestore {
         && !request.resource.data.keys().hasAny([
           'profileViewCount',
           'profileViewedAt',
+          'isVerified',
+          'plateDisplayLabel',
         ]);
       allow update: if isValidPublicProfileWrite(userId)
-        && keepsProtectedProfileViewState();
+        && keepsProtectedProfileViewState()
+        && keepsServerManagedPublicProfileFields();
       allow delete: if false;
 
       match /vehicles/{vehicleId} {

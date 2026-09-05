@@ -49,12 +49,20 @@ async function processVehicleHeroImage(inputBuffer) {
 
   const pixels = Buffer.from(decoded.data);
   const alphaStats = alphaStatistics(pixels, width, height);
+  let backgroundKind = null;
   if (alphaStats.transparentRatio < 0.01) {
-    removeConnectedUniformBackground(pixels, width, height);
+    backgroundKind = removeConnectedUniformBackground(pixels, width, height);
   }
 
   let bounds = foregroundBounds(pixels, width, height);
   validateForeground(pixels, width, height, bounds);
+  const removedLightFloor = removeBroadLightFloor(pixels, width, bounds);
+  if (removedLightFloor && backgroundKind != null) {
+    // Ground may have enclosed key-colour pockets underneath the chassis.
+    removeConnectedUniformBackground(pixels, width, height);
+  }
+  removeChromaSpill(pixels, backgroundKind);
+  bounds = foregroundBounds(pixels, width, height);
   removeBroadOpaqueFloor(pixels, width, bounds);
   bounds = foregroundBounds(pixels, width, height);
   validateForeground(pixels, width, height, bounds);
@@ -180,7 +188,7 @@ function removeConnectedUniformBackground(pixels, width, height) {
     }
   }
   softenForegroundEdge(pixels, connected, width, height, background);
-  removeChromaSpill(pixels, backgroundKind);
+  return backgroundKind;
 }
 
 function borderMedianColour(pixels, width, height) {
@@ -301,6 +309,7 @@ function hasSafeBorderBackground(
 
 function isBackgroundPixel(pixels, pixelIndex, background, backgroundKind) {
   const offset = pixelIndex * 4;
+  if (pixels[offset + 3] <= 8) return true;
   const red = pixels[offset];
   const green = pixels[offset + 1];
   const blue = pixels[offset + 2];
@@ -321,12 +330,16 @@ function isBackgroundPixel(pixels, pixelIndex, background, backgroundKind) {
 
 function isChromaScreenColour(red, green, blue, background, backgroundKind) {
   const distance = colourDistance(red, green, blue, background);
+  // A soft neutral floor mixed with the key can be far from the border's RGB
+  // value while still lying on the same green/magenta-to-neutral colour axis.
+  const neutralKeyMixture = Math.abs(red - blue) <= 24;
   if (backgroundKind === "green") {
     return green >= 45 && green - red >= 22 && green - blue >= 22 &&
-      distance <= 155;
+      (distance <= 155 || neutralKeyMixture);
   }
   return red >= 45 && blue >= 45 &&
-    Math.min(red, blue) - green >= 22 && distance <= 155;
+    Math.min(red, blue) - green >= 22 &&
+    (distance <= 155 || neutralKeyMixture);
 }
 
 function removeChromaSpill(pixels, backgroundKind) {
@@ -503,6 +516,81 @@ function opaqueFloorDiagnostics(pixels, width, bounds) {
     opaqueRatio: opaquePixels / bounds.width,
     averageLuminance: luminanceTotal / opaquePixels,
   };
+}
+
+function removeBroadLightFloor(pixels, width, bounds) {
+  // Keying removes the backdrop, but generated white/grey ground can remain
+  // connected to the tires. Only remove shallow, broad ground components;
+  // anything continuing upward into the body or wheels is left untouched.
+  const top = bounds.top + Math.floor(bounds.height * 0.7);
+  const bottom = bounds.top + bounds.height - 1;
+  const regionHeight = bottom - top + 1;
+  const count = bounds.width * regionHeight;
+  const visited = new Uint8Array(count);
+  const queue = new Int32Array(count);
+  let removed = false;
+  const isLightGround = (index) => {
+    const x = bounds.left + index % bounds.width;
+    const y = top + Math.floor(index / bounds.width);
+    const offset = (y * width + x) * 4;
+    if (pixels[offset + 3] <= 8) return false;
+    const minimum = Math.min(
+      pixels[offset], pixels[offset + 1], pixels[offset + 2],
+    );
+    const maximum = Math.max(
+      pixels[offset], pixels[offset + 1], pixels[offset + 2],
+    );
+    return minimum >= 110 && maximum - minimum <= 40;
+  };
+
+  for (let seed = 0; seed < count; seed += 1) {
+    if (visited[seed]) continue;
+    visited[seed] = 1;
+    if (!isLightGround(seed)) continue;
+    let head = 0;
+    let tail = 1;
+    queue[0] = seed;
+    let left = bounds.width;
+    let right = -1;
+    let firstRow = regionHeight;
+    let lastRow = -1;
+    const enqueue = (index) => {
+      if (visited[index]) return;
+      visited[index] = 1;
+      if (isLightGround(index)) queue[tail++] = index;
+    };
+    while (head < tail) {
+      const index = queue[head++];
+      const x = index % bounds.width;
+      const y = Math.floor(index / bounds.width);
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      firstRow = Math.min(firstRow, y);
+      lastRow = Math.max(lastRow, y);
+      if (x > 0) enqueue(index - 1);
+      if (x + 1 < bounds.width) enqueue(index + 1);
+      if (y > 0) enqueue(index - bounds.width);
+      if (y + 1 < regionHeight) enqueue(index + bounds.width);
+    }
+
+    const componentWidth = right - left + 1;
+    const componentHeight = lastRow - firstRow + 1;
+    if (firstRow === 0 ||
+        lastRow < regionHeight - 1 - Math.max(2, bounds.height * 0.02) ||
+        componentWidth < bounds.width * 0.48 ||
+        componentHeight > bounds.height * 0.24 ||
+        componentWidth / componentHeight < 4 ||
+        tail < componentWidth * componentHeight * 0.2) {
+      continue;
+    }
+    for (let index = 0; index < tail; index += 1) {
+      const x = bounds.left + queue[index] % bounds.width;
+      const y = top + Math.floor(queue[index] / bounds.width);
+      pixels[(y * width + x) * 4 + 3] = 0;
+    }
+    removed = true;
+  }
+  return removed;
 }
 
 function removeBroadOpaqueFloor(pixels, width, bounds) {

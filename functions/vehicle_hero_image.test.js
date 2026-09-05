@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const path = require("node:path");
+const fs = require("node:fs/promises");
 const sharp = require("sharp");
 
 const {
@@ -241,3 +242,123 @@ test("removes a wide opaque floor shadow beneath the vehicle", async () => {
   }
   assert.ok(opaquePixels / vehicleBounds.width <= 0.34);
 });
+
+async function referenceWithFloor({
+  colour, alpha = 1, background = null, ellipse = false,
+}) {
+  const reference = path.join(
+    __dirname, "..", "assets", "images", "debug_bmw_x6_m50d.png",
+  );
+  const car = await sharp(reference).ensureAlpha().png().toBuffer();
+  let floor = await sharp({
+    create: {
+      width: 1600,
+      height: 100,
+      channels: 4,
+      background: {r: colour, g: colour, b: colour, alpha},
+    },
+  }).png().toBuffer();
+  if (ellipse) {
+    const pixels = Buffer.alloc(1600 * 100 * 4);
+    for (let y = 0; y < 100; y += 1) {
+      for (let x = 0; x < 1600; x += 1) {
+        const radius = ((x - 800) / 800) ** 2 + ((y - 50) / 50) ** 2;
+        const offset = (y * 1600 + x) * 4;
+        const shade = Math.round(colour + (246 - colour) * Math.min(1, radius));
+        pixels.fill(shade, offset, offset + 3);
+        pixels[offset + 3] = Math.round(255 * alpha *
+          Math.max(0, Math.min(1, (1 - radius) / 0.15)));
+      }
+    }
+    floor = await sharp(pixels, {
+      raw: {width: 1600, height: 100, channels: 4},
+    }).png().toBuffer();
+  }
+  const input = await sharp({
+    create: {
+      width: outputWidth,
+      height: outputHeight,
+      channels: 4,
+      background: background ?? {r: 0, g: 0, b: 0, alpha: 0},
+    },
+  }).composite([
+    {input: floor, left: 36, top: 775},
+    {input: car, left: 0, top: 0},
+  ]).png().toBuffer();
+  const cleanInput = background == null ? car : await sharp({
+    create: {
+      width: outputWidth, height: outputHeight, channels: 4, background,
+    },
+  }).composite([{input: car, left: 0, top: 0}]).png().toBuffer();
+  return {input, cleanInput};
+}
+
+for (const [name, colour, alpha, background, ellipse] of [
+  ["white", 246, 1, null],
+  ["grey", 160, 1, null],
+  ["translucent white", 246, 0.45, null],
+  ["white on chroma green", 246, 1, {r: 0, g: 255, b: 0, alpha: 1}],
+  ["white on chroma magenta", 246, 1, {r: 255, g: 0, b: 255, alpha: 1}],
+  ["soft oval grey", 150, 1, null, true],
+  ["soft oval on chroma", 150, 1, {r: 0, g: 255, b: 0, alpha: 1}, true],
+]) {
+  test(`removes a ${name} floor touching the BMW tires`, async () => {
+    const {input, cleanInput} = await referenceWithFloor({
+      colour, alpha, background, ellipse,
+    });
+    const output = await processVehicleHeroImage(input);
+    const expected = await processVehicleHeroImage(cleanInput);
+    if (process.env.VEHICLE_HERO_QA_DIR) {
+      const directory = path.resolve(process.env.VEHICLE_HERO_QA_DIR);
+      await fs.mkdir(directory, {recursive: true});
+      for (const [stage, buffer] of [["before", input], ["after", output],
+        ["reference", expected]]) {
+        await sharp(buffer).flatten({background: "#132438"}).png().toFile(
+          path.join(directory, `${name.replaceAll(" ", "-")}-${stage}.png`),
+        );
+      }
+    }
+    const actualPixels = await sharp(output).raw().toBuffer();
+    const expectedPixels = await sharp(expected).raw().toBuffer();
+    let extraAlpha = 0;
+    let lostAlpha = 0;
+    let vehiclePixels = 0;
+    for (let offset = 3; offset < actualPixels.length; offset += 4) {
+      if (expectedPixels[offset] > 128) vehiclePixels += 1;
+      extraAlpha += Math.max(0, actualPixels[offset] - expectedPixels[offset]);
+      lostAlpha += Math.max(0, expectedPixels[offset] - actualPixels[offset]);
+    }
+    // Compare the complete silhouette against the same backdrop without floor.
+    assert.ok(extraAlpha / (255 * vehiclePixels) < 0.003,
+      `Extra foreground: ${extraAlpha / (255 * vehiclePixels)}`);
+    assert.ok(lostAlpha / (255 * vehiclePixels) < 0.003,
+      `Lost vehicle foreground: ${lostAlpha / (255 * vehiclePixels)}`);
+  });
+}
+
+for (const colour of ["#fafafa", "#a8a8a8"]) {
+  test(`preserves a ${colour} vehicle body, low sill and tires`, async () => {
+    const input = await sharp(Buffer.from(`<svg width="900" height="600"
+      xmlns="http://www.w3.org/2000/svg">
+      <path fill="${colour}" d="M150 430V280H250L340 180H540L630 280H750V430Z"/>
+      <rect x="150" y="425" width="600" height="40" rx="8" fill="${colour}"/>
+      <circle cx="280" cy="430" r="65" fill="#151515"/>
+      <circle cx="630" cy="430" r="65" fill="#151515"/>
+      <circle cx="280" cy="430" r="38" fill="#ccc"/>
+      <circle cx="630" cy="430" r="38" fill="#ccc"/>
+      </svg>`)).png().toBuffer();
+    const trimmed = await sharp(input).trim({threshold: 0}).png().toBuffer();
+    const expected = await sharp(trimmed).resize({
+      width: vehicleBounds.width, height: vehicleBounds.height,
+      fit: "contain", background: {r: 0, g: 0, b: 0, alpha: 0},
+    }).raw().toBuffer();
+    const output = await processVehicleHeroImage(input);
+    const actual = await sharp(output).extract(vehicleBounds).raw().toBuffer();
+    let alphaDifference = 0;
+    for (let offset = 3; offset < actual.length; offset += 4) {
+      alphaDifference += Math.abs(actual[offset] - expected[offset]);
+    }
+    assert.ok(alphaDifference / (255 * vehicleBounds.width * vehicleBounds.height)
+      < 0.01, "Light vehicle parts must not be removed as ground.");
+  });
+}
