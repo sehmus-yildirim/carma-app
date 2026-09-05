@@ -116,12 +116,10 @@ ImageQualityResult _inspectVerificationImage(
   if (sharpness < minimumSharpness && contrast < 24) {
     failures.add(ImageQualityFailure.blurry);
   }
-  failures.addAll(
-    _analyzeDocumentFrame(
-      luminance,
-      width: sampled.width,
-      height: sampled.height,
-    ),
+  final framingHints = _analyzeDocumentFrame(
+    luminance,
+    width: sampled.width,
+    height: sampled.height,
   );
   return ImageQualityResult(
     width: originalWidth,
@@ -130,6 +128,7 @@ ImageQualityResult _inspectVerificationImage(
     contrast: contrast,
     sharpness: sharpness,
     failures: failures,
+    framingHints: framingHints,
   );
 }
 

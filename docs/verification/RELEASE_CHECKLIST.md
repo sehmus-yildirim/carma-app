@@ -1,6 +1,14 @@
 # Release-Checkliste Verifizierung V1
 
-## Lokale Gates
+## Aktuelle OCR-Nachbesserung
+
+Der historische Gate-Nachweis unten ist keine erneute Abnahme der Aenderungen
+vom 2026-09-05. Aktueller Stand und offene echte Dokumenttests:
+[OCR-Reparaturprotokoll](../qa/VERIFICATION_OCR_REPAIR_2026-09-05.md).
+Insbesondere beweisen synthetische Tests keine zuverlaessige Erkennung aller
+realen Ausweise oder Fahrzeugscheine.
+
+## Historischer lokaler Gate-Nachweis
 
 - [x] Formatcheck gruen
 - [x] `flutter analyze` gruen
@@ -39,6 +47,7 @@ auf dem Redmi installiert und gestartet.
 3. Tap-to-focus und Blitz testen.
 4. App waehrend Live-Kamera und Verarbeitung in Hintergrund/Vordergrund.
 5. Capture, Preview, Neu aufnehmen und Foto verwenden.
-6. Unscharf, dunkel, zu hell und abgeschnitten kontrolliert ablehnen.
+6. Unscharf, dunkel und zu hell kontrolliert ablehnen. Randvermutungen allein
+   duerfen lesbare Daten nicht blockieren; fehlende Pflichtfelder schon.
 7. OCR-Erfolg, Retry, Halter und Nicht-Halter bis zum Abschluss.
 8. Temp-Verzeichnis nach Erfolg, Fehler und Abbruch kontrollieren.

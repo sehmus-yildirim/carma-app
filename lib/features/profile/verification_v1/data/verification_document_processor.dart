@@ -46,7 +46,29 @@ class VerificationDocumentProcessor {
         throw VerificationDocumentProcessingException(quality.userMessage);
       }
       final blocks = await ocrService.recognize(managedPath);
-      final parsed = parser(blocks);
+      var parsed = parser(blocks);
+      final recovery = ocrService;
+      bool mayRetry(VerificationParseResult<T> result) =>
+          result.data == null &&
+          result.failure != VerificationParseFailure.ambiguousField &&
+          result.failure != VerificationParseFailure.conflictingMrz;
+      if (mayRetry(parsed) && recovery is RecoverableDocumentOcrService) {
+        for (var attempt = 0; attempt < 4; attempt += 1) {
+          final alternative = await recovery.recognizeRecovery(
+            managedPath,
+            attempt,
+          );
+          final retried = parser(alternative);
+          if (retried.data != null) {
+            parsed = retried;
+            break;
+          }
+          if (!mayRetry(retried)) {
+            parsed = retried;
+            break;
+          }
+        }
+      }
       final data = parsed.data;
       if (data == null) {
         throw VerificationDocumentProcessingException(

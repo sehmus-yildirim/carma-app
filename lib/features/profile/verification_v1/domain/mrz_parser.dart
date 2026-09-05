@@ -29,7 +29,12 @@ class MrzParser {
     List<OcrBlock> blocks, {
     required List<MrzFormat> allowedFormats,
   }) {
-    final lines = _normalizedLines(blocks);
+    final ordered = blocks.indexed.toList()
+      ..sort((a, b) {
+        final byTop = a.$2.bounds.top.compareTo(b.$2.bounds.top);
+        return byTop == 0 ? a.$1.compareTo(b.$1) : byTop;
+      });
+    final lines = _normalizedLines(ordered.map((entry) => entry.$2).toList());
     VerificationParseResult<MrzData>? rejectedCandidate;
     for (final format in allowedFormats) {
       final candidate = switch (format) {
@@ -140,6 +145,7 @@ class MrzParser {
   }
 
   static ({String firstNames, String lastName})? _parseNames(String raw) {
+    if (!RegExp(r'^[A-Z<]+$').hasMatch(raw)) return null;
     final parts = raw.split('<<');
     if (parts.length < 2) return null;
     final lastName = _readableMrzName(parts.first);
@@ -160,7 +166,7 @@ class MrzParser {
               .replaceAll('«', '<')
               .replaceAll(RegExp(r'[^A-Z0-9<]'), ''),
         )
-        .where((line) => line.length >= 30)
+        .where((line) => line.length >= 15)
         .toList(growable: false);
   }
 
@@ -173,9 +179,34 @@ class MrzParser {
       final candidate = lines
           .skip(index)
           .take(count)
-          .map((line) => line.length >= length ? line.substring(0, length) : '')
+          .indexed
+          .map((entry) {
+            final row = entry.$1;
+            final line = entry.$2;
+            if (line.length == length) return line;
+            if (line.length > length) return '';
+            final namesRow = count == 3 ? row == 2 : row == 0;
+            // ML Kit often omits repeated terminal fillers. Never reconstruct
+            // name characters: a visible double filler must already end the name.
+            if (namesRow) {
+              final names = count == 3 ? line : line.substring(5);
+              if (!line.endsWith('<<') || _parseNames(names) == null) return '';
+            } else {
+              // Only the four permitted fields are extracted, not optional MRZ
+              // data. DOB, expiry and their check digits must be fully present.
+              final requiredLength = count == 3 ? 15 : 28;
+              if (line.length < requiredLength) return '';
+            }
+            return line.padRight(length, '<');
+          })
           .toList(growable: false);
-      if (candidate.every((line) => line.length == length)) return candidate;
+      final prefix = length == 44
+          ? RegExp(r'^P[A-Z<]')
+          : RegExp(r'^[IAC][A-Z<]');
+      if (candidate.every((line) => line.length == length) &&
+          prefix.hasMatch(candidate.first)) {
+        return candidate;
+      }
     }
     return null;
   }

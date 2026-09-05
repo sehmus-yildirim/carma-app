@@ -582,62 +582,66 @@ void main() {
       );
     });
 
-    test('rejects clear document framing geometry failures', () async {
-      final service = LocalImageQualityService(
-        minimumLongEdge: 100,
-        minimumShortEdge: 80,
-        minimumSharpness: 0.1,
-      );
-      final good = await _writeDocumentPolygon(root, 'good-frame.png', [
-        image.Point(45, 45),
-        image.Point(355, 45),
-        image.Point(355, 255),
-        image.Point(45, 255),
-      ]);
-      final small = await _writeDocumentPolygon(root, 'small-frame.png', [
-        image.Point(150, 110),
-        image.Point(250, 110),
-        image.Point(250, 190),
-        image.Point(150, 190),
-      ]);
-      final cropped = await _writeDocumentPolygon(root, 'cropped-frame.png', [
-        image.Point(0, 45),
-        image.Point(355, 45),
-        image.Point(355, 255),
-        image.Point(0, 255),
-      ]);
-      final rotated = await _writeDocumentPolygon(root, 'rotated-frame.png', [
-        image.Point(80, 20),
-        image.Point(360, 120),
-        image.Point(320, 280),
-        image.Point(40, 180),
-      ]);
-      final perspective =
-          await _writeDocumentPolygon(root, 'perspective-frame.png', [
-            image.Point(100, 45),
-            image.Point(300, 45),
-            image.Point(370, 260),
-            image.Point(30, 260),
-          ]);
+    test(
+      'reports framing hints without vetoing OCR from image edges alone',
+      () async {
+        final service = LocalImageQualityService(
+          minimumLongEdge: 100,
+          minimumShortEdge: 80,
+          minimumSharpness: 0.1,
+        );
+        final good = await _writeDocumentPolygon(root, 'good-frame.png', [
+          image.Point(45, 45),
+          image.Point(355, 45),
+          image.Point(355, 255),
+          image.Point(45, 255),
+        ]);
+        final small = await _writeDocumentPolygon(root, 'small-frame.png', [
+          image.Point(150, 110),
+          image.Point(250, 110),
+          image.Point(250, 190),
+          image.Point(150, 190),
+        ]);
+        final cropped = await _writeDocumentPolygon(root, 'cropped-frame.png', [
+          image.Point(0, 45),
+          image.Point(355, 45),
+          image.Point(355, 255),
+          image.Point(0, 255),
+        ]);
+        final rotated = await _writeDocumentPolygon(root, 'rotated-frame.png', [
+          image.Point(80, 20),
+          image.Point(360, 120),
+          image.Point(320, 280),
+          image.Point(40, 180),
+        ]);
+        final perspective =
+            await _writeDocumentPolygon(root, 'perspective-frame.png', [
+              image.Point(100, 45),
+              image.Point(300, 45),
+              image.Point(370, 260),
+              image.Point(30, 260),
+            ]);
 
-      expect((await service.inspect(good.path)).failures, isEmpty);
-      expect(
-        (await service.inspect(small.path)).failures,
-        contains(ImageQualityFailure.documentTooSmall),
-      );
-      expect(
-        (await service.inspect(cropped.path)).failures,
-        contains(ImageQualityFailure.documentCropped),
-      );
-      expect(
-        (await service.inspect(rotated.path)).failures,
-        contains(ImageQualityFailure.documentRotated),
-      );
-      expect(
-        (await service.inspect(perspective.path)).failures,
-        contains(ImageQualityFailure.perspectiveDistortion),
-      );
-    });
+        expect((await service.inspect(good.path)).failures, isEmpty);
+        expect(
+          (await service.inspect(small.path)).framingHints,
+          contains(ImageQualityFailure.documentTooSmall),
+        );
+        expect(
+          (await service.inspect(cropped.path)).framingHints,
+          contains(ImageQualityFailure.documentCropped),
+        );
+        expect(
+          (await service.inspect(rotated.path)).framingHints,
+          contains(ImageQualityFailure.documentRotated),
+        );
+        expect(
+          (await service.inspect(perspective.path)).framingHints,
+          contains(ImageQualityFailure.perspectiveDistortion),
+        );
+        expect((await service.inspect(cropped.path)).isAcceptable, isTrue);
+      },
+    );
 
     test(
       'adopts captures and removes source plus managed temporary files',
@@ -686,6 +690,36 @@ void main() {
         returnsNormally,
       );
     });
+
+    test(
+      'capture cleanup removes temporary copies but preserves original files',
+      () async {
+        final cached = await _writeSolid(root, 'picker-copy.png', 20, 20, 120);
+        await LocalVerificationTemporaryFileService.discardCaptureSource(
+          cached.path,
+        );
+        expect(await cached.exists(), isFalse);
+
+        final originalRoot = await Directory(
+          '${Directory.current.path}/build',
+        ).createTemp('verification-original-');
+        try {
+          final original = await _writeSolid(
+            originalRoot,
+            'original.png',
+            20,
+            20,
+            120,
+          );
+          await LocalVerificationTemporaryFileService.discardCaptureSource(
+            original.path,
+          );
+          expect(await original.exists(), isTrue);
+        } finally {
+          await originalRoot.delete(recursive: true);
+        }
+      },
+    );
 
     test('rejects oversized verification source images', () {
       expect(

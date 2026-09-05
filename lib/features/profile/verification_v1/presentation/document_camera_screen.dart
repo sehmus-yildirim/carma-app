@@ -330,31 +330,38 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final size = constraints.biggest;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (details) => _setFocus(details.localPosition, size),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRect(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  child: SizedBox(
-                    width: controller.value.previewSize?.height ?? size.width,
-                    height: controller.value.previewSize?.width ?? size.height,
-                    child: CameraPreview(controller),
+        final landscape =
+            MediaQuery.orientationOf(context) == Orientation.landscape;
+        final preview = controller.value.previewSize!;
+        final ratio = landscape
+            ? preview.width / preview.height
+            : preview.height / preview.width;
+        return Center(
+          child: AspectRatio(
+            aspectRatio: ratio,
+            child: LayoutBuilder(
+              builder: (context, previewConstraints) {
+                final size = previewConstraints.biggest;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) =>
+                      _setFocus(details.localPosition, size),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CameraPreview(controller),
+                      _DocumentOverlay(kind: widget.kind),
+                      if (_focusPoint != null)
+                        Positioned(
+                          left: _focusPoint!.dx - 22,
+                          top: _focusPoint!.dy - 22,
+                          child: const _FocusIndicator(),
+                        ),
+                    ],
                   ),
-                ),
-              ),
-              _DocumentOverlay(kind: widget.kind),
-              if (_focusPoint != null)
-                Positioned(
-                  left: _focusPoint!.dx - 22,
-                  top: _focusPoint!.dy - 22,
-                  child: const _FocusIndicator(),
-                ),
-            ],
+                );
+              },
+            ),
           ),
         );
       },
@@ -362,15 +369,7 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
   }
 
   Widget _buildCapturedPreview(String path) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.file(File(path), fit: BoxFit.contain, gaplessPlayback: true),
-        IgnorePointer(
-          child: _DocumentOverlay(kind: widget.kind, preview: true),
-        ),
-      ],
-    );
+    return Image.file(File(path), fit: BoxFit.contain, gaplessPlayback: true);
   }
 
   String get _title => switch (widget.kind) {
@@ -379,7 +378,7 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
       'Zulassungsbescheinigung Teil I',
     VerificationDocumentKind.identityCard => 'Personalausweis · Vorderseite',
     VerificationDocumentKind.residencePermit =>
-      'Aufenthaltstitel · Vorderseite',
+      'Aufenthaltstitel · Vorderseite oder Codezeilen',
   };
 
   static Future<void> _deleteFile(String path) async {
@@ -446,16 +445,15 @@ class _CameraHeader extends StatelessWidget {
 }
 
 class _DocumentOverlay extends StatelessWidget {
-  const _DocumentOverlay({required this.kind, this.preview = false});
+  const _DocumentOverlay({required this.kind});
 
   final VerificationDocumentKind kind;
-  final bool preview;
 
   @override
   Widget build(BuildContext context) {
     final ratio = switch (kind) {
       VerificationDocumentKind.passport => 1.42,
-      VerificationDocumentKind.vehicleRegistration => 1.414,
+      VerificationDocumentKind.vehicleRegistration => 210 / 106,
       VerificationDocumentKind.identityCard ||
       VerificationDocumentKind.residencePermit => 1.586,
     };
@@ -472,7 +470,7 @@ class _DocumentOverlay extends StatelessWidget {
           children: [
             ColorFiltered(
               colorFilter: ColorFilter.mode(
-                Colors.black.withValues(alpha: preview ? 0.18 : 0.48),
+                Colors.black.withValues(alpha: 0.48),
                 BlendMode.srcOut,
               ),
               child: Stack(
@@ -502,21 +500,20 @@ class _DocumentOverlay extends StatelessWidget {
                 ),
               ),
             ),
-            if (!preview)
-              const Positioned(
-                left: 24,
-                right: 24,
-                bottom: 24,
-                child: Text(
-                  'Dokument vollständig innerhalb des Rahmens platzieren',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+            const Positioned(
+              left: 24,
+              right: 24,
+              bottom: 24,
+              child: Text(
+                'Dokument vollständig innerhalb des Rahmens platzieren',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+            ),
           ],
         );
       },

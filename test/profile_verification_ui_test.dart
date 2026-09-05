@@ -73,7 +73,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Aufenthaltstitel').last);
     await tester.pumpAndSettle();
-    expect(find.text('Vorderseite fotografieren'), findsOneWidget);
+    expect(find.text('Aufenthaltstitel fotografieren'), findsOneWidget);
   });
 
   testWidgets('requires an existing vehicle before a registration scan', (

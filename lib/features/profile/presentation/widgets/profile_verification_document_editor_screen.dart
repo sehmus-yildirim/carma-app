@@ -127,11 +127,12 @@ class _ProfileVerificationDocumentEditorScreenState
     }
 
     setState(() => _isSaving = true);
+    File? pendingOutput;
     try {
       final logicalWidth = renderObject.size.width;
       final pixelRatio = logicalWidth <= 0
           ? 3.0
-          : (2400 / logicalWidth).clamp(1.0, 4.0).toDouble();
+          : (2400 / logicalWidth).clamp(1.0, 10.0).toDouble();
       final rendered = await renderObject.toImage(pixelRatio: pixelRatio);
       final pngData = await rendered.toByteData(format: ui.ImageByteFormat.png);
       rendered.dispose();
@@ -143,6 +144,7 @@ class _ProfileVerificationDocumentEditorScreenState
         '${outputRoot.path}${Platform.pathSeparator}'
         'plaqa_verification_${DateTime.now().microsecondsSinceEpoch}.png',
       );
+      pendingOutput = output;
       await output.writeAsBytes(
         pngData.buffer.asUint8List(
           pngData.offsetInBytes,
@@ -150,14 +152,24 @@ class _ProfileVerificationDocumentEditorScreenState
         ),
         flush: true,
       );
-      if (!mounted) return;
+      if (!mounted) {
+        await output.delete();
+        return;
+      }
       Navigator.of(context).pop(XFile(output.path));
+      pendingOutput = null;
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSaving = false);
       _showError(
         'Der Nachweis konnte nicht vorbereitet werden. Bitte versuche es erneut.',
       );
+    } finally {
+      if (pendingOutput != null) {
+        await LocalVerificationTemporaryFileService.discardCaptureSource(
+          pendingOutput.path,
+        );
+      }
     }
   }
 
@@ -287,7 +299,7 @@ class _ProfileVerificationDocumentEditorScreenState
 
   double get _documentRatio => switch (widget.kind) {
     VerificationDocumentKind.passport => 1.42,
-    VerificationDocumentKind.vehicleRegistration => 1.414,
+    VerificationDocumentKind.vehicleRegistration => 210 / 106,
     VerificationDocumentKind.identityCard ||
     VerificationDocumentKind.residencePermit => 1.586,
   };
@@ -321,11 +333,9 @@ class _ProfileVerificationDocumentEditorScreenState
     final visibleRatio = rotated ? 1 / sourceRatio : sourceRatio;
     final frameRatio = width / height;
     final imageWidth = visibleRatio >= frameRatio
-        ? height * visibleRatio
-        : width;
-    final imageHeight = visibleRatio >= frameRatio
-        ? height
-        : width / visibleRatio;
+        ? width
+        : height * visibleRatio;
+    final imageHeight = imageWidth / visibleRatio;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -339,7 +349,7 @@ class _ProfileVerificationDocumentEditorScreenState
             child: InteractiveViewer(
               transformationController: _transformationController,
               constrained: false,
-              minScale: 1,
+              minScale: 0.5,
               maxScale: 5,
               boundaryMargin: EdgeInsets.all(math.max(width, height)),
               panEnabled: true,
@@ -348,18 +358,24 @@ class _ProfileVerificationDocumentEditorScreenState
               scaleFactor: 120,
               alignment: Alignment.center,
               child: SizedBox(
-                width: imageWidth,
-                height: imageHeight,
-                child: RotatedBox(
-                  quarterTurns: _quarterTurns,
+                width: width,
+                height: height,
+                child: Center(
                   child: SizedBox(
-                    width: rotated ? imageHeight : imageWidth,
-                    height: rotated ? imageWidth : imageHeight,
-                    child: Image.file(
-                      File(widget.sourceFile.path),
-                      fit: BoxFit.fill,
-                      filterQuality: FilterQuality.high,
-                      gaplessPlayback: true,
+                    width: imageWidth,
+                    height: imageHeight,
+                    child: RotatedBox(
+                      quarterTurns: _quarterTurns,
+                      child: SizedBox(
+                        width: rotated ? imageHeight : imageWidth,
+                        height: rotated ? imageWidth : imageHeight,
+                        child: Image.file(
+                          File(widget.sourceFile.path),
+                          fit: BoxFit.fill,
+                          filterQuality: FilterQuality.high,
+                          gaplessPlayback: true,
+                        ),
+                      ),
                     ),
                   ),
                 ),

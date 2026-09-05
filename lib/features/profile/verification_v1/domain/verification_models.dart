@@ -6,7 +6,7 @@ enum VerificationIdentityDocumentType {
   residencePermit(
     'residence_permit',
     'Aufenthaltstitel',
-    'Vorderseite fotografieren',
+    'Aufenthaltstitel fotografieren',
   );
 
   const VerificationIdentityDocumentType(
@@ -299,6 +299,7 @@ class ImageQualityResult {
     required this.contrast,
     required this.sharpness,
     this.failures = const <ImageQualityFailure>[],
+    this.framingHints = const <ImageQualityFailure>[],
   });
 
   final int width;
@@ -307,10 +308,16 @@ class ImageQualityResult {
   final double contrast;
   final double sharpness;
   final List<ImageQualityFailure> failures;
+  // Image edges alone do not prove where a document ends. These observations
+  // must not reject legible, tightly cropped documents before OCR runs.
+  final List<ImageQualityFailure> framingHints;
 
   bool get isAcceptable => failures.isEmpty;
 
   String get userMessage {
+    if (failures.contains(ImageQualityFailure.tooSmall)) {
+      return 'Die Bildauflösung ist zu niedrig. Bitte verwende das Originalfoto oder nimm ein neues Foto auf.';
+    }
     if (failures.contains(ImageQualityFailure.tooDark)) {
       return 'Das Foto ist zu dunkel. Bitte nutze mehr Licht oder den Blitz.';
     }

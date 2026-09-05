@@ -40,6 +40,11 @@ abstract interface class DocumentOcrService {
   Future<void> close();
 }
 
+abstract interface class RecoverableDocumentOcrService
+    implements DocumentOcrService {
+  Future<List<OcrBlock>> recognizeRecovery(String imagePath, int attempt);
+}
+
 abstract interface class ImageQualityService {
   Future<ImageQualityResult> inspect(String imagePath);
 }
@@ -52,12 +57,43 @@ abstract interface class VerificationTemporaryFileService {
   Future<void> cleanupOrphans();
 }
 
-class MlKitDocumentOcrService implements DocumentOcrService {
+class MlKitDocumentOcrService implements RecoverableDocumentOcrService {
   MlKitDocumentOcrService({TextRecognizer? recognizer})
     : _recognizer =
           recognizer ?? TextRecognizer(script: TextRecognitionScript.latin);
 
   final TextRecognizer _recognizer;
+
+  @override
+  Future<List<OcrBlock>> recognizeRecovery(
+    String imagePath,
+    int attempt,
+  ) async {
+    if (attempt < 0 || attempt > 3) throw RangeError.range(attempt, 0, 3);
+    final input = File(imagePath);
+    // Each alternate image remains beside the managed original and is removed
+    // even if native OCR fails. No OCR text or document image is uploaded.
+    final temporary = File(
+      '${input.parent.path}/ocr_retry_${DateTime.now().microsecondsSinceEpoch}.jpg',
+    );
+    try {
+      final bytes = await input.readAsBytes();
+      final prepared = await Isolate.run(() {
+        final decoded = image.decodeImage(bytes);
+        if (decoded == null) {
+          throw const FormatException('Ungültige Bilddaten.');
+        }
+        final variant = attempt == 3
+            ? image.adjustColor(image.grayscale(decoded), contrast: 1.25)
+            : image.copyRotate(decoded, angle: const [90, 270, 180][attempt]);
+        return image.encodeJpg(variant, quality: 95);
+      });
+      await temporary.writeAsBytes(prepared, flush: true);
+      return await recognize(temporary.path);
+    } finally {
+      if (await temporary.exists()) await temporary.delete();
+    }
+  }
 
   @override
   Future<List<OcrBlock>> recognize(String imagePath) async {
@@ -146,8 +182,29 @@ class LocalVerificationTemporaryFileService
     return _isWithinDirectory(path, _root);
   }
 
-  bool _isSystemTemporaryPath(String path) =>
-      _isWithinDirectory(path, Directory.systemTemp);
+  bool _isSystemTemporaryPath(String path) => _isCaptureCachePath(path);
+
+  static bool _isCaptureCachePath(String path) =>
+      _isWithinDirectory(path, Directory.systemTemp) ||
+      // Dart uses code_cache on Android; the camera/image-picker plugins use
+      // the sibling private cache. Neither is the user's public photo gallery.
+      (Platform.isAndroid &&
+          Directory.systemTemp.path.endsWith('/code_cache') &&
+          _isWithinDirectory(
+            path,
+            Directory('${Directory.systemTemp.parent.path}/cache'),
+          ));
+
+  static Future<void> discardCaptureSource(String path) async {
+    final file = File(path);
+    try {
+      if (!await file.exists()) return;
+      final resolved = await file.resolveSymbolicLinks();
+      if (_isCaptureCachePath(resolved)) await _deleteFile(File(resolved));
+    } on FileSystemException {
+      // Cancellation must not turn a private-cache cleanup failure into a crash.
+    }
+  }
 
   static bool _isWithinDirectory(String path, Directory directory) {
     final normalizedRoot = _normalizePath(directory.absolute.path);

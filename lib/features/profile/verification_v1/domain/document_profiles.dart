@@ -324,7 +324,7 @@ abstract final class DocumentProfileRegistry {
     documentKind: VerificationDocumentKind.residencePermit,
     identityDocumentType: VerificationIdentityDocumentType.residencePermit,
     documentVersion: 'de_eat_card_family_v1',
-    supportedSides: [DocumentSide.front],
+    supportedSides: [DocumentSide.front, DocumentSide.back],
     languages: ['de', 'en', 'fr'],
     scripts: [DocumentScript.latin],
     anchors: _germanIdentityAnchors,
@@ -339,6 +339,7 @@ abstract final class DocumentProfileRegistry {
     status: DocumentProfileStatus.implementedNeedsRealValidation,
     sourceReferences: [
       'https://www.consilium.europa.eu/prado/en/prado-documents/deu/h/docs-per-category.html',
+      'https://www.bamf.de/SharedDocs/Anlagen/DE/MigrationAufenthalt/ElektronischerAufenthalt/broschuere-eat-a4.pdf',
       icaoSource,
     ],
   );
@@ -462,6 +463,12 @@ abstract final class DocumentProfileRegistry {
         "Gültig bis/Date of expiry/Date d'expiration",
         'Gültig bis/Date of expiry/Date d expiration',
         'Expiry',
+        'Karte gültig bis',
+        'Karte gultig bis',
+        'Card expiry',
+        'Card expires',
+        'Karte gültig bis/Card expiry',
+        'Karte gultig bis/Card expiry',
       ],
     ),
   ];

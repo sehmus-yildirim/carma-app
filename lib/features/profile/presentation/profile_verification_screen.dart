@@ -237,7 +237,9 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
     return _StepCard(
       title: 'Identität bestätigen',
       subtitle:
-          'Nur die Vorderseite beziehungsweise Datenseite wird lokal gelesen.',
+          _documentType == VerificationIdentityDocumentType.residencePermit
+          ? 'Vorderseite oder Rückseite mit den drei Codezeilen. Die Aufnahme wird nur lokal gelesen.'
+          : 'Nur die Vorderseite beziehungsweise Datenseite wird lokal gelesen.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -814,22 +816,29 @@ class _ProfileVerificationScreenState extends State<ProfileVerificationScreen> {
       maxWidth: 4096,
       maxHeight: 4096,
     );
-    if (selected == null || !mounted) return null;
-    final prepared = await Navigator.of(context).push<XFile>(
-      MaterialPageRoute(
-        builder: (_) => ProfileVerificationDocumentEditorScreen(
-          sourceFile: selected,
-          kind: kind,
+    if (selected == null) return null;
+    try {
+      if (!mounted) return null;
+      final prepared = await Navigator.of(context).push<XFile>(
+        MaterialPageRoute(
+          builder: (_) => ProfileVerificationDocumentEditorScreen(
+            sourceFile: selected,
+            kind: kind,
+          ),
+          fullscreenDialog: true,
         ),
-        fullscreenDialog: true,
-      ),
-    );
-    if (prepared == null) return null;
-    return CapturedVerificationDocument(
-      path: prepared.path,
-      kind: kind,
-      deleteSourceAfterAdoption: true,
-    );
+      );
+      if (prepared == null) return null;
+      return CapturedVerificationDocument(
+        path: prepared.path,
+        kind: kind,
+        deleteSourceAfterAdoption: true,
+      );
+    } finally {
+      await LocalVerificationTemporaryFileService.discardCaptureSource(
+        selected.path,
+      );
+    }
   }
 
   void _resetFlowAfterCancelledCapture(VerificationDocumentKind kind) {

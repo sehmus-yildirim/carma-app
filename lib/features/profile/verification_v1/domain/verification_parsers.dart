@@ -93,7 +93,19 @@ class ProfileDrivenIdentityDocumentParser implements IdentityDocumentParser {
       );
     }
     final mrzConfiguration = profile.mrzConfiguration;
-    if (mrzConfiguration?.required == true) {
+    final hasMrz = blocks.any(
+      (block) => block.text
+          .split(RegExp(r'[\r\n]+'))
+          .any(
+            (line) =>
+                line.contains('<') &&
+                RegExp(
+                  r'^[IACP][A-Z<][A-Z<]{3}[A-Z0-9<]{20}',
+                ).hasMatch(line.replaceAll(' ', '').toUpperCase()),
+          ),
+    );
+    if (mrzConfiguration?.required == true ||
+        (mrzConfiguration != null && hasMrz)) {
       final mrz = MrzParser(
         now: now,
       ).parse(blocks, allowedFormats: mrzConfiguration!.formats);
@@ -102,7 +114,9 @@ class ProfileDrivenIdentityDocumentParser implements IdentityDocumentParser {
       }
       final data = mrz.data!;
       final country = DocumentProfileRegistry.country(profile.countryCode)!;
-      if (data.issuingCountryCode != country.icaoCode) {
+      final issuingCode = data.issuingCountryCode.replaceAll('<', '');
+      if (issuingCode != country.icaoCode &&
+          !(profile.countryCode == 'DE' && issuingCode == 'D')) {
         return const VerificationParseResult.failure(
           VerificationParseFailure.ambiguousField,
           'Das Ausstellungsland im Dokument stimmt nicht mit der Auswahl überein.',
@@ -143,16 +157,19 @@ class ProfileDrivenVehicleRegistrationParser
         'Dieses Fahrzeugdokument ist noch nicht zuverlässig unterstützt.',
       );
     }
-    final layout = _OcrLayout(blocks);
+    final layout = _OcrLayout(blocks, profile);
     final plate = layout.valueForLabels(
       profile.aliasesFor(VerificationField.plateNumber),
       exactLabel: true,
+      accepts: _isGermanPlate,
     );
     final holderName = layout.valueForLabels(
       profile.aliasesFor(VerificationField.holderLastNameOrCompany),
+      accepts: _isHolderName,
     );
     final holderFirstNames = layout.valueForLabels(
       profile.aliasesFor(VerificationField.holderFirstNames),
+      accepts: _isPersonName,
     );
     final normalizedPlate = plate
         ?.toUpperCase()
@@ -199,21 +216,40 @@ class _LabelledIdentityParser implements IdentityDocumentParser {
 
   @override
   VerificationParseResult<IdentityDocumentData> parse(List<OcrBlock> blocks) {
-    final layout = _OcrLayout(blocks);
-    final firstNames = layout.valueForLabels(
-      profile.aliasesFor(VerificationField.firstNames),
-    );
-    final rawLastName = layout.valueForLabels(
-      profile.aliasesFor(VerificationField.lastName),
-    );
+    final layout = _OcrLayout(blocks, profile);
+    final residenceNames =
+        profile.identityDocumentType ==
+            VerificationIdentityDocumentType.residencePermit
+        ? _residenceNames(blocks)
+        : null;
+    if (residenceNames?.ambiguous == true) {
+      return const VerificationParseResult.failure(
+        VerificationParseFailure.ambiguousField,
+        'Vor- und Nachname im gemeinsamen Namensfeld sind nicht eindeutig getrennt. Bitte wähle die Rückseite des Aufenthaltstitels mit den drei Codezeilen.',
+      );
+    }
+    final firstNames =
+        residenceNames?.firstNames ??
+        layout.valueForLabels(
+          profile.aliasesFor(VerificationField.firstNames),
+          accepts: _isPersonName,
+        );
+    final rawLastName =
+        residenceNames?.lastName ??
+        layout.valueForLabels(
+          profile.aliasesFor(VerificationField.lastName),
+          accepts: (value) => _isPersonName(_cleanIdentitySurname(value)),
+        );
     final lastName = rawLastName == null
         ? null
         : _cleanIdentitySurname(rawLastName);
     final birthValue = layout.valueForLabels(
       profile.aliasesFor(VerificationField.dateOfBirth),
+      accepts: (value) => parseDocumentDate(value) != null,
     );
     final expiryValue = layout.valueForLabels(
       profile.aliasesFor(VerificationField.documentExpiryDate),
+      accepts: (value) => parseDocumentDate(value) != null,
     );
     final dateOfBirth = birthValue == null
         ? null
@@ -308,13 +344,83 @@ class _LabelledIdentityParser implements IdentityDocumentParser {
   }
 }
 
+({String? firstNames, String? lastName, bool ambiguous})? _residenceNames(
+  List<OcrBlock> blocks,
+) {
+  final anchors = blocks.where((block) {
+    final text = block.text.toUpperCase();
+    return RegExp(r'(^|[^A-Z])(NAMEN?|SURNAMES)($|[^A-Z])').hasMatch(text) &&
+        (text.contains('VORNAME') || text.contains('FORENAMES'));
+  }).toList();
+  if (anchors.isEmpty) return null;
+  const rejected = (firstNames: null, lastName: null, ambiguous: true);
+  if (anchors.length != 1) return rejected;
+  final anchor = anchors.single;
+  final candidates =
+      blocks
+          .where(
+            (block) =>
+                block.bounds.top >= anchor.bounds.bottom &&
+                block.bounds.top - anchor.bounds.bottom <=
+                    anchor.bounds.height * 4 &&
+                (block.bounds.left - anchor.bounds.left).abs() <=
+                    anchor.bounds.width &&
+                RegExp(
+                  r"^[\p{L}\p{M}\s,.'’\-]+$",
+                  unicode: true,
+                ).hasMatch(block.text) &&
+                !RegExp(
+                  r'GEBURT|STAATS|GESCHLECHT|NATIONALITY|SEX|BIRTH',
+                  caseSensitive: false,
+                ).hasMatch(block.text),
+          )
+          .toList()
+        ..sort((a, b) => a.bounds.top.compareTo(b.bounds.top));
+  String? surname;
+  String? given;
+  if (candidates.length == 2 &&
+      candidates[1].bounds.top >= candidates[0].bounds.bottom) {
+    surname = candidates[0].text.trim();
+    given = candidates[1].text.trim();
+  } else if (candidates.length == 1) {
+    final value = candidates.single.text.trim();
+    final parts = value.split(',');
+    if (parts.length == 2) {
+      surname = parts[0].trim();
+      given = parts[1].trim();
+    } else {
+      // The eAT specimen prints the surname in capitals and given names in
+      // mixed case. An all-capitals OCR line cannot be split unambiguously.
+      final match = RegExp(
+        r'^([\p{Lu}\p{M}\s\-]+)\s+([\p{Lu}][\p{Ll}\p{M}].*)$',
+        unicode: true,
+      ).firstMatch(value);
+      surname = match?.group(1)?.trim();
+      given = match?.group(2)?.trim();
+    }
+  }
+  if (surname == null ||
+      given == null ||
+      !_isPersonName(surname) ||
+      !_isPersonName(given)) {
+    return rejected;
+  }
+  return (firstNames: given, lastName: surname, ambiguous: false);
+}
+
 class _OcrLayout {
-  _OcrLayout(List<OcrBlock> source)
-    : blocks = source.where((block) => block.text.trim().isNotEmpty).toList();
+  _OcrLayout(List<OcrBlock> source, DocumentProfile profile)
+    : blocks = source.where((block) => block.text.trim().isNotEmpty).toList(),
+      knownLabels = profile.anchors.expand((anchor) => anchor.aliases).toList();
 
   final List<OcrBlock> blocks;
+  final List<String> knownLabels;
 
-  String? valueForLabels(List<String> labels, {bool exactLabel = false}) {
+  String? valueForLabels(
+    List<String> labels, {
+    bool exactLabel = false,
+    required bool Function(String) accepts,
+  }) {
     final matches = <_LabelMatch>[];
     final inlineValues = <String>[];
     for (final block in blocks) {
@@ -330,7 +436,7 @@ class _OcrLayout {
             label,
             exactLabel: exactLabel,
           );
-          if (inline != null) {
+          if (inline != null && accepts(inline) && !_isKnownLabel(inline)) {
             blockInlineValues.add((
               value: inline,
               labelLength: _normalizeLabel(label).length,
@@ -362,7 +468,22 @@ class _OcrLayout {
     final candidates = <({OcrBlock block, double score})>[];
     for (final match in matches) {
       for (final candidate in blocks) {
-        if (labelBlocks.contains(candidate)) continue;
+        if (labelBlocks.contains(candidate) ||
+            _isKnownLabel(candidate.text) ||
+            !accepts(_cleanValue(candidate.text))) {
+          continue;
+        }
+        // Never borrow the next field's value when this field is unreadable.
+        final crossesField = blocks.any(
+          (other) =>
+              !labelBlocks.contains(other) &&
+              _isKnownLabel(other.text) &&
+              other.bounds.top > match.block.bounds.bottom &&
+              other.bounds.top <= candidate.bounds.top &&
+              (other.bounds.left - match.block.bounds.left).abs() <
+                  match.block.bounds.width,
+        );
+        if (crossesField) continue;
         final score = _candidateScore(match.block, candidate);
         if (score < 100000) candidates.add((block: candidate, score: score));
       }
@@ -391,21 +512,30 @@ class _OcrLayout {
   static String _normalizeValue(String value) =>
       _cleanValue(value).toLowerCase();
 
+  bool _isKnownLabel(String value) => knownLabels.any(
+    (label) =>
+        _isLabel(value, label, exactLabel: true) ||
+        _inlineValue(value, label, exactLabel: false) != null,
+  );
+
   static double _candidateScore(OcrBlock label, OcrBlock candidate) {
     final verticalDistance = (candidate.bounds.centerY - label.bounds.centerY)
         .abs();
     final sameLine =
         verticalDistance <=
-        (label.bounds.height > candidate.bounds.height
-            ? label.bounds.height
-            : candidate.bounds.height);
+        0.5 *
+            (label.bounds.height > candidate.bounds.height
+                ? label.bounds.height
+                : candidate.bounds.height);
     if (sameLine && candidate.bounds.left >= label.bounds.right - 4) {
       return candidate.bounds.left - label.bounds.right + verticalDistance;
     }
     final below = candidate.bounds.top >= label.bounds.bottom - 3;
     final horizontalDistance = (candidate.bounds.left - label.bounds.left)
         .abs();
-    if (below && horizontalDistance <= label.bounds.width * 1.8 + 30) {
+    if (below &&
+        candidate.bounds.top - label.bounds.bottom <= label.bounds.height * 6 &&
+        horizontalDistance <= label.bounds.width * 1.8 + 30) {
       return 100 +
           (candidate.bounds.top - label.bounds.bottom) * 2 +
           horizontalDistance;
@@ -419,6 +549,18 @@ class _OcrLayout {
     required bool exactLabel,
   }) {
     final text = raw.trim();
+    // EU registration codes can be joined to their value by ML Kit. Match
+    // the complete code token, never a word merely beginning with "A".
+    final code = label.replaceAll(RegExp(r'[\s.]'), '').toUpperCase();
+    if (code == 'A' || RegExp(r'^C1[12]$').hasMatch(code)) {
+      final pattern = code == 'A'
+          ? r'^\s*\(?A\)?(?=\s|:|$)\s*:?\s*'
+          : '^\\s*\\(?C\\s*\\.?\\s*1\\s*\\.?\\s*${code[2]}\\)?(?=\\s|:|\$)\\s*:?\\s*';
+      final match = RegExp(pattern, caseSensitive: false).firstMatch(text);
+      if (match == null) return null;
+      final value = _cleanValue(text.substring(match.end));
+      return value.isEmpty ? null : value;
+    }
     final normalizedText = _normalizeLabel(text);
     final normalizedLabel = _normalizeLabel(label);
     if (exactLabel && normalizedText != normalizedLabel) return null;
@@ -451,6 +593,10 @@ class _OcrLayout {
   static bool _isLabel(String raw, String label, {required bool exactLabel}) {
     final text = _normalizeLabel(raw);
     final expected = _normalizeLabel(label);
+    final code = expected.replaceAll(' ', '');
+    if (code == 'a' || RegExp(r'^c1[12]$').hasMatch(code)) {
+      return text.replaceAll(' ', '') == code;
+    }
     if (text == expected) return true;
     if (exactLabel) return false;
     final textWords = text
@@ -494,6 +640,23 @@ class _OcrLayout {
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
 }
+
+bool _isPersonName(String value) =>
+    value.trim().length >= 2 &&
+    RegExp(
+      r"^[\p{L}\p{M}][\p{L}\p{M}\s.'’\-]*$",
+      unicode: true,
+    ).hasMatch(value.trim());
+
+bool _isHolderName(String value) =>
+    value.trim().length >= 2 &&
+    RegExp(r'\p{L}', unicode: true).hasMatch(value) &&
+    !RegExp(r'^C\s*\.?\s*\d', caseSensitive: false).hasMatch(value);
+
+bool _isGermanPlate(String value) => RegExp(
+  r'^[A-ZÄÖÜ]{1,3}[\s\-]+[A-Z]{1,2}\s*\d{1,4}[EH]?$',
+  caseSensitive: false,
+).hasMatch(value.trim());
 
 class _LabelMatch {
   const _LabelMatch(this.block);
